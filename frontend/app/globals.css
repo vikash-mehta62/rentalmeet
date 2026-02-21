@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --primary: #F4A000;
+  --primary-hover: #D98E00;
+  --dark: #2B2B2B;
+  --light-bg: #F8F9FB;
+}
+
+* {
+  scroll-behavior: smooth;
+}
+
+body {
+  color: #2B2B2B;
+  background: #FFFFFF;
+  font-family: 'Inter', sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Poppins', sans-serif;
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary-500 hover:bg-primary-600 text-white font-semibold px-6 py-3 rounded-xl transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 active:scale-95;
+  }
+  
+  .btn-secondary {
+    @apply border-2 border-primary-500 text-primary-500 hover:bg-primary-50 font-semibold px-6 py-3 rounded-xl transition-all duration-300;
+  }
+  
+  .card {
+    @apply bg-white rounded-2xl shadow-soft hover:shadow-medium transition-all duration-300 p-6;
+  }
+  
+  .input-field {
+    @apply w-full px-4 py-3 border border-dark-100 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-300 outline-none;
+  }
+  
+  .badge-orange {
+    @apply bg-primary-100 text-primary-600 px-3 py-1 rounded-full text-sm font-medium;
+  }
+  
+  .glass-effect {
+    @apply bg-white/80 backdrop-blur-md border border-white/20;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+  
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+  
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: #F8F9FB;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: #F4A000;
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: #D98E00;
+  }
+  
+  .gradient-orange {
+    background: linear-gradient(135deg, #F4A000, #FFB938);
+  }
+  
+  .gradient-text {
+    background: linear-gradient(135deg, #F4A000, #FFB938);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}

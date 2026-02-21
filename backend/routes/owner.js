@@ -1,0 +1,165 @@
+const express = require('express');
+const router = express.Router();
+const { protect, authorize } = require('../middleware/auth');
+const Venue = require('../models/Venue');
+
+// All routes require authentication and owner role
+router.use(protect);
+router.use(authorize('owner'));
+
+// @route   GET /api/owner/dashboard
+// @desc    Get owner dashboard stats
+// @access  Private (Owner)
+router.get('/dashboard', async (req, res) => {
+  try {
+    const venues = await Venue.find({ owner: req.user._id });
+    
+    const stats = {
+      totalVenues: venues.length,
+      approvedVenues: venues.filter(v => v.status === 'approved').length,
+      pendingVenues: venues.filter(v => v.status === 'pending').length,
+      rejectedVenues: venues.filter(v => v.status === 'rejected').length,
+      totalEarnings: venues.reduce((sum, v) => sum + (v.totalEarnings || 0), 0),
+      totalBookings: venues.reduce((sum, v) => sum + (v.totalBookings || 0), 0),
+    };
+
+    res.json({
+      success: true,
+      stats,
+      recentVenues: venues.slice(0, 5)
+    });
+  } catch (error) {
+    console.error('Dashboard error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching dashboard data'
+    });
+  }
+});
+
+// @route   GET /api/owner/venues
+// @desc    Get all venues for logged-in owner
+// @access  Private (Owner)
+router.get('/venues', async (req, res) => {
+  try {
+    const venues = await Venue.find({ owner: req.user._id })
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: venues.length,
+      venues
+    });
+  } catch (error) {
+    console.error('Get venues error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching venues'
+    });
+  }
+});
+
+// @route   GET /api/owner/venues/:id
+// @desc    Get single venue (only if owned by user)
+// @access  Private (Owner)
+router.get('/venues/:id', async (req, res) => {
+  try {
+    const venue = await Venue.findOne({
+      _id: req.params.id,
+      owner: req.user._id
+    });
+
+    if (!venue) {
+      return res.status(404).json({
+        success: false,
+        message: 'Venue not found or unauthorized'
+      });
+    }
+
+    res.json({
+      success: true,
+      venue
+    });
+  } catch (error) {
+    console.error('Get venue error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching venue'
+    });
+  }
+});
+
+// @route   PUT /api/owner/venues/:id
+// @desc    Update venue (only if owned by user)
+// @access  Private (Owner)
+router.put('/venues/:id', async (req, res) => {
+  try {
+    let venue = await Venue.findOne({
+      _id: req.params.id,
+      owner: req.user._id
+    });
+
+    if (!venue) {
+      return res.status(404).json({
+        success: false,
+        message: 'Venue not found or unauthorized'
+      });
+    }
+
+    // Don't allow updating status
+    delete req.body.status;
+    delete req.body.owner;
+
+    venue = await Venue.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+
+    res.json({
+      success: true,
+      message: 'Venue updated successfully',
+      venue
+    });
+  } catch (error) {
+    console.error('Update venue error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating venue'
+    });
+  }
+});
+
+// @route   DELETE /api/owner/venues/:id
+// @desc    Delete venue (only if owned by user)
+// @access  Private (Owner)
+router.delete('/venues/:id', async (req, res) => {
+  try {
+    const venue = await Venue.findOne({
+      _id: req.params.id,
+      owner: req.user._id
+    });
+
+    if (!venue) {
+      return res.status(404).json({
+        success: false,
+        message: 'Venue not found or unauthorized'
+      });
+    }
+
+    await venue.deleteOne();
+
+    res.json({
+      success: true,
+      message: 'Venue deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete venue error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting venue'
+    });
+  }
+});
+
+module.exports = router;
