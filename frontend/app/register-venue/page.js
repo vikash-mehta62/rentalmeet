@@ -10,8 +10,8 @@ import Step4Pricing from '@/components/venue-form/Step4Pricing';
 import Step5Photos from '@/components/venue-form/Step5Photos';
 import Step6OwnerDocs from '@/components/venue-form/Step6OwnerDocs';
 import Step7Terms from '@/components/venue-form/Step7Terms';
-import { Building2, MapPin, Utensils, IndianRupee, Image, FileText, CheckCircle2, ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
+import { Building2, MapPin, Utensils, IndianRupee, Image, FileText, CheckCircle2 } from 'lucide-react';
+import Navbar from '@/components/Navbar';
 
 export default function RegisterVenue() {
   const router = useRouter();
@@ -49,24 +49,7 @@ export default function RegisterVenue() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-orange-50">
       {/* Header */}
-      <div className="bg-white shadow-soft sticky top-0 z-40 border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center space-x-2 group">
-              <ArrowLeft className="w-5 h-5 text-dark-600 group-hover:text-primary-500 transition-colors" />
-              <span className="text-dark-600 group-hover:text-primary-500 font-medium transition-colors">Back to Home</span>
-            </Link>
-            <div className="flex items-center space-x-2">
-              <div className="w-10 h-10 bg-gradient-orange rounded-xl flex items-center justify-center">
-                <Building2 className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-xl font-bold font-heading text-dark-700">
-                Rental<span className="text-primary-500">Meet</span>
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
+      <Navbar />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-3xl shadow-xl p-8 md:p-12 animate-slide-up border border-gray-100">

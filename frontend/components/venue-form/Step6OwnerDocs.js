@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useVenueFormStore } from '@/lib/store';
 import toast from 'react-hot-toast';
@@ -19,14 +19,100 @@ const businessProofTypes = [
 
 export default function Step6OwnerDocs() {
   const { formData, setFormData, setStep } = useVenueFormStore();
-  const { register, handleSubmit, watch, formState: { errors } } = useForm({
-    defaultValues: formData.ownerInfo
+  const { register, handleSubmit, watch, reset, formState: { errors } } = useForm({
+    defaultValues: {
+      fullName: formData.ownerInfo?.fullName || '',
+      email: formData.ownerInfo?.email || '',
+      mobile: formData.ownerInfo?.mobile || '',
+      alternatePhone: formData.ownerInfo?.alternatePhone || '',
+      role: formData.ownerInfo?.role || '',
+      aadhaarNumber: formData.documents?.idProof?.number || '',
+      panNumber: formData.documents?.idProof?.number || '',
+      businessProofType: formData.documents?.businessProof?.type || '',
+      businessProofOther: formData.documents?.businessProof?.otherSpecify || '',
+      accountHolder: formData.bankDetails?.accountHolderName || '',
+      accountNumber: formData.bankDetails?.accountNumber || '',
+      ifsc: formData.bankDetails?.ifscCode || '',
+      bankName: formData.bankDetails?.bankName || '',
+      branchName: formData.bankDetails?.branchName || '',
+      accountType: formData.bankDetails?.accountType || ''
+    }
   });
+  
+  // Reset form when formData changes (for edit mode)
+  useEffect(() => {
+    if (formData.ownerInfo || formData.documents || formData.bankDetails) {
+      reset({
+        fullName: formData.ownerInfo?.fullName || '',
+        email: formData.ownerInfo?.email || '',
+        mobile: formData.ownerInfo?.mobile || '',
+        alternatePhone: formData.ownerInfo?.alternatePhone || '',
+        role: formData.ownerInfo?.role || '',
+        aadhaarNumber: formData.documents?.idProof?.number || '',
+        panNumber: formData.documents?.idProof?.number || '',
+        businessProofType: formData.documents?.businessProof?.type || '',
+        businessProofOther: formData.documents?.businessProof?.otherSpecify || '',
+        accountHolder: formData.bankDetails?.accountHolderName || '',
+        accountNumber: formData.bankDetails?.accountNumber || '',
+        ifsc: formData.bankDetails?.ifscCode || '',
+        bankName: formData.bankDetails?.bankName || '',
+        branchName: formData.bankDetails?.branchName || '',
+        accountType: formData.bankDetails?.accountType || ''
+      });
+    }
+  }, [formData.ownerInfo, formData.documents, formData.bankDetails]);
 
-  const [idProofType, setIdProofType] = useState(formData.documents?.idProofType || 'Aadhaar');
-  const [idProofFiles, setIdProofFiles] = useState(formData.documents?.idProofFiles || {});
-  const [selfie, setSelfie] = useState(formData.documents?.selfie || null);
-  const [businessDoc, setBusinessDoc] = useState(formData.documents?.businessDoc || null);
+  const [idProofType, setIdProofType] = useState(formData.documents?.idProof?.type || 'Aadhaar');
+  
+  // Load existing documents in edit mode
+  const [idProofFiles, setIdProofFiles] = useState(() => {
+    const existing = {};
+    if (formData.documents?.idProof?.frontUrl) {
+      existing.front = {
+        url: formData.documents.idProof.frontUrl,
+        name: 'ID Proof Front',
+        format: 'image'
+      };
+    }
+    if (formData.documents?.idProof?.backUrl) {
+      existing.back = {
+        url: formData.documents.idProof.backUrl,
+        name: 'ID Proof Back',
+        format: 'image'
+      };
+    }
+    if (idProofType === 'PAN' && formData.documents?.idProof?.frontUrl) {
+      existing.pan = {
+        url: formData.documents.idProof.frontUrl,
+        name: 'PAN Card',
+        format: 'image'
+      };
+    }
+    return existing;
+  });
+  
+  const [selfie, setSelfie] = useState(() => {
+    if (formData.documents?.selfieUrl) {
+      return {
+        url: formData.documents.selfieUrl,
+        name: 'Selfie',
+        format: 'image'
+      };
+    }
+    return null;
+  });
+  
+  const [businessDoc, setBusinessDoc] = useState(() => {
+    if (formData.documents?.businessProof?.documentUrl) {
+      return {
+        url: formData.documents.businessProof.documentUrl,
+        name: 'Business Document',
+        format: 'pdf'
+      };
+    }
+    return null;
+  });
+  
   const [uploading, setUploading] = useState(false);
 
   const handleFileUpload = async (e, type) => {

@@ -1,7 +1,7 @@
 // Cloudinary upload utility
 // Uploads files via backend API for better security
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 export const uploadToCloudinary = async (file, folder = 'venues') => {
   try {

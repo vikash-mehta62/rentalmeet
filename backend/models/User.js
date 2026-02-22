@@ -32,6 +32,21 @@ const userSchema = new mongoose.Schema({
     required: true,
     select: false
   },
+  address: {
+    type: String
+  },
+  city: {
+    type: String
+  },
+  state: {
+    type: String
+  },
+  pincode: {
+    type: String
+  },
+  profilePicture: {
+    type: String
+  },
   isActive: {
     type: Boolean,
     default: true

@@ -161,8 +161,8 @@ export default function Step7Terms() {
       console.log('10. Venue ID:', formData.venueId);
 
       const url = isEditMode 
-        ? `http://localhost:5000/api/venues/${formData.venueId}`
-        : 'http://localhost:5000/api/venues';
+        ? `${process.env.NEXT_PUBLIC_API_URL}/venues/${formData.venueId}`
+        : `${process.env.NEXT_PUBLIC_API_URL}/venues`;
       
       const method = isEditMode ? 'PUT' : 'POST';
 

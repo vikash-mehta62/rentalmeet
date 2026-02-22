@@ -6,21 +6,33 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-const uploadToCloudinary = async (file, folder) => {
+const uploadToCloudinary = async (fileBuffer, folder) => {
   try {
     const folderPath = process.env.CLOUDINARY_FOLDER 
       ? `${process.env.CLOUDINARY_FOLDER}/${folder}` 
       : `rentalmeet/${folder}`;
+    
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: folderPath,
+          resource_type: 'auto',
+          transformation: [
+            { width: 1920, height: 1080, crop: 'limit' },
+            { quality: 'auto:good' }
+          ]
+        },
+        (error, result) => {
+          if (error) {
+            reject(new Error('Image upload failed'));
+          } else {
+            resolve(result);
+          }
+        }
+      );
       
-    const result = await cloudinary.uploader.upload(file.path, {
-      folder: folderPath,
-      resource_type: 'auto',
-      transformation: [
-        { width: 1920, height: 1080, crop: 'limit' },
-        { quality: 'auto:good' }
-      ]
+      uploadStream.end(fileBuffer);
     });
-    return result.secure_url;
   } catch (error) {
     throw new Error('Image upload failed');
   }

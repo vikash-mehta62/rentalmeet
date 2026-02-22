@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { useVenueFormStore } from '@/lib/store';
 import toast from 'react-hot-toast';
 import { Coffee, Utensils, Wifi, Shield, Lock } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const basicAmenities = [
   'High-Speed WiFi', 'Air Conditioning', 'Projector', 'Projection Screen',
@@ -65,12 +65,98 @@ const additionalFacilities = [
 
 export default function Step3Amenities() {
   const { formData, setFormData, setStep } = useVenueFormStore();
-  const { register, handleSubmit, watch } = useForm({
-    defaultValues: formData.amenities
+  
+  // Prepare default values from existing amenities data
+  const prepareDefaultValues = () => {
+    const defaults = {};
+    
+    // Beverages
+    if (formData.amenities?.beverages) {
+      defaults.beverages = beverages.map((bev, index) => {
+        const existing = formData.amenities.beverages.find(b => b.name === bev.name);
+        return {
+          available: existing?.available || false,
+          rate: existing?.ratePerUnit || 0,
+          brand: existing?.brand || ''
+        };
+      });
+    }
+    
+    // Food - Snacks
+    if (formData.amenities?.refreshmentFood) {
+      const snacks = formData.amenities.refreshmentFood.find(f => f.name?.includes('Snacks'));
+      if (snacks) {
+        defaults.food = {
+          snacks: {
+            available: snacks.available || false,
+            rate: snacks.ratePerPlate || 0,
+            items: snacks.items || ''
+          }
+        };
+      }
+    }
+    
+    // Breakfast Packs
+    if (formData.amenities?.refreshmentFood) {
+      defaults.breakfast = breakfastPacks.map((pack, index) => {
+        const existing = formData.amenities.refreshmentFood.find(f => f.name === pack.name);
+        return {
+          available: existing?.available || false,
+          rate: existing?.ratePerPlate || 0,
+          items: existing?.items || ''
+        };
+      });
+    }
+    
+    // Lunch Thalis
+    if (formData.amenities?.lunchThalis) {
+      defaults.thalis = thaliTypes.map((thali, index) => {
+        const existing = formData.amenities.lunchThalis.find(t => t.type === thali);
+        return {
+          available: existing?.available || false,
+          rate: existing?.ratePerPlate || 0,
+          items: existing?.numberOfItems || 0,
+          itemNames: existing?.itemNames || ''
+        };
+      });
+    }
+    
+    // Kitchen Access
+    if (formData.amenities?.kitchenAccess) {
+      defaults.kitchenAccess = {
+        available: formData.amenities.kitchenAccess.available || false,
+        type: formData.amenities.kitchenAccess.type || 'Included',
+        charges: formData.amenities.kitchenAccess.charges || 0
+      };
+    }
+    
+    // Dining Area
+    if (formData.amenities?.diningArea) {
+      defaults.diningArea = {
+        available: formData.amenities.diningArea.available || false,
+        type: formData.amenities.diningArea.type || 'Included',
+        charges: formData.amenities.diningArea.charges || 0
+      };
+    }
+    
+    return defaults;
+  };
+  
+  const { register, handleSubmit, watch, reset } = useForm({
+    defaultValues: prepareDefaultValues()
   });
 
   const [selectedAmenities, setSelectedAmenities] = useState(formData.amenities?.basic || []);
   const [selectedAdditional, setSelectedAdditional] = useState(formData.amenities?.additional || []);
+  
+  // Reset form when formData changes (for edit mode)
+  useEffect(() => {
+    if (formData.amenities) {
+      reset(prepareDefaultValues());
+      setSelectedAmenities(formData.amenities?.basic || []);
+      setSelectedAdditional(formData.amenities?.additional || []);
+    }
+  }, [formData.amenities]);
 
   const onSubmit = (data) => {
     // Prepare amenities data in correct format for backend
@@ -81,13 +167,15 @@ export default function Step3Amenities() {
         ...defaultAmenities.map(d => ({ name: d.name, available: true, type: 'Included', rate: 0 }))
       ],
       
-      // Beverages
-      beverages: beverages.map((bev, index) => ({
-        name: bev.name,
-        available: data.beverages?.[index]?.available || false,
-        ratePerUnit: Number(data.beverages?.[index]?.rate) || 0,
-        brand: data.beverages?.[index]?.brand || ''
-      })).filter(b => b.available),
+      // Beverages - only include if available is true
+      beverages: beverages
+        .map((bev, index) => ({
+          name: bev.name,
+          available: data.beverages?.[index]?.available || false,
+          ratePerUnit: Number(data.beverages?.[index]?.rate) || 0,
+          brand: data.beverages?.[index]?.brand || ''
+        }))
+        .filter(b => b.available && b.name), // Ensure name exists
       
       // Refreshment Food (Snacks + Breakfast)
       refreshmentFood: [

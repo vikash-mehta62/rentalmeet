@@ -2,35 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Building2, CheckCircle2, TrendingUp, MapPin, Users, Star, Shield, Clock, ArrowRight, Sparkles, Menu, X } from 'lucide-react';
-import { useAuthStore } from '@/lib/store';
-import { useRouter } from 'next/navigation';
+import { Building2, CheckCircle2, TrendingUp, MapPin, Users, Star, Shield, Clock, ArrowRight, Sparkles } from 'lucide-react';
+import Navbar from '@/components/Navbar';
 
 export default function Home() {
-  const router = useRouter();
-  const { user, token, logout } = useAuthStore();
-  const [hydrated, setHydrated] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  // Wait for hydration
-  useEffect(() => {
-    setHydrated(true);
-  }, []);
-
-  const handleLogout = () => {
-    logout();
-    router.push('/');
-  };
-
-  const getDashboardLink = () => {
-    if (!user) return '/login';
-    
-    if (user.role === 'owner') return '/owner/dashboard';
-    if (user.role === 'admin') return '/admin/dashboard';
-    if (user.role === 'customer') return '/customer/dashboard';
-    return '/';
-  };
-
   const features = [
     {
       icon: Building2,
@@ -69,111 +44,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white">
       {/* Navbar */}
-      <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md shadow-soft">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-20 items-center">
-            {/* Logo */}
-            <Link href="/" className="flex items-center space-x-2 group">
-              <div className="w-10 h-10 bg-gradient-orange rounded-xl flex items-center justify-center transform group-hover:scale-110 transition-transform duration-300">
-                <Building2 className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-2xl font-bold font-heading text-dark-700">
-                Rental<span className="text-primary-500">Meet</span>
-              </span>
-            </Link>
-
-            {/* Desktop Menu */}
-            <div className="hidden md:flex items-center space-x-8">
-              <Link href="/" className="text-dark-700 hover:text-primary-500 font-medium transition-colors">
-                Home
-              </Link>
-              <Link href="/venues" className="text-dark-700 hover:text-primary-500 font-medium transition-colors">
-                Browse Venues
-              </Link>
-              <Link href="/about" className="text-dark-700 hover:text-primary-500 font-medium transition-colors">
-                About
-              </Link>
-              <Link href="/contact" className="text-dark-700 hover:text-primary-500 font-medium transition-colors">
-                Contact
-              </Link>
-            </div>
-
-            {/* CTA Buttons */}
-            <div className="hidden md:flex items-center gap-4">
-              {hydrated && token && user ? (
-                <>
-                  <span className="text-dark-700 font-medium">Hi, {user.name}</span>
-                  <Link href={getDashboardLink()} className="text-dark-700 hover:text-primary-500 font-semibold transition-colors">
-                    Dashboard
-                  </Link>
-                  <button onClick={handleLogout} className="btn-secondary">
-                    Logout
-                  </button>
-                </>
-              ) : (
-                <>
-                  <Link href="/login" className="text-dark-700 hover:text-primary-500 font-semibold transition-colors">
-                    Login
-                  </Link>
-                  <Link href="/register" className="btn-primary">
-                    Register as Owner
-                  </Link>
-                </>
-              )}
-            </div>
-
-            {/* Mobile Menu Button */}
-            <button 
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg hover:bg-dark-50 transition-colors"
-            >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
-          </div>
-        </div>
-
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <div className="md:hidden bg-white border-t border-dark-100 animate-slide-down">
-            <div className="px-4 py-4 space-y-3">
-              <Link href="/" className="block py-2 text-dark-700 hover:text-primary-500 font-medium">
-                Home
-              </Link>
-              <Link href="/venues" className="block py-2 text-dark-700 hover:text-primary-500 font-medium">
-                Browse Venues
-              </Link>
-              <Link href="/about" className="block py-2 text-dark-700 hover:text-primary-500 font-medium">
-                About
-              </Link>
-              <Link href="/contact" className="block py-2 text-dark-700 hover:text-primary-500 font-medium">
-                Contact
-              </Link>
-              <div className="pt-4 space-y-2 border-t">
-                {hydrated && token && user ? (
-                  <>
-                    <p className="text-sm text-gray-600 px-2">Hi, {user.name}</p>
-                    <Link href={getDashboardLink()} className="block w-full text-center py-3 bg-primary-500 text-white rounded-xl font-semibold">
-                      Dashboard
-                    </Link>
-                    <button onClick={handleLogout} className="block w-full text-center py-3 border-2 border-red-500 text-red-500 rounded-xl font-semibold">
-                      Logout
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <Link href="/login" className="block w-full text-center py-3 border-2 border-primary-500 text-primary-500 rounded-xl font-semibold">
-                      Login
-                    </Link>
-                    <Link href="/register" className="block w-full text-center btn-primary">
-                      Register as Owner
-                    </Link>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </nav>
+      <Navbar />
 
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-to-br from-dark-50 via-white to-primary-50">
@@ -317,11 +188,12 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div>
-              <div className="flex items-center space-x-2 mb-4">
-                <div className="w-10 h-10 bg-gradient-orange rounded-xl flex items-center justify-center">
-                  <Building2 className="w-6 h-6 text-white" />
-                </div>
-                <span className="text-xl font-bold">RentalMeet</span>
+              <div className="flex items-center justify-start mb-4">
+                <img 
+                  src="/logo-new.jpeg" 
+                  alt="RentalMeet Logo" 
+                  className="h-16 w-auto object-contain"
+                />
               </div>
               <p className="text-dark-300">
                 Book Your Premium Meeting Venues

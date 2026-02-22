@@ -6,11 +6,15 @@ const CommissionSettings = require('../models/CommissionSettings');
 // @route   POST /api/bookings
 exports.createBooking = async (req, res) => {
   try {
-    const { venue, bookingDate, startTime, endTime, bookingType, amount } = req.body;
+    const { venue, bookingDate, startTime, endTime, bookingType, amount, customerDetails } = req.body;
     
-    // Get current commission rate
+    // Get current commission rate (default 15%)
     const commissionSettings = await CommissionSettings.findOne().sort('-createdAt');
     const commissionRate = commissionSettings ? commissionSettings.commissionRate : 15;
+    
+    // Calculate commission and owner earnings
+    const commission = (amount * commissionRate) / 100;
+    const ownerEarnings = amount - commission;
     
     // Create booking
     const booking = await Booking.create({
@@ -21,8 +25,15 @@ exports.createBooking = async (req, res) => {
       endTime,
       bookingType,
       amount,
-      commissionRate
+      commission,
+      ownerEarnings,
+      commissionRate,
+      customerDetails
     });
+    
+    // Populate venue and customer details
+    await booking.populate('venue', 'businessName location sku images');
+    await booking.populate('customer', 'name email phone');
     
     res.status(201).json({
       success: true,
@@ -30,6 +41,7 @@ exports.createBooking = async (req, res) => {
       booking
     });
   } catch (error) {
+    console.error('Booking creation error:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -53,7 +65,7 @@ exports.getBookings = async (req, res) => {
     }
     
     const bookings = await Booking.find(query)
-      .populate('venue', 'businessName location')
+      .populate('venue', 'businessName location sku images')
       .populate('customer', 'name email phone')
       .sort('-createdAt');
     

@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { useForm } from 'react-hook-form';
 import { useVenueFormStore } from '@/lib/store';
 import toast from 'react-hot-toast';
@@ -16,9 +17,45 @@ const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Sat
 
 export default function Step4Pricing() {
   const { formData, setFormData, setStep } = useVenueFormStore();
-  const { register, handleSubmit, formState: { errors } } = useForm({
-    defaultValues: formData.pricing
+  
+  // Prepare default values from existing pricing data
+  const prepareDefaultValues = () => {
+    return {
+      // Pricing rates
+      perHour: {
+        weekday: formData.pricing?.perHour?.weekday || '',
+        weekend: formData.pricing?.perHour?.weekend || ''
+      },
+      halfDay: {
+        weekday: formData.pricing?.halfDay?.weekday || '',
+        weekend: formData.pricing?.halfDay?.weekend || ''
+      },
+      fullDay: {
+        weekday: formData.pricing?.fullDay?.weekday || '',
+        weekend: formData.pricing?.fullDay?.weekend || ''
+      },
+      extraHourRate: {
+        weekday: formData.pricing?.extraHourRate?.weekday || '',
+        weekend: formData.pricing?.extraHourRate?.weekend || ''
+      },
+      // Availability
+      openingTime: formData.pricing?.openingTime || '',
+      closingTime: formData.pricing?.closingTime || '',
+      availableDays: formData.pricing?.availableDays || [],
+      advanceBookingRule: formData.pricing?.advanceBookingRule || ''
+    };
+  };
+  
+  const { register, handleSubmit, reset, formState: { errors } } = useForm({
+    defaultValues: prepareDefaultValues()
   });
+  
+  // Reset form when formData changes (for edit mode)
+  React.useEffect(() => {
+    if (formData.pricing) {
+      reset(prepareDefaultValues());
+    }
+  }, [formData.pricing]);
 
   const onSubmit = (data) => {
     setFormData({ pricing: data });

@@ -83,7 +83,7 @@ export default function Register() {
 
     try {
       console.log('Attempting registration...');
-      const response = await fetch('http://localhost:5000/api/auth/register', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -170,7 +170,42 @@ export default function Register() {
           {/* Title */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-dark-800 mb-2">Create Account</h1>
-            <p className="text-gray-600">Register as a venue owner</p>
+            <p className="text-gray-600">Join RentalMeet today</p>
+          </div>
+
+          {/* Role Selection */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              I want to register as: *
+            </label>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, role: 'owner' })}
+                className={`p-4 border-2 rounded-xl transition-all ${
+                  formData.role === 'owner'
+                    ? 'border-primary-500 bg-primary-50 text-primary-700'
+                    : 'border-gray-300 hover:border-gray-400'
+                }`}
+              >
+                <Building2 className="w-8 h-8 mx-auto mb-2" />
+                <div className="font-semibold">Venue Owner</div>
+                <div className="text-xs text-gray-600 mt-1">List your venues</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, role: 'customer' })}
+                className={`p-4 border-2 rounded-xl transition-all ${
+                  formData.role === 'customer'
+                    ? 'border-primary-500 bg-primary-50 text-primary-700'
+                    : 'border-gray-300 hover:border-gray-400'
+                }`}
+              >
+                <User className="w-8 h-8 mx-auto mb-2" />
+                <div className="font-semibold">Customer</div>
+                <div className="text-xs text-gray-600 mt-1">Book venues</div>
+              </button>
+            </div>
           </div>
 
           {/* Error Message */}

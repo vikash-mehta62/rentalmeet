@@ -10,8 +10,8 @@ import Step4Pricing from '@/components/venue-form/Step4Pricing';
 import Step5Photos from '@/components/venue-form/Step5Photos';
 import Step6OwnerDocs from '@/components/venue-form/Step6OwnerDocs';
 import Step7Terms from '@/components/venue-form/Step7Terms';
-import { Building2, MapPin, Utensils, IndianRupee, Image, FileText, CheckCircle2, ArrowLeft, Loader2 } from 'lucide-react';
-import Link from 'next/link';
+import { Building2, MapPin, Utensils, IndianRupee, Image, FileText, CheckCircle2, Loader2 } from 'lucide-react';
+import Navbar from '@/components/Navbar';
 import toast from 'react-hot-toast';
 
 export default function EditVenue() {
@@ -42,36 +42,71 @@ export default function EditVenue() {
 
   const fetchVenueData = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/venues/${params.id}`, {
+      console.log('Fetching venue data for ID:', params.id);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues/${params.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
 
-      if (!response.ok) throw new Error('Failed to fetch venue');
+      if (!response.ok) {
+        console.error('Response not OK:', response.status);
+        throw new Error('Failed to fetch venue');
+      }
 
-      const venue = await response.json();
+      const data = await response.json();
+      console.log('Venue data received:', data);
+      
+      // Check if response has success and venue
+      const venue = data.success ? data.venue : data;
+      
+      if (!venue) {
+        throw new Error('No venue data found');
+      }
       
       // Populate form with existing venue data
       setFormData({
-        ...formData,
+        step: 1, // Start from step 1
         venueId: venue._id, // Store venue ID for update
-        businessName: venue.businessName || '',
-        venueType: venue.venueType || [],
-        description: venue.description || '',
-        capacity: venue.capacity || '',
-        areaSqft: venue.areaSqft || '',
-        location: venue.location || formData.location,
-        amenities: venue.amenities || formData.amenities,
-        pricing: venue.pricing || formData.pricing,
-        availability: venue.availability || formData.availability,
+        isEditMode: true, // Flag to indicate edit mode
+        
+        // Step 1: Basic Info
+        basicInfo: {
+          businessName: venue.businessName || '',
+          venueType: venue.venueType || [],
+          description: venue.description || '',
+          capacity: venue.capacity || '',
+          areaSqft: venue.areaSqft || ''
+        },
+        
+        // Step 2: Location
+        location: venue.location || {},
+        
+        // Step 3: Amenities
+        amenities: venue.amenities || {},
+        
+        // Step 4: Pricing
+        pricing: {
+          ...venue.pricing,
+          openingTime: venue.availability?.openingTime || '09:00',
+          closingTime: venue.availability?.closingTime || '18:00',
+          availableDays: venue.availability?.availableDays || [],
+          advanceBookingRule: venue.availability?.advanceBookingRule || 'Same day allowed'
+        },
+        
+        // Step 5: Images
         images: venue.images || [],
-        documents: venue.documents || formData.documents,
-        isEditMode: true // Flag to indicate edit mode
+        
+        // Step 6: Documents
+        ownerInfo: venue.ownerInfo || {},
+        documents: venue.documents || {},
+        bankDetails: venue.bankDetails || {}
       });
+      
+      console.log('Form data populated successfully');
     } catch (error) {
+      console.error('Error fetching venue:', error);
       toast.error('Failed to load venue data');
-      console.error(error);
       router.push('/owner/dashboard');
     }
   };
@@ -99,24 +134,7 @@ export default function EditVenue() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-orange-50">
       {/* Header */}
-      <div className="bg-white shadow-soft sticky top-0 z-40 border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <Link href="/owner/dashboard" className="flex items-center space-x-2 group">
-              <ArrowLeft className="w-5 h-5 text-dark-600 group-hover:text-primary-500 transition-colors" />
-              <span className="text-dark-600 group-hover:text-primary-500 font-medium transition-colors">Back to Dashboard</span>
-            </Link>
-            <div className="flex items-center space-x-2">
-              <div className="w-10 h-10 bg-gradient-orange rounded-xl flex items-center justify-center">
-                <Building2 className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-xl font-bold font-heading text-dark-700">
-                Rental<span className="text-primary-500">Meet</span>
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
+      <Navbar />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-3xl shadow-xl p-8 md:p-12 animate-slide-up border border-gray-100">

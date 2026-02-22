@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Building2, Search, Filter, MapPin, Users, IndianRupee,
-  Star, ArrowRight, Menu, X, Home, User as UserIcon, LogOut
+  Star, ArrowRight
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
+import Navbar from '@/components/Navbar';
 
 export default function BrowseVenues() {
   const router = useRouter();
@@ -42,7 +43,7 @@ export default function BrowseVenues() {
     try {
       // For testing, fetch all venues (including pending)
       // In production, backend will only return approved venues
-      const response = await fetch('http://localhost:5000/api/venues?status=all');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues?status=all`);
       const data = await response.json();
       
       if (data.success) {
@@ -112,103 +113,7 @@ export default function BrowseVenues() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
-      <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md shadow-soft">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-20 items-center">
-            {/* Logo */}
-            <Link href="/" className="flex items-center space-x-2 group">
-              <div className="w-10 h-10 bg-gradient-orange rounded-xl flex items-center justify-center transform group-hover:scale-110 transition-transform duration-300">
-                <Building2 className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-2xl font-bold font-heading text-dark-700">
-                Rental<span className="text-primary-500">Meet</span>
-              </span>
-            </Link>
-
-            {/* Desktop Menu */}
-            <div className="hidden md:flex items-center space-x-8">
-              <Link href="/" className="text-dark-700 hover:text-primary-500 font-medium transition-colors">
-                Home
-              </Link>
-              <Link href="/venues" className="text-primary-500 font-semibold">
-                Browse Venues
-              </Link>
-              {user && user.role === 'owner' && (
-                <Link href="/owner/dashboard" className="text-dark-700 hover:text-primary-500 font-medium transition-colors">
-                  Dashboard
-                </Link>
-              )}
-            </div>
-
-            {/* Auth Buttons */}
-            <div className="hidden md:flex items-center gap-4">
-              {token && user ? (
-                <>
-                  <span className="text-dark-700 font-medium">Hi, {user.name}</span>
-                  <button onClick={handleLogout} className="text-dark-700 hover:text-primary-500 font-semibold transition-colors">
-                    Logout
-                  </button>
-                </>
-              ) : (
-                <>
-                  <Link href="/login" className="text-dark-700 hover:text-primary-500 font-semibold transition-colors">
-                    Login
-                  </Link>
-                  <Link href="/register" className="btn-primary">
-                    Register
-                  </Link>
-                </>
-              )}
-            </div>
-
-            {/* Mobile Menu Button */}
-            <button 
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg hover:bg-dark-50 transition-colors"
-            >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
-          </div>
-        </div>
-
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <div className="md:hidden bg-white border-t border-dark-100 animate-slide-down">
-            <div className="px-4 py-4 space-y-3">
-              <Link href="/" className="block py-2 text-dark-700 hover:text-primary-500 font-medium">
-                Home
-              </Link>
-              <Link href="/venues" className="block py-2 text-primary-500 font-semibold">
-                Browse Venues
-              </Link>
-              {user && user.role === 'owner' && (
-                <Link href="/owner/dashboard" className="block py-2 text-dark-700 hover:text-primary-500 font-medium">
-                  Dashboard
-                </Link>
-              )}
-              <div className="pt-4 space-y-2 border-t">
-                {token && user ? (
-                  <>
-                    <p className="text-sm text-gray-600">Hi, {user.name}</p>
-                    <button onClick={handleLogout} className="block w-full text-center py-3 border-2 border-red-500 text-red-500 rounded-xl font-semibold">
-                      Logout
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <Link href="/login" className="block w-full text-center py-3 border-2 border-primary-500 text-primary-500 rounded-xl font-semibold">
-                      Login
-                    </Link>
-                    <Link href="/register" className="block w-full text-center btn-primary">
-                      Register
-                    </Link>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </nav>
+      <Navbar />
 
       {/* Hero Section */}
       <div className="bg-gradient-to-br from-primary-50 to-white py-12">

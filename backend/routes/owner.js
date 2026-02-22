@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { protect, authorize } = require('../middleware/auth');
 const Venue = require('../models/Venue');
+const Booking = require('../models/Booking');
 
 // All routes require authentication and owner role
 router.use(protect);
@@ -13,6 +14,14 @@ router.use(authorize('owner'));
 router.get('/dashboard', async (req, res) => {
   try {
     const venues = await Venue.find({ owner: req.user._id });
+    const venueIds = venues.map(v => v._id);
+    
+    // Get bookings for owner's venues
+    const bookings = await Booking.find({ venue: { $in: venueIds } })
+      .populate('venue', 'businessName location sku images')
+      .populate('customer', 'name email phone')
+      .sort('-createdAt')
+      .limit(10);
     
     const stats = {
       totalVenues: venues.length,
@@ -21,12 +30,15 @@ router.get('/dashboard', async (req, res) => {
       rejectedVenues: venues.filter(v => v.status === 'rejected').length,
       totalEarnings: venues.reduce((sum, v) => sum + (v.totalEarnings || 0), 0),
       totalBookings: venues.reduce((sum, v) => sum + (v.totalBookings || 0), 0),
+      pendingBookings: bookings.filter(b => b.status === 'pending').length,
+      confirmedBookings: bookings.filter(b => b.status === 'confirmed').length,
     };
 
     res.json({
       success: true,
       stats,
-      recentVenues: venues.slice(0, 5)
+      recentVenues: venues.slice(0, 5),
+      recentBookings: bookings
     });
   } catch (error) {
     console.error('Dashboard error:', error);

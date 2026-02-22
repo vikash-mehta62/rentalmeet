@@ -35,7 +35,7 @@ export default function CustomerBookings() {
 
   const fetchBookings = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/bookings', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bookings`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -76,7 +76,7 @@ export default function CustomerBookings() {
     if (!confirm('Are you sure you want to cancel this booking?')) return;
 
     try {
-      const response = await fetch(`http://localhost:5000/api/bookings/${bookingId}/cancel`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bookings/${bookingId}/cancel`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -392,52 +392,50 @@ export default function CustomerBookings() {
                           {booking.customerDetails.specialRequirements && (
                             <p className="text-sm text-gray-600 mt-2">
                               <span className="font-medium">Special Requirements:</span> {booking.customerDetails.specialRequirements}
-                            </p
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {booking.status === 'confirmed' && (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm mt-4">
+                          <p className="text-green-800 font-semibold mb-1">Confirmed!</p>
+                          <p className="text-xs text-green-700">Owner will contact you soon</p>
+                        </div>
+                      )}
+
+                      {booking.status === 'cancelled' && booking.cancellationReason && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm mt-4">
+                          <p className="text-red-800 font-semibold mb-1">Cancelled</p>
+                          <p className="text-xs text-red-700">Reason: {booking.cancellationReason}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="lg:w-48 flex flex-col gap-3">
+                      <Link
+                        href={`/venues/${booking.venue?.sku}`}
+                        className="btn-secondary text-center"
+                      >
+                        View Venue
+                      </Link>
+                      {booking.status === 'pending' && (
+                        <button
+                          onClick={() => handleCancelBooking(booking._id)}
+                          className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold transition-colors"
+                        >
+                          Cancel Booking
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </main>
+      </div>
+    </div>
+  );
 }
-
-  );v> </didiv>
-      </   main>
-  </  }
-        )        </div>
-    }
-                ))</div>
-            >
-         </div              iv>
-           </d              )}
-                v>
-           </di            /p>
-     ason}<Rellation.cancekingoo">{bs700 text-xed--re="textclassNam      <p                  led</p>
-   ">Cancelemibold mb-1font-s-800 redext-lassName="tp c <                  >
-        text-sm"unded-lg p-3 roer-red-200rdorder bo-red-50 bassName="bg  <div cl                      (
- eason &&lationRng.cancel && bookicelled''canus === ing.stat      {book          )}
-
-                                </div>
-               n</p>
-      you sooll contactner witext-xs">Owgreen-700 Name="text-ss      <p cla                   /p>
- irmed!<mb-1">Conf-semibold 0 font-green-80extName="t class          <p                ">
--sm p-3 textounded-lg-green-200 rorder border b"bg-green-50assName=  <div cl                   (
-   && ed' rm'confi=  ==atus{booking.st                
-         )}
-              n>
-     butto       </            
-     l Booking  Cance                          >
-                     olors"
- sition-cbold tranfont-semi rounded-xl  text-white:bg-red-600ed-500 hover-4 py-2 bg-rme="px  classNa                   _id)}
-     ng.okiking(boooelBancdleC=> han={()      onClick                 
-    on  <butt              
-        g' && ( === 'pendinoking.statusbo          {          
-                       ink>
-    </L           e
-        ew Venu  Vi                        >
-                er"
-    xt-centary tetn-secondssName="b  cla                  u}`}
-    enue?.skg.vookinnues/${bef={`/ve   hr                  <Link
-                       >
-  -3"apl gex-coflex fl"lg:w-48 assName=iv cl<d             
-       ns */} Actio/*    {               
-
-       </div>             )}
-                     >
-       </div                   )}
-                       >
-   
