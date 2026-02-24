@@ -150,43 +150,130 @@ exports.uploadImages = async (req, res) => {
   }
 };
 
-// @desc    Get all venues (with filters)
+// @desc    Get all venues (with filters and pagination)
 // @route   GET /api/venues
 exports.getVenues = async (req, res) => {
   try {
-    const { city, venueType, capacity, status, minPrice, maxPrice } = req.query;
+    const { 
+      city, 
+      location, 
+      venueType, 
+      capacity, 
+      status, 
+      minPrice, 
+      maxPrice,
+      search,
+      page = 1,
+      limit = 12
+    } = req.query;
     
     let query = {};
     
-    // Filters
+    // Search filter (business name, city, area)
+    if (search) {
+      query.$or = [
+        { businessName: { $regex: search, $options: 'i' } },
+        { 'location.city': { $regex: search, $options: 'i' } },
+        { 'location.area': { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    // City filter
     if (city) query['location.city'] = city;
+    
+    // Location filter (area)
+    if (location) query['location.area'] = location;
+    
+    // Venue type filter
     if (venueType) query.venueType = venueType;
+    
+    // Capacity filter
     if (capacity) query.capacity = capacity;
     
+    // Price range filter
+    if (minPrice || maxPrice) {
+      query['pricing.perHour.weekday'] = {};
+      if (minPrice) query['pricing.perHour.weekday'].$gte = Number(minPrice);
+      if (maxPrice) query['pricing.perHour.weekday'].$lte = Number(maxPrice);
+    }
+    
     // Status filter
-    // If status=all, show all venues (for testing/admin)
-    // If no status, show only approved (for public)
-    // If specific status, filter by that status
     if (status && status !== 'all') {
       query.status = status;
     } else if (!status) {
       query.status = 'approved';
     }
-    // If status=all, don't add status filter (show all)
     
+    // Pagination
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+    
+    // Get total count for pagination
+    const totalVenues = await Venue.countDocuments(query);
+    
+    // Get venues with pagination
     const venues = await Venue.find(query)
       .populate('owner', 'name email phone')
-      .sort('-createdAt');
+      .sort('-createdAt')
+      .skip(skip)
+      .limit(limitNum);
     
-    console.log(`Found ${venues.length} venues with query:`, query);
+    console.log(`Found ${venues.length} venues (page ${pageNum}) with query:`, query);
     
     res.json({
       success: true,
       count: venues.length,
+      total: totalVenues,
+      page: pageNum,
+      pages: Math.ceil(totalVenues / limitNum),
       venues
     });
   } catch (error) {
     console.error('Get venues error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Get unique locations (cities and areas)
+// @route   GET /api/venues/locations
+exports.getLocations = async (req, res) => {
+  try {
+    // Get unique cities
+    const cities = await Venue.distinct('location.city', { status: 'approved' });
+    
+    // Get unique areas grouped by city
+    const venues = await Venue.find({ status: 'approved' }, 'location.city location.area');
+    
+    const locationsByCity = {};
+    venues.forEach(venue => {
+      const city = venue.location?.city;
+      const area = venue.location?.area;
+      
+      if (city && area) {
+        if (!locationsByCity[city]) {
+          locationsByCity[city] = new Set();
+        }
+        locationsByCity[city].add(area);
+      }
+    });
+    
+    // Convert Sets to Arrays
+    const locationsArray = Object.keys(locationsByCity).map(city => ({
+      city,
+      areas: Array.from(locationsByCity[city]).sort()
+    }));
+    
+    res.json({
+      success: true,
+      cities: cities.sort(),
+      locations: locationsArray
+    });
+  } catch (error) {
+    console.error('Get locations error:', error);
     res.status(500).json({
       success: false,
       message: error.message

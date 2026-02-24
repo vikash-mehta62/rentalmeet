@@ -31,7 +31,9 @@ router.post('/image', protect, async (req, res) => {
       return res.json({
         success: true,
         url: result.secure_url,
-        publicId: result.public_id
+        publicId: result.public_id,
+        format: result.format,
+        resourceType: result.resource_type
       });
     }
 
@@ -78,7 +80,9 @@ router.post('/document', protect, async (req, res) => {
       return res.json({
         success: true,
         url: result.secure_url,
-        publicId: result.public_id
+        publicId: result.public_id,
+        format: result.format,
+        resourceType: result.resource_type
       });
     }
 
@@ -125,6 +129,49 @@ router.post('/', protect, upload.single('file'), async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error uploading file'
+    });
+  }
+});
+
+// @route   DELETE /api/upload/:publicId
+// @desc    Delete image from Cloudinary
+// @access  Private
+router.delete('/:publicId', protect, async (req, res) => {
+  try {
+    const { publicId } = req.params;
+    
+    if (!publicId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Public ID is required'
+      });
+    }
+
+    // Decode the publicId (replace -- with /)
+    const decodedPublicId = publicId.replace(/--/g, '/');
+
+    // Delete from Cloudinary
+    const cloudinary = require('cloudinary').v2;
+    const result = await cloudinary.uploader.destroy(decodedPublicId);
+
+    if (result.result === 'ok' || result.result === 'not found') {
+      return res.json({
+        success: true,
+        message: 'Image deleted successfully'
+      });
+    }
+
+    return res.status(400).json({
+      success: false,
+      message: 'Failed to delete image'
+    });
+
+  } catch (error) {
+    console.error('Delete error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting file',
+      error: error.message
     });
   }
 });

@@ -1,34 +1,48 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, X, LogOut, LayoutDashboard, ChevronDown } from 'lucide-react';
+import { Menu, X, LogOut, LayoutDashboard, ChevronDown, User, Settings } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
-
-const NAV_LINKS = [
-  { name: 'Home', href: '/' },
-  { name: 'Browse Venues', href: '/venues' },
-  { name: 'About', href: '/about' },
-  { name: 'Contact', href: '/contact' },
-];
 
 export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
   const { user, token, logout } = useAuthStore();
+  
   const [hydrated, setHydrated] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const dropdownRef = useRef(null);
 
+  const isHomePage = pathname === '/';
+  const isVenueDetailsPage = pathname.startsWith('/venues/') && pathname !== '/venues';
+
+  // Handle Hydration & Scroll
   useEffect(() => {
     setHydrated(true);
+    const handleScroll = () => setScrolled(window.scrollY > 20);
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
   const handleLogout = () => {
     logout();
     router.push('/');
     setDropdownOpen(false);
+    setMobileMenuOpen(false);
   };
 
   const getDashboardLink = () => {
@@ -38,160 +52,157 @@ export default function Navbar() {
       admin: '/admin/dashboard',
       customer: '/customer/dashboard',
     };
-    // Fix: JavaScript mein "as keyof" ki zaroorat nahi hoti
     return roles[user.role] || '/';
   };
 
+  // Dynamic Styles Logic - Transparent on home and venue details pages
+  const isTransparentPage = isHomePage || isVenueDetailsPage;
+  const isSolid = !isTransparentPage || scrolled;
+  const navBg = isSolid ? 'bg-white shadow-md py-3' : 'bg-transparent py-5';
+  const textColor = isSolid ? 'text-slate-700' : 'text-white';
+  const logoColor = isSolid ? 'text-slate-900' : 'text-white';
+  const linkBase = "text-[12px] font-bold uppercase tracking-[0.15em] transition-all duration-300";
+
   return (
-    <nav className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-xl border-b border-gray-100 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-20 items-center">
+    <nav className={`fixed top-0 left-0 right-0 z-[100] w-full transition-all duration-500 ease-in-out ${navBg}`}>
+      <div className="max-w-7xl mx-auto px-6 lg:px-8">
+        <div className="flex justify-between items-center">
           
-          {/* Logo Section */}
-          <Link href="/" className="flex-shrink-0 transition-transform active:scale-95">
-            <img 
-              src="/logo-new.jpeg" 
-              alt="RentalMeet Logo" 
-              className="h-12 w-auto object-contain"
-            />
+          {/* 1. Logo Section */}
+          <Link href="/" className="flex items-center gap-2 group relative z-50">
+            <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg group-hover:rotate-6 transition-transform duration-300">
+              <span className="text-white font-black text-xl italic">R</span>
+            </div>
+            <span className={`text-xl font-black tracking-tighter transition-colors duration-300 ${logoColor}`}>
+              RentalMeet
+            </span>
           </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-1">
-            {NAV_LINKS.map((link) => (
+          {/* 2. Desktop Navigation (Center) */}
+          <div className="hidden md:flex items-center gap-10">
+            {[
+              { name: 'Home', href: '/' },
+              { name: 'Venues', href: '/venues' },
+              { name: 'Other Serives', href: '/other-services' },
+            ].map((link) => (
               <Link
                 key={link.name}
                 href={link.href}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                className={`${linkBase} relative group ${
                   pathname === link.href 
-                    ? 'bg-orange-50 text-orange-600' 
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-orange-500'
+                  ? 'text-orange-500' 
+                  : `${textColor} hover:text-orange-500`
                 }`}
               >
                 {link.name}
+                <span className={`absolute -bottom-1 left-0 h-0.5 bg-orange-500 transition-all duration-300 ${pathname === link.href ? 'w-full' : 'w-0 group-hover:w-full'}`} />
               </Link>
             ))}
           </div>
 
-          {/* Auth/User Actions */}
-          <div className="hidden md:flex items-center gap-4">
+          {/* 3. Auth Actions (Right) */}
+          <div className="hidden md:flex items-center gap-6">
             {hydrated && token ? (
-              <div className="relative">
+              <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className="flex items-center gap-2 pl-3 pr-2 py-1.5 bg-gray-50 border border-gray-200 rounded-full hover:bg-gray-100 transition-all"
+                  className={`flex items-center gap-3 px-2 py-1.5 rounded-full border transition-all duration-300 ${
+                    isSolid ? 'border-slate-200 bg-slate-50' : 'border-white/20 bg-white/10 backdrop-blur-md'
+                  }`}
                 >
-                  <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white text-sm font-bold">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-orange-500 to-orange-400 flex items-center justify-center text-white text-xs font-bold shadow-inner">
                     {user?.name?.charAt(0).toUpperCase()}
                   </div>
-                  <span className="text-sm font-semibold text-gray-700">{user?.name}</span>
-                  <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
+                  <span className={`text-xs font-bold uppercase tracking-wider ${textColor}`}>
+                    Hi, {user?.name?.split(' ')[0]}
+                  </span>
+                  <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${dropdownOpen ? 'rotate-180' : ''} ${textColor}`} />
                 </button>
 
                 {/* Dropdown Menu */}
                 {dropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-100 rounded-2xl shadow-xl py-2">
-                    <Link
-                      href={getDashboardLink()}
-                      onClick={() => setDropdownOpen(false)}
-                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      <LayoutDashboard className="w-4 h-4 text-gray-400" />
-                      Dashboard
+                  <div className="absolute right-0 mt-3 w-56 bg-white border border-slate-100 rounded-2xl shadow-2xl py-2 overflow-hidden animate-in fade-in slide-in-from-top-5 duration-300">
+                    <Link href={getDashboardLink()} onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-orange-50 hover:text-orange-600 transition-colors">
+                      <LayoutDashboard className="w-4 h-4" /> Dashboard
                     </Link>
-                    <hr className="my-1 border-gray-100" />
-                    <button
-                      onClick={handleLogout}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      Logout
+                    <Link href="/profile" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-orange-50 hover:text-orange-600 transition-colors">
+                      <User className="w-4 h-4" /> My Profile
+                    </Link>
+                    <div className="h-px bg-slate-100 my-1" />
+                    <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 transition-colors">
+                      <LogOut className="w-4 h-4" /> Logout
                     </button>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-8">
+                <Link href="/login" className={`${linkBase} ${textColor} hover:text-orange-500`}>Login</Link>
                 <Link
-                  href="/login"
-                  className="px-5 py-2 text-sm font-semibold text-gray-700 hover:text-orange-500 transition-colors"
+                  href="/venues"
+                  className="px-8 py-3 bg-orange-500 text-white rounded-full text-[11px] font-black uppercase tracking-[0.2em] hover:bg-orange-600 hover:shadow-xl hover:shadow-orange-200 transition-all active:scale-95"
                 >
-                  Login
-                </Link>
-                <Link
-                  href="/register"
-                  className="px-6 py-2.5 bg-orange-600 text-white rounded-full text-sm font-semibold hover:bg-orange-700 shadow-md hover:shadow-orange-200 transition-all active:scale-95"
-                >
-                  Get Started
+                  Book Venue
                 </Link>
               </div>
             )}
           </div>
 
-          {/* Mobile Menu Button */}
+          {/* 4. Mobile Toggle */}
           <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 rounded-xl bg-gray-50 text-gray-600 hover:bg-gray-100 transition-colors"
+            onClick={() => setMobileMenuOpen(true)}
+            className={`md:hidden p-2 rounded-xl transition-colors ${isSolid ? 'text-slate-900 bg-slate-100' : 'text-white bg-white/10'}`}
           >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            <Menu className="w-6 h-6" />
           </button>
         </div>
       </div>
 
-      {/* Mobile Sidebar/Menu */}
-      {mobileMenuOpen && (
-        <div className="md:hidden border-t border-gray-100 bg-white p-4 space-y-2">
-          {NAV_LINKS.map((link) => (
-            <Link
-              key={link.name}
-              href={link.href}
-              onClick={() => setMobileMenuOpen(false)}
-              className={`block px-4 py-3 rounded-xl text-base font-medium ${
-                pathname === link.href ? 'bg-orange-50 text-orange-600' : 'text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              {link.name}
-            </Link>
-          ))}
-          
-          <div className="pt-4 mt-2 border-t border-gray-100">
-            {hydrated && token ? (
-              <div className="space-y-2">
-                <Link
-                  href={getDashboardLink()}
+      {/* 5. Mobile Sidebar (Full Screen Overlay) */}
+      <div className={`fixed inset-0 z-[110] transition-visibility duration-300 ${mobileMenuOpen ? 'visible' : 'invisible'}`}>
+        {/* Backdrop */}
+        <div className={`absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300 ${mobileMenuOpen ? 'opacity-100' : 'opacity-0'}`} onClick={() => setMobileMenuOpen(false)} />
+        
+        {/* Drawer */}
+        <div className={`absolute right-0 inset-y-0 w-[80%] max-w-sm bg-white shadow-2xl transition-transform duration-500 ease-out ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+          <div className="flex flex-col h-full">
+            <div className="p-6 flex items-center justify-between border-b border-slate-50">
+              <span className="text-xl font-black text-slate-900">Menu</span>
+              <button onClick={() => setMobileMenuOpen(false)} className="p-2 bg-slate-100 rounded-full text-slate-500"><X className="w-5 h-5" /></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-2">
+              {['Home', 'Venues',"Other Services"].map((item) => (
+                <Link 
+                  key={item} 
+                  href={item === 'Home' ? '/' : `/${item.toLowerCase()}`} 
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700 hover:bg-gray-50"
+                  className={`block px-4 py-4 rounded-2xl text-base font-bold transition-all ${pathname === (item === 'Home' ? '/' : `/${item.toLowerCase()}`) ? 'bg-orange-50 text-orange-600' : 'text-slate-700 hover:bg-slate-50'}`}
                 >
-                  <LayoutDashboard className="w-5 h-5" /> Dashboard
+                  {item}
                 </Link>
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-600 hover:bg-red-50 transition-colors"
-                >
-                  <LogOut className="w-5 h-5" /> Logout
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3 p-2">
-                <Link
-                  href="/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-center px-4 py-3 rounded-xl border border-gray-200 text-gray-700 font-semibold"
-                >
-                  Login
+              ))}
+            </div>
+
+            <div className="p-6 border-t border-slate-50">
+              {hydrated && token ? (
+                <div className="space-y-3">
+                  <Link href={getDashboardLink()} onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center gap-3 w-full py-4 bg-slate-900 text-white rounded-2xl font-bold uppercase text-xs tracking-widest">
+                    <LayoutDashboard className="w-4 h-4" /> My Dashboard
+                  </Link>
+                  <button onClick={handleLogout} className="flex items-center justify-center gap-3 w-full py-4 border border-red-100 text-red-500 rounded-2xl font-bold uppercase text-xs tracking-widest">
+                    <LogOut className="w-4 h-4" /> Sign Out
+                  </button>
+                </div>
+              ) : (
+                <Link href="/login" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center w-full py-4 bg-orange-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg shadow-orange-100">
+                  Login / Register
                 </Link>
-                <Link
-                  href="/register"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-center px-4 py-3 rounded-xl bg-orange-600 text-white font-semibold shadow-sm"
-                >
-                  Register
-                </Link>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
-      )}
+      </div>
     </nav>
   );
 }

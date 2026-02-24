@@ -65,6 +65,39 @@ h1, h2, h3, h4, h5, h6 {
     50% { transform: translateY(-10px); }
   }
   
+  .animate-fade-in {
+    animation: fadeIn 1s ease-in;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  .animate-slide-up {
+    animation: slideUp 0.8s ease-out;
+  }
+  
+  @keyframes slideUp {
+    from { 
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to { 
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .animate-bounce-slow {
+    animation: bounceSlow 2s ease-in-out infinite;
+  }
+  
+  @keyframes bounceSlow {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+  }
+  
   /* Custom scrollbar */
   ::-webkit-scrollbar {
     width: 8px;
@@ -111,4 +144,143 @@ h1, h2, h3, h4, h5, h6 {
   .shadow-medium {
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
   }
+}
+
+/* Print Styles for Quotation */
+@media print {
+  @page {
+    size: A4;
+    margin: 1cm;
+  }
+  
+  body {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  
+  .print\:hidden {
+    display: none !important;
+  }
+  
+  .print\:block {
+    display: block !important;
+  }
+  
+  /* Hide scrollbars in print */
+  ::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Ensure proper page breaks */
+  .print\:break-inside-avoid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  
+  /* Remove shadows and transitions for print */
+  * {
+    box-shadow: none !important;
+    transition: none !important;
+    animation: none !important;
+  }
+  
+  /* Ensure backgrounds print */
+  .bg-gray-50,
+  .bg-primary-50,
+  .bg-yellow-50 {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
+
+/* Custom Checkbox Styling */
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid #D1D5DB;
+  border-radius: 0.375rem;
+  background-color: white;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+input[type="checkbox"]:hover {
+  border-color: #F4A000;
+}
+
+input[type="checkbox"]:checked {
+  background-color: #F4A000;
+  border-color: #F4A000;
+}
+
+input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 0.375rem;
+  height: 0.625rem;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: translate(-50%, -60%) rotate(45deg);
+}
+
+input[type="checkbox"]:focus {
+  outline: none;
+  ring: 2px;
+  ring-color: #F4A000;
+  ring-opacity: 0.5;
+}
+
+input[type="checkbox"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Radio Button Styling */
+input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid #D1D5DB;
+  border-radius: 50%;
+  background-color: white;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+input[type="radio"]:hover {
+  border-color: #F4A000;
+}
+
+input[type="radio"]:checked {
+  border-color: #F4A000;
+  background-color: white;
+}
+
+input[type="radio"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+  background-color: #F4A000;
+}
+
+input[type="radio"]:focus {
+  outline: none;
+  ring: 2px;
+  ring-color: #F4A000;
+  ring-opacity: 0.5;
 }

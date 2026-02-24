@@ -44,6 +44,52 @@ const bookingSchema = new mongoose.Schema({
     type: Number,
     default: 15
   },
+  // Selected amenities and services
+  selectedAmenities: {
+    basic: [{
+      name: String,
+      type: String,
+      rate: Number
+    }],
+    beverages: [{
+      name: String,
+      ratePerUnit: Number,
+      brand: String
+    }],
+    refreshmentFood: [{
+      name: String,
+      ratePerPlate: Number,
+      items: String
+    }],
+    lunchThalis: [{
+      type: String,
+      ratePerPlate: Number,
+      numberOfItems: Number,
+      itemNames: String
+    }],
+    additional: [{
+      name: String,
+      type: String,
+      charges: Number
+    }]
+  },
+  // Price breakdown
+  priceBreakdown: {
+    basePrice: Number,
+    amenitiesTotal: Number,
+    subtotal: Number,
+    gst: Number,
+    total: Number
+  },
+  // Customer details
+  customerDetails: {
+    name: String,
+    email: String,
+    phone: String,
+    eventType: String,
+    guestCount: Number,
+    specialRequirements: String
+  },
   status: {
     type: String,
     enum: ['pending', 'confirmed', 'cancelled', 'completed'],

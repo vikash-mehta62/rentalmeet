@@ -7,7 +7,8 @@ const {
   updateVenue,
   deleteVenue,
   uploadImages,
-  getMyVenues
+  getMyVenues,
+  getLocations
 } = require('../controllers/venueController');
 const { protect, authorize } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
@@ -19,6 +20,9 @@ router.route('/')
   .post(protect, authorize('owner', 'admin'), createVenue);
 
 router.get('/my-venues', protect, authorize('owner'), getMyVenues);
+
+// Locations endpoint
+router.get('/locations/all', getLocations);
 
 // SKU route must come before :id route
 router.get('/sku/:sku', getVenueBySKU);

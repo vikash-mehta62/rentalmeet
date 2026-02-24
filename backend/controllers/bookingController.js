@@ -6,7 +6,17 @@ const CommissionSettings = require('../models/CommissionSettings');
 // @route   POST /api/bookings
 exports.createBooking = async (req, res) => {
   try {
-    const { venue, bookingDate, startTime, endTime, bookingType, amount, customerDetails } = req.body;
+    const { 
+      venue, 
+      bookingDate, 
+      startTime, 
+      endTime, 
+      bookingType, 
+      amount, 
+      selectedAmenities,
+      priceBreakdown,
+      customerDetails 
+    } = req.body;
     
     // Get current commission rate (default 15%)
     const commissionSettings = await CommissionSettings.findOne().sort('-createdAt');
@@ -28,6 +38,8 @@ exports.createBooking = async (req, res) => {
       commission,
       ownerEarnings,
       commissionRate,
+      selectedAmenities: selectedAmenities || {},
+      priceBreakdown: priceBreakdown || {},
       customerDetails
     });
     

@@ -1,0 +1,173 @@
+'use client';
+
+import { Clock, Shield, Headphones, CheckCircle } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+
+export default function PricingSection() {
+  const router = useRouter();
+
+  const pricingPlans = [
+    {
+      duration: '1 Hour',
+      priceRange: 'Rs.1,000 - Rs.5,000',
+      description: 'Based on room size and facilities',
+      popular: false
+    },
+    {
+      duration: '2 Hours',
+      priceRange: 'Rs.1,800 - Rs.9,000',
+      description: 'Based on room size and facilities',
+      popular: false
+    },
+    {
+      duration: '4 Hours',
+      priceRange: 'Rs.3,000 - Rs.15,000',
+      description: 'Based on room size and facilities',
+      popular: true
+    },
+    {
+      duration: 'Full Day',
+      priceRange: 'Rs.6,000 - Rs.30,000',
+      description: 'Based on room size and facilities',
+      popular: false
+    }
+  ];
+
+  const whyChooseUs = [
+    {
+      icon: Shield,
+      title: 'Premium Security',
+      description: 'State-of-the-art security systems and personnel ensure complete safety for your events.'
+    },
+    {
+      icon: Headphones,
+      title: '24/7 Support',
+      description: 'Our dedicated team is available around the clock to assist with any requirements.'
+    },
+    {
+      icon: CheckCircle,
+      title: 'Instant Booking',
+      description: 'Quick and easy online booking with instant confirmation for your convenience.'
+    }
+  ];
+
+  return (
+    <>
+      {/* Pricing Section */}
+      <section className="py-16 px-4 sm:px-6 bg-white">
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="text-center mb-12">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">PRICING</p>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4" style={{ fontFamily: 'Georgia, serif' }}>
+              Exclusive Packages
+            </h2>
+            <p className="text-sm md:text-base text-gray-600 max-w-2xl mx-auto">
+              Flexible pricing options tailored to your needs. Choose the duration that works best for you.
+            </p>
+          </div>
+
+          {/* Pricing Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+            {pricingPlans.map((plan, index) => (
+              <div
+                key={index}
+                className={`relative bg-white rounded-xl p-6 transition-all duration-300 ${
+                  plan.popular
+                    ? 'border-2 border-[#F89D09] shadow-lg scale-105'
+                    : 'border border-gray-200 shadow-sm hover:shadow-md'
+                }`}
+              >
+                {/* Most Popular Badge */}
+                {plan.popular && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <span className="bg-[#F89D09] text-white text-xs font-bold px-4 py-1 rounded-full">
+                      Most Popular
+                    </span>
+                  </div>
+                )}
+
+                {/* Icon */}
+                <div className="flex justify-center mb-4">
+                  <div className="w-12 h-12 bg-[#FFF5E6] rounded-full flex items-center justify-center">
+                    <Clock className="w-6 h-6 text-[#F89D09]" />
+                  </div>
+                </div>
+
+                {/* Duration */}
+                <h3 className="text-xl font-bold text-gray-900 text-center mb-3">
+                  {plan.duration}
+                </h3>
+
+                {/* Price Range */}
+                <p className="text-2xl font-bold text-[#F89D09] text-center mb-2">
+                  {plan.priceRange}
+                </p>
+
+                {/* Description */}
+                <p className="text-sm text-gray-600 text-center mb-6">
+                  {plan.description}
+                </p>
+
+                {/* Book Now Button */}
+                <button
+                  onClick={() => router.push('/venues')}
+                  className={`w-full py-2.5 rounded-lg font-semibold transition-all duration-300 ${
+                    plan.popular
+                      ? 'bg-[#F89D09] text-white hover:bg-[#E08C08]'
+                      : 'bg-white border-2 border-gray-300 text-gray-700 hover:border-[#F89D09] hover:text-[#F89D09]'
+                  }`}
+                >
+                  Book Now
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Why Choose Us Section */}
+      <section className="py-16 px-4 sm:px-6 bg-[#FAFAFA]">
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="text-center mb-12">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">WHY CHOOSE US</p>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900" style={{ fontFamily: 'Georgia, serif' }}>
+              Trusted by Professionals
+            </h2>
+          </div>
+
+          {/* Features Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            {whyChooseUs.map((feature, index) => {
+              const Icon = feature.icon;
+              return (
+                <div
+                  key={index}
+                  className="text-center"
+                >
+                  {/* Icon */}
+                  <div className="flex justify-center mb-4">
+                    <div className="w-16 h-16 bg-[#FFF5E6] rounded-full flex items-center justify-center">
+                      <Icon className="w-8 h-8 text-[#F89D09]" />
+                    </div>
+                  </div>
+
+                  {/* Title */}
+                  <h3 className="text-xl font-bold text-gray-900 mb-3">
+                    {feature.title}
+                  </h3>
+
+                  {/* Description */}
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    {feature.description}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}

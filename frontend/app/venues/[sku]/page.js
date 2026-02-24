@@ -708,11 +708,11 @@ export default function VenueDetail() {
           {/* Sidebar */}
           <div className="lg:col-span-1">
             <div className="sticky top-24 space-y-6">
-              {/* Booking Card */}
-              <div className="bg-white rounded-2xl shadow-soft border border-gray-100 p-6">
+              {/* Booking Card - Now opens inline booking */}
+              <div className="bg-gradient-to-br from-primary-50 to-orange-50 rounded-2xl shadow-lg border-2 border-primary-200 p-6">
                 <div className="text-center mb-6">
-                  <p className="text-gray-600 mb-2">Starting from</p>
-                  <p className="text-4xl font-bold text-primary-500">
+                  <p className="text-gray-600 mb-2 font-medium">Starting from</p>
+                  <p className="text-4xl font-bold text-primary-600">
                     ₹{venue.pricing?.perHour?.weekday?.toLocaleString()}
                     <span className="text-lg text-gray-600">/hour</span>
                   </p>
@@ -720,19 +720,23 @@ export default function VenueDetail() {
 
                 <button 
                   onClick={() => setBookingFormOpen(true)}
-                  className="w-full btn-primary py-4 text-lg font-semibold mb-4"
+                  className="w-full bg-primary-500 hover:bg-primary-600 text-white py-4 rounded-xl text-lg font-bold shadow-lg hover:shadow-xl transition-all mb-4"
                 >
-                  Send Inquiry
+                  Book Now
                 </button>
 
-                <div className="space-y-3 text-sm text-gray-600">
+                <div className="space-y-3 text-sm text-gray-700 bg-white/50 rounded-lg p-4">
                   <div className="flex items-center gap-2">
                     <Clock className="w-5 h-5 text-primary-500" />
-                    <span>{venue.availability?.openingTime} - {venue.availability?.closingTime}</span>
+                    <span className="font-medium">{venue.availability?.openingTime} - {venue.availability?.closingTime}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Calendar className="w-5 h-5 text-primary-500" />
-                    <span>{venue.availability?.availableDays?.join(', ')}</span>
+                    <span className="font-medium">{venue.availability?.availableDays?.join(', ')}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Users className="w-5 h-5 text-primary-500" />
+                    <span className="font-medium">Capacity: {venue.capacity}</span>
                   </div>
                 </div>
               </div>
