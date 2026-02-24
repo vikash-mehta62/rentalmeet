@@ -428,7 +428,16 @@ export default function Step6OwnerDocs() {
                     />
                   </label>
                   {idProofFiles.front && (
-                    <p className="text-xs text-green-600 mt-1">✓ Uploaded to cloud</p>
+                    <div className="mt-3">
+                      <p className="text-xs text-green-600 mb-2">✓ Uploaded to cloud</p>
+                      <div className="border-2 border-gray-200 rounded-lg overflow-hidden">
+                        <img 
+                          src={idProofFiles.front.url} 
+                          alt="Aadhaar Front" 
+                          className="w-full h-32 object-cover"
+                        />
+                      </div>
+                    </div>
                   )}
                 </div>
 
@@ -457,7 +466,16 @@ export default function Step6OwnerDocs() {
                     />
                   </label>
                   {idProofFiles.back && (
-                    <p className="text-xs text-green-600 mt-1">✓ Uploaded to cloud</p>
+                    <div className="mt-3">
+                      <p className="text-xs text-green-600 mb-2">✓ Uploaded to cloud</p>
+                      <div className="border-2 border-gray-200 rounded-lg overflow-hidden">
+                        <img 
+                          src={idProofFiles.back.url} 
+                          alt="Aadhaar Back" 
+                          className="w-full h-32 object-cover"
+                        />
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
@@ -513,7 +531,16 @@ export default function Step6OwnerDocs() {
                     />
                   </label>
                   {idProofFiles.pan && (
-                    <p className="text-xs text-green-600 mt-1">✓ Uploaded to cloud</p>
+                    <div className="mt-3">
+                      <p className="text-xs text-green-600 mb-2">✓ Uploaded to cloud</p>
+                      <div className="border-2 border-gray-200 rounded-lg overflow-hidden">
+                        <img 
+                          src={idProofFiles.pan.url} 
+                          alt="PAN Card" 
+                          className="w-full h-32 object-cover"
+                        />
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
@@ -626,7 +653,40 @@ export default function Step6OwnerDocs() {
                 />
               </label>
               {businessDoc && (
-                <p className="text-xs text-green-600 mt-1">✓ Uploaded to cloud • {businessDoc.format.toUpperCase()}</p>
+                <div className="mt-3">
+                  <p className="text-xs text-green-600 mb-2">✓ Uploaded to cloud{businessDoc.format ? ` • ${businessDoc.format.toUpperCase()}` : ''}</p>
+                  {businessDoc.format === 'pdf' ? (
+                    <div className="border-2 border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                          <svg className="w-6 h-6 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-gray-900">{businessDoc.name}</p>
+                          <p className="text-xs text-gray-500">PDF Document</p>
+                        </div>
+                        <a 
+                          href={businessDoc.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="px-3 py-1 bg-primary-500 text-white text-xs rounded-lg hover:bg-primary-600"
+                        >
+                          View
+                        </a>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-gray-200 rounded-lg overflow-hidden">
+                      <img 
+                        src={businessDoc.url} 
+                        alt="Business Document" 
+                        className="w-full h-48 object-cover"
+                      />
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
