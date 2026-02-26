@@ -10,40 +10,40 @@ import {
 } from 'lucide-react';
 import QuotationView from './QuotationView';
 
-export default function BookingForm({ venue, onClose }) {
+export default function BookingForm({ venue, initialData = {}, initialAmenities = {}, initialQuantities = {}, onClose }) {
   const router = useRouter();
   const { user, token } = useAuthStore();
   const [submitting, setSubmitting] = useState(false);
   const [showQuotation, setShowQuotation] = useState(false);
   const quotationRef = useRef(null);
   
-  // Form state
+  // Form state - Initialize with passed data
   const [formData, setFormData] = useState({
     bookingType: '',
-    bookingDate: '',
-    startTime: '',
-    endTime: '',
-    isWeekend: false,
+    bookingDate: initialData.date || '',
+    startTime: initialData.startTime || '',
+    endTime: initialData.endTime || '',
+    isWeekend: initialData.date ? (new Date(initialData.date).getDay() === 0 || new Date(initialData.date).getDay() === 6) : false,
     customerName: user?.name || '',
     customerEmail: user?.email || '',
     customerPhone: user?.phone || '',
     eventType: '',
-    guestCount: '',
+    guestCount: initialData.guestCount || '',
     specialRequirements: '',
     acceptTerms: false
   });
 
-  // Selected amenities state with quantities
+  // Selected amenities state with quantities - Initialize with passed data
   const [selectedAmenities, setSelectedAmenities] = useState({
-    basic: [],
-    beverages: [],
-    refreshmentFood: [],
-    lunchThalis: [],
+    basic: initialAmenities.basic || [],
+    beverages: initialAmenities.beverages || [],
+    refreshmentFood: initialAmenities.refreshmentFood || [],
+    lunchThalis: initialAmenities.lunchThalis || [],
     additional: []
   });
 
-  // Quantities for items
-  const [quantities, setQuantities] = useState({});
+  // Quantities for items - Initialize with passed data
+  const [quantities, setQuantities] = useState(initialQuantities);
 
   const [calculatedPrice, setCalculatedPrice] = useState({
     basePrice: 0,
