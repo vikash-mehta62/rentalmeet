@@ -55,7 +55,7 @@ export default function FacilitiesSection() {
   ];
 
   return (
-    <section className="py-16 px-4 sm:px-6 bg-[#FAFAFA]">
+    <section className="py-16 px-4 sm:px-6 bg-gray-50">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
@@ -75,11 +75,11 @@ export default function FacilitiesSection() {
             return (
               <div
                 key={index}
-                className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100"
+                className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100 text-center"
               >
                 {/* Icon */}
-                <div className="w-14 h-14 bg-[#FFF5E6] rounded-lg flex items-center justify-center mb-4">
-                  <Icon className="w-7 h-7 text-[#F89D09]" />
+                <div className="w-14 h-14 bg-primary-50 rounded-lg flex items-center justify-center mb-4 mx-auto">
+                  <Icon className="w-7 h-7 text-primary-500" />
                 </div>
 
                 {/* Title */}
@@ -88,19 +88,9 @@ export default function FacilitiesSection() {
                 </h3>
 
                 {/* Description */}
-                <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+                <p className="text-sm text-gray-600 leading-relaxed">
                   {facility.description}
                 </p>
-
-                {/* Includes */}
-                <div className="pt-4 border-t border-gray-100">
-                  <p className="text-xs font-bold text-[#F89D09] uppercase tracking-wider mb-2">
-                    INCLUDES
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    {facility.includes.join(' • ')}
-                  </p>
-                </div>
               </div>
             );
           })}
@@ -109,3 +99,4 @@ export default function FacilitiesSection() {
     </section>
   );
 }
+

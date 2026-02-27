@@ -20,16 +20,16 @@ export default function HeroSection() {
       </div>
 
       {/* Content */}
-      <div className="relative h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center text-center">
+      <div className="relative h-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center text-center">
         {/* Main Heading */}
-        <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight" style={{ fontFamily: 'Georgia, serif' }}>
+        <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight max-w-4xl" style={{ fontFamily: 'Georgia, serif' }}>
           Book Your Perfect Space
           <br />
-          <span className="text-[#FFA500]">With RentalMeet</span>
+          <span className="text-primary-500">With RentalMeet</span>
         </h1>
 
         {/* Description */}
-        <p className="text-white/90 text-base md:text-lg max-w-3xl mb-8 leading-relaxed px-4">
+        <p className="text-white/90 text-base md:text-lg max-w-2xl mb-8 leading-relaxed px-4">
           Premium meeting spaces and event venues for 1-1000 persons, fully equipped with world-class facilities. 
           Book by the hour and experience premium hospitality.
         </p>
@@ -37,7 +37,7 @@ export default function HeroSection() {
         {/* CTA Button */}
         <Link 
           href="/venues"
-          className="inline-flex items-center gap-2 bg-[#FFA500] hover:bg-[#FF8C00] text-white font-semibold px-8 py-3 rounded-md transition-all duration-300 transform hover:scale-105"
+          className="inline-flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white font-semibold px-8 py-3 rounded-md transition-all duration-300 transform hover:scale-105"
         >
           Browse Venues
           <svg 
@@ -58,3 +58,4 @@ export default function HeroSection() {
     </section>
   );
 }
+

@@ -31,7 +31,7 @@ export default function Footer() {
           {/* Company Info */}
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 bg-[#F89D09] rounded flex items-center justify-center">
+              <div className="w-8 h-8 bg-[#F59F0A] rounded flex items-center justify-center">
                 <span className="text-white font-bold text-lg">📋</span>
               </div>
               <h3 className="text-xl font-bold text-gray-900">RentalMeet</h3>
@@ -49,7 +49,7 @@ export default function Footer() {
                 <li key={item.name}>
                   <Link 
                     href={item.href}
-                    className="text-sm text-gray-600 hover:text-[#F89D09] transition-colors"
+                    className="text-sm text-gray-600 hover:text-[#F59F0A] transition-colors"
                   >
                     {item.name}
                   </Link>
@@ -66,7 +66,7 @@ export default function Footer() {
                 <li key={item.name}>
                   <Link 
                     href={item.href}
-                    className="text-sm text-gray-600 hover:text-[#F89D09] transition-colors"
+                    className="text-sm text-gray-600 hover:text-[#F59F0A] transition-colors"
                   >
                     {item.name}
                   </Link>
@@ -80,25 +80,25 @@ export default function Footer() {
             <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Contact Us</h4>
             <ul className="space-y-3">
               <li className="flex items-start gap-2">
-                <MapPin className="w-4 h-4 text-[#F89D09] flex-shrink-0 mt-0.5" />
+                <MapPin className="w-4 h-4 text-[#F59F0A] flex-shrink-0 mt-0.5" />
                 <span className="text-sm text-gray-600">
                   G-137, Gautam Nagar, Near Chokak Bridge, Bhopal
                 </span>
               </li>
               <li className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-[#F89D09] flex-shrink-0" />
-                <a href="tel:+918423796767" className="text-sm text-gray-600 hover:text-[#F89D09] transition-colors">
+                <Phone className="w-4 h-4 text-[#F59F0A] flex-shrink-0" />
+                <a href="tel:+918423796767" className="text-sm text-gray-600 hover:text-[#F59F0A] transition-colors">
                   +91 8423796767
                 </a>
               </li>
               <li className="flex items-center gap-2">
-                <Mail className="w-4 h-4 text-[#F89D09] flex-shrink-0" />
-                <a href="mailto:booking@rentalmeet.in" className="text-sm text-gray-600 hover:text-[#F89D09] transition-colors">
+                <Mail className="w-4 h-4 text-[#F59F0A] flex-shrink-0" />
+                <a href="mailto:booking@rentalmeet.in" className="text-sm text-gray-600 hover:text-[#F59F0A] transition-colors">
                   booking@rentalmeet.in
                 </a>
               </li>
               <li className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-[#F89D09] flex-shrink-0" />
+                <Clock className="w-4 h-4 text-[#F59F0A] flex-shrink-0" />
                 <span className="text-sm text-gray-600">24/7 Available</span>
               </li>
             </ul>
@@ -112,10 +112,10 @@ export default function Footer() {
               © {currentYear} RentalMeet. All rights reserved.
             </p>
             <div className="flex gap-6">
-              <Link href="/privacy" className="text-sm text-gray-500 hover:text-[#F89D09] transition-colors">
+              <Link href="/privacy" className="text-sm text-gray-500 hover:text-[#F59F0A] transition-colors">
                 Privacy Policy
               </Link>
-              <Link href="/terms" className="text-sm text-gray-500 hover:text-[#F89D09] transition-colors">
+              <Link href="/terms" className="text-sm text-gray-500 hover:text-[#F59F0A] transition-colors">
                 Terms of Service
               </Link>
             </div>
@@ -125,3 +125,4 @@ export default function Footer() {
     </footer>
   );
 }
+

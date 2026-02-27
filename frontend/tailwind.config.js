@@ -9,16 +9,16 @@ module.exports = {
     extend: {
       colors: {
         primary: {
-          50: '#FFF8E6',
-          100: '#FFF3D6',
-          200: '#FFE7AD',
-          300: '#FFDB85',
-          400: '#FFCF5C',
-          500: '#F4A000', // Main Orange
-          600: '#D98E00', // Hover Orange
-          700: '#B37600',
-          800: '#8C5E00',
-          900: '#664600',
+          50: '#FFFBEB',
+          100: '#FEF3C7',
+          200: '#FDE68A',
+          300: '#FCD34D',
+          400: '#FBBF24',
+          500: '#F59F0A', // Main Orange - Updated
+          600: '#D97706', // Hover Orange - Updated
+          700: '#B45309',
+          800: '#92400E',
+          900: '#78350F',
         },
         dark: {
           50: '#F8F9FB',

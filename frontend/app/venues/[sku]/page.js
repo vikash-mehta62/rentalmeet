@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Building2, MapPin, Users, Clock, Calendar,
@@ -11,9 +11,13 @@ import {
 } from 'lucide-react';
 import BookingForm from '@/components/booking/BookingForm';
 import Navbar from '@/components/Navbar';
+import { useAuthStore } from '@/lib/store';
+import toast from 'react-hot-toast';
 
 export default function VenueDetail() {
   const params = useParams();
+  const router = useRouter();
+  const { token } = useAuthStore();
   const [venue, setVenue] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -26,8 +30,7 @@ export default function VenueDetail() {
   const [quickBooking, setQuickBooking] = useState({
     date: '',
     startTime: '',
-    endTime: '',
-    guestCount: ''
+    duration: '2' // Default 2 hours
   });
 
   // Selected amenities state
@@ -46,6 +49,48 @@ export default function VenueDetail() {
       fetchVenue();
     }
   }, [params.sku]);
+
+  // Check for pending booking after login
+  useEffect(() => {
+    const checkPendingBooking = () => {
+      const pendingBookingStr = localStorage.getItem('pendingBooking');
+      if (pendingBookingStr && venue) {
+        try {
+          const pendingBooking = JSON.parse(pendingBookingStr);
+          
+          // Check if this is the same venue
+          if (pendingBooking.venueSku === params.sku) {
+            // Restore booking data
+            if (pendingBooking.quickBooking) {
+              setQuickBooking(pendingBooking.quickBooking);
+            }
+            if (pendingBooking.selectedAmenities) {
+              setSelectedAmenities(pendingBooking.selectedAmenities);
+            }
+            if (pendingBooking.quantities) {
+              setQuantities(pendingBooking.quantities);
+            }
+            
+            // Open booking form automatically if flag is set
+            if (pendingBooking.shouldOpenModal) {
+              setBookingFormOpen(true);
+            }
+            
+            toast.success('Welcome back! Continue your booking');
+            
+            // Clear pending booking after restoring
+            localStorage.removeItem('pendingBooking');
+          }
+        } catch (error) {
+          console.error('Error restoring pending booking:', error);
+        }
+      }
+    };
+
+    if (venue) {
+      checkPendingBooking();
+    }
+  }, [venue, params.sku]);
 
   const fetchVenue = async () => {
     try {
@@ -160,6 +205,91 @@ export default function VenueDetail() {
     const qty = parseInt(value) || 0;
     setQuantities(prev => ({ ...prev, [key]: qty }));
   };
+
+  // Handle Book Now button click
+  const handleBookNowClick = () => {
+    if (!token) {
+      // Save current booking state to localStorage
+      const pendingBooking = {
+        venueId: venue._id,
+        venueSku: venue.sku,
+        venueName: venue.businessName,
+        quickBooking: quickBooking,
+        selectedAmenities: selectedAmenities,
+        quantities: quantities,
+        shouldOpenModal: true, // Flag to open modal after login
+        timestamp: new Date().toISOString()
+      };
+      
+      localStorage.setItem('pendingBooking', JSON.stringify(pendingBooking));
+      toast.success('Please login to continue booking');
+      router.push(`/login?redirect=/venues/${venue.sku}`);
+      return;
+    }
+    
+    // User is logged in, open booking form
+    setBookingFormOpen(true);
+  };
+
+  // Calculate estimate price
+  const calculateEstimate = () => {
+    if (!venue?.pricing || !quickBooking.duration) return 0;
+    
+    // Calculate base price
+    const duration = parseInt(quickBooking.duration);
+    let basePrice = 0;
+    
+    if (duration === 1 || duration === 2) {
+      basePrice = (venue.pricing.perHour?.weekday || 0) * duration;
+    } else if (duration === 4) {
+      basePrice = venue.pricing.halfDay?.weekday || 0;
+    } else if (duration === 8) {
+      basePrice = venue.pricing.fullDay?.weekday || 0;
+    }
+    
+    // Calculate amenities total
+    let amenitiesTotal = 0;
+    
+    // Basic amenities
+    selectedAmenities.basic.forEach(amenity => {
+      if (amenity.type === 'Paid') {
+        if (amenity.rateType === 'Per Use') {
+          const qty = quantities[`basic_${amenity.name}`] || 0;
+          amenitiesTotal += (amenity.rate || 0) * qty;
+        } else {
+          amenitiesTotal += amenity.rate || 0;
+        }
+      }
+    });
+    
+    // Beverages
+    selectedAmenities.beverages.forEach(beverage => {
+      const qty = quantities[`beverage_${beverage.name}`] || 0;
+      amenitiesTotal += (beverage.ratePerUnit || 0) * qty;
+    });
+    
+    // Refreshment Food
+    selectedAmenities.refreshmentFood.forEach(food => {
+      const qty = quantities[`food_${food.name}`] || 0;
+      amenitiesTotal += (food.ratePerPlate || 0) * qty;
+    });
+    
+    // Lunch Thalis
+    selectedAmenities.lunchThalis.forEach(thali => {
+      const qty = quantities[`thali_${thali.type}`] || 0;
+      amenitiesTotal += (thali.ratePerPlate || 0) * qty;
+    });
+    
+    const total = basePrice + amenitiesTotal;
+    
+    return {
+      basePrice,
+      amenitiesTotal,
+      total
+    };
+  };
+
+  const estimate = calculateEstimate();
 
   if (loading) {
     return (
@@ -571,96 +701,125 @@ export default function VenueDetail() {
               </p>
             </div>
 
-            {/* Pricing */}
-            {venue.pricing && (
-              <div className="bg-white rounded-2xl shadow-soft border border-gray-100 p-6">
-                <h2 className="text-2xl font-bold text-dark-800 mb-4">Pricing</h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-3 px-4">Period</th>
-                        <th className="text-left py-3 px-4">Weekday</th>
-                        <th className="text-left py-3 px-4">Weekend</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {venue.pricing.perHour && (
-                        <tr>
-                          <td className="py-3 px-4 font-medium">Per Hour</td>
-                          <td className="py-3 px-4">₹{venue.pricing.perHour.weekday?.toLocaleString()}</td>
-                          <td className="py-3 px-4">₹{venue.pricing.perHour.weekend?.toLocaleString()}</td>
-                        </tr>
-                      )}
-                      {venue.pricing.halfDay && (
-                        <tr>
-                          <td className="py-3 px-4 font-medium">Half Day (4 hrs)</td>
-                          <td className="py-3 px-4">₹{venue.pricing.halfDay.weekday?.toLocaleString()}</td>
-                          <td className="py-3 px-4">₹{venue.pricing.halfDay.weekend?.toLocaleString()}</td>
-                        </tr>
-                      )}
-                      {venue.pricing.fullDay && (
-                        <tr>
-                          <td className="py-3 px-4 font-medium">Full Day (8 hrs)</td>
-                          <td className="py-3 px-4">₹{venue.pricing.fullDay.weekday?.toLocaleString()}</td>
-                          <td className="py-3 px-4">₹{venue.pricing.fullDay.weekend?.toLocaleString()}</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
             {/* Amenities - Interactive Selection */}
             <div className="bg-white rounded-2xl shadow-soft border border-gray-100 p-6">
               <h2 className="text-2xl font-bold text-dark-800 mb-6">Select Amenities & Services</h2>
               
               {/* Basic Amenities */}
               {venue.amenities?.basic?.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-dark-700 mb-3 flex items-center gap-2">
-                    <Wifi className="w-5 h-5 text-primary-500" />
+                <div className="mb-5">
+                  <h3 className="text-base font-semibold text-dark-700 mb-2 flex items-center gap-2">
+                    <Wifi className="w-4 h-4 text-primary-500" />
                     Basic Amenities
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {venue.amenities.basic.filter(a => a.available).map((amenity, idx) => (
-                      <label
-                        key={idx}
-                        className={`flex items-center justify-between p-3 border-2 rounded-lg cursor-pointer transition-all ${
-                          isAmenitySelected('basic', amenity.name)
-                            ? 'border-primary-500 bg-primary-50'
-                            : 'border-gray-200 hover:border-primary-300'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            checked={isAmenitySelected('basic', amenity.name)}
-                            onChange={() => toggleAmenity('basic', amenity)}
-                            className="w-5 h-5 rounded border-2 border-gray-300 text-primary-500 focus:ring-2 focus:ring-primary-500 cursor-pointer"
-                          />
-                          <span className="font-medium text-sm">{amenity.name}</span>
-                        </div>
-                        {amenity.type === 'Paid' ? (
-                          <span className="text-sm font-semibold text-orange-600">₹{amenity.rate}</span>
-                        ) : (
-                          <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded-full font-semibold">Free</span>
-                        )}
-                      </label>
-                    ))}
-                  </div>
+                  
+                  {/* Included (Free) Amenities - Display only, no selection */}
+                  {venue.amenities.basic.filter(a => a.available && (a.type === 'Free' || a.type === 'Included')).length > 0 && (
+                    <>
+                      <p className="text-xs font-semibold text-green-700 mb-2 bg-green-50 px-2 py-1 rounded inline-block">Included</p>
+                      <div className="grid grid-cols-2 gap-2 mb-4">
+                        {venue.amenities.basic.filter(a => a.available && (a.type === 'Free' || a.type === 'Included')).map((amenity, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between p-2 border-2 border-green-200 bg-green-50 rounded-lg"
+                          >
+                            <div className="flex items-center gap-2">
+                              <CheckCircle2 className="w-4 h-4 text-green-600" />
+                              <span className="font-medium text-xs text-green-800">{amenity.name}</span>
+                            </div>
+                            <span className="text-xs font-semibold text-green-600 bg-green-100 px-2 py-0.5 rounded">Free</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  
+                  {/* Paid Amenities - Selectable */}
+                  {venue.amenities.basic.filter(a => a.available && a.type === 'Paid').length > 0 && (
+                    <>
+                      <p className="text-xs font-semibold text-orange-700 mb-2 bg-orange-50 px-2 py-1 rounded inline-block">Paid</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {venue.amenities.basic.filter(a => a.available && a.type === 'Paid').map((amenity, idx) => {
+                          const key = `basic_${amenity.name}`;
+                          const qty = quantities[key] || 0;
+                          const isSelected = isAmenitySelected('basic', amenity.name);
+                          const isPerUse = amenity.rateType === 'Per Use';
+                          
+                          return (
+                            <div
+                              key={idx}
+                              className={`p-2 border-2 rounded-lg transition-all ${
+                                isSelected ? 'border-primary-500 bg-primary-50' : 'border-gray-200'
+                              }`}
+                            >
+                              <label className="flex items-center gap-2 cursor-pointer mb-2">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => toggleAmenity('basic', amenity)}
+                                  className="w-4 h-4 rounded border-2 border-gray-300 text-primary-500 focus:ring-2 focus:ring-primary-500 cursor-pointer"
+                                />
+                                <div className="flex-1">
+                                  <span className="font-medium text-xs block">{amenity.name}</span>
+                                  <span className="text-xs text-gray-500">₹{amenity.rate} {amenity.rateType || 'Fixed'}</span>
+                                </div>
+                                {!isPerUse && (
+                                  <span className="text-xs font-semibold text-primary-600">₹{amenity.rate}</span>
+                                )}
+                              </label>
+                              
+                              {isPerUse && (
+                                <div className="flex items-center gap-1 ml-6">
+                                  <button
+                                    type="button"
+                                    onClick={() => isSelected && updateQuantity(key, Math.max(0, qty - 1))}
+                                    disabled={!isSelected}
+                                    className={`w-6 h-6 rounded border border-gray-300 flex items-center justify-center text-xs font-bold ${
+                                      isSelected ? 'hover:border-primary-500 hover:bg-primary-50 cursor-pointer' : 'opacity-50 cursor-not-allowed'
+                                    }`}
+                                  >
+                                    -
+                                  </button>
+                                  <input
+                                    type="number"
+                                    value={qty}
+                                    onChange={(e) => isSelected && updateQuantity(key, parseInt(e.target.value) || 0)}
+                                    disabled={!isSelected}
+                                    className={`w-12 h-6 text-center border border-gray-300 rounded text-xs ${
+                                      !isSelected ? 'bg-gray-100 cursor-not-allowed' : ''
+                                    }`}
+                                    min="0"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => isSelected && updateQuantity(key, qty + 1)}
+                                    disabled={!isSelected}
+                                    className={`w-6 h-6 rounded border border-gray-300 flex items-center justify-center text-xs font-bold ${
+                                      isSelected ? 'hover:border-primary-500 hover:bg-primary-50 cursor-pointer' : 'opacity-50 cursor-not-allowed'
+                                    }`}
+                                  >
+                                    +
+                                  </button>
+                                  <span className="text-xs font-semibold text-primary-600 ml-1">₹{((amenity.rate || 0) * qty).toLocaleString()}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
               {/* Beverages */}
               {venue.amenities?.beverages?.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-dark-700 mb-3 flex items-center gap-2">
-                    <Coffee className="w-5 h-5 text-primary-500" />
+                <div className="mb-5">
+                  <h3 className="text-base font-semibold text-dark-700 mb-2 flex items-center gap-2">
+                    <Coffee className="w-4 h-4 text-primary-500" />
                     Beverages
                   </h3>
-                  <div className="grid grid-cols-1 gap-3">
+                  <div className="grid grid-cols-2 gap-2">
                     {venue.amenities.beverages.filter(b => b.available && b.name).map((beverage, idx) => {
                       const key = `beverage_${beverage.name}`;
                       const qty = quantities[key] || 0;
@@ -669,57 +828,56 @@ export default function VenueDetail() {
                       return (
                         <div
                           key={idx}
-                          className={`p-4 border-2 rounded-lg transition-all ${
+                          className={`p-2 border-2 rounded-lg transition-all ${
                             isSelected ? 'border-primary-500 bg-primary-50' : 'border-gray-200'
                           }`}
                         >
-                          <div className="flex items-start justify-between mb-3">
-                            <label className="flex items-center gap-3 cursor-pointer flex-1">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => toggleAmenity('beverages', beverage)}
-                                className="w-5 h-5 rounded border-2 border-gray-300 text-primary-500 focus:ring-2 focus:ring-primary-500 cursor-pointer"
-                              />
-                              <div>
-                                <span className="font-medium text-sm block">{beverage.name}</span>
-                                <span className="text-xs text-gray-500">₹{beverage.ratePerUnit}/person</span>
-                              </div>
-                            </label>
-                            <span className="text-sm font-semibold text-orange-600">
-                              ₹{((beverage.ratePerUnit || 0) * qty).toLocaleString()}
-                            </span>
-                          </div>
-                          
-                          {isSelected && (
-                            <div className="flex items-center gap-3 ml-8">
-                              <label className="text-xs font-medium text-gray-600">Quantity:</label>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => updateQuantity(key, Math.max(0, qty - 1))}
-                                  className="w-8 h-8 rounded-lg border-2 border-gray-300 hover:border-primary-500 hover:bg-primary-50 flex items-center justify-center font-bold"
-                                >
-                                  -
-                                </button>
-                                <input
-                                  type="number"
-                                  value={qty}
-                                  onChange={(e) => updateQuantity(key, e.target.value)}
-                                  min="0"
-                                  className="w-20 px-3 py-2 border-2 border-gray-300 rounded-lg text-center font-semibold focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => updateQuantity(key, qty + 1)}
-                                  className="w-8 h-8 rounded-lg border-2 border-gray-300 hover:border-primary-500 hover:bg-primary-50 flex items-center justify-center font-bold"
-                                >
-                                  +
-                                </button>
-                              </div>
-                              <span className="text-xs text-gray-500">persons</span>
+                          <label className="flex items-center gap-2 cursor-pointer mb-2">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleAmenity('beverages', beverage)}
+                              className="w-4 h-4 rounded border-2 border-gray-300 text-primary-500 focus:ring-2 focus:ring-primary-500 cursor-pointer"
+                            />
+                            <div className="flex-1">
+                              <span className="font-medium text-xs block">{beverage.name}</span>
+                              <span className="text-xs text-gray-500">₹{beverage.ratePerUnit}/person</span>
                             </div>
-                          )}
+                          </label>
+                          
+                          <div className="flex items-center gap-1 ml-6">
+                            <button
+                              type="button"
+                              onClick={() => isSelected && updateQuantity(key, Math.max(0, qty - 1))}
+                              disabled={!isSelected}
+                              className={`w-6 h-6 rounded border border-gray-300 flex items-center justify-center text-xs font-bold ${
+                                isSelected ? 'hover:border-primary-500 hover:bg-primary-50 cursor-pointer' : 'opacity-50 cursor-not-allowed'
+                              }`}
+                            >
+                              -
+                            </button>
+                            <input
+                              type="number"
+                              value={qty}
+                              onChange={(e) => isSelected && updateQuantity(key, parseInt(e.target.value) || 0)}
+                              disabled={!isSelected}
+                              className={`w-12 h-6 text-center border border-gray-300 rounded text-xs ${
+                                !isSelected ? 'bg-gray-100 cursor-not-allowed' : ''
+                              }`}
+                              min="0"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => isSelected && updateQuantity(key, qty + 1)}
+                              disabled={!isSelected}
+                              className={`w-6 h-6 rounded border border-gray-300 flex items-center justify-center text-xs font-bold ${
+                                isSelected ? 'hover:border-primary-500 hover:bg-primary-50 cursor-pointer' : 'opacity-50 cursor-not-allowed'
+                              }`}
+                            >
+                              +
+                            </button>
+                            <span className="text-xs font-semibold text-primary-600 ml-1">₹{((beverage.ratePerUnit || 0) * qty).toLocaleString()}</span>
+                          </div>
                         </div>
                       );
                     })}
@@ -729,12 +887,12 @@ export default function VenueDetail() {
 
               {/* Refreshment Food */}
               {venue.amenities?.refreshmentFood?.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-dark-700 mb-3 flex items-center gap-2">
-                    <Utensils className="w-5 h-5 text-primary-500" />
+                <div className="mb-5">
+                  <h3 className="text-base font-semibold text-dark-700 mb-2 flex items-center gap-2">
+                    <Utensils className="w-4 h-4 text-primary-500" />
                     Refreshments & Snacks
                   </h3>
-                  <div className="grid grid-cols-1 gap-3">
+                  <div className="grid grid-cols-2 gap-2">
                     {venue.amenities.refreshmentFood.filter(f => f.available).map((food, idx) => {
                       const key = `food_${food.name}`;
                       const qty = quantities[key] || 0;
@@ -743,55 +901,47 @@ export default function VenueDetail() {
                       return (
                         <div
                           key={idx}
-                          className={`p-4 border-2 rounded-lg transition-all ${
+                          className={`p-2 border-2 rounded-lg transition-all ${
                             isSelected ? 'border-primary-500 bg-primary-50' : 'border-gray-200'
                           }`}
                         >
-                          <div className="flex items-start justify-between mb-3">
-                            <label className="flex items-center gap-3 cursor-pointer flex-1">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => toggleAmenity('refreshmentFood', food)}
-                                className="w-5 h-5 rounded border-2 border-gray-300 text-primary-500 focus:ring-2 focus:ring-primary-500 cursor-pointer"
-                              />
-                              <div>
-                                <span className="font-medium text-sm block">{food.name}</span>
-                                <span className="text-xs text-gray-500">₹{food.ratePerPlate}/plate</span>
-                              </div>
-                            </label>
-                            <span className="text-sm font-semibold text-orange-600">
-                              ₹{((food.ratePerPlate || 0) * qty).toLocaleString()}
-                            </span>
-                          </div>
+                          <label className="flex items-center gap-2 cursor-pointer mb-2">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleAmenity('refreshmentFood', food)}
+                              className="w-4 h-4 rounded border-2 border-gray-300 text-primary-500 focus:ring-2 focus:ring-primary-500 cursor-pointer"
+                            />
+                            <div className="flex-1">
+                              <span className="font-medium text-xs block">{food.name}</span>
+                              <span className="text-xs text-gray-500">₹{food.ratePerPlate}/plate</span>
+                            </div>
+                          </label>
                           
                           {isSelected && (
-                            <div className="flex items-center gap-3 ml-8">
-                              <label className="text-xs font-medium text-gray-600">Quantity:</label>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => updateQuantity(key, Math.max(0, qty - 1))}
-                                  className="w-8 h-8 rounded-lg border-2 border-gray-300 hover:border-primary-500 hover:bg-primary-50 flex items-center justify-center font-bold"
-                                >
-                                  -
-                                </button>
-                                <input
-                                  type="number"
-                                  value={qty}
-                                  onChange={(e) => updateQuantity(key, e.target.value)}
-                                  min="0"
-                                  className="w-20 px-3 py-2 border-2 border-gray-300 rounded-lg text-center font-semibold focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => updateQuantity(key, qty + 1)}
-                                  className="w-8 h-8 rounded-lg border-2 border-gray-300 hover:border-primary-500 hover:bg-primary-50 flex items-center justify-center font-bold"
-                                >
-                                  +
-                                </button>
-                              </div>
-                              <span className="text-xs text-gray-500">plates</span>
+                            <div className="flex items-center gap-1 ml-6">
+                              <button
+                                type="button"
+                                onClick={() => updateQuantity(key, Math.max(0, qty - 1))}
+                                className="w-6 h-6 rounded border border-gray-300 hover:border-primary-500 hover:bg-primary-50 flex items-center justify-center text-xs font-bold"
+                              >
+                                -
+                              </button>
+                              <input
+                                type="number"
+                                value={qty}
+                                onChange={(e) => updateQuantity(key, parseInt(e.target.value) || 0)}
+                                className="w-12 h-6 text-center border border-gray-300 rounded text-xs"
+                                min="0"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => updateQuantity(key, qty + 1)}
+                                className="w-6 h-6 rounded border border-gray-300 hover:border-primary-500 hover:bg-primary-50 flex items-center justify-center text-xs font-bold"
+                              >
+                                +
+                              </button>
+                              <span className="text-xs font-semibold text-primary-600 ml-1">₹{((food.ratePerPlate || 0) * qty).toLocaleString()}</span>
                             </div>
                           )}
                         </div>
@@ -803,12 +953,12 @@ export default function VenueDetail() {
 
               {/* Lunch Thalis */}
               {venue.amenities?.lunchThalis?.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-dark-700 mb-3 flex items-center gap-2">
-                    <Utensils className="w-5 h-5 text-primary-500" />
+                <div className="mb-5">
+                  <h3 className="text-base font-semibold text-dark-700 mb-2 flex items-center gap-2">
+                    <Utensils className="w-4 h-4 text-primary-500" />
                     Lunch Thalis
                   </h3>
-                  <div className="grid grid-cols-1 gap-3">
+                  <div className="grid grid-cols-2 gap-2">
                     {venue.amenities.lunchThalis.filter(t => t.available).map((thali, idx) => {
                       const key = `thali_${thali.type}`;
                       const qty = quantities[key] || 0;
@@ -817,55 +967,47 @@ export default function VenueDetail() {
                       return (
                         <div
                           key={idx}
-                          className={`p-4 border-2 rounded-lg transition-all ${
+                          className={`p-2 border-2 rounded-lg transition-all ${
                             isSelected ? 'border-primary-500 bg-primary-50' : 'border-gray-200'
                           }`}
                         >
-                          <div className="flex items-start justify-between mb-3">
-                            <label className="flex items-center gap-3 cursor-pointer flex-1">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => toggleAmenity('lunchThalis', { ...thali, name: thali.type })}
-                                className="w-5 h-5 rounded border-2 border-gray-300 text-primary-500 focus:ring-2 focus:ring-primary-500 cursor-pointer"
-                              />
-                              <div>
-                                <span className="font-medium text-sm block">{thali.type}</span>
-                                <span className="text-xs text-gray-500">₹{thali.ratePerPlate}/plate • {thali.numberOfItems} items</span>
-                              </div>
-                            </label>
-                            <span className="text-sm font-semibold text-orange-600">
-                              ₹{((thali.ratePerPlate || 0) * qty).toLocaleString()}
-                            </span>
-                          </div>
+                          <label className="flex items-center gap-2 cursor-pointer mb-2">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleAmenity('lunchThalis', { ...thali, name: thali.type })}
+                              className="w-4 h-4 rounded border-2 border-gray-300 text-primary-500 focus:ring-2 focus:ring-primary-500 cursor-pointer"
+                            />
+                            <div className="flex-1">
+                              <span className="font-medium text-xs block">{thali.type}</span>
+                              <span className="text-xs text-gray-500">₹{thali.ratePerPlate}/plate</span>
+                            </div>
+                          </label>
                           
                           {isSelected && (
-                            <div className="flex items-center gap-3 ml-8">
-                              <label className="text-xs font-medium text-gray-600">Quantity:</label>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => updateQuantity(key, Math.max(0, qty - 1))}
-                                  className="w-8 h-8 rounded-lg border-2 border-gray-300 hover:border-primary-500 hover:bg-primary-50 flex items-center justify-center font-bold"
-                                >
-                                  -
-                                </button>
-                                <input
-                                  type="number"
-                                  value={qty}
-                                  onChange={(e) => updateQuantity(key, e.target.value)}
-                                  min="0"
-                                  className="w-20 px-3 py-2 border-2 border-gray-300 rounded-lg text-center font-semibold focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => updateQuantity(key, qty + 1)}
-                                  className="w-8 h-8 rounded-lg border-2 border-gray-300 hover:border-primary-500 hover:bg-primary-50 flex items-center justify-center font-bold"
-                                >
-                                  +
-                                </button>
-                              </div>
-                              <span className="text-xs text-gray-500">plates</span>
+                            <div className="flex items-center gap-1 ml-6">
+                              <button
+                                type="button"
+                                onClick={() => updateQuantity(key, Math.max(0, qty - 1))}
+                                className="w-6 h-6 rounded border border-gray-300 hover:border-primary-500 hover:bg-primary-50 flex items-center justify-center text-xs font-bold"
+                              >
+                                -
+                              </button>
+                              <input
+                                type="number"
+                                value={qty}
+                                onChange={(e) => updateQuantity(key, parseInt(e.target.value) || 0)}
+                                className="w-12 h-6 text-center border border-gray-300 rounded text-xs"
+                                min="0"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => updateQuantity(key, qty + 1)}
+                                className="w-6 h-6 rounded border border-gray-300 hover:border-primary-500 hover:bg-primary-50 flex items-center justify-center text-xs font-bold"
+                              >
+                                +
+                              </button>
+                              <span className="text-xs font-semibold text-primary-600 ml-1">₹{((thali.ratePerPlate || 0) * qty).toLocaleString()}</span>
                             </div>
                           )}
                         </div>
@@ -926,11 +1068,75 @@ export default function VenueDetail() {
                 )}
               </div>
             </div>
+
+            {/* Pricing - Card Format - Moved to bottom */}
+            {venue.pricing && (
+              <div className="bg-white rounded-2xl shadow-soft border border-gray-100 p-6">
+                <h2 className="text-2xl font-bold text-dark-800 mb-4">Pricing (Weekday)</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* 1 Hour Card */}
+                  {venue.pricing.perHour && (
+                    <div 
+                      onClick={() => setQuickBooking(prev => ({ ...prev, duration: '1' }))}
+                      className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${
+                        quickBooking.duration === '1' 
+                          ? 'border-primary-500 bg-primary-50' 
+                          : 'border-gray-200 hover:border-primary-300'
+                      }`}
+                    >
+                      <div className="text-center">
+                        <Clock className="w-8 h-8 mx-auto mb-2 text-primary-500" />
+                        <h3 className="font-bold text-lg mb-1">1 Hour</h3>
+                        <p className="text-2xl font-bold text-primary-600">₹{venue.pricing.perHour.weekday?.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* 4 Hours Card */}
+                  {venue.pricing.halfDay && (
+                    <div 
+                      onClick={() => setQuickBooking(prev => ({ ...prev, duration: '4' }))}
+                      className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${
+                        quickBooking.duration === '4' 
+                          ? 'border-primary-500 bg-primary-50' 
+                          : 'border-gray-200 hover:border-primary-300'
+                      }`}
+                    >
+                      <div className="text-center">
+                        <Clock className="w-8 h-8 mx-auto mb-2 text-primary-500" />
+                        <h3 className="font-bold text-lg mb-1">4 Hours</h3>
+                        <p className="text-sm text-gray-500 mb-1">Half Day</p>
+                        <p className="text-2xl font-bold text-primary-600">₹{venue.pricing.halfDay.weekday?.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* 8 Hours Card */}
+                  {venue.pricing.fullDay && (
+                    <div 
+                      onClick={() => setQuickBooking(prev => ({ ...prev, duration: '8' }))}
+                      className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${
+                        quickBooking.duration === '8' 
+                          ? 'border-primary-500 bg-primary-50' 
+                          : 'border-gray-200 hover:border-primary-300'
+                      }`}
+                    >
+                      <div className="text-center">
+                        <Calendar className="w-8 h-8 mx-auto mb-2 text-primary-500" />
+                        <h3 className="font-bold text-lg mb-1">Full Day</h3>
+                        <p className="text-sm text-gray-500 mb-1">8 hours</p>
+                        <p className="text-2xl font-bold text-primary-600">₹{venue.pricing.fullDay.weekday?.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Sidebar */}
           <div className="lg:col-span-1">
-            <div className="sticky top-24 space-y-6">
+            <div className="sticky top-24 space-y-6 max-h-[calc(100vh-7rem)] overflow-y-auto pr-2">
               {/* Booking Card with Inline Form */}
               <div className="bg-gradient-to-br from-primary-50 to-orange-50 rounded-2xl shadow-lg border-2 border-primary-200 p-6">
                 <div className="text-center mb-6">
@@ -954,43 +1160,90 @@ export default function VenueDetail() {
                     />
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-2">Start Time</label>
-                      <input
-                        type="time"
-                        value={quickBooking.startTime}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                        onChange={(e) => setQuickBooking(prev => ({ ...prev, startTime: e.target.value }))}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-2">End Time</label>
-                      <input
-                        type="time"
-                        value={quickBooking.endTime}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                        onChange={(e) => setQuickBooking(prev => ({ ...prev, endTime: e.target.value }))}
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-2">Start Time</label>
+                    <select
+                      value={quickBooking.startTime}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white"
+                      onChange={(e) => setQuickBooking(prev => ({ ...prev, startTime: e.target.value }))}
+                    >
+                      <option value="">Select start time</option>
+                      <option value="09:00">09:00 AM</option>
+                      <option value="09:30">09:30 AM</option>
+                      <option value="10:00">10:00 AM</option>
+                      <option value="10:30">10:30 AM</option>
+                      <option value="11:00">11:00 AM</option>
+                      <option value="11:30">11:30 AM</option>
+                      <option value="12:00">12:00 PM</option>
+                      <option value="12:30">12:30 PM</option>
+                      <option value="13:00">01:00 PM</option>
+                      <option value="13:30">01:30 PM</option>
+                      <option value="14:00">02:00 PM</option>
+                      <option value="14:30">02:30 PM</option>
+                      <option value="15:00">03:00 PM</option>
+                      <option value="15:30">03:30 PM</option>
+                      <option value="16:00">04:00 PM</option>
+                      <option value="16:30">04:30 PM</option>
+                      <option value="17:00">05:00 PM</option>
+                      <option value="17:30">05:30 PM</option>
+                      <option value="18:00">06:00 PM</option>
+                      <option value="18:30">06:30 PM</option>
+                      <option value="19:00">07:00 PM</option>
+                      <option value="19:30">07:30 PM</option>
+                      <option value="20:00">08:00 PM</option>
+                      <option value="20:30">08:30 PM</option>
+                      <option value="21:00">09:00 PM</option>
+                      <option value="21:30">09:30 PM</option>
+                      <option value="22:00">10:00 PM</option>
+                    </select>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-2">Guest Count</label>
-                    <input
-                      type="number"
-                      value={quickBooking.guestCount}
-                      min="1"
-                      max={venue.capacity?.split('-')[1] || 100}
-                      placeholder="Number of guests"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                      onChange={(e) => setQuickBooking(prev => ({ ...prev, guestCount: e.target.value }))}
-                    />
+                    <label className="block text-xs font-semibold text-gray-700 mb-2">Duration</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {['1', '2', '4', '8'].map((hours) => (
+                        <button
+                          key={hours}
+                          type="button"
+                          onClick={() => setQuickBooking(prev => ({ ...prev, duration: hours }))}
+                          className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
+                            quickBooking.duration === hours
+                              ? 'bg-primary-500 text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          {hours === '8' ? 'Full Day' : `${hours} Hour${hours > '1' ? 's' : ''}`}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
+                {/* Estimate Breakdown */}
+                {estimate.total > 0 && (
+                  <div className="bg-white rounded-xl p-4 mb-4 border-2 border-primary-200">
+                    <h3 className="text-sm font-bold text-gray-800 mb-3">Booking Estimate</h3>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between text-gray-600">
+                        <span>Base Price ({quickBooking.duration}h):</span>
+                        <span className="font-semibold">₹{estimate.basePrice.toLocaleString()}</span>
+                      </div>
+                      {estimate.amenitiesTotal > 0 && (
+                        <div className="flex justify-between text-gray-600">
+                          <span>Amenities & Services:</span>
+                          <span className="font-semibold">₹{estimate.amenitiesTotal.toLocaleString()}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center pt-2 border-t-2 border-primary-300">
+                        <span className="font-bold text-gray-800">Total Amount:</span>
+                        <span className="text-xl font-bold text-primary-600">₹{estimate.total.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <button 
-                  onClick={() => setBookingFormOpen(true)}
+                  onClick={handleBookNowClick}
                   className="w-full bg-primary-500 hover:bg-primary-600 text-white py-4 rounded-xl text-lg font-bold shadow-lg hover:shadow-xl transition-all mb-4"
                 >
                   Book Now
@@ -1011,23 +1264,6 @@ export default function VenueDetail() {
                   </div>
                 </div>
               </div>
-
-              {/* Owner Contact */}
-              {venue.ownerInfo && (
-                <div className="bg-white rounded-2xl shadow-soft border border-gray-100 p-6">
-                  <h3 className="text-lg font-bold text-dark-800 mb-4">Contact Owner</h3>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <Phone className="w-5 h-5 text-primary-500" />
-                      <span>{venue.ownerInfo.mobile}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <Mail className="w-5 h-5 text-primary-500" />
-                      <span>{venue.ownerInfo.email}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Share */}
               <button className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-primary-500 text-primary-500 rounded-xl font-semibold hover:bg-primary-50 transition-colors">

@@ -240,7 +240,8 @@ export default function Step3Amenities() {
         name: amenity, 
         available: true, 
         type: 'Included', 
-        rate: 0 
+        rate: 0,
+        rateType: 'Fixed' // Default to Fixed
       }]);
     }
   };
@@ -254,6 +255,12 @@ export default function Step3Amenities() {
   const updateAmenityRate = (amenityName, rate) => {
     setSelectedAmenities(prev => prev.map(a => 
       a.name === amenityName ? { ...a, rate: Number(rate) } : a
+    ));
+  };
+
+  const updateAmenityRateType = (amenityName, rateType) => {
+    setSelectedAmenities(prev => prev.map(a => 
+      a.name === amenityName ? { ...a, rateType } : a
     ));
   };
 
@@ -319,7 +326,9 @@ export default function Step3Amenities() {
               {basicAmenities.map((amenity) => {
                 const selected = selectedAmenities.find(a => a.name === amenity);
                 return (
-                  <div key={amenity} className="bg-white rounded-lg p-4 border border-gray-200">
+                  <div key={amenity} className={`rounded-lg p-4 border-2 transition-all ${
+                    selected ? 'bg-white border-primary-300' : 'bg-white border-gray-200'
+                  }`}>
                     <div className="flex items-start gap-3">
                       <input
                         type="checkbox"
@@ -332,7 +341,7 @@ export default function Step3Amenities() {
                         <span className="text-sm font-medium text-dark-700">{amenity}</span>
                         
                         {selected && (
-                          <div className="flex items-center gap-3 mt-2 flex-wrap">
+                          <div className="flex items-center gap-3 mt-3 flex-wrap">
                             <label className="flex items-center gap-2 cursor-pointer">
                               <input
                                 type="radio"
@@ -354,7 +363,7 @@ export default function Step3Amenities() {
                             </label>
                             
                             {selected.type === 'Paid' && (
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-xs text-gray-600">Rate:</span>
                                 <input
                                   type="number"
@@ -364,7 +373,14 @@ export default function Step3Amenities() {
                                   className="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
                                   min="0"
                                 />
-                                <span className="text-xs text-gray-500">per use</span>
+                                <select
+                                  value={selected.rateType || 'Fixed'}
+                                  onChange={(e) => updateAmenityRateType(amenity, e.target.value)}
+                                  className="px-2 py-1 border border-gray-300 rounded text-xs bg-white"
+                                >
+                                  <option value="Fixed">Fixed</option>
+                                  <option value="Per Use">Per Use</option>
+                                </select>
                               </div>
                             )}
                           </div>
@@ -591,7 +607,9 @@ export default function Step3Amenities() {
               {additionalFacilities.map((facility) => {
                 const selected = selectedAdditional.find(a => a.name === facility);
                 return (
-                  <div key={facility} className="bg-white rounded-lg p-4 border border-gray-200">
+                  <div key={facility} className={`rounded-lg p-4 border-2 transition-all ${
+                    selected ? 'bg-white border-primary-300' : 'bg-white border-gray-200'
+                  }`}>
                     <div className="flex items-start gap-3">
                       <input
                         type="checkbox"
@@ -604,7 +622,7 @@ export default function Step3Amenities() {
                         <span className="text-sm font-medium text-dark-700">{facility}</span>
                         
                         {selected && (
-                          <div className="flex items-center gap-3 mt-2 flex-wrap">
+                          <div className="flex items-center gap-3 mt-3 flex-wrap">
                             <label className="flex items-center gap-2 cursor-pointer">
                               <input
                                 type="radio"
@@ -675,3 +693,4 @@ export default function Step3Amenities() {
     </form>
   );
 }
+

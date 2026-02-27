@@ -72,3 +72,4 @@ export default function PremiumStepper({ steps, currentStep }) {
     </div>
   );
 }
+

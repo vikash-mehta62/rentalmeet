@@ -7,7 +7,7 @@ export default function CTASection() {
   const router = useRouter();
 
   return (
-    <section className="py-20 px-4 sm:px-6 bg-[#F89D09]">
+    <section className="py-20 px-4 sm:px-6 bg-[#F59F0A]">
       <div className="max-w-4xl mx-auto text-center">
         {/* Heading */}
         <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-4" style={{ fontFamily: 'Georgia, serif' }}>
@@ -31,3 +31,4 @@ export default function CTASection() {
     </section>
   );
 }
+

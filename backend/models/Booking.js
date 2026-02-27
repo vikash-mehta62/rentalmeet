@@ -101,6 +101,12 @@ const bookingSchema = new mongoose.Schema({
     default: 'pending'
   },
   paymentId: String,
+  paymentDetails: {
+    razorpay_order_id: String,
+    razorpay_payment_id: String,
+    razorpay_signature: String,
+    paidAt: Date
+  },
   cancellationReason: String,
   cancelledBy: {
     type: mongoose.Schema.Types.ObjectId,

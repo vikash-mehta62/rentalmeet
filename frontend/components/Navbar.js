@@ -14,8 +14,12 @@ export default function Navbar() {
   const [hydrated, setHydrated] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [loginDropdownOpen, setLoginDropdownOpen] = useState(false);
+  const [registerDropdownOpen, setRegisterDropdownOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const dropdownRef = useRef(null);
+  const loginDropdownRef = useRef(null);
+  const registerDropdownRef = useRef(null);
 
   const isHomePage = pathname === '/';
   const isVenueDetailsPage = pathname.startsWith('/venues/') && pathname !== '/venues';
@@ -27,6 +31,12 @@ export default function Navbar() {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setDropdownOpen(false);
+      }
+      if (loginDropdownRef.current && !loginDropdownRef.current.contains(e.target)) {
+        setLoginDropdownOpen(false);
+      }
+      if (registerDropdownRef.current && !registerDropdownRef.current.contains(e.target)) {
+        setRegisterDropdownOpen(false);
       }
     };
 
@@ -58,7 +68,7 @@ export default function Navbar() {
   // Dynamic Styles Logic - Transparent on home and venue details pages
   const isTransparentPage = isHomePage || isVenueDetailsPage;
   const isSolid = !isTransparentPage || scrolled;
-  const navBg = isSolid ? 'bg-white shadow-md py-3' : 'bg-transparent py-5';
+  const navBg = isSolid ? 'bg-white shadow-md py-4' : 'bg-transparent py-6';
   const textColor = isSolid ? 'text-slate-700' : 'text-white';
   const logoColor = isSolid ? 'text-slate-900' : 'text-white';
   const linkBase = "text-[12px] font-bold uppercase tracking-[0.15em] transition-all duration-300";
@@ -69,13 +79,13 @@ export default function Navbar() {
         <div className="flex justify-between items-center">
           
           {/* 1. Logo Section */}
-          <Link href="/" className="flex items-center gap-2 group relative z-50">
-            <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg group-hover:rotate-6 transition-transform duration-300">
-              <span className="text-white font-black text-xl italic">R</span>
-            </div>
-            <span className={`text-xl font-black tracking-tighter transition-colors duration-300 ${logoColor}`}>
-              RentalMeet
-            </span>
+          <Link href="/" className="flex items-center gap-3 group relative z-50">
+            <img 
+              src="/logo-new.jpeg" 
+              alt="RentalMeet Logo" 
+              className="h-12 w-auto object-contain"
+            />
+           
           </Link>
 
           {/* 2. Desktop Navigation (Center) */}
@@ -90,12 +100,12 @@ export default function Navbar() {
                 href={link.href}
                 className={`${linkBase} relative group ${
                   pathname === link.href 
-                  ? 'text-orange-500' 
-                  : `${textColor} hover:text-orange-500`
+                  ? 'text-primary-500' 
+                  : `${textColor} hover:text-primary-500`
                 }`}
               >
                 {link.name}
-                <span className={`absolute -bottom-1 left-0 h-0.5 bg-orange-500 transition-all duration-300 ${pathname === link.href ? 'w-full' : 'w-0 group-hover:w-full'}`} />
+                <span className={`absolute -bottom-1 left-0 h-0.5 bg-primary-500 transition-all duration-300 ${pathname === link.href ? 'w-full' : 'w-0 group-hover:w-full'}`} />
               </Link>
             ))}
           </div>
@@ -110,7 +120,7 @@ export default function Navbar() {
                     isSolid ? 'border-slate-200 bg-slate-50' : 'border-white/20 bg-white/10 backdrop-blur-md'
                   }`}
                 >
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-orange-500 to-orange-400 flex items-center justify-center text-white text-xs font-bold shadow-inner">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary-500 to-primary-400 flex items-center justify-center text-white text-xs font-bold shadow-inner">
                     {user?.name?.charAt(0).toUpperCase()}
                   </div>
                   <span className={`text-xs font-bold uppercase tracking-wider ${textColor}`}>
@@ -122,10 +132,10 @@ export default function Navbar() {
                 {/* Dropdown Menu */}
                 {dropdownOpen && (
                   <div className="absolute right-0 mt-3 w-56 bg-white border border-slate-100 rounded-2xl shadow-2xl py-2 overflow-hidden animate-in fade-in slide-in-from-top-5 duration-300">
-                    <Link href={getDashboardLink()} onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-orange-50 hover:text-orange-600 transition-colors">
+                    <Link href={getDashboardLink()} onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-primary-50 hover:text-primary-600 transition-colors">
                       <LayoutDashboard className="w-4 h-4" /> Dashboard
                     </Link>
-                    <Link href="/profile" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-orange-50 hover:text-orange-600 transition-colors">
+                    <Link href="/profile" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-primary-50 hover:text-primary-600 transition-colors">
                       <User className="w-4 h-4" /> My Profile
                     </Link>
                     <div className="h-px bg-slate-100 my-1" />
@@ -136,14 +146,96 @@ export default function Navbar() {
                 )}
               </div>
             ) : (
-              <div className="flex items-center gap-8">
-                <Link href="/login" className={`${linkBase} ${textColor} hover:text-orange-500`}>Login</Link>
-                <Link
-                  href="/venues"
-                  className="px-8 py-3 bg-orange-500 text-white rounded-full text-[11px] font-black uppercase tracking-[0.2em] hover:bg-orange-600 hover:shadow-xl hover:shadow-orange-200 transition-all active:scale-95"
-                >
-                  Book Venue
-                </Link>
+              <div className="flex items-center gap-4">
+                {/* Login Dropdown */}
+                <div className="relative" ref={loginDropdownRef}>
+                  <button
+                    onClick={() => {
+                      setLoginDropdownOpen(!loginDropdownOpen);
+                      setRegisterDropdownOpen(false);
+                    }}
+                    className={`${linkBase} ${textColor} hover:text-primary-500 flex items-center gap-1`}
+                  >
+                    Login
+                    <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${loginDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {loginDropdownOpen && (
+                    <div className="absolute right-0 mt-3 w-56 bg-white border border-slate-100 rounded-xl shadow-2xl py-2 overflow-hidden animate-in fade-in slide-in-from-top-5 duration-300">
+                      <Link
+                        href="/login?role=customer"
+                        onClick={() => setLoginDropdownOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-primary-50 hover:text-primary-600 transition-colors"
+                      >
+                        <User className="w-4 h-4" />
+                        Client (User)
+                      </Link>
+                      <Link
+                        href="/login?role=owner"
+                        onClick={() => setLoginDropdownOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-primary-50 hover:text-primary-600 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                        Space Owner
+                      </Link>
+                      <Link
+                        href="/login?role=vendor"
+                        onClick={() => setLoginDropdownOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-primary-50 hover:text-primary-600 transition-colors"
+                      >
+                        <Settings className="w-4 h-4" />
+                        Service Vendor
+                      </Link>
+                    </div>
+                  )}
+                </div>
+
+                {/* Register Dropdown */}
+                <div className="relative" ref={registerDropdownRef}>
+                  <button
+                    onClick={() => {
+                      setRegisterDropdownOpen(!registerDropdownOpen);
+                      setLoginDropdownOpen(false);
+                    }}
+                    className="px-6 py-2.5 bg-primary-500 text-white rounded-full text-[11px] font-black uppercase tracking-[0.2em] hover:bg-primary-600 hover:shadow-xl hover:shadow-primary-200 transition-all active:scale-95 flex items-center gap-2"
+                  >
+                    Register
+                    <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${registerDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {registerDropdownOpen && (
+                    <div className="absolute right-0 mt-3 w-56 bg-white border border-slate-100 rounded-xl shadow-2xl py-2 overflow-hidden animate-in fade-in slide-in-from-top-5 duration-300">
+                      <Link
+                        href="/register?role=customer"
+                        onClick={() => setRegisterDropdownOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-primary-50 hover:text-primary-600 transition-colors"
+                      >
+                        <User className="w-4 h-4" />
+                        Client (User)
+                      </Link>
+                      <Link
+                        href="/register?role=owner"
+                        onClick={() => setRegisterDropdownOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-primary-50 hover:text-primary-600 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                        Space Owner
+                      </Link>
+                      <Link
+                        href="/register?role=vendor"
+                        onClick={() => setRegisterDropdownOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-primary-50 hover:text-primary-600 transition-colors"
+                      >
+                        <Settings className="w-4 h-4" />
+                        Service Vendor
+                      </Link>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -177,7 +269,7 @@ export default function Navbar() {
                   key={item} 
                   href={item === 'Home' ? '/' : `/${item.toLowerCase()}`} 
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`block px-4 py-4 rounded-2xl text-base font-bold transition-all ${pathname === (item === 'Home' ? '/' : `/${item.toLowerCase()}`) ? 'bg-orange-50 text-orange-600' : 'text-slate-700 hover:bg-slate-50'}`}
+                  className={`block px-4 py-4 rounded-2xl text-base font-bold transition-all ${pathname === (item === 'Home' ? '/' : `/${item.toLowerCase()}`) ? 'bg-primary-50 text-primary-600' : 'text-slate-700 hover:bg-slate-50'}`}
                 >
                   {item}
                 </Link>
@@ -195,7 +287,7 @@ export default function Navbar() {
                   </button>
                 </div>
               ) : (
-                <Link href="/login" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center w-full py-4 bg-orange-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg shadow-orange-100">
+                <Link href="/login" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center w-full py-4 bg-primary-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg shadow-primary-100">
                   Login / Register
                 </Link>
               )}

@@ -286,18 +286,43 @@ export default function BrowseVenues() {
 
                 return (
                   <div key={venue._id} className="group bg-white rounded-lg border border-slate-200 overflow-hidden flex flex-col sm:flex-row hover:shadow-lg transition-all duration-300">
-                    {/* Image Section */}
-                    <div className="w-full sm:w-72 h-52 sm:h-56 relative overflow-hidden bg-slate-100 flex-shrink-0">
-                      <img
-                        src={venue.images?.[0]?.url || '/api/placeholder/400/300'}
-                        alt={venue.businessName}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                      {venue.isVerified && (
-                        <div className="absolute top-3 left-3 px-2 py-1 bg-white/95 text-[10px] font-semibold text-slate-700 rounded shadow-sm">
-                          Company-Serviced
+                    {/* Image Section with Gallery */}
+                    <div className="w-full sm:w-80 flex-shrink-0">
+                      <div className="flex gap-1 h-52 sm:h-56">
+                        {/* Main Image */}
+                        <div className="flex-1 relative overflow-hidden bg-slate-100">
+                          <img
+                            src={venue.images?.[0]?.url || '/api/placeholder/400/300'}
+                            alt={venue.businessName}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+                          {venue.isVerified && (
+                            <div className="absolute top-3 left-3 px-2 py-1 bg-white/95 text-[10px] font-semibold text-slate-700 rounded shadow-sm">
+                              Company-Serviced
+                            </div>
+                          )}
                         </div>
-                      )}
+                        
+                        {/* Side Images Grid (if multiple images exist) */}
+                        {venue.images?.length > 1 && (
+                          <div className="w-20 flex flex-col gap-1">
+                            {venue.images.slice(1, 3).map((img, idx) => (
+                              <div key={idx} className="flex-1 relative overflow-hidden bg-slate-100 rounded">
+                                <img
+                                  src={img.url}
+                                  alt={`${venue.businessName} ${idx + 2}`}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            ))}
+                            {venue.images.length > 3 && (
+                              <div className="flex-1 relative overflow-hidden bg-slate-900/80 rounded flex items-center justify-center">
+                                <span className="text-white text-xs font-semibold">+{venue.images.length - 3}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {/* Info Section */}
@@ -342,16 +367,7 @@ export default function BrowseVenues() {
                         <div>
                           <div className="flex items-baseline gap-2">
                             <span className="text-2xl font-bold text-slate-900">₹{currentPrice}</span>
-                            {discount > 0 && (
-                              <>
-                                <span className="text-sm text-slate-400 line-through">₹{Math.round(originalPrice)}</span>
-                                <span className="text-xs font-semibold text-orange-500">{discount}% off</span>
-                              </>
-                            )}
                           </div>
-                          <p className="text-xs text-slate-500 mt-0.5">
-                            + ₹{taxAmount} taxes & fees • Lightweight charges free
-                          </p>
                         </div>
                         
                         <div className="flex gap-2">
@@ -380,3 +396,4 @@ export default function BrowseVenues() {
     </div>
   );
 }
+

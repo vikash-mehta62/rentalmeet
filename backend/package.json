@@ -4,7 +4,7 @@
   "description": "Backend API for RentalMeet",
   "main": "server.js",
   "scripts": {
-   "dev": "node swagger.js && nodemon server.js",
+    "dev": "node swagger.js && nodemon server.js",
     "start": "node server.js"
   },
   "dependencies": {
@@ -21,6 +21,7 @@
     "mongoose": "^8.0.3",
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^6.9.7",
+    "razorpay": "^2.9.6",
     "swagger-autogen": "^2.23.7",
     "swagger-ui-express": "^5.0.1"
   },

@@ -62,19 +62,19 @@ export default function SearchFilter() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         {/* Search Input */}
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#FFA500]" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#F59F0A]" />
           <input
             type="text"
             placeholder="Search venue name..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFA500] focus:border-transparent outline-none transition-all"
+            className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all"
           />
         </div>
 
         {/* Location Dropdown */}
         <div className="relative">
-          <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#FFA500] z-10 pointer-events-none" />
+          <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#F59F0A] z-10 pointer-events-none" />
           <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 z-10 pointer-events-none" />
           <select
             value={selectedCity}
@@ -82,7 +82,7 @@ export default function SearchFilter() {
               setSelectedCity(e.target.value);
               setSelectedLocation('');
             }}
-            className="w-full pl-12 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFA500] focus:border-transparent outline-none transition-all appearance-none bg-white cursor-pointer"
+            className="w-full pl-12 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all appearance-none bg-white cursor-pointer"
           >
             <option value="">Location (Bhopal, etc.)</option>
             {locations.cities.map(city => (
@@ -93,12 +93,12 @@ export default function SearchFilter() {
 
         {/* Persons Dropdown */}
         <div className="relative">
-          <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#FFA500] z-10 pointer-events-none" />
+          <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#F59F0A] z-10 pointer-events-none" />
           <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 z-10 pointer-events-none" />
           <select
             value={selectedCapacity}
             onChange={(e) => setSelectedCapacity(e.target.value)}
-            className="w-full pl-12 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFA500] focus:border-transparent outline-none transition-all appearance-none bg-white cursor-pointer"
+            className="w-full pl-12 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all appearance-none bg-white cursor-pointer"
           >
             <option value="">Persons</option>
             {capacityOptions.map(option => (
@@ -109,14 +109,14 @@ export default function SearchFilter() {
 
         {/* Date Input */}
         <div className="relative">
-          <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#FFA500] z-10 pointer-events-none" />
+          <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#F59F0A] z-10 pointer-events-none" />
           <input
             type="date"
             placeholder="Select Date"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
             min={new Date().toISOString().split('T')[0]}
-            className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFA500] focus:border-transparent outline-none transition-all cursor-pointer"
+            className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all cursor-pointer"
           />
         </div>
       </div>
@@ -125,7 +125,7 @@ export default function SearchFilter() {
       <div className="flex justify-center">
         <button
           onClick={handleSearch}
-          className="bg-[#FFA500] hover:bg-[#FF8C00] text-white font-semibold px-12 py-3 rounded-lg transition-all duration-300 transform hover:scale-105"
+          className="bg-[#F59F0A] hover:bg-[#D97706] text-white font-semibold px-12 py-3 rounded-lg transition-all duration-300 transform hover:scale-105"
         >
           Search
         </button>
@@ -155,3 +155,4 @@ export default function SearchFilter() {
     </div>
   );
 }
+

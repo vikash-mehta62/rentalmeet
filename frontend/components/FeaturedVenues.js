@@ -98,7 +98,7 @@ export default function FeaturedVenues() {
                   </div>
 
                   {/* Featured Badge */}
-                  <div className="absolute top-3 right-3 bg-[#F89D09] px-3 py-1 rounded-full flex items-center gap-1.5 shadow-md">
+                  <div className="absolute top-3 right-3 bg-[#F59F0A] px-3 py-1 rounded-full flex items-center gap-1.5 shadow-md">
                     <Star className="w-3.5 h-3.5 text-white fill-white" />
                     <span className="text-xs font-bold text-white">Featured</span>
                   </div>
@@ -140,12 +140,12 @@ export default function FeaturedVenues() {
                   <div className="flex items-end justify-between pt-3 border-t border-gray-100">
                     <div>
                       <p className="text-xs text-gray-500 mb-0.5">Starting from</p>
-                      <p className="text-2xl font-bold text-[#F89D09]">
+                      <p className="text-2xl font-bold text-[#F59F0A]">
                         Rs.{venue.pricing?.perHour?.weekday?.toLocaleString('en-IN') || 0}
                         <span className="text-xs font-normal text-gray-500">/hr</span>
                       </p>
                     </div>
-                    <button className="bg-white border-2 border-gray-200 hover:border-[#F89D09] hover:bg-[#F89D09] hover:text-white text-gray-700 font-semibold px-4 py-2 rounded-lg transition-all duration-300 text-sm whitespace-nowrap">
+                    <button className="bg-white border-2 border-gray-200 hover:border-[#F59F0A] hover:bg-[#F59F0A] hover:text-white text-gray-700 font-semibold px-4 py-2 rounded-lg transition-all duration-300 text-sm whitespace-nowrap">
                       View Details
                     </button>
                   </div>
@@ -181,3 +181,4 @@ export default function FeaturedVenues() {
     </section>
   );
 }
+

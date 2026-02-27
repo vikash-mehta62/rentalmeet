@@ -18,13 +18,18 @@ export default function Register() {
     phone: '',
     password: '',
     confirmPassword: '',
-    role: 'owner'
+    role: 'customer'
   });
   const [error, setError] = useState('');
 
-  // Wait for hydration
+  // Wait for hydration and get role from URL
   useEffect(() => {
     setHydrated(true);
+    const params = new URLSearchParams(window.location.search);
+    const role = params.get('role');
+    if (role) {
+      setFormData(prev => ({ ...prev, role: role }));
+    }
   }, []);
 
   // Redirect if already logged in
@@ -33,7 +38,17 @@ export default function Register() {
     
     if (token && user) {
       console.log('User already logged in, redirecting...');
-      // Redirect based on role
+      
+      // Check for redirect parameter
+      const params = new URLSearchParams(window.location.search);
+      const redirectUrl = params.get('redirect');
+      
+      if (redirectUrl) {
+        router.push(redirectUrl);
+        return;
+      }
+      
+      // Default redirect based on role
       if (user.role === 'owner') {
         router.push('/owner/dashboard');
       } else if (user.role === 'admin') {
@@ -106,7 +121,17 @@ export default function Register() {
         setAuth(data.user, data.token);
         
         console.log('Auth saved, redirecting based on role:', data.user.role);
-        // Redirect based on role
+        
+        // Check for redirect parameter
+        const params = new URLSearchParams(window.location.search);
+        const redirectUrl = params.get('redirect');
+        
+        if (redirectUrl) {
+          router.push(redirectUrl);
+          return;
+        }
+        
+        // Default redirect based on role
         if (data.user.role === 'owner') {
           router.push('/owner/dashboard');
         } else if (data.user.role === 'customer') {
@@ -170,7 +195,14 @@ export default function Register() {
           {/* Title */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-dark-800 mb-2">Create Account</h1>
-            <p className="text-gray-600">Join RentalMeet today</p>
+            <p className="text-gray-600">
+              Register as {' '}
+              <span className="font-semibold text-primary-500">
+                {formData.role === 'customer' ? 'Client (User)' : 
+                 formData.role === 'owner' ? 'Space Owner' : 
+                 'Service Vendor'}
+              </span>
+            </p>
           </div>
 
           {/* Role Selection */}
@@ -178,32 +210,45 @@ export default function Register() {
             <label className="block text-sm font-medium text-gray-700 mb-3">
               I want to register as: *
             </label>
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, role: 'owner' })}
-                className={`p-4 border-2 rounded-xl transition-all ${
-                  formData.role === 'owner'
-                    ? 'border-primary-500 bg-primary-50 text-primary-700'
-                    : 'border-gray-300 hover:border-gray-400'
-                }`}
-              >
-                <Building2 className="w-8 h-8 mx-auto mb-2" />
-                <div className="font-semibold">Venue Owner</div>
-                <div className="text-xs text-gray-600 mt-1">List your venues</div>
-              </button>
+            <div className="grid grid-cols-3 gap-3">
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, role: 'customer' })}
-                className={`p-4 border-2 rounded-xl transition-all ${
+                className={`p-3 border-2 rounded-xl transition-all ${
                   formData.role === 'customer'
                     ? 'border-primary-500 bg-primary-50 text-primary-700'
                     : 'border-gray-300 hover:border-gray-400'
                 }`}
               >
-                <User className="w-8 h-8 mx-auto mb-2" />
-                <div className="font-semibold">Customer</div>
-                <div className="text-xs text-gray-600 mt-1">Book venues</div>
+                <User className="w-6 h-6 mx-auto mb-1" />
+                <div className="font-semibold text-xs">Client</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, role: 'owner' })}
+                className={`p-3 border-2 rounded-xl transition-all ${
+                  formData.role === 'owner'
+                    ? 'border-primary-500 bg-primary-50 text-primary-700'
+                    : 'border-gray-300 hover:border-gray-400'
+                }`}
+              >
+                <Building2 className="w-6 h-6 mx-auto mb-1" />
+                <div className="font-semibold text-xs">Owner</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, role: 'vendor' })}
+                className={`p-3 border-2 rounded-xl transition-all ${
+                  formData.role === 'vendor'
+                    ? 'border-primary-500 bg-primary-50 text-primary-700'
+                    : 'border-gray-300 hover:border-gray-400'
+                }`}
+              >
+                <svg className="w-6 h-6 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <div className="font-semibold text-xs">Vendor</div>
               </button>
             </div>
           </div>
@@ -353,3 +398,4 @@ export default function Register() {
     </div>
   );
 }
+

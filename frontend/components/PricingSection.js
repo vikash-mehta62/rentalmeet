@@ -74,14 +74,14 @@ export default function PricingSection() {
                 key={index}
                 className={`relative bg-white rounded-xl p-6 transition-all duration-300 ${
                   plan.popular
-                    ? 'border-2 border-[#F89D09] shadow-lg scale-105'
+                    ? 'border-2 border-[#F59F0A] shadow-lg scale-105'
                     : 'border border-gray-200 shadow-sm hover:shadow-md'
                 }`}
               >
                 {/* Most Popular Badge */}
                 {plan.popular && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="bg-[#F89D09] text-white text-xs font-bold px-4 py-1 rounded-full">
+                    <span className="bg-[#F59F0A] text-white text-xs font-bold px-4 py-1 rounded-full">
                       Most Popular
                     </span>
                   </div>
@@ -89,8 +89,8 @@ export default function PricingSection() {
 
                 {/* Icon */}
                 <div className="flex justify-center mb-4">
-                  <div className="w-12 h-12 bg-[#FFF5E6] rounded-full flex items-center justify-center">
-                    <Clock className="w-6 h-6 text-[#F89D09]" />
+                  <div className="w-12 h-12 bg-[#FFFBEB] rounded-full flex items-center justify-center">
+                    <Clock className="w-6 h-6 text-[#F59F0A]" />
                   </div>
                 </div>
 
@@ -100,7 +100,7 @@ export default function PricingSection() {
                 </h3>
 
                 {/* Price Range */}
-                <p className="text-2xl font-bold text-[#F89D09] text-center mb-2">
+                <p className="text-2xl font-bold text-[#F59F0A] text-center mb-2">
                   {plan.priceRange}
                 </p>
 
@@ -114,8 +114,8 @@ export default function PricingSection() {
                   onClick={() => router.push('/venues')}
                   className={`w-full py-2.5 rounded-lg font-semibold transition-all duration-300 ${
                     plan.popular
-                      ? 'bg-[#F89D09] text-white hover:bg-[#E08C08]'
-                      : 'bg-white border-2 border-gray-300 text-gray-700 hover:border-[#F89D09] hover:text-[#F89D09]'
+                      ? 'bg-[#F59F0A] text-white hover:bg-[#D97706]'
+                      : 'bg-white border-2 border-gray-300 text-gray-700 hover:border-[#F59F0A] hover:text-[#F59F0A]'
                   }`}
                 >
                   Book Now
@@ -127,7 +127,7 @@ export default function PricingSection() {
       </section>
 
       {/* Why Choose Us Section */}
-      <section className="py-16 px-4 sm:px-6 bg-[#FAFAFA]">
+      <section className="py-16 px-4 sm:px-6 bg-gray-50">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="text-center mb-12">
@@ -148,8 +148,8 @@ export default function PricingSection() {
                 >
                   {/* Icon */}
                   <div className="flex justify-center mb-4">
-                    <div className="w-16 h-16 bg-[#FFF5E6] rounded-full flex items-center justify-center">
-                      <Icon className="w-8 h-8 text-[#F89D09]" />
+                    <div className="w-16 h-16 bg-[#FFFBEB] rounded-full flex items-center justify-center">
+                      <Icon className="w-8 h-8 text-[#F59F0A]" />
                     </div>
                   </div>
 
@@ -171,3 +171,4 @@ export default function PricingSection() {
     </>
   );
 }
+

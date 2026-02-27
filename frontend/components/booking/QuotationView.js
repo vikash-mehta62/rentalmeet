@@ -413,10 +413,6 @@ export default function QuotationView({
                   <span className="font-semibold text-gray-700">Subtotal:</span>
                   <span className="font-bold text-gray-900">₹{calculatedPrice.subtotal.toLocaleString('en-IN')}</span>
                 </div>
-                <div className="flex justify-between text-base">
-                  <span className="font-semibold text-gray-700">GST (18%):</span>
-                  <span className="font-bold text-gray-900">₹{calculatedPrice.gst.toLocaleString('en-IN')}</span>
-                </div>
                 <div className="flex justify-between pt-3 border-t-2 border-primary-400">
                   <span className="text-xl font-black text-gray-900">Grand Total:</span>
                   <span className="text-2xl md:text-3xl font-black text-primary-600">
@@ -456,19 +452,11 @@ export default function QuotationView({
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-primary-500 font-bold">•</span>
-                <span>15% platform commission will be deducted from the venue owner's earnings.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary-500 font-bold">•</span>
                 <span>Cancellation policy: Full refund if cancelled 48 hours before booking date, 50% refund if cancelled 24 hours before, no refund for same-day cancellations.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-primary-500 font-bold">•</span>
                 <span>Customer is responsible for any damages to the venue property during the event.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary-500 font-bold">•</span>
-                <span>All prices are inclusive of GST as mentioned in the breakdown.</span>
               </li>
             </ul>
           </div>
@@ -510,3 +498,4 @@ export default function QuotationView({
     </div>
   );
 }
+

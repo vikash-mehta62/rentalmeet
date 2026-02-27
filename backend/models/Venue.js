@@ -112,7 +112,8 @@ const venueSchema = new mongoose.Schema({
       name: String,
       available: Boolean,
       type: { type: String, enum: ['Included', 'Paid'] },
-      rate: Number
+      rate: Number,
+      rateType: { type: String, enum: ['Fixed', 'Per Use'], default: 'Fixed' }
     }],
     beverages: [{
       name: String,

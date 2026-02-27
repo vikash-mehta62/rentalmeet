@@ -12,15 +12,21 @@ export default function Login() {
   const [hydrated, setHydrated] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [selectedRole, setSelectedRole] = useState('customer');
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
   const [error, setError] = useState('');
 
-  // Wait for hydration
+  // Wait for hydration and get role from URL
   useEffect(() => {
     setHydrated(true);
+    const params = new URLSearchParams(window.location.search);
+    const role = params.get('role');
+    if (role) {
+      setSelectedRole(role);
+    }
   }, []);
 
   // Redirect if already logged in
@@ -29,7 +35,17 @@ export default function Login() {
     
     if (token && user) {
       console.log('User already logged in, redirecting...');
-      // Redirect based on role
+      
+      // Check for redirect parameter
+      const params = new URLSearchParams(window.location.search);
+      const redirectUrl = params.get('redirect');
+      
+      if (redirectUrl) {
+        router.push(redirectUrl);
+        return;
+      }
+      
+      // Default redirect based on role
       if (user.role === 'owner') {
         router.push('/owner/dashboard');
       } else if (user.role === 'admin') {
@@ -79,7 +95,17 @@ export default function Login() {
         setAuth(data.user, data.token);
         
         console.log('Auth saved, redirecting based on role:', data.user.role);
-        // Redirect based on role
+        
+        // Check for redirect parameter
+        const params = new URLSearchParams(window.location.search);
+        const redirectUrl = params.get('redirect');
+        
+        if (redirectUrl) {
+          router.push(redirectUrl);
+          return;
+        }
+        
+        // Default redirect based on role
         if (data.user.role === 'owner') {
           router.push('/owner/dashboard');
         } else if (data.user.role === 'admin') {
@@ -145,7 +171,14 @@ export default function Login() {
           {/* Title */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-dark-800 mb-2">Welcome Back</h1>
-            <p className="text-gray-600">Login to your account</p>
+            <p className="text-gray-600">
+              Login as {' '}
+              <span className="font-semibold text-primary-500">
+                {selectedRole === 'customer' ? 'Client (User)' : 
+                 selectedRole === 'owner' ? 'Space Owner' : 
+                 'Service Vendor'}
+              </span>
+            </p>
           </div>
 
           {/* Error Message */}
@@ -233,3 +266,4 @@ export default function Login() {
     </div>
   );
 }
+

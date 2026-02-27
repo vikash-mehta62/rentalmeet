@@ -293,6 +293,58 @@ export default function OwnerBookings() {
                     </div>
                   </div>
 
+                  {/* Payment Details */}
+                  {booking.paymentStatus && (
+                    <div className={`rounded-lg p-3 mb-4 ${
+                      booking.paymentStatus === 'paid' ? 'bg-green-50' : 
+                      booking.paymentStatus === 'pending' ? 'bg-yellow-50' : 'bg-red-50'
+                    }`}>
+                      <p className={`text-xs font-semibold mb-2 ${
+                        booking.paymentStatus === 'paid' ? 'text-green-600' : 
+                        booking.paymentStatus === 'pending' ? 'text-yellow-600' : 'text-red-600'
+                      }`}>
+                        Payment Details
+                      </p>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-600">Status:</span>
+                          <span className={`font-semibold px-2 py-0.5 rounded ${
+                            booking.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 
+                            booking.paymentStatus === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                          }`}>
+                            {booking.paymentStatus.toUpperCase()}
+                          </span>
+                        </div>
+                        {booking.paymentDetails?.razorpay_payment_id && (
+                          <>
+                            <div className="flex items-center justify-between">
+                              <span className="text-gray-600">Payment ID:</span>
+                              <span className="font-mono text-xs text-gray-700">{booking.paymentDetails.razorpay_payment_id}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-gray-600">Order ID:</span>
+                              <span className="font-mono text-xs text-gray-700">{booking.paymentDetails.razorpay_order_id}</span>
+                            </div>
+                            {booking.paymentDetails.paidAt && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-gray-600">Paid At:</span>
+                                <span className="text-xs text-gray-700">
+                                  {new Date(booking.paymentDetails.paidAt).toLocaleString('en-IN', {
+                                    day: '2-digit',
+                                    month: 'short',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </span>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Booking Type & Amount */}
                   <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 mb-4">
                     <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full font-semibold">
@@ -348,3 +400,4 @@ export default function OwnerBookings() {
     </OwnerLayout>
   );
 }
+
