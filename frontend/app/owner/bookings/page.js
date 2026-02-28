@@ -5,9 +5,10 @@ import { useAuthStore } from '@/lib/store';
 import Link from 'next/link';
 import {
   Building2, Calendar, IndianRupee, Clock, MapPin, User,
-  Phone, Mail, CheckCircle2, XCircle, Eye, Search
+  Phone, Mail, CheckCircle2, XCircle, Eye, Search, Download, Users
 } from 'lucide-react';
 import OwnerLayout from '@/components/owner/OwnerLayout';
+import InvoiceDownload from '@/components/booking/InvoiceDownload';
 
 export default function OwnerBookings() {
   const { token } = useAuthStore();
@@ -278,18 +279,36 @@ export default function OwnerBookings() {
                     </div>
                   </div>
 
-                  {/* Customer Contact */}
+                  {/* Customer Contact & Event Details */}
                   <div className="bg-blue-50 rounded-lg p-3 mb-4">
-                    <p className="text-xs text-blue-600 font-semibold mb-2">Customer Contact Details</p>
-                    <div className="flex flex-wrap gap-4 text-sm">
-                      <span className="flex items-center gap-1 text-gray-700">
+                    <p className="text-xs text-blue-600 font-semibold mb-2">Customer & Event Details</p>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-2 text-gray-700">
                         <Mail className="w-4 h-4 text-blue-600" />
-                        {booking.customer?.email}
-                      </span>
-                      <span className="flex items-center gap-1 text-gray-700">
+                        <span>{booking.customer?.email}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-gray-700">
                         <Phone className="w-4 h-4 text-blue-600" />
-                        {booking.customerDetails?.phone}
-                      </span>
+                        <span>{booking.customerDetails?.phone || booking.customer?.phone}</span>
+                      </div>
+                      {booking.customerDetails?.eventType && (
+                        <div className="flex items-center gap-2 text-gray-700">
+                          <span className="font-semibold text-blue-600">Event Type:</span>
+                          <span>{booking.customerDetails.eventType}</span>
+                        </div>
+                      )}
+                      {booking.customerDetails?.guestCount && (
+                        <div className="flex items-center gap-2 text-gray-700">
+                          <Users className="w-4 h-4 text-blue-600" />
+                          <span>{booking.customerDetails.guestCount} Guests</span>
+                        </div>
+                      )}
+                      {booking.customerDetails?.specialRequirements && (
+                        <div className="mt-2 pt-2 border-t border-blue-200">
+                          <p className="text-xs text-blue-600 font-semibold mb-1">Special Requirements:</p>
+                          <p className="text-xs text-gray-700">{booking.customerDetails.specialRequirements}</p>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -345,6 +364,49 @@ export default function OwnerBookings() {
                     </div>
                   )}
 
+                  {/* Selected Amenities */}
+                  {booking.selectedAmenities && (
+                    (booking.selectedAmenities.basic?.length > 0 || 
+                     booking.selectedAmenities.beverages?.length > 0 || 
+                     booking.selectedAmenities.refreshmentFood?.length > 0 || 
+                     booking.selectedAmenities.lunchThalis?.length > 0) && (
+                    <div className="bg-purple-50 rounded-lg p-3 mb-4 border border-purple-200">
+                      <p className="text-xs text-purple-600 font-semibold mb-2">Selected Amenities & Services</p>
+                      <div className="space-y-2">
+                        {booking.selectedAmenities.basic?.map((amenity, idx) => (
+                          <div key={idx} className="flex justify-between items-center text-xs bg-white p-2 rounded">
+                            <span className="text-gray-700">{amenity.name} {amenity.rateType === 'Per Use' && `(x${amenity.quantity})`}</span>
+                            <span className="font-semibold text-purple-600">₹{amenity.total?.toLocaleString()}</span>
+                          </div>
+                        ))}
+                        {booking.selectedAmenities.beverages?.map((bev, idx) => (
+                          <div key={idx} className="flex justify-between items-center text-xs bg-white p-2 rounded">
+                            <span className="text-gray-700">{bev.name} - {bev.brand} (x{bev.quantity})</span>
+                            <span className="font-semibold text-purple-600">₹{bev.total?.toLocaleString()}</span>
+                          </div>
+                        ))}
+                        {booking.selectedAmenities.refreshmentFood?.map((food, idx) => (
+                          <div key={idx} className="flex justify-between items-center text-xs bg-white p-2 rounded">
+                            <span className="text-gray-700">{food.name} (x{food.quantity} plates)</span>
+                            <span className="font-semibold text-purple-600">₹{food.total?.toLocaleString()}</span>
+                          </div>
+                        ))}
+                        {booking.selectedAmenities.lunchThalis?.map((thali, idx) => (
+                          <div key={idx} className="flex justify-between items-center text-xs bg-white p-2 rounded">
+                            <span className="text-gray-700">{thali.type} (x{thali.quantity} plates)</span>
+                            <span className="font-semibold text-purple-600">₹{thali.total?.toLocaleString()}</span>
+                          </div>
+                        ))}
+                        {booking.amenitiesTotal > 0 && (
+                          <div className="flex justify-between items-center text-xs font-bold bg-purple-100 p-2 rounded border-t border-purple-300 mt-2">
+                            <span className="text-purple-700">Amenities Total:</span>
+                            <span className="text-purple-700">₹{booking.amenitiesTotal?.toLocaleString()}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
                   {/* Booking Type & Amount */}
                   <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 mb-4">
                     <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full font-semibold">
@@ -356,6 +418,9 @@ export default function OwnerBookings() {
 
                   {/* Actions */}
                   <div className="flex flex-wrap gap-3">
+                    {booking.paymentStatus === 'paid' && (
+                      <InvoiceDownload booking={booking} userRole="owner" />
+                    )}
                     <Link
                       href={`/venues/${booking.venue?.sku}`}
                       className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-semibold transition-colors flex items-center gap-2"

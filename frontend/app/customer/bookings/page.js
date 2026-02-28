@@ -7,9 +7,10 @@ import { useAuthStore } from '@/lib/store';
 import CustomerLayout from '@/components/customer/CustomerLayout';
 import {
   Calendar, CheckCircle2, XCircle, Clock, MapPin, IndianRupee,
-  AlertCircle, Search
+  AlertCircle, Search, Download
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import InvoiceDownload from '@/components/booking/InvoiceDownload';
 
 export default function CustomerBookings() {
   const router = useRouter();
@@ -294,7 +295,7 @@ export default function CustomerBookings() {
                     </div>
 
                     {booking.customerDetails && (
-                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 mb-4">
                         <p className="text-sm font-semibold text-gray-700 mb-2">Event Details</p>
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <p className="text-gray-600">Event Type: <span className="font-medium text-gray-800">{booking.customerDetails.eventType}</span></p>
@@ -307,6 +308,49 @@ export default function CustomerBookings() {
                         )}
                       </div>
                     )}
+
+                    {/* Selected Amenities */}
+                    {booking.selectedAmenities && (
+                      (booking.selectedAmenities.basic?.length > 0 || 
+                       booking.selectedAmenities.beverages?.length > 0 || 
+                       booking.selectedAmenities.refreshmentFood?.length > 0 || 
+                       booking.selectedAmenities.lunchThalis?.length > 0) && (
+                      <div className="bg-primary-50 rounded-lg p-4 border border-primary-200 mb-4">
+                        <p className="text-sm font-semibold text-primary-700 mb-3">Selected Amenities & Services</p>
+                        <div className="space-y-2">
+                          {booking.selectedAmenities.basic?.map((amenity, idx) => (
+                            <div key={idx} className="flex justify-between items-center text-sm bg-white p-2 rounded">
+                              <span className="text-gray-700">{amenity.name} {amenity.rateType === 'Per Use' && `(x${amenity.quantity})`}</span>
+                              <span className="font-semibold text-primary-600">₹{amenity.total?.toLocaleString()}</span>
+                            </div>
+                          ))}
+                          {booking.selectedAmenities.beverages?.map((bev, idx) => (
+                            <div key={idx} className="flex justify-between items-center text-sm bg-white p-2 rounded">
+                              <span className="text-gray-700">{bev.name} - {bev.brand} (x{bev.quantity})</span>
+                              <span className="font-semibold text-primary-600">₹{bev.total?.toLocaleString()}</span>
+                            </div>
+                          ))}
+                          {booking.selectedAmenities.refreshmentFood?.map((food, idx) => (
+                            <div key={idx} className="flex justify-between items-center text-sm bg-white p-2 rounded">
+                              <span className="text-gray-700">{food.name} (x{food.quantity} plates)</span>
+                              <span className="font-semibold text-primary-600">₹{food.total?.toLocaleString()}</span>
+                            </div>
+                          ))}
+                          {booking.selectedAmenities.lunchThalis?.map((thali, idx) => (
+                            <div key={idx} className="flex justify-between items-center text-sm bg-white p-2 rounded">
+                              <span className="text-gray-700">{thali.type} (x{thali.quantity} plates)</span>
+                              <span className="font-semibold text-primary-600">₹{thali.total?.toLocaleString()}</span>
+                            </div>
+                          ))}
+                          {booking.amenitiesTotal > 0 && (
+                            <div className="flex justify-between items-center text-sm font-bold bg-primary-100 p-2 rounded border-t border-primary-300 mt-2">
+                              <span className="text-primary-700">Amenities Total:</span>
+                              <span className="text-primary-700">₹{booking.amenitiesTotal?.toLocaleString()}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
 
                     {booking.status === 'confirmed' && (
                       <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm mt-4">
@@ -331,6 +375,9 @@ export default function CustomerBookings() {
                     >
                       View Venue
                     </Link>
+                    {booking.paymentStatus === 'paid' && (
+                      <InvoiceDownload booking={booking} userRole="customer" />
+                    )}
                     {booking.status === 'pending' && (
                       <button
                         onClick={() => handleCancelBooking(booking._id)}

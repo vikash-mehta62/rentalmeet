@@ -14,6 +14,7 @@ exports.createBooking = async (req, res) => {
       bookingType, 
       amount, 
       selectedAmenities,
+      amenitiesTotal,
       priceBreakdown,
       customerDetails 
     } = req.body;
@@ -38,7 +39,14 @@ exports.createBooking = async (req, res) => {
       commission,
       ownerEarnings,
       commissionRate,
-      selectedAmenities: selectedAmenities || {},
+      selectedAmenities: selectedAmenities || {
+        basic: [],
+        beverages: [],
+        refreshmentFood: [],
+        lunchThalis: [],
+        additional: []
+      },
+      amenitiesTotal: amenitiesTotal || 0,
       priceBreakdown: priceBreakdown || {},
       customerDetails
     });

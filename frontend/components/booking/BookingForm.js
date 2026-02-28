@@ -16,6 +16,24 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
   const [submitting, setSubmitting] = useState(false);
   const [showQuotation, setShowQuotation] = useState(false);
   const quotationRef = useRef(null);
+  const [terms, setTerms] = useState(null);
+  
+  // Fetch terms and conditions
+  useEffect(() => {
+    fetchTerms();
+  }, []);
+
+  const fetchTerms = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/terms`);
+      const data = await response.json();
+      if (data.success) {
+        setTerms(data.terms);
+      }
+    } catch (error) {
+      console.error('Error fetching terms:', error);
+    }
+  };
   
   // Map duration to booking type
   const mapDurationToBookingType = (duration) => {
@@ -406,6 +424,43 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
     setSubmitting(true);
 
     try {
+      // Prepare amenities with quantities and prices - filter out empty arrays
+      const amenitiesWithDetails = {
+        basic: selectedAmenities.basic?.length > 0 ? selectedAmenities.basic.map(amenity => ({
+          name: amenity.name,
+          type: amenity.type,
+          rate: amenity.rate || 0,
+          rateType: amenity.rateType || 'Fixed',
+          quantity: amenity.rateType === 'Per Use' ? (quantities[`basic_${amenity.name}`] || 1) : 1,
+          total: amenity.rateType === 'Per Use' 
+            ? (amenity.rate || 0) * (quantities[`basic_${amenity.name}`] || 1)
+            : (amenity.rate || 0)
+        })) : [],
+        beverages: selectedAmenities.beverages?.length > 0 ? selectedAmenities.beverages.map(bev => ({
+          name: bev.name,
+          ratePerUnit: bev.ratePerUnit || 0,
+          brand: bev.brand || '',
+          quantity: quantities[`beverage_${bev.name}`] || 1,
+          total: (bev.ratePerUnit || 0) * (quantities[`beverage_${bev.name}`] || 1)
+        })) : [],
+        refreshmentFood: selectedAmenities.refreshmentFood?.length > 0 ? selectedAmenities.refreshmentFood.map(food => ({
+          name: food.name,
+          ratePerPlate: food.ratePerPlate || 0,
+          items: food.items || '',
+          quantity: quantities[`food_${food.name}`] || 1,
+          total: (food.ratePerPlate || 0) * (quantities[`food_${food.name}`] || 1)
+        })) : [],
+        lunchThalis: selectedAmenities.lunchThalis?.length > 0 ? selectedAmenities.lunchThalis.map(thali => ({
+          type: thali.type,
+          ratePerPlate: thali.ratePerPlate || 0,
+          numberOfItems: thali.numberOfItems || 0,
+          itemNames: thali.itemNames || '',
+          quantity: quantities[`thali_${thali.type}`] || 1,
+          total: (thali.ratePerPlate || 0) * (quantities[`thali_${thali.type}`] || 1)
+        })) : [],
+        additional: selectedAmenities.additional?.length > 0 ? selectedAmenities.additional : []
+      };
+
       const bookingData = {
         venue: venue._id,
         bookingDate: formData.bookingDate,
@@ -413,7 +468,8 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
         endTime: formData.endTime,
         bookingType: formData.bookingType,
         amount: calculatedPrice.total,
-        selectedAmenities: selectedAmenities,
+        amenitiesTotal: calculatedPrice.amenitiesTotal,
+        selectedAmenities: amenitiesWithDetails,
         priceBreakdown: calculatedPrice,
         customerDetails: {
           name: formData.customerName,
@@ -977,13 +1033,25 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
                 <p className="text-xs text-gray-600">{formData.isWeekend ? 'Weekend rate' : 'Weekday rate'}</p>
               </div>
             </div>
-            <div className="mt-3 text-xs text-gray-600 space-y-0.5 bg-white/50 p-2 rounded">
-              <p>• Payment after owner confirmation</p>
-              <p>• Refund as per cancellation policy</p>
-            </div>
+           
           </div>
 
-          {/* Terms */}
+          {/* Terms & Conditions */}
+          {terms && (
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <h3 className="text-sm font-bold text-gray-900 mb-3">Terms & Conditions:</h3>
+              <ul className="space-y-2 text-xs text-gray-700">
+                {terms.bookingTerms?.map((term, index) => (
+                  <li key={index} className="flex gap-2">
+                    <span className="text-primary-500 font-bold flex-shrink-0">•</span>
+                    <span>{term.point}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Accept Terms Checkbox */}
           <div className="flex items-start gap-2">
             <input 
               type="checkbox" 

@@ -47,31 +47,46 @@ const bookingSchema = new mongoose.Schema({
   // Selected amenities and services
   selectedAmenities: {
     basic: [{
-      name: String,
-      type: String,
-      rate: Number
+      name: { type: String },
+      type: { type: String },
+      rate: { type: Number },
+      rateType: { type: String },
+      quantity: { type: Number, default: 1 },
+      total: { type: Number }
     }],
     beverages: [{
-      name: String,
-      ratePerUnit: Number,
-      brand: String
+      name: { type: String },
+      ratePerUnit: { type: Number },
+      brand: { type: String },
+      quantity: { type: Number, default: 1 },
+      total: { type: Number }
     }],
     refreshmentFood: [{
-      name: String,
-      ratePerPlate: Number,
-      items: String
+      name: { type: String },
+      ratePerPlate: { type: Number },
+      items: { type: String },
+      quantity: { type: Number, default: 1 },
+      total: { type: Number }
     }],
     lunchThalis: [{
-      type: String,
-      ratePerPlate: Number,
-      numberOfItems: Number,
-      itemNames: String
+      type: { type: String },
+      ratePerPlate: { type: Number },
+      numberOfItems: { type: Number },
+      itemNames: { type: String },
+      quantity: { type: Number, default: 1 },
+      total: { type: Number }
     }],
     additional: [{
-      name: String,
-      type: String,
-      charges: Number
+      name: { type: String },
+      type: { type: String },
+      charges: { type: Number },
+      quantity: { type: Number, default: 1 },
+      total: { type: Number }
     }]
+  },
+  amenitiesTotal: {
+    type: Number,
+    default: 0
   },
   // Price breakdown
   priceBreakdown: {

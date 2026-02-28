@@ -50,6 +50,24 @@ export default function VenueDetail() {
     }
   }, [params.sku]);
 
+  // Auto-select free/included amenities when venue loads
+  useEffect(() => {
+    if (venue?.amenities?.basic) {
+      const freeAmenities = venue.amenities.basic.filter(
+        a => a.available && (a.type === 'Free' || a.type === 'Included')
+      );
+      
+      if (freeAmenities.length > 0) {
+        setSelectedAmenities(prev => ({
+          ...prev,
+          basic: [...prev.basic, ...freeAmenities.filter(
+            fa => !prev.basic.some(pa => pa.name === fa.name)
+          )]
+        }));
+      }
+    }
+  }, [venue]);
+
   // Check for pending booking after login
   useEffect(() => {
     const checkPendingBooking = () => {
