@@ -5,9 +5,9 @@ import { useAuthStore } from '@/lib/store';
 import {
   Camera, Save, Lock, Eye, EyeOff, User, Copy, Users, Gift
 } from 'lucide-react';
-import OwnerLayout from '@/components/owner/OwnerLayout';
+import CustomerLayout from '@/components/customer/CustomerLayout';
 
-export default function OwnerProfile() {
+export default function CustomerProfile() {
   const { user, token, updateUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('profile');
@@ -178,7 +178,7 @@ export default function OwnerProfile() {
   };
 
   return (
-    <OwnerLayout title="My Profile" subtitle="Manage your account settings">
+    <CustomerLayout title="My Profile" subtitle="Manage your account settings">
       {/* Message Alert */}
       {message.text && (
         <div className={`mb-6 p-4 rounded-xl ${
@@ -223,8 +223,8 @@ export default function OwnerProfile() {
 
               <h2 className="text-2xl font-bold text-dark-800 mb-1">{user?.name}</h2>
               <p className="text-gray-600 mb-2">{user?.email}</p>
-              <span className="inline-block px-4 py-1 bg-primary-100 text-primary-700 rounded-full text-sm font-semibold">
-                Venue Owner
+              <span className="inline-block px-4 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
+                Customer
               </span>
             </div>
           </div>
@@ -386,9 +386,9 @@ export default function OwnerProfile() {
             <div className="bg-white rounded-2xl shadow-soft border border-gray-100 p-6">
               <div className="space-y-6">
                 {/* Referral Code Display */}
-                <div className="bg-gradient-to-br from-primary-50 to-orange-50 rounded-xl p-6 border-2 border-primary-200">
+                <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-6 border-2 border-blue-200">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 bg-primary-500 rounded-full flex items-center justify-center">
+                    <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
                       <Gift className="w-6 h-6 text-white" />
                     </div>
                     <div>
@@ -400,7 +400,7 @@ export default function OwnerProfile() {
                   <div className="bg-white rounded-lg p-4 flex items-center justify-between">
                     <div className="flex-1">
                       <p className="text-xs text-gray-500 mb-1">Your Code</p>
-                      <p className="text-3xl font-bold text-primary-600 tracking-wider">
+                      <p className="text-3xl font-bold text-blue-600 tracking-wider">
                         {user?.referralCode || 'Loading...'}
                       </p>
                     </div>
@@ -410,7 +410,7 @@ export default function OwnerProfile() {
                         setMessage({ type: 'success', text: 'Referral code copied to clipboard!' });
                         setTimeout(() => setMessage({ type: '', text: '' }), 3000);
                       }}
-                      className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg flex items-center gap-2 transition-colors"
+                      className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg flex items-center gap-2 transition-colors"
                     >
                       <Copy className="w-4 h-4" />
                       Copy
@@ -420,15 +420,15 @@ export default function OwnerProfile() {
 
                 {/* Referral Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
+                  <div className="bg-purple-50 rounded-xl p-6 border border-purple-200">
                     <div className="flex items-center gap-3 mb-2">
-                      <Users className="w-8 h-8 text-blue-600" />
+                      <Users className="w-8 h-8 text-purple-600" />
                       <div>
-                        <p className="text-sm text-blue-700 font-medium">Total Referrals</p>
-                        <p className="text-3xl font-bold text-blue-900">{user?.referralCount || 0}</p>
+                        <p className="text-sm text-purple-700 font-medium">Total Referrals</p>
+                        <p className="text-3xl font-bold text-purple-900">{user?.referralCount || 0}</p>
                       </div>
                     </div>
-                    <p className="text-xs text-blue-600">People who joined using your code</p>
+                    <p className="text-xs text-purple-600">People who joined using your code</p>
                   </div>
 
                   {user?.referredBy && (
@@ -453,8 +453,8 @@ export default function OwnerProfile() {
                       {user.referrals.map((referral, index) => (
                         <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
-                              <User className="w-5 h-5 text-primary-600" />
+                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                              <User className="w-5 h-5 text-blue-600" />
                             </div>
                             <div>
                               <p className="font-semibold text-dark-800">{referral.user?.name || 'User'}</p>
@@ -462,7 +462,7 @@ export default function OwnerProfile() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <span className="inline-block px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-xs font-semibold">
+                            <span className="inline-block px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
                               {referral.user?.role || 'User'}
                             </span>
                             <p className="text-xs text-gray-500 mt-1">
@@ -480,21 +480,21 @@ export default function OwnerProfile() {
                   <h4 className="text-lg font-bold text-dark-800 mb-4">How Referral Works</h4>
                   <div className="space-y-3">
                     <div className="flex gap-3">
-                      <div className="flex-shrink-0 w-8 h-8 bg-primary-500 text-white rounded-full flex items-center justify-center font-bold">1</div>
+                      <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold">1</div>
                       <div>
                         <p className="font-semibold text-dark-800">Share Your Code</p>
                         <p className="text-sm text-gray-600">Share your unique referral code with friends and family</p>
                       </div>
                     </div>
                     <div className="flex gap-3">
-                      <div className="flex-shrink-0 w-8 h-8 bg-primary-500 text-white rounded-full flex items-center justify-center font-bold">2</div>
+                      <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold">2</div>
                       <div>
                         <p className="font-semibold text-dark-800">They Sign Up</p>
                         <p className="text-sm text-gray-600">When they register using your code, they become your referral</p>
                       </div>
                     </div>
                     <div className="flex gap-3">
-                      <div className="flex-shrink-0 w-8 h-8 bg-primary-500 text-white rounded-full flex items-center justify-center font-bold">3</div>
+                      <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold">3</div>
                       <div>
                         <p className="font-semibold text-dark-800">Earn Rewards</p>
                         <p className="text-sm text-gray-600">Get exclusive benefits and rewards for each successful referral</p>
@@ -599,7 +599,6 @@ export default function OwnerProfile() {
           )}
         </div>
       </div>
-    </OwnerLayout>
+    </CustomerLayout>
   );
 }
-

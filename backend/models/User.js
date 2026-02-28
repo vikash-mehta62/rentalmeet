@@ -50,7 +50,34 @@ const userSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
-  }
+  },
+  // Referral System
+  referralCode: {
+    type: String,
+    unique: true,
+    sparse: true // Allows null values to be non-unique
+  },
+  referredBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  referredByCode: {
+    type: String
+  },
+  referralCount: {
+    type: Number,
+    default: 0
+  },
+  referrals: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    joinedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }]
 }, {
   timestamps: true
 });
@@ -61,6 +88,13 @@ userSchema.pre('save', async function(next) {
   this.password = await bcrypt.hash(this.password, 12);
   next();
 });
+
+// Generate unique referral code
+userSchema.methods.generateReferralCode = function() {
+  const prefix = this.role === 'owner' ? 'OWN' : 'USR';
+  const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
+  return `${prefix}${randomStr}`;
+};
 
 // Compare password method
 userSchema.methods.comparePassword = async function(candidatePassword) {

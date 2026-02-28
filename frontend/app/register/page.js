@@ -18,7 +18,8 @@ export default function Register() {
     phone: '',
     password: '',
     confirmPassword: '',
-    role: 'customer'
+    role: 'customer',
+    referralCode: ''
   });
   const [error, setError] = useState('');
 
@@ -108,7 +109,8 @@ export default function Register() {
           email: formData.email,
           phone: formData.phone,
           password: formData.password,
-          role: formData.role
+          role: formData.role,
+          referralCode: formData.referralCode || undefined
         })
       });
 
@@ -364,6 +366,28 @@ export default function Register() {
                   required
                 />
               </div>
+            </div>
+
+            {/* Referral Code (Optional) */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Referral Code (Optional)
+              </label>
+              <div className="relative">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                <input
+                  type="text"
+                  name="referralCode"
+                  value={formData.referralCode}
+                  onChange={handleChange}
+                  placeholder="Enter referral code (if any)"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 uppercase"
+                  maxLength="10"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Have a referral code? Enter it to get benefits!</p>
             </div>
 
             {/* Submit Button */}

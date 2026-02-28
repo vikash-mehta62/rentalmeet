@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
 import CustomerLayout from '@/components/customer/CustomerLayout';
 import {
-  Calendar, CheckCircle2, XCircle, Clock, Search
+  Calendar, CheckCircle2, XCircle, Clock, Search, Gift, Copy, Users
 } from 'lucide-react';
 
 export default function CustomerDashboard() {
@@ -20,6 +20,7 @@ export default function CustomerDashboard() {
   });
   const [recentBookings, setRecentBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [copyMessage, setCopyMessage] = useState('');
 
   useEffect(() => {
     if (!token || user?.role !== 'customer') {
@@ -200,7 +201,43 @@ export default function CustomerDashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+          {/* Referral Code Card */}
+          <div className="bg-gradient-to-br from-purple-500 to-pink-500 text-white rounded-2xl p-6 shadow-lg">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                <Gift className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold">Referral Code</h3>
+                <p className="text-xs text-white/80">Share & Earn Rewards</p>
+              </div>
+            </div>
+            
+            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 mb-3">
+              <p className="text-xs text-white/80 mb-1">Your Code</p>
+              <p className="text-2xl font-black tracking-wider">{user?.referralCode || 'LOADING'}</p>
+            </div>
+            
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                <span>{user?.referralCount || 0} Referrals</span>
+              </div>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(user?.referralCode || '');
+                  setCopyMessage('Copied!');
+                  setTimeout(() => setCopyMessage(''), 2000);
+                }}
+                className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-lg flex items-center gap-1 transition-colors"
+              >
+                <Copy className="w-3 h-3" />
+                {copyMessage || 'Copy'}
+              </button>
+            </div>
+          </div>
+
           <Link
             href="/venues"
             className="bg-gradient-orange text-white rounded-2xl p-6 hover:scale-105 transition-transform shadow-lg"

@@ -81,7 +81,7 @@ export default function Navbar() {
           {/* 1. Logo Section */}
           <Link href="/" className="flex items-center gap-3 group relative z-50">
             <img 
-              src="/logo-new.jpeg" 
+              src="/logo.png" 
               alt="RentalMeet Logo" 
               className="h-12 w-auto object-contain"
             />

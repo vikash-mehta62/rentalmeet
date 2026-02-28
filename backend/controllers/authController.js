@@ -12,7 +12,7 @@ const generateToken = (id) => {
 // @route   POST /api/auth/register
 exports.register = async (req, res) => {
   try {
-    const { name, email, phone, password, role } = req.body;
+    const { name, email, phone, password, role, referralCode } = req.body;
     
     // Check if user exists
     const userExists = await User.findOne({ $or: [{ email }, { phone }] });
@@ -23,14 +23,51 @@ exports.register = async (req, res) => {
       });
     }
     
+    // Check if referral code is provided and valid
+    let referrer = null;
+    if (referralCode) {
+      referrer = await User.findOne({ referralCode: referralCode.toUpperCase() });
+      if (!referrer) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid referral code'
+        });
+      }
+    }
+    
     // Create user
     const user = await User.create({
       name,
       email,
       phone,
       password,
-      role: role || 'customer'
+      role: role || 'customer',
+      referredBy: referrer ? referrer._id : null,
+      referredByCode: referralCode ? referralCode.toUpperCase() : null
     });
+    
+    // Generate unique referral code for new user
+    let newReferralCode;
+    let isUnique = false;
+    while (!isUnique) {
+      newReferralCode = user.generateReferralCode();
+      const existingCode = await User.findOne({ referralCode: newReferralCode });
+      if (!existingCode) {
+        isUnique = true;
+      }
+    }
+    user.referralCode = newReferralCode;
+    await user.save();
+    
+    // Update referrer's referral count and list
+    if (referrer) {
+      referrer.referralCount += 1;
+      referrer.referrals.push({
+        user: user._id,
+        joinedAt: new Date()
+      });
+      await referrer.save();
+    }
     
     const token = generateToken(user._id);
     
@@ -42,7 +79,8 @@ exports.register = async (req, res) => {
         name: user.name,
         email: user.email,
         phone: user.phone,
-        role: user.role
+        role: user.role,
+        referralCode: user.referralCode
       }
     });
   } catch (error) {
@@ -111,7 +149,9 @@ exports.login = async (req, res) => {
 // @route   GET /api/auth/me
 exports.getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user.id)
+      .populate('referrals.user', 'name email role')
+      .populate('referredBy', 'name email referralCode');
     
     res.json({
       success: true,
