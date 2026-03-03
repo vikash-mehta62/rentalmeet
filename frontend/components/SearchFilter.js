@@ -2,30 +2,28 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, MapPin, Users, Calendar, ChevronDown } from 'lucide-react';
+import { Search, MapPin, Users, Calendar, ChevronDown, Grid3x3 } from 'lucide-react';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 export default function SearchFilter() {
   const router = useRouter();
   const [locations, setLocations] = useState({ cities: [], locations: [] });
+  const [venueTypes, setVenueTypes] = useState([]);
   
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCity, setSelectedCity] = useState('');
+  const [locationInput, setLocationInput] = useState('');
+  const [locationSuggestions, setLocationSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState('');
-  const [selectedCapacity, setSelectedCapacity] = useState('');
-  const [selectedDate, setSelectedDate] = useState('');
-
-  const capacityOptions = [
-    { value: '10', label: '10-20 persons' },
-    { value: '20', label: '20-50 persons' },
-    { value: '50', label: '50-100 persons' },
-    { value: '100', label: '100-200 persons' },
-    { value: '200', label: '200-500 persons' },
-    { value: '500', label: '500+ persons' }
-  ];
+  const [personsInput, setPersonsInput] = useState('');
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedVenueType, setSelectedVenueType] = useState('');
 
   useEffect(() => {
     fetchLocations();
+    fetchVenueTypes();
   }, []);
 
   const fetchLocations = async () => {
@@ -40,26 +38,57 @@ export default function SearchFilter() {
     }
   };
 
+  const fetchVenueTypes = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venue-types`);
+      const data = await response.json();
+      if (data.success) {
+        setVenueTypes(data.venueTypes);
+      }
+    } catch (error) {
+      console.error('Error fetching venue types:', error);
+    }
+  };
+
+  // Location autocomplete
+  const handleLocationInput = (value) => {
+    setLocationInput(value);
+    if (value.length > 0) {
+      const allLocations = [
+        ...locations.cities,
+        ...locations.locations.flatMap(loc => loc.areas.map(area => `${area}, ${loc.city}`))
+      ];
+      const filtered = allLocations.filter(loc => 
+        loc.toLowerCase().includes(value.toLowerCase())
+      );
+      setLocationSuggestions(filtered.slice(0, 5));
+      setShowSuggestions(true);
+    } else {
+      setLocationSuggestions([]);
+      setShowSuggestions(false);
+    }
+  };
+
+  const selectLocation = (location) => {
+    setLocationInput(location);
+    setSelectedLocation(location);
+    setShowSuggestions(false);
+  };
+
   const handleSearch = () => {
     const params = new URLSearchParams();
     if (searchQuery) params.append('search', searchQuery);
-    if (selectedCity) params.append('city', selectedCity);
     if (selectedLocation) params.append('location', selectedLocation);
-    if (selectedCapacity) params.append('capacity', selectedCapacity);
-    if (selectedDate) params.append('date', selectedDate);
+    if (personsInput) params.append('capacity', personsInput);
+    if (selectedDate) params.append('date', selectedDate.toISOString().split('T')[0]);
+    if (selectedVenueType) params.append('type', selectedVenueType);
     
     router.push(`/venues?${params.toString()}`);
   };
 
-  const getAreasForCity = () => {
-    if (!selectedCity) return [];
-    const cityData = locations.locations.find(loc => loc.city === selectedCity);
-    return cityData ? cityData.areas : [];
-  };
-
   return (
     <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow-2xl p-8">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
         {/* Search Input */}
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#F59F0A]" />
@@ -72,52 +101,75 @@ export default function SearchFilter() {
           />
         </div>
 
-        {/* Location Dropdown */}
+        {/* Location Input with Autocomplete */}
         <div className="relative">
-          <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#F59F0A] z-10 pointer-events-none" />
-          <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 z-10 pointer-events-none" />
-          <select
-            value={selectedCity}
-            onChange={(e) => {
-              setSelectedCity(e.target.value);
-              setSelectedLocation('');
-            }}
-            className="w-full pl-12 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all appearance-none bg-white cursor-pointer"
-          >
-            <option value="">Location (Bhopal, etc.)</option>
-            {locations.cities.map(city => (
-              <option key={city} value={city}>{city}</option>
-            ))}
-          </select>
+          <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#F59F0A] z-10" />
+          <input
+            type="text"
+            placeholder="Location (Bhopal, etc.)"
+            value={locationInput}
+            onChange={(e) => handleLocationInput(e.target.value)}
+            onFocus={() => locationSuggestions.length > 0 && setShowSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+            className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all"
+          />
+          {showSuggestions && locationSuggestions.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+              {locationSuggestions.map((suggestion, index) => (
+                <button
+                  key={index}
+                  onClick={() => selectLocation(suggestion)}
+                  className="w-full text-left px-4 py-2 hover:bg-gray-50 transition-colors flex items-center gap-2"
+                >
+                  <MapPin className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm text-gray-700">{suggestion}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Persons Dropdown */}
+        {/* Persons Input */}
         <div className="relative">
-          <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#F59F0A] z-10 pointer-events-none" />
-          <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 z-10 pointer-events-none" />
-          <select
-            value={selectedCapacity}
-            onChange={(e) => setSelectedCapacity(e.target.value)}
-            className="w-full pl-12 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all appearance-none bg-white cursor-pointer"
-          >
-            <option value="">Persons</option>
-            {capacityOptions.map(option => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
+          <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#F59F0A]" />
+          <input
+            type="number"
+            placeholder="Persons"
+            value={personsInput}
+            onChange={(e) => setPersonsInput(e.target.value)}
+            min="1"
+            className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all"
+          />
         </div>
 
-        {/* Date Input */}
+        {/* Date Picker */}
         <div className="relative">
           <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#F59F0A] z-10 pointer-events-none" />
-          <input
-            type="date"
-            placeholder="Select Date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            min={new Date().toISOString().split('T')[0]}
+          <DatePicker
+            selected={selectedDate}
+            onChange={(date) => setSelectedDate(date)}
+            minDate={new Date()}
+            placeholderText="Select Date"
+            dateFormat="dd/MM/yyyy"
             className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all cursor-pointer"
+            calendarClassName="custom-calendar"
           />
+        </div>
+
+        {/* Venue Type Dropdown */}
+        <div className="relative">
+          <Grid3x3 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#F59F0A] z-10 pointer-events-none" />
+          <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 z-10 pointer-events-none" />
+          <select
+            value={selectedVenueType}
+            onChange={(e) => setSelectedVenueType(e.target.value)}
+            className="w-full pl-12 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all appearance-none bg-white cursor-pointer"
+          >
+            <option value="">Venue Type</option>
+            {venueTypes.map(type => (
+              <option key={type._id} value={type.name}>{type.icon} {type.name}</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -141,7 +193,8 @@ export default function SearchFilter() {
             <button
               key={city}
               onClick={() => {
-                setSelectedCity(city);
+                setLocationInput(city);
+                setSelectedLocation(city);
                 handleSearch();
               }}
               className="flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
@@ -152,7 +205,91 @@ export default function SearchFilter() {
           ))}
         </div>
       </div>
+
+      <style jsx global>{`
+        .react-datepicker {
+          font-family: inherit;
+          border: 1px solid #e5e7eb;
+          border-radius: 12px;
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        
+        .react-datepicker__header {
+          background-color: #F59F0A;
+          border-bottom: none;
+          border-radius: 12px 12px 0 0;
+          padding: 16px 0;
+        }
+        
+        .react-datepicker__current-month {
+          color: white;
+          font-weight: 600;
+          font-size: 16px;
+        }
+        
+        .react-datepicker__day-name {
+          color: white;
+          font-weight: 500;
+          width: 40px;
+          line-height: 40px;
+        }
+        
+        .react-datepicker__day {
+          width: 40px;
+          line-height: 40px;
+          margin: 4px;
+          border-radius: 8px;
+          color: #374151;
+          font-weight: 500;
+        }
+        
+        .react-datepicker__day:hover {
+          background-color: #FEF3C7;
+          color: #92400E;
+        }
+        
+        .react-datepicker__day--selected {
+          background-color: #F59F0A;
+          color: white;
+          font-weight: 600;
+        }
+        
+        .react-datepicker__day--keyboard-selected {
+          background-color: #FCD34D;
+          color: #92400E;
+        }
+        
+        .react-datepicker__day--today {
+          font-weight: 700;
+          color: #F59F0A;
+        }
+        
+        .react-datepicker__day--disabled {
+          color: #d1d5db;
+          cursor: not-allowed;
+        }
+        
+        .react-datepicker__day--disabled:hover {
+          background-color: transparent;
+        }
+        
+        .react-datepicker__navigation {
+          top: 18px;
+        }
+        
+        .react-datepicker__navigation-icon::before {
+          border-color: white;
+          border-width: 2px 2px 0 0;
+        }
+        
+        .react-datepicker__month {
+          margin: 16px;
+        }
+        
+        .react-datepicker__triangle {
+          display: none;
+        }
+      `}</style>
     </div>
   );
 }
-

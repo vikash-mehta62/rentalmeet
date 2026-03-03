@@ -55,7 +55,7 @@ export default function FacilitiesSection() {
   ];
 
   return (
-    <section className="py-16 px-4 sm:px-6 bg-gray-50">
+    <section className="py-16 px-4 sm:px-6 bg-gradient-to-br from-green-50 via-white to-emerald-50">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">

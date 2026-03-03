@@ -29,7 +29,7 @@ export default function FeaturedVenues() {
 
   if (loading) {
     return (
-      <section className="py-12 px-4 sm:px-6 bg-white">
+      <section className="py-12 px-4 sm:px-6 bg-gradient-to-br from-blue-50 via-white to-indigo-50">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-10">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">OUR VENUES</p>
@@ -51,7 +51,7 @@ export default function FeaturedVenues() {
   }
 
   return (
-    <section className="py-12 px-4 sm:px-6 bg-white">
+    <section className="py-12 px-4 sm:px-6 bg-gradient-to-br from-blue-50 via-white to-indigo-50">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-10">

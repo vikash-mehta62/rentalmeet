@@ -2,15 +2,9 @@
 
 import { useForm } from 'react-hook-form';
 import { useVenueFormStore } from '@/lib/store';
+import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { Building2, Users, FileText, Maximize2 } from 'lucide-react';
-
-const venueTypes = [
-  'Meeting Hall', 'Farm House', 'Conference Hall', 'Govt. Auditorium Hall',
-  'Hotel', 'Private Auditorium Hall', 'Restaurant', 'School Auditorium Hall',
-  'Function Hall', 'Collage Auditorium Hall', 'Open Lawn', 'Co-Work Space',
-  'Banquet Hall', 'Guest House', 'Training Center', 'Marriage Garden'
-];
 
 const capacityOptions = [
   '10-20', '20-30', '30-40', '40-50', '50-100', '100-200', '200-300',
@@ -23,9 +17,31 @@ export default function Step1BasicInfo() {
   const { register, handleSubmit, formState: { errors }, watch } = useForm({
     defaultValues: formData.basicInfo
   });
+  const [venueTypes, setVenueTypes] = useState([]);
+  const [loadingTypes, setLoadingTypes] = useState(true);
 
   const description = watch('description', '');
   const wordCount = description.trim().split(/\s+/).filter(Boolean).length;
+
+  // Fetch venue types from API
+  useEffect(() => {
+    fetchVenueTypes();
+  }, []);
+
+  const fetchVenueTypes = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venue-types`);
+      const data = await response.json();
+      if (data.success) {
+        setVenueTypes(data.venueTypes);
+      }
+    } catch (error) {
+      console.error('Error fetching venue types:', error);
+      toast.error('Failed to load venue types');
+    } finally {
+      setLoadingTypes(false);
+    }
+  };
 
   const onSubmit = (data) => {
     if (wordCount > 200) {
@@ -64,19 +80,32 @@ export default function Step1BasicInfo() {
         <label className="block text-sm font-semibold text-dark-700 mb-3">
           Venue Type (Select all that apply) *
         </label>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {venueTypes.map((type) => (
-            <label key={type} className="flex items-center space-x-2 cursor-pointer group">
-              <input
-                type="checkbox"
-                value={type}
-                {...register('venueType', { required: 'Select at least one venue type' })}
-                className="w-5 h-5 rounded border-dark-200 text-primary-500 focus:ring-primary-500 focus:ring-2 transition-all"
-              />
-              <span className="text-sm text-dark-700 group-hover:text-primary-500 transition-colors">{type}</span>
-            </label>
-          ))}
-        </div>
+        {loadingTypes ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="w-6 h-6 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+            <span className="ml-3 text-gray-600">Loading venue types...</span>
+          </div>
+        ) : venueTypes.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {venueTypes.map((type) => (
+              <label key={type._id} className="flex items-center space-x-2 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  value={type.name}
+                  {...register('venueType', { required: 'Select at least one venue type' })}
+                  className="w-5 h-5 rounded border-dark-200 text-primary-500 focus:ring-primary-500 focus:ring-2 transition-all"
+                />
+                <span className="text-sm text-dark-700 group-hover:text-primary-500 transition-colors flex items-center gap-1">
+                  {type.icon} {type.name}
+                </span>
+              </label>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+            <p className="text-gray-600">No venue types available. Please contact admin.</p>
+          </div>
+        )}
         {errors.venueType && (
           <p className="text-error text-sm mt-2 flex items-center">
             <span className="mr-1">⚠️</span> {errors.venueType.message}

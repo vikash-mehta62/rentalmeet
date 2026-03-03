@@ -7,6 +7,7 @@ import {
   Search, Filter, MapPin, Users, Star
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
 import { useAuthStore } from '@/lib/store';
 
 export default function BrowseVenues() {
@@ -21,22 +22,20 @@ export default function BrowseVenues() {
   const [capacityFilter, setCapacityFilter] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
-
-  const venueTypes = [
-    'Meeting Hall', 'Conference Hall', 'Banquet Hall', 'Function Hall',
-    'Training Center', 'Co-Work Space', 'Hotel', 'Restaurant'
-  ];
+  const [venueTypes, setVenueTypes] = useState([]);
 
   const capacityRanges = [
     { label: '10-50', min: 10, max: 50 },
     { label: '50-100', min: 50, max: 100 },
     { label: '100-200', min: 100, max: 200 },
     { label: '200-500', min: 200, max: 500 },
-    { label: '500+', min: 500, max: 10000 }
+    { label: '500-1000', min: 500, max: 1000 },
+    { label: '1000+', min: 1000, max: 100000 }
   ];
 
   useEffect(() => {
     fetchVenues();
+    fetchVenueTypes();
   }, []);
 
   useEffect(() => {
@@ -58,6 +57,18 @@ export default function BrowseVenues() {
       console.error('Error fetching venues:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchVenueTypes = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venue-types`);
+      const data = await response.json();
+      if (data.success) {
+        setVenueTypes(data.venueTypes);
+      }
+    } catch (error) {
+      console.error('Error fetching venue types:', error);
     }
   };
 
@@ -137,8 +148,8 @@ export default function BrowseVenues() {
       {/* Header Section */}
       <div className="bg-white border-b border-slate-200 pt-24 pb-6">
         <div className="max-w-7xl mx-auto px-6">
-          <h1 className="text-2xl font-bold text-slate-900">Browse Venues</h1>
-          <p className="text-slate-500 text-sm mt-1">Showing {filteredVenues.length} of {venues.length} venues</p>
+          <h1 className="text-3xl font-bold text-slate-900">Browse Venues</h1>
+          <p className="text-slate-600 mt-2">Find the perfect venue for your next meeting, conference, or corporate event.</p>
         </div>
       </div>
 
@@ -221,14 +232,14 @@ export default function BrowseVenues() {
                 <label className="text-sm font-semibold text-slate-700">Venue Type</label>
                 <div className="space-y-2">
                   {venueTypes.map(type => (
-                    <label key={type} className="flex items-center gap-2 cursor-pointer group">
+                    <label key={type._id} className="flex items-center gap-2 cursor-pointer group">
                       <input 
                         type="checkbox" 
-                        checked={typeFilter === type}
-                        onChange={() => setTypeFilter(typeFilter === type ? '' : type)}
+                        checked={typeFilter === type.name}
+                        onChange={() => setTypeFilter(typeFilter === type.name ? '' : type.name)}
                         className="w-4 h-4 rounded border-slate-300 text-primary-500 focus:ring-primary-500" 
                       />
-                      <span className="text-sm text-slate-600 group-hover:text-slate-900">{type}</span>
+                      <span className="text-sm text-slate-600 group-hover:text-slate-900">{type.icon} {type.name}</span>
                     </label>
                   ))}
                 </div>
@@ -236,11 +247,11 @@ export default function BrowseVenues() {
 
               {/* Capacity */}
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700">Capacity: 10 - 100 persons</label>
+                <label className="text-sm font-semibold text-slate-700">Capacity: 10 - 1000 persons</label>
                 <input
                   type="range"
                   min="10"
-                  max="500"
+                  max="1000"
                   step="10"
                   className="w-full h-2 bg-primary-200 rounded-lg appearance-none cursor-pointer accent-primary-500"
                   onChange={(e) => {
@@ -253,14 +264,27 @@ export default function BrowseVenues() {
 
               {/* Price Range */}
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700">Price: ₹1,000 - ₹10,000/hr</label>
+                <label className="text-sm font-semibold text-slate-700">Price: ₹1,000 - ₹10,00,000/hr</label>
                 <input
                   type="range"
                   min="1000"
-                  max="10000"
-                  step="500"
+                  max="1000000"
+                  step="10000"
                   className="w-full h-2 bg-primary-200 rounded-lg appearance-none cursor-pointer accent-primary-500"
                 />
+              </div>
+
+              {/* Reset Filters Button */}
+              <div className="pt-4 border-t border-slate-200">
+                <button
+                  onClick={resetFilters}
+                  className="w-full px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Reset All Filters
+                </button>
               </div>
             </div>
           </aside>
@@ -390,9 +414,20 @@ export default function BrowseVenues() {
                 );
               })
             )}
+
+            {/* Showing Count at Bottom */}
+            {filteredVenues.length > 0 && (
+              <div className="mt-8 pt-6 border-t border-slate-200 text-center">
+                <p className="text-slate-600 text-sm">
+                  Showing <span className="font-semibold text-slate-900">{filteredVenues.length}</span> of <span className="font-semibold text-slate-900">{venues.length}</span> venues
+                </p>
+              </div>
+            )}
           </main>
         </div>
       </div>
+
+      <Footer />
     </div>
   );
 }

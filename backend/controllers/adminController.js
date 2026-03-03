@@ -75,6 +75,12 @@ exports.getPendingVenues = async (req, res) => {
 // @route   PUT /api/admin/venues/:id/approve
 exports.approveVenue = async (req, res) => {
   try {
+    const { 
+      customPlatformFee, 
+      customGST, 
+      customCommission 
+    } = req.body;
+    
     const venue = await Venue.findById(req.params.id).populate('owner');
     
     if (!venue) {
@@ -86,6 +92,18 @@ exports.approveVenue = async (req, res) => {
     
     venue.status = 'approved';
     venue.verificationTimeline.listingActivation = new Date();
+    
+    // Set custom settings if provided
+    if (customPlatformFee) {
+      venue.customPlatformFee = customPlatformFee;
+    }
+    if (customGST) {
+      venue.customGST = customGST;
+    }
+    if (customCommission) {
+      venue.customCommission = customCommission;
+    }
+    
     await venue.save();
     
     // Send approval email
@@ -145,6 +163,8 @@ exports.rejectVenue = async (req, res) => {
 // @route   PUT /api/admin/venues/:id/suspend
 exports.suspendVenue = async (req, res) => {
   try {
+    const { reason } = req.body;
+    
     const venue = await Venue.findById(req.params.id);
     
     if (!venue) {
@@ -155,6 +175,7 @@ exports.suspendVenue = async (req, res) => {
     }
     
     venue.status = 'suspended';
+    venue.suspensionReason = reason;
     await venue.save();
     
     res.json({
@@ -170,19 +191,109 @@ exports.suspendVenue = async (req, res) => {
   }
 };
 
+// @desc    Activate/Reactivate venue (unsuspend)
+// @route   PUT /api/admin/venues/:id/activate
+exports.activateVenue = async (req, res) => {
+  try {
+    const venue = await Venue.findById(req.params.id);
+    
+    if (!venue) {
+      return res.status(404).json({
+        success: false,
+        message: 'Venue not found'
+      });
+    }
+    
+    // Change status to approved (reactivate)
+    venue.status = 'approved';
+    venue.suspensionReason = undefined; // Clear suspension reason
+    await venue.save();
+    
+    res.json({
+      success: true,
+      message: 'Venue activated successfully',
+      venue
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Update venue custom settings (GST, Platform Fee, Commission)
+// @route   PUT /api/admin/venues/:id/settings
+exports.updateVenueSettings = async (req, res) => {
+  try {
+    const { 
+      customPlatformFee, 
+      customGST, 
+      customCommission 
+    } = req.body;
+    
+    const venue = await Venue.findById(req.params.id);
+    
+    if (!venue) {
+      return res.status(404).json({
+        success: false,
+        message: 'Venue not found'
+      });
+    }
+    
+    // Update custom settings
+    if (customPlatformFee !== undefined) {
+      venue.customPlatformFee = customPlatformFee;
+    }
+    if (customGST !== undefined) {
+      venue.customGST = customGST;
+    }
+    if (customCommission !== undefined) {
+      venue.customCommission = customCommission;
+    }
+    
+    await venue.save();
+    
+    res.json({
+      success: true,
+      message: 'Venue settings updated successfully',
+      venue
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
 // @desc    Get commission settings
 // @route   GET /api/admin/commission
 exports.getCommissionSettings = async (req, res) => {
   try {
-    let settings = await CommissionSettings.findOne().sort('-createdAt');
+    const PlatformSettings = require('../models/PlatformSettings');
+    const Booking = require('../models/Booking');
     
-    if (!settings) {
-      settings = await CommissionSettings.create({ commissionRate: 15 });
-    }
+    // Get current settings
+    const settings = await PlatformSettings.getSettings();
+    
+    // Get commission stats from completed bookings
+    const completedBookings = await Booking.find({ status: 'completed' });
+    const totalCommission = completedBookings.reduce((sum, b) => sum + (b.commission || 0), 0);
+    const averageCommission = completedBookings.length > 0 
+      ? totalCommission / completedBookings.length 
+      : 0;
     
     res.json({
       success: true,
-      settings
+      settings: {
+        commissionRate: settings.commissionRate
+      },
+      stats: {
+        totalCommission,
+        totalBookings: completedBookings.length,
+        averageCommission
+      }
     });
   } catch (error) {
     res.status(500).json({
@@ -196,16 +307,89 @@ exports.getCommissionSettings = async (req, res) => {
 // @route   PUT /api/admin/commission
 exports.updateCommissionRate = async (req, res) => {
   try {
+    const PlatformSettings = require('../models/PlatformSettings');
     const { commissionRate } = req.body;
     
-    const settings = await CommissionSettings.create({
-      commissionRate,
-      updatedBy: req.user.id
-    });
+    // Update existing settings document
+    let settings = await PlatformSettings.findOne();
+    
+    if (settings) {
+      settings.commissionRate = commissionRate;
+      settings.updatedBy = req.user.id;
+      await settings.save();
+    } else {
+      settings = await PlatformSettings.create({
+        commissionRate,
+        updatedBy: req.user.id
+      });
+    }
     
     res.json({
       success: true,
       message: 'Commission rate updated',
+      settings
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Get platform settings (GST, Platform Fee & Commission)
+// @route   GET /api/admin/platform-settings
+exports.getPlatformSettings = async (req, res) => {
+  try {
+    const PlatformSettings = require('../models/PlatformSettings');
+    
+    // Get current settings (only one document)
+    const settings = await PlatformSettings.getSettings();
+    
+    res.json({
+      success: true,
+      settings
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Update platform settings (GST, Platform Fee & Commission)
+// @route   PUT /api/admin/platform-settings
+exports.updatePlatformSettings = async (req, res) => {
+  try {
+    const PlatformSettings = require('../models/PlatformSettings');
+    const { gstRate, platformFeeType, platformFeeValue, commissionRate } = req.body;
+    
+    // Find existing settings or create new
+    let settings = await PlatformSettings.findOne();
+    
+    if (settings) {
+      // Update existing document
+      settings.gstRate = gstRate !== undefined ? gstRate : settings.gstRate;
+      settings.platformFeeType = platformFeeType || settings.platformFeeType;
+      settings.platformFeeValue = platformFeeValue !== undefined ? platformFeeValue : settings.platformFeeValue;
+      settings.commissionRate = commissionRate !== undefined ? commissionRate : settings.commissionRate;
+      settings.updatedBy = req.user.id;
+      await settings.save();
+    } else {
+      // Create new document
+      settings = await PlatformSettings.create({
+        gstRate,
+        platformFeeType,
+        platformFeeValue,
+        commissionRate,
+        updatedBy: req.user.id
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Platform settings updated successfully',
       settings
     });
   } catch (error) {
@@ -279,6 +463,8 @@ exports.getAllUsers = async (req, res) => {
   try {
     const users = await User.find()
       .select('-password')
+      .populate('referredBy', 'name email')
+      .populate('referrals.user', 'name email')
       .sort('-createdAt');
     
     res.json({

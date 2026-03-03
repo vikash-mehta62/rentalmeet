@@ -10,7 +10,7 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Invoice - ${booking._id.slice(-8).toUpperCase()}</title>
+  <title>Invoice - ${booking.bookingNumber || booking._id.slice(-8).toUpperCase()}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: Arial, sans-serif; padding: 40px; color: #333; }
@@ -53,7 +53,7 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
       </div>
       <div class="invoice-title">
         <h1>INVOICE</h1>
-        <p>Invoice #: ${booking._id.slice(-8).toUpperCase()}</p>
+        <p>Invoice #: ${booking.bookingNumber || booking._id.slice(-8).toUpperCase()}</p>
         <p>Date: ${new Date(booking.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
         <p class="status-badge status-${booking.paymentStatus}">${booking.paymentStatus.toUpperCase()}</p>
       </div>
@@ -278,7 +278,7 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
       <p><strong>Thank you for choosing RentalMeet!</strong></p>
       <p style="margin-top: 10px;">For any queries, contact us at support@rentalmeet.com | +91 9999999999</p>
       <p style="margin-top: 10px; font-size: 11px; color: #999;">
-        Booking ID: ${booking._id} | 
+        Booking ID: ${booking.bookingNumber || booking._id} | 
         Invoice Generated: ${new Date().toLocaleString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
       </p>
       <p style="margin-top: 5px;">This is a computer-generated invoice and does not require a signature.</p>
@@ -293,7 +293,7 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Invoice-${booking._id.slice(-8).toUpperCase()}.html`;
+    link.download = `Invoice-${booking.bookingNumber || booking._id.slice(-8).toUpperCase()}.html`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

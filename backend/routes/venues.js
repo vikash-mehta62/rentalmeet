@@ -8,7 +8,8 @@ const {
   deleteVenue,
   uploadImages,
   getMyVenues,
-  getLocations
+  getLocations,
+  getPublicPlatformSettings
 } = require('../controllers/venueController');
 const { protect, authorize } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
@@ -23,6 +24,9 @@ router.get('/my-venues', protect, authorize('owner'), getMyVenues);
 
 // Locations endpoint
 router.get('/locations/all', getLocations);
+
+// Public platform settings endpoint (for booking calculations)
+router.get('/platform-settings/public', getPublicPlatformSettings);
 
 // SKU route must come before :id route
 router.get('/sku/:sku', getVenueBySKU);

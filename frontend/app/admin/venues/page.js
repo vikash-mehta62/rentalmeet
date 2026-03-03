@@ -18,10 +18,17 @@ export default function AdminVenues() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedVenue, setSelectedVenue] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [platformSettings, setPlatformSettings] = useState(null);
+  const [customSettings, setCustomSettings] = useState({
+    customPlatformFee: { enabled: false, feeType: 'fixed', feeValue: 0 },
+    customGST: { enabled: false, rate: 18 },
+    customCommission: { enabled: false, rate: 15 }
+  });
 
   useEffect(() => {
     if (token) {
       fetchVenues();
+      fetchPlatformSettings();
     }
   }, [token]);
 
@@ -47,6 +54,23 @@ export default function AdminVenues() {
       toast.error('Failed to load venues');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPlatformSettings = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/platform-settings`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setPlatformSettings(data.settings);
+      }
+    } catch (error) {
+      console.error('Error fetching platform settings:', error);
     }
   };
 
@@ -94,12 +118,50 @@ export default function AdminVenues() {
 
   const openModal = (venue) => {
     setSelectedVenue(venue);
+    // Initialize custom settings from venue data
+    setCustomSettings({
+      customPlatformFee: venue.customPlatformFee || { enabled: false, feeType: 'fixed', feeValue: 0 },
+      customGST: venue.customGST || { enabled: false, rate: 18 },
+      customCommission: venue.customCommission || { enabled: false, rate: 15 }
+    });
     setModalOpen(true);
   };
 
   const closeModal = () => {
     setSelectedVenue(null);
     setModalOpen(false);
+    setCustomSettings({
+      customPlatformFee: { enabled: false, feeType: 'fixed', feeValue: 0 },
+      customGST: { enabled: false, rate: 18 },
+      customCommission: { enabled: false, rate: 15 }
+    });
+  };
+
+  const handleUpdateSettings = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/venues/${selectedVenue._id}/settings`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(customSettings)
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        toast.success('Custom settings updated successfully!');
+        fetchVenues();
+        // Update selected venue with new data
+        setSelectedVenue(data.venue);
+      } else {
+        toast.error(data.message || 'Failed to update settings');
+      }
+    } catch (error) {
+      console.error('Error updating settings:', error);
+      toast.error('Failed to update settings');
+    }
   };
 
   const stats = {
@@ -373,6 +435,173 @@ export default function AdminVenues() {
                 </div>
               )}
 
+              {/* Custom Settings Section */}
+              {(selectedVenue.status === 'approved' || selectedVenue.status === 'suspended') && (
+                <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
+                  <h3 className="text-lg font-semibold mb-4 text-orange-900">Custom Settings</h3>
+                  
+                  {/* Default Platform Settings Reference */}
+                  {platformSettings && platformSettings.platformFee && (
+                    <div className="bg-white rounded-lg p-3 mb-4 border border-orange-100">
+                      <p className="text-xs font-semibold text-gray-600 mb-2">Default Platform Settings:</p>
+                      <div className="grid grid-cols-3 gap-3 text-xs">
+                        <div>
+                          <span className="text-gray-600">GST: </span>
+                          <span className="font-semibold">{platformSettings.gstRate || 18}%</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Platform Fee: </span>
+                          <span className="font-semibold">
+                            {platformSettings.platformFee.feeType === 'fixed' 
+                              ? `₹${platformSettings.platformFee.feeValue || 0}` 
+                              : `${platformSettings.platformFee.feeValue || 0}%`}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Commission: </span>
+                          <span className="font-semibold">{platformSettings.commissionRate || 15}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    {/* Custom GST */}
+                    <div className="bg-white rounded-lg p-4 border border-gray-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <label className="text-sm font-semibold text-gray-700">Custom GST Rate</label>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={customSettings.customGST.enabled}
+                            onChange={(e) => setCustomSettings({
+                              ...customSettings,
+                              customGST: { ...customSettings.customGST, enabled: e.target.checked }
+                            })}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+                        </label>
+                      </div>
+                      {customSettings.customGST.enabled && (
+                        <div>
+                          <label className="text-xs text-gray-600 mb-1 block">GST Rate (%)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            value={customSettings.customGST.rate}
+                            onChange={(e) => setCustomSettings({
+                              ...customSettings,
+                              customGST: { ...customSettings.customGST, rate: parseFloat(e.target.value) || 0 }
+                            })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Custom Platform Fee */}
+                    <div className="bg-white rounded-lg p-4 border border-gray-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <label className="text-sm font-semibold text-gray-700">Custom Platform Fee</label>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={customSettings.customPlatformFee.enabled}
+                            onChange={(e) => setCustomSettings({
+                              ...customSettings,
+                              customPlatformFee: { ...customSettings.customPlatformFee, enabled: e.target.checked }
+                            })}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+                        </label>
+                      </div>
+                      {customSettings.customPlatformFee.enabled && (
+                        <div className="space-y-3">
+                          <div>
+                            <label className="text-xs text-gray-600 mb-1 block">Fee Type</label>
+                            <select
+                              value={customSettings.customPlatformFee.feeType}
+                              onChange={(e) => setCustomSettings({
+                                ...customSettings,
+                                customPlatformFee: { ...customSettings.customPlatformFee, feeType: e.target.value }
+                              })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                            >
+                              <option value="fixed">Fixed Amount (₹)</option>
+                              <option value="percentage">Percentage (%)</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-xs text-gray-600 mb-1 block">
+                              Fee Value {customSettings.customPlatformFee.feeType === 'fixed' ? '(₹)' : '(%)'}
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step={customSettings.customPlatformFee.feeType === 'fixed' ? '1' : '0.01'}
+                              value={customSettings.customPlatformFee.feeValue}
+                              onChange={(e) => setCustomSettings({
+                                ...customSettings,
+                                customPlatformFee: { ...customSettings.customPlatformFee, feeValue: parseFloat(e.target.value) || 0 }
+                              })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Custom Commission */}
+                    <div className="bg-white rounded-lg p-4 border border-gray-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <label className="text-sm font-semibold text-gray-700">Custom Commission Rate</label>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={customSettings.customCommission.enabled}
+                            onChange={(e) => setCustomSettings({
+                              ...customSettings,
+                              customCommission: { ...customSettings.customCommission, enabled: e.target.checked }
+                            })}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+                        </label>
+                      </div>
+                      {customSettings.customCommission.enabled && (
+                        <div>
+                          <label className="text-xs text-gray-600 mb-1 block">Commission Rate (%)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            value={customSettings.customCommission.rate}
+                            onChange={(e) => setCustomSettings({
+                              ...customSettings,
+                              customCommission: { ...customSettings.customCommission, rate: parseFloat(e.target.value) || 0 }
+                            })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Update Settings Button */}
+                    <button
+                      onClick={handleUpdateSettings}
+                      className="w-full px-4 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors"
+                    >
+                      Update Custom Settings
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Action Buttons */}
               <div className="flex gap-3 pt-4 border-t">
                 {selectedVenue.status === 'pending' && (
@@ -400,6 +629,15 @@ export default function AdminVenues() {
                   >
                     <Ban className="w-5 h-5" />
                     Suspend
+                  </button>
+                )}
+                {selectedVenue.status === 'suspended' && (
+                  <button
+                    onClick={() => handleStatusUpdate(selectedVenue._id, 'activate')}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors"
+                  >
+                    <CheckCircle className="w-5 h-5" />
+                    Activate
                   </button>
                 )}
               </div>

@@ -6,15 +6,6 @@ import { MapPin, Phone, Mail, Clock } from 'lucide-react';
 export default function Footer() {
   const currentYear = new Date().getFullYear();
 
-  const roomTypes = [
-    { name: 'Meeting Room', href: '/venues?type=meeting' },
-    { name: 'Function Hall', href: '/venues?type=function' },
-    { name: 'Open Lawn', href: '/venues?type=lawn' },
-    { name: 'Auditorium', href: '/venues?type=auditorium' },
-    { name: 'Banquet Hall', href: '/venues?type=banquet' },
-    { name: 'Farm House', href: '/venues?type=farmhouse' }
-  ];
-
   const quickLinks = [
     { name: 'Home', href: '/' },
     { name: 'Browse Spaces', href: '/venues' },
@@ -27,7 +18,7 @@ export default function Footer() {
   return (
     <footer className="bg-white border-t border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Company Info */}
           <div>
             <div className="flex items-center gap-2 mb-4">
@@ -39,23 +30,6 @@ export default function Footer() {
             <p className="text-sm text-gray-600 leading-relaxed mb-4">
               Premium meeting spaces and event venues for every occasion. Experience luxury venues with world-class facilities for your corporate events, meetings, and celebrations.
             </p>
-          </div>
-
-          {/* Room Types */}
-          <div>
-            <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Room Types</h4>
-            <ul className="space-y-2">
-              {roomTypes.map((item) => (
-                <li key={item.name}>
-                  <Link 
-                    href={item.href}
-                    className="text-sm text-gray-600 hover:text-[#F59F0A] transition-colors"
-                  >
-                    {item.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
           </div>
 
           {/* Quick Links */}
@@ -125,4 +99,3 @@ export default function Footer() {
     </footer>
   );
 }
-

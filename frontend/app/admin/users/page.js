@@ -54,6 +54,9 @@ export default function AdminUsers() {
   const filterUsers = () => {
     let filtered = [...users];
 
+    // Hide admin users from the list
+    filtered = filtered.filter(u => u.role !== 'admin');
+
     if (roleFilter !== 'all') {
       filtered = filtered.filter(u => u.role === roleFilter);
     }
@@ -127,12 +130,12 @@ export default function AdminUsers() {
   };
 
   const stats = {
-    total: users.length,
+    total: users.filter(u => u.role !== 'admin').length, // Exclude admins from total
     admins: users.filter(u => u.role === 'admin').length,
     owners: users.filter(u => u.role === 'owner').length,
     customers: users.filter(u => u.role === 'customer').length,
-    active: users.filter(u => u.isActive).length,
-    inactive: users.filter(u => !u.isActive).length,
+    active: users.filter(u => u.isActive && u.role !== 'admin').length,
+    inactive: users.filter(u => !u.isActive && u.role !== 'admin').length,
   };
 
   if (loading) {
@@ -199,7 +202,6 @@ export default function AdminUsers() {
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white"
             >
               <option value="all">All Roles</option>
-              <option value="admin">Admin</option>
               <option value="owner">Owner</option>
               <option value="customer">Customer</option>
             </select>
@@ -251,7 +253,9 @@ export default function AdminUsers() {
                         </div>
                         <div>
                           <p className="font-semibold text-dark-800">{user.name}</p>
-                          <p className="text-xs text-gray-500">ID: {user._id.slice(-8)}</p>
+                          <p className="text-xs text-gray-500">
+                            {user.userId || `ID: ${user._id.slice(-8)}`}
+                          </p>
                         </div>
                       </div>
                     </td>
@@ -363,7 +367,9 @@ export default function AdminUsers() {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <p className="text-gray-600">User ID</p>
-                    <p className="font-semibold text-gray-900">{selectedUser._id}</p>
+                    <p className="font-semibold text-gray-900 font-mono">
+                      {selectedUser.userId || selectedUser._id}
+                    </p>
                   </div>
                   <div>
                     <p className="text-gray-600">Joined Date</p>
@@ -375,6 +381,68 @@ export default function AdminUsers() {
                       })}
                     </p>
                   </div>
+                </div>
+              </div>
+
+              {/* Referral Information */}
+              <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-lg p-4 border border-orange-200">
+                <h3 className="text-lg font-semibold mb-3 text-orange-900">Referral Information</h3>
+                <div className="space-y-3">
+                  {/* User's Referral Code */}
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">User's Referral Code</p>
+                    <div className="flex items-center gap-2">
+                      <code className="px-3 py-1.5 bg-white rounded-lg font-mono font-bold text-orange-600 border border-orange-300">
+                        {selectedUser.referralCode || 'Not Generated'}
+                      </code>
+                      {selectedUser.referralCount > 0 && (
+                        <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+                          {selectedUser.referralCount} referral{selectedUser.referralCount > 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Referred By */}
+                  {selectedUser.referredBy && (
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Referred By</p>
+                      <div className="bg-white rounded-lg p-3 border border-orange-200">
+                        <p className="font-semibold text-gray-900">{selectedUser.referredBy.name}</p>
+                        <p className="text-sm text-gray-600">{selectedUser.referredBy.email}</p>
+                        {selectedUser.referredByCode && (
+                          <p className="text-xs text-orange-600 mt-1">
+                            Code used: <code className="font-mono font-bold">{selectedUser.referredByCode}</code>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Users Referred by This User */}
+                  {selectedUser.referrals && selectedUser.referrals.length > 0 && (
+                    <div>
+                      <p className="text-sm text-gray-600 mb-2">Users Referred ({selectedUser.referrals.length})</p>
+                      <div className="space-y-2 max-h-40 overflow-y-auto">
+                        {selectedUser.referrals.map((referral, idx) => (
+                          <div key={idx} className="bg-white rounded-lg p-2 border border-orange-200 text-sm">
+                            <p className="font-semibold text-gray-900">{referral.user?.name || 'User'}</p>
+                            <p className="text-xs text-gray-600">{referral.user?.email || 'N/A'}</p>
+                            <p className="text-xs text-orange-600 mt-1">
+                              Joined: {new Date(referral.joinedAt).toLocaleDateString('en-IN')}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* No Referral Activity */}
+                  {!selectedUser.referredBy && (!selectedUser.referrals || selectedUser.referrals.length === 0) && (
+                    <div className="text-center py-3">
+                      <p className="text-sm text-gray-500">No referral activity</p>
+                    </div>
+                  )}
                 </div>
               </div>
 

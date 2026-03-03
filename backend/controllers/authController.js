@@ -1,5 +1,28 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Counter = require('../models/Counter');
+
+// Helper function to generate user ID
+// Format: RM-ROLE-YEAR-SEQUENCE
+// Example: RM-CUST-2026-0001, RM-OWN-2026-0001
+const generateUserId = async (role) => {
+  const year = new Date().getFullYear();
+  const rolePrefix = role === 'owner' ? 'OWN' : role === 'admin' ? 'ADM' : 'CUST';
+  
+  // Create counter ID: user_ROLE_YEAR
+  const counterId = `user_${rolePrefix}_${year}`;
+  
+  // Get next sequence number
+  const sequence = await Counter.getNextSequence(counterId);
+  
+  // Format sequence with leading zeros (4 digits)
+  const sequenceStr = sequence.toString().padStart(4, '0');
+  
+  // Generate user ID
+  const userId = `RM-${rolePrefix}-${year}-${sequenceStr}`;
+  
+  return userId;
+};
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -36,15 +59,21 @@ exports.register = async (req, res) => {
     }
     
     // Create user
+    const userRole = role || 'customer';
+    const userId = await generateUserId(userRole);
+    
     const user = await User.create({
+      userId,
       name,
       email,
       phone,
       password,
-      role: role || 'customer',
+      role: userRole,
       referredBy: referrer ? referrer._id : null,
       referredByCode: referralCode ? referralCode.toUpperCase() : null
     });
+    
+    console.log('New user created with ID:', userId);
     
     // Generate unique referral code for new user
     let newReferralCode;
@@ -76,6 +105,7 @@ exports.register = async (req, res) => {
       token,
       user: {
         id: user._id,
+        userId: user.userId,
         name: user.name,
         email: user.email,
         phone: user.phone,

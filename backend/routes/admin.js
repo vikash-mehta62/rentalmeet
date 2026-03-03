@@ -4,8 +4,12 @@ const {
   approveVenue,
   rejectVenue,
   suspendVenue,
+  activateVenue,
+  updateVenueSettings,
   getCommissionSettings,
   updateCommissionRate,
+  getPlatformSettings,
+  updatePlatformSettings,
   getEarningsReport,
   getDashboardStats,
   getAllUsers,
@@ -32,6 +36,8 @@ router.get('/venues/pending', getPendingVenues);
 router.put('/venues/:id/approve', approveVenue);
 router.put('/venues/:id/reject', rejectVenue);
 router.put('/venues/:id/suspend', suspendVenue);
+router.put('/venues/:id/activate', activateVenue);
+router.put('/venues/:id/settings', updateVenueSettings);
 
 // User routes
 router.get('/users', getAllUsers);
@@ -50,6 +56,11 @@ router.get('/payments/:id', getPayment);
 router.route('/commission')
   .get(getCommissionSettings)
   .put(updateCommissionRate);
+
+// Platform Settings routes (GST & Platform Fee)
+router.route('/platform-settings')
+  .get(getPlatformSettings)
+  .put(updatePlatformSettings);
 
 // Terms & Conditions routes
 router.route('/terms')

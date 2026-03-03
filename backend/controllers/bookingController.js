@@ -1,11 +1,51 @@
 const Booking = require('../models/Booking');
 const Venue = require('../models/Venue');
 const CommissionSettings = require('../models/CommissionSettings');
+const Counter = require('../models/Counter');
+
+// Helper function to generate booking number
+// Format: RM-YEAR/STATE/CITY/SEQUENCE
+// Example: RM-2026/MH/MUMBAI/0001
+const generateBookingNumber = async (venue) => {
+  const year = new Date().getFullYear();
+  const state = venue.location?.state?.toUpperCase().substring(0, 2) || 'XX';
+  const city = venue.location?.city?.toUpperCase().replace(/\s+/g, '') || 'CITY';
+  
+  // Create counter ID: booking_YEAR_STATE_CITY
+  const counterId = `booking_${year}_${state}_${city}`;
+  
+  // Get next sequence number
+  const sequence = await Counter.getNextSequence(counterId);
+  
+  // Format sequence with leading zeros (4 digits)
+  const sequenceStr = sequence.toString().padStart(4, '0');
+  
+  // Generate booking number
+  const bookingNumber = `RM-${year}/${state}/${city}/${sequenceStr}`;
+  
+  return bookingNumber;
+};
 
 // @desc    Create booking
 // @route   POST /api/bookings
 exports.createBooking = async (req, res) => {
   try {
+    // Check if user is logged in
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Please login to create a booking'
+      });
+    }
+
+    // Only customers and owners can create bookings (not admin)
+    if (req.user.role === 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Admins cannot create bookings'
+      });
+    }
+
     const { 
       venue, 
       bookingDate, 
@@ -19,23 +59,76 @@ exports.createBooking = async (req, res) => {
       customerDetails 
     } = req.body;
     
-    // Get current commission rate (default 15%)
-    const commissionSettings = await CommissionSettings.findOne().sort('-createdAt');
-    const commissionRate = commissionSettings ? commissionSettings.commissionRate : 15;
+    console.log('=== BOOKING REQUEST DEBUG ===');
+    console.log('Amount (Total):', amount);
+    console.log('Amenities Total:', amenitiesTotal);
+    console.log('Price Breakdown:', JSON.stringify(priceBreakdown, null, 2));
+    console.log('============================');
     
-    // Calculate commission and owner earnings
-    const commission = (amount * commissionRate) / 100;
-    const ownerEarnings = amount - commission;
+    // Get venue details first (needed for booking number and commission)
+    const venueDetails = await Venue.findById(venue).populate('owner');
+    
+    if (!venueDetails) {
+      return res.status(404).json({
+        success: false,
+        message: 'Venue not found'
+      });
+    }
+    
+    // Generate booking number
+    const bookingNumber = await generateBookingNumber(venueDetails);
+    console.log('Generated Booking Number:', bookingNumber);
+    
+    // Get platform settings for commission rate
+    const PlatformSettings = require('../models/PlatformSettings');
+    const settings = await PlatformSettings.getSettings();
+    
+    // Check for custom commission (venueDetails already fetched above)
+    const commissionRate = venueDetails?.customCommission?.enabled 
+      ? venueDetails.customCommission.rate 
+      : settings.commissionRate;
+    
+    // Calculate commission from subtotal (before GST and platform fee)
+    const subtotal = priceBreakdown?.subtotal || 0;
+    
+    // Debug logging
+    console.log('=== COMMISSION CALCULATION DEBUG ===');
+    console.log('Price Breakdown:', priceBreakdown);
+    console.log('Subtotal:', subtotal);
+    console.log('Commission Rate:', commissionRate);
+    console.log('Total Amount:', amount);
+    
+    // If subtotal is 0 or missing, calculate from amount by removing GST and platform fee
+    let finalSubtotal = subtotal;
+    if (!subtotal || subtotal === 0) {
+      // Fallback: Try to reverse calculate subtotal from total
+      const gstRate = priceBreakdown?.gstRate || settings.gstRate || 18;
+      const platformFee = priceBreakdown?.platformFee || 0;
+      // Total = Subtotal + GST + Platform Fee
+      // Total = Subtotal + (Subtotal * gstRate/100) + Platform Fee
+      // Total = Subtotal * (1 + gstRate/100) + Platform Fee
+      // Subtotal = (Total - Platform Fee) / (1 + gstRate/100)
+      finalSubtotal = (amount - platformFee) / (1 + gstRate / 100);
+      console.log('Calculated subtotal from total:', finalSubtotal);
+    }
+    
+    const commission = (finalSubtotal * commissionRate) / 100;
+    const ownerEarnings = finalSubtotal - commission;
+    
+    console.log('Final Commission:', commission);
+    console.log('Owner Earnings:', ownerEarnings);
+    console.log('===================================');
     
     // Create booking
     const booking = await Booking.create({
+      bookingNumber,
       venue,
       customer: req.user.id,
       bookingDate,
       startTime,
       endTime,
       bookingType,
-      amount,
+      amount, // Total amount including GST and platform fee
       commission,
       ownerEarnings,
       commissionRate,

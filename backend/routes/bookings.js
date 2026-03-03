@@ -14,7 +14,7 @@ router.use(protect);
 
 router.route('/')
   .get(getBookings)
-  .post(authorize('customer'), createBooking);
+  .post(createBooking); // Remove authorize - any logged in user can book
 
 router.get('/:id', getBooking);
 router.put('/:id/status', authorize('owner', 'admin'), updateBookingStatus);

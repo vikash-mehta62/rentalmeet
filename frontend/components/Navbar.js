@@ -65,12 +65,10 @@ export default function Navbar() {
     return roles[user.role] || '/';
   };
 
-  // Dynamic Styles Logic - Transparent on home and venue details pages
-  const isTransparentPage = isHomePage || isVenueDetailsPage;
-  const isSolid = !isTransparentPage || scrolled;
-  const navBg = isSolid ? 'bg-white shadow-md py-4' : 'bg-transparent py-6';
-  const textColor = isSolid ? 'text-slate-700' : 'text-white';
-  const logoColor = isSolid ? 'text-slate-900' : 'text-white';
+  // Dynamic Styles Logic - Always white background
+  const navBg = 'bg-white shadow-md py-4';
+  const textColor = 'text-slate-700';
+  const logoColor = 'text-slate-900';
   const linkBase = "text-[12px] font-bold uppercase tracking-[0.15em] transition-all duration-300";
 
   return (
@@ -79,7 +77,15 @@ export default function Navbar() {
         <div className="flex justify-between items-center">
           
           {/* 1. Logo Section */}
-          <Link href="/" className="flex items-center gap-3 group relative z-50">
+          <Link 
+            href="/" 
+            className="flex items-center gap-3 group relative z-50"
+            onClick={() => {
+              // Clear booking data when going to home
+              localStorage.removeItem('bookingData');
+              localStorage.removeItem('pendingBooking');
+            }}
+          >
             <img 
               src="/logo.png" 
               alt="RentalMeet Logo" 
@@ -98,6 +104,13 @@ export default function Navbar() {
               <Link
                 key={link.name}
                 href={link.href}
+                onClick={() => {
+                  if (link.href === '/') {
+                    // Clear booking data when going to home
+                    localStorage.removeItem('bookingData');
+                    localStorage.removeItem('pendingBooking');
+                  }
+                }}
                 className={`${linkBase} relative group ${
                   pathname === link.href 
                   ? 'text-primary-500' 
@@ -116,9 +129,7 @@ export default function Navbar() {
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className={`flex items-center gap-3 px-2 py-1.5 rounded-full border transition-all duration-300 ${
-                    isSolid ? 'border-slate-200 bg-slate-50' : 'border-white/20 bg-white/10 backdrop-blur-md'
-                  }`}
+                  className="flex items-center gap-3 px-2 py-1.5 rounded-full border border-slate-200 bg-slate-50 transition-all duration-300"
                 >
                   <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary-500 to-primary-400 flex items-center justify-center text-white text-xs font-bold shadow-inner">
                     {user?.name?.charAt(0).toUpperCase()}
@@ -154,7 +165,7 @@ export default function Navbar() {
                       setLoginDropdownOpen(!loginDropdownOpen);
                       setRegisterDropdownOpen(false);
                     }}
-                    className={`${linkBase} ${textColor} hover:text-primary-500 flex items-center gap-1`}
+                    className={`px-5 py-2.5 border border-slate-300 rounded-lg text-[11px] font-black uppercase tracking-[0.2em] ${textColor} hover:text-primary-500 hover:border-primary-500 transition-all flex items-center gap-2`}
                   >
                     Login
                     <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${loginDropdownOpen ? 'rotate-180' : ''}`} />
@@ -165,15 +176,15 @@ export default function Navbar() {
                       <Link
                         href="/login?role=customer"
                         onClick={() => setLoginDropdownOpen(false)}
-                        className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-primary-50 hover:text-primary-600 transition-colors"
+                        className="flex items-center gap-3 px-4 py-3.5 text-base font-bold text-slate-900 bg-primary-50 hover:bg-primary-100 border-l-4 border-primary-500 transition-colors"
                       >
-                        <User className="w-4 h-4" />
-                        Client (User)
+                        <User className="w-5 h-5 text-primary-600" />
+                        User
                       </Link>
                       <Link
                         href="/login?role=owner"
                         onClick={() => setLoginDropdownOpen(false)}
-                        className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-primary-50 hover:text-primary-600 transition-colors"
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
@@ -183,7 +194,7 @@ export default function Navbar() {
                       <Link
                         href="/login?role=vendor"
                         onClick={() => setLoginDropdownOpen(false)}
-                        className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-primary-50 hover:text-primary-600 transition-colors"
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
                       >
                         <Settings className="w-4 h-4" />
                         Service Vendor
@@ -199,7 +210,7 @@ export default function Navbar() {
                       setRegisterDropdownOpen(!registerDropdownOpen);
                       setLoginDropdownOpen(false);
                     }}
-                    className="px-6 py-2.5 bg-primary-500 text-white rounded-full text-[11px] font-black uppercase tracking-[0.2em] hover:bg-primary-600 hover:shadow-xl hover:shadow-primary-200 transition-all active:scale-95 flex items-center gap-2"
+                    className="px-6 py-2.5 bg-primary-500 text-white border border-slate-800 rounded-lg text-[11px] font-black uppercase tracking-[0.2em] hover:bg-primary-600 hover:shadow-xl hover:shadow-primary-200 transition-all active:scale-95 flex items-center gap-2"
                   >
                     Register
                     <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${registerDropdownOpen ? 'rotate-180' : ''}`} />
@@ -210,15 +221,15 @@ export default function Navbar() {
                       <Link
                         href="/register?role=customer"
                         onClick={() => setRegisterDropdownOpen(false)}
-                        className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-primary-50 hover:text-primary-600 transition-colors"
+                        className="flex items-center gap-3 px-4 py-3.5 text-base font-bold text-slate-900 bg-primary-50 hover:bg-primary-100 border-l-4 border-primary-500 transition-colors"
                       >
-                        <User className="w-4 h-4" />
-                        Client (User)
+                        <User className="w-5 h-5 text-primary-600" />
+                        User
                       </Link>
                       <Link
                         href="/register?role=owner"
                         onClick={() => setRegisterDropdownOpen(false)}
-                        className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-primary-50 hover:text-primary-600 transition-colors"
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
@@ -228,7 +239,7 @@ export default function Navbar() {
                       <Link
                         href="/register?role=vendor"
                         onClick={() => setRegisterDropdownOpen(false)}
-                        className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-primary-50 hover:text-primary-600 transition-colors"
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
                       >
                         <Settings className="w-4 h-4" />
                         Service Vendor
@@ -243,7 +254,7 @@ export default function Navbar() {
           {/* 4. Mobile Toggle */}
           <button
             onClick={() => setMobileMenuOpen(true)}
-            className={`md:hidden p-2 rounded-xl transition-colors ${isSolid ? 'text-slate-900 bg-slate-100' : 'text-white bg-white/10'}`}
+            className="md:hidden p-2 rounded-xl text-slate-900 bg-slate-100 transition-colors"
           >
             <Menu className="w-6 h-6" />
           </button>

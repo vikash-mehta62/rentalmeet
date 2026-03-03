@@ -232,7 +232,7 @@ export default function AdminBookings() {
                   <tr key={booking._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <p className="font-mono text-sm font-semibold text-dark-800">
-                        #{booking._id.slice(-8).toUpperCase()}
+                        {booking.bookingNumber || `#${booking._id.slice(-8).toUpperCase()}`}
                       </p>
                     </td>
                     <td className="px-6 py-4">
@@ -307,7 +307,9 @@ export default function AdminBookings() {
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold text-dark-800">Booking Details</h2>
-                <p className="text-sm text-gray-600">ID: #{selectedBooking._id.slice(-8).toUpperCase()}</p>
+                <p className="text-sm text-gray-600">
+                  {selectedBooking.bookingNumber || `ID: #${selectedBooking._id.slice(-8).toUpperCase()}`}
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <InvoiceDownload booking={selectedBooking} userRole="admin" />

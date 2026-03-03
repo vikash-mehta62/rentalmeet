@@ -432,3 +432,28 @@ exports.getMyVenues = async (req, res) => {
     });
   }
 };
+
+// @desc    Get public platform settings (for booking calculations)
+// @route   GET /api/venues/platform-settings/public
+exports.getPublicPlatformSettings = async (req, res) => {
+  try {
+    const PlatformSettings = require('../models/PlatformSettings');
+    const settings = await PlatformSettings.getSettings();
+    
+    // Return only the necessary fields for booking calculations
+    res.json({
+      success: true,
+      settings: {
+        gstRate: settings.gstRate,
+        platformFee: settings.platformFee,
+        commissionRate: settings.commissionRate
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching public platform settings:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch platform settings'
+    });
+  }
+};

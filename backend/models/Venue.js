@@ -63,12 +63,9 @@ const venueSchema = new mongoose.Schema({
   },
   venueType: [{
     type: String,
-    enum: [
-      'Meeting Hall', 'Farm House', 'Conference Hall', 'Govt. Auditorium Hall',
-      'Hotel', 'Private Auditorium Hall', 'Restaurant', 'School Auditorium Hall',
-      'Function Hall', 'Collage Auditorium Hall', 'Open Lawn', 'Co-Work Space',
-      'Banquet Hall', 'Guest House', 'Training Center', 'Marriage Garden'
-    ]
+    required: true,
+    trim: true
+    // No enum - accepts any venue type name from VenueType collection
   }],
   description: {
     type: String,
@@ -180,6 +177,53 @@ const venueSchema = new mongoose.Schema({
       weekend: Number
     }
   },
+  
+  // Custom Platform Fee (Optional - if not set, uses default from PlatformSettings)
+  customPlatformFee: {
+    enabled: {
+      type: Boolean,
+      default: false
+    },
+    feeType: {
+      type: String,
+      enum: ['fixed', 'percentage'],
+      default: 'fixed'
+    },
+    feeValue: {
+      type: Number,
+      default: 0,
+      min: 0
+    }
+  },
+  
+  // Custom GST Rate (Optional - if not set, uses default from PlatformSettings)
+  customGST: {
+    enabled: {
+      type: Boolean,
+      default: false
+    },
+    rate: {
+      type: Number,
+      default: 18,
+      min: 0,
+      max: 100
+    }
+  },
+  
+  // Custom Commission Rate (Optional - if not set, uses default from PlatformSettings)
+  customCommission: {
+    enabled: {
+      type: Boolean,
+      default: false
+    },
+    rate: {
+      type: Number,
+      default: 15,
+      min: 0,
+      max: 100
+    }
+  },
+  
   availability: {
     openingTime: String,
     closingTime: String,

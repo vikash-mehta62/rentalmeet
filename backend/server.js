@@ -61,12 +61,14 @@ if (process.env.NODE_ENV !== 'production') {
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/venues', require('./routes/venues'));
+app.use('/api/venue-types', require('./routes/venueTypes'));
 app.use('/api/owner', require('./routes/owner'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/bookings', require('./routes/bookings'));
 app.use('/api/upload', require('./routes/upload'));
 app.use('/api/payment', require('./routes/payment'));
 app.use('/api/terms', require('./routes/terms'));
+app.use('/api/reviews', require('./routes/reviews'));
 
 // Health check
 app.get('/health', (req, res) => {

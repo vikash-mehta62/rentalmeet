@@ -1,77 +1,147 @@
 'use client';
 
-import { Star } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Star, Quote } from 'lucide-react';
 
 export default function TestimonialsSection() {
-  const testimonials = [
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Default reviews (fallback if no reviews in database)
+  const defaultReviews = [
     {
-      rating: 5,
-      text: '"RentalMeet has transformed how we organize our monthly board meetings. The spaces are top-notch and the booking process is seamless."',
+      _id: '1',
       name: 'Rajesh Kumar',
-      position: 'CEO, Techinnova Solutions',
-      avatar: '👨‍💼'
+      role: 'CEO, TechSolutions',
+      rating: 5,
+      description: 'RentalMeet has transformed how we organize our monthly board meetings. The spaces are top-notch and the booking process is seamless.'
     },
     {
-      rating: 5,
-      text: '"The attention to detail and premium facilities at their venues are unmatched. Highly recommend for any corporate event."',
+      _id: '2',
       name: 'Sneha Sharma',
-      position: 'Event Director, Global Connect',
-      avatar: '👩‍💼'
+      role: 'Event Director, Global Connect',
+      rating: 5,
+      description: 'The attention to detail and premium facilities at their venues are unmatched. Highly recommend for any corporate event.'
     },
     {
-      rating: 5,
-      text: '"Finding high-quality meeting spaces was always a challenge until we found RentalMeet. Their service is truly professional."',
+      _id: '3',
       name: 'Amit Patel',
-      position: 'Founder, Startup Hub',
-      avatar: '👨‍💻'
+      role: 'Founder, Startup Hub',
+      rating: 5,
+      description: 'Finding high-quality meeting spaces was always a challenge until we found RentalMeet. Their service is truly professional.'
     }
   ];
 
+  useEffect(() => {
+    fetchReviews();
+  }, []);
+
+  const fetchReviews = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reviews`);
+      const data = await response.json();
+      if (data.success && data.reviews.length > 0) {
+        setReviews(data.reviews.slice(0, 3)); // Show only first 3
+      } else {
+        // Use default reviews if no reviews in database
+        setReviews(defaultReviews);
+      }
+    } catch (error) {
+      console.error('Error fetching reviews:', error);
+      // Use default reviews on error
+      setReviews(defaultReviews);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <section className="py-16 px-4 sm:px-6 bg-gradient-to-br from-purple-50 via-white to-pink-50">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center">
+            <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <section className="py-16 px-4 sm:px-6 bg-white">
+    <section className="py-16 px-4 sm:px-6 bg-gradient-to-br from-purple-50 via-white to-pink-50">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">TESTIMONIALS</p>
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900" style={{ fontFamily: 'Georgia, serif' }}>
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'Georgia, serif' }}>
             What Our Clients Say
           </h2>
+          <p className="text-gray-600 max-w-2xl mx-auto">
+            Hear from our satisfied clients about their experience with RentalMeet
+          </p>
         </div>
 
         {/* Testimonials Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {testimonials.map((testimonial, index) => (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          {reviews.map((review) => (
             <div
-              key={index}
-              className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300"
+              key={review._id}
+              className="bg-white rounded-xl p-8 shadow-md hover:shadow-xl transition-all duration-300 relative group"
             >
+              {/* Quote Icon */}
+              <div className="absolute top-6 right-6 opacity-10 group-hover:opacity-20 transition-opacity">
+                <Quote className="w-12 h-12 text-primary-500" />
+              </div>
+
               {/* Stars */}
               <div className="flex gap-1 mb-4">
-                {[...Array(testimonial.rating)].map((_, i) => (
-                  <Star key={i} className="w-5 h-5 fill-primary-500 text-primary-500" />
+                {[...Array(5)].map((_, i) => (
+                  <Star
+                    key={i}
+                    className={`w-5 h-5 ${
+                      i < review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
+                    }`}
+                  />
                 ))}
               </div>
 
-              {/* Testimonial Text */}
-              <p className="text-gray-600 text-sm leading-relaxed mb-6 italic">
-                {testimonial.text}
+              {/* Review Text */}
+              <p className="text-gray-700 text-sm leading-relaxed mb-6 italic">
+                "{review.description}"
               </p>
 
-              {/* Author Info */}
+              {/* Author */}
               <div className="flex items-center gap-3 pt-4 border-t border-gray-100">
-                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-2xl">
-                  {testimonial.avatar}
+                <div className="w-12 h-12 bg-gradient-to-br from-primary-400 to-primary-600 rounded-full flex items-center justify-center shadow-md">
+                  <span className="text-white font-bold text-lg">
+                    {review.name.charAt(0).toUpperCase()}
+                  </span>
                 </div>
                 <div>
-                  <p className="font-bold text-gray-900 text-sm">{testimonial.name}</p>
-                  <p className="text-xs text-gray-500">{testimonial.position}</p>
+                  <h4 className="font-bold text-gray-900">{review.name}</h4>
+                  <p className="text-sm text-gray-600">{review.role}</p>
                 </div>
               </div>
             </div>
           ))}
         </div>
+
+        {/* Trust Badge */}
+        <div className="mt-12 text-center">
+          <div className="inline-flex items-center gap-2 px-6 py-3 bg-white rounded-full shadow-md">
+            <div className="flex -space-x-2">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="w-8 h-8 bg-gradient-to-br from-primary-400 to-primary-600 rounded-full border-2 border-white flex items-center justify-center">
+                  <span className="text-white text-xs font-bold">👤</span>
+                </div>
+              ))}
+            </div>
+            <span className="text-sm font-semibold text-gray-700">
+              Trusted by 500+ clients
+            </span>
+          </div>
+        </div>
       </div>
     </section>
   );
 }
-

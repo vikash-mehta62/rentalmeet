@@ -54,15 +54,15 @@ export default function PricingSection() {
   return (
     <>
       {/* Pricing Section */}
-      <section className="py-16 px-4 sm:px-6 bg-white">
+      <section className="py-16 px-4 sm:px-6 bg-gradient-to-br from-orange-50 via-white to-yellow-50">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="text-center mb-12">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">PRICING</p>
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4" style={{ fontFamily: 'Georgia, serif' }}>
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4" style={{ fontFamily: 'Georgia, serif' }}>
               Exclusive Packages
             </h2>
-            <p className="text-sm md:text-base text-gray-600 max-w-2xl mx-auto">
+            <p className="text-base md:text-lg text-gray-600 max-w-2xl mx-auto">
               Flexible pricing options tailored to your needs. Choose the duration that works best for you.
             </p>
           </div>

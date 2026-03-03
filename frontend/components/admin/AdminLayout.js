@@ -6,7 +6,7 @@ import { useAuthStore } from '@/lib/store';
 import Link from 'next/link';
 import {
   LayoutDashboard, Building2, Users, BookOpen, Settings,
-  LogOut, Menu, X, IndianRupee, FileText, Shield, BarChart3
+  LogOut, Menu, X, IndianRupee, FileText, Shield, BarChart3, Grid3x3, MessageSquare
 } from 'lucide-react';
 
 export default function AdminLayout({ children, title, subtitle }) {
@@ -33,11 +33,14 @@ export default function AdminLayout({ children, title, subtitle }) {
   const navigation = [
     { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
     { name: 'Venues', href: '/admin/venues', icon: Building2 },
+    { name: 'Venue Types', href: '/admin/venue-types', icon: Grid3x3 },
     { name: 'Users', href: '/admin/users', icon: Users },
     { name: 'Bookings', href: '/admin/bookings', icon: BookOpen },
     { name: 'Payments', href: '/admin/payments', icon: IndianRupee },
     { name: 'Reports', href: '/admin/reports', icon: BarChart3 },
+    { name: 'Reviews', href: '/admin/reviews', icon: MessageSquare },
     { name: 'Commission', href: '/admin/commission', icon: FileText },
+    { name: 'Platform Settings', href: '/admin/platform-settings', icon: Settings },
     { name: 'Settings', href: '/admin/settings', icon: Settings },
   ];
 
