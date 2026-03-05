@@ -74,7 +74,8 @@ const bookingSchema = new mongoose.Schema({
       total: { type: Number }
     }],
     lunchThalis: [{
-      type: { type: String },
+      thaliType: { type: String },
+      category: { type: String },
       ratePerPlate: { type: Number },
       numberOfItems: { type: Number },
       itemNames: { type: String },

@@ -185,10 +185,11 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
       });
     }
 
-    // Lunch Thalis (per plate * quantity)
+    // Lunch Thalis (per plate * quantity) - New Structure
     if (selectedAmenities.lunchThalis) {
       selectedAmenities.lunchThalis.forEach(thali => {
-        const qty = quantities[`thali_${thali.type}`] || 0;
+        const key = `thali_${thali.thaliType}_${thali.category}`;
+        const qty = quantities[key] || 0;
         total += (thali.ratePerPlate || 0) * qty;
       });
     }
@@ -467,12 +468,13 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
           total: (food.ratePerPlate || 0) * (quantities[`food_${food.name}`] || 1)
         })) : [],
         lunchThalis: selectedAmenities.lunchThalis?.length > 0 ? selectedAmenities.lunchThalis.map(thali => ({
-          type: thali.type,
+          thaliType: thali.thaliType,
+          category: thali.category,
           ratePerPlate: thali.ratePerPlate || 0,
           numberOfItems: thali.numberOfItems || 0,
           itemNames: thali.itemNames || '',
-          quantity: quantities[`thali_${thali.type}`] || 1,
-          total: (thali.ratePerPlate || 0) * (quantities[`thali_${thali.type}`] || 1)
+          quantity: quantities[`thali_${thali.thaliType}_${thali.category}`] || 1,
+          total: (thali.ratePerPlate || 0) * (quantities[`thali_${thali.thaliType}_${thali.category}`] || 1)
         })) : [],
         additional: selectedAmenities.additional?.length > 0 ? selectedAmenities.additional : []
       };

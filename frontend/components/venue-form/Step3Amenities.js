@@ -40,9 +40,6 @@ const breakfastPacks = [
 ];
 
 const thaliTypes = [
-  'Regular Thali',
-  'Special Thali',
-  'Maharaja Thali',
   'North Indian Thali',
   'Punjabi Thali',
   'Non-Veg Thali',
@@ -56,6 +53,8 @@ const thaliTypes = [
   'Protein-Packed Thali',
   'Festive/Banquet Thali'
 ];
+
+const thaliCategories = ['Regular Thali', 'Special Thali', 'Maharaja Thali'];
 
 const additionalFacilities = [
   'Separate Washrooms', 'Power Backup', 'Security Personnel',
@@ -148,6 +147,7 @@ export default function Step3Amenities() {
 
   const [selectedAmenities, setSelectedAmenities] = useState(formData.amenities?.basic || []);
   const [selectedAdditional, setSelectedAdditional] = useState(formData.amenities?.additional || []);
+  const [selectedThalis, setSelectedThalis] = useState(formData.amenities?.lunchThalis || []);
   
   // Reset form when formData changes (for edit mode)
   useEffect(() => {
@@ -155,6 +155,7 @@ export default function Step3Amenities() {
       reset(prepareDefaultValues());
       setSelectedAmenities(formData.amenities?.basic || []);
       setSelectedAdditional(formData.amenities?.additional || []);
+      setSelectedThalis(formData.amenities?.lunchThalis || []);
     }
   }, [formData.amenities]);
 
@@ -195,14 +196,8 @@ export default function Step3Amenities() {
         })).filter(b => b.available)
       ],
       
-      // Lunch Thalis
-      lunchThalis: thaliTypes.map((thali, index) => ({
-        type: thali,
-        available: data.thalis?.[index]?.available || false,
-        ratePerPlate: Number(data.thalis?.[index]?.rate) || 0,
-        numberOfItems: Number(data.thalis?.[index]?.numItems) || 0,
-        itemNames: data.thalis?.[index]?.itemNames || ''
-      })).filter(t => t.available),
+      // Lunch Thalis - new structure
+      lunchThalis: selectedThalis.filter(t => t.categories.length > 0),
       
       // Kitchen Access
       kitchenAccess: {
@@ -288,6 +283,60 @@ export default function Step3Amenities() {
     setSelectedAdditional(prev => prev.map(a => 
       a.name === facilityName ? { ...a, charges: Number(charges) } : a
     ));
+  };
+
+  // Thali management functions
+  const addThaliType = (thaliType) => {
+    if (!selectedThalis.find(t => t.thaliType === thaliType)) {
+      setSelectedThalis(prev => [...prev, {
+        thaliType,
+        available: true,
+        categories: []
+      }]);
+    }
+  };
+
+  const removeThaliType = (thaliType) => {
+    setSelectedThalis(prev => prev.filter(t => t.thaliType !== thaliType));
+  };
+
+  const toggleThaliCategory = (thaliType, category) => {
+    setSelectedThalis(prev => prev.map(thali => {
+      if (thali.thaliType === thaliType) {
+        const categoryExists = thali.categories.find(c => c.category === category);
+        if (categoryExists) {
+          return {
+            ...thali,
+            categories: thali.categories.filter(c => c.category !== category)
+          };
+        } else {
+          return {
+            ...thali,
+            categories: [...thali.categories, {
+              category,
+              ratePerPlate: 0,
+              numberOfItems: 0,
+              itemNames: ''
+            }]
+          };
+        }
+      }
+      return thali;
+    }));
+  };
+
+  const updateThaliCategory = (thaliType, category, field, value) => {
+    setSelectedThalis(prev => prev.map(thali => {
+      if (thali.thaliType === thaliType) {
+        return {
+          ...thali,
+          categories: thali.categories.map(cat => 
+            cat.category === category ? { ...cat, [field]: value } : cat
+          )
+        };
+      }
+      return thali;
+    }));
   };
 
   return (
@@ -495,40 +544,116 @@ export default function Step3Amenities() {
               </div>
             </div>
 
-            {/* Lunch Thalis */}
-            <h4 className="font-semibold text-dark-700 mb-2">Lunch Thalis</h4>
-            <div className="grid grid-cols-1 gap-3">
-              {thaliTypes.map((thali, index) => (
-                <div key={index} className="flex items-center gap-2 bg-white p-3 rounded-lg border border-gray-200 flex-wrap">
-                  <input
-                    type="checkbox"
-                    {...register(`thalis.${index}.available`)}
-                    className="w-5 h-5 rounded border-dark-200 text-primary-500"
-                  />
-                  <span className="text-sm flex-1 min-w-[150px]">{thali}</span>
-                  <input
-                    type="number"
-                    {...register(`thalis.${index}.rate`)}
-                    placeholder="₹ Rate"
-                    className="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
-                    min="0"
-                  />
-                  <input
-                    type="number"
-                    {...register(`thalis.${index}.numItems`)}
-                    placeholder="# Items"
-                    className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
-                    min="0"
-                  />
-                  <input
-                    type="text"
-                    {...register(`thalis.${index}.itemNames`)}
-                    placeholder="Item names"
-                    className="w-48 px-2 py-1 border border-gray-300 rounded text-sm"
-                  />
+            {/* Lunch Thalis - New Structure */}
+            <h4 className="font-semibold text-dark-700 mb-3 mt-6">Lunch Thalis</h4>
+            <p className="text-xs text-gray-600 mb-3">Select thali type, then choose categories (Regular/Special/Maharaja)</p>
+            
+            {/* Add Thali Type Dropdown */}
+            <div className="mb-4">
+              <select
+                onChange={(e) => {
+                  if (e.target.value) {
+                    addThaliType(e.target.value);
+                    e.target.value = '';
+                  }
+                }}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm"
+                defaultValue=""
+              >
+                <option value="" disabled>+ Add Thali Type</option>
+                {thaliTypes.filter(type => !selectedThalis.find(t => t.thaliType === type)).map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Selected Thalis */}
+            <div className="space-y-4">
+              {selectedThalis.map((thali) => (
+                <div key={thali.thaliType} className="bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-200 rounded-xl p-4">
+                  {/* Thali Type Header */}
+                  <div className="flex items-center justify-between mb-3">
+                    <h5 className="font-bold text-orange-900">{thali.thaliType}</h5>
+                    <button
+                      type="button"
+                      onClick={() => removeThaliType(thali.thaliType)}
+                      className="text-red-600 hover:text-red-800 text-sm font-semibold"
+                    >
+                      Remove
+                    </button>
+                  </div>
+
+                  {/* Categories */}
+                  <div className="space-y-3">
+                    {thaliCategories.map((category) => {
+                      const selectedCategory = thali.categories.find(c => c.category === category);
+                      const uniqueKey = `${thali.thaliType}-${category}`;
+                      return (
+                        <div key={uniqueKey} className="bg-white rounded-lg p-3 border border-orange-200">
+                          {/* Category Checkbox */}
+                          <div className="flex items-center gap-2 mb-2">
+                            <input
+                              type="checkbox"
+                              id={uniqueKey}
+                              checked={!!selectedCategory}
+                              onChange={() => toggleThaliCategory(thali.thaliType, category)}
+                              className="w-5 h-5 rounded border-orange-300 text-orange-500"
+                            />
+                            <label htmlFor={uniqueKey} className="text-sm font-semibold text-gray-800 cursor-pointer">
+                              {category}
+                            </label>
+                          </div>
+
+                          {/* Category Details */}
+                          {selectedCategory && (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2 pl-7">
+                              <div>
+                                <label className="text-xs text-gray-600 block mb-1">₹ Rate per Plate</label>
+                                <input
+                                  type="number"
+                                  value={selectedCategory.ratePerPlate || ''}
+                                  onChange={(e) => updateThaliCategory(thali.thaliType, category, 'ratePerPlate', Number(e.target.value))}
+                                  placeholder="Rate"
+                                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                                  min="0"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs text-gray-600 block mb-1"># Items</label>
+                                <input
+                                  type="number"
+                                  value={selectedCategory.numberOfItems || ''}
+                                  onChange={(e) => updateThaliCategory(thali.thaliType, category, 'numberOfItems', Number(e.target.value))}
+                                  placeholder="Items"
+                                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                                  min="0"
+                                />
+                              </div>
+                              <div className="md:col-span-1">
+                                <label className="text-xs text-gray-600 block mb-1">Item Names</label>
+                                <input
+                                  type="text"
+                                  value={selectedCategory.itemNames || ''}
+                                  onChange={(e) => updateThaliCategory(thali.thaliType, category, 'itemNames', e.target.value)}
+                                  placeholder="e.g., Dal, Rice, Roti..."
+                                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               ))}
             </div>
+
+            {selectedThalis.length === 0 && (
+              <div className="text-center py-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                <p className="text-sm text-gray-500">No thalis added yet. Select from dropdown above.</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

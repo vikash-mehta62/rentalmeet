@@ -393,7 +393,9 @@ export default function OwnerBookings() {
                         ))}
                         {booking.selectedAmenities.lunchThalis?.map((thali, idx) => (
                           <div key={idx} className="flex justify-between items-center text-xs bg-white p-2 rounded">
-                            <span className="text-gray-700">{thali.type} (x{thali.quantity} plates)</span>
+                            <span className="text-gray-700">
+                              {thali.thaliType} - {thali.category} (x{thali.quantity} plates)
+                            </span>
                             <span className="font-semibold text-purple-600">₹{thali.total?.toLocaleString()}</span>
                           </div>
                         ))}

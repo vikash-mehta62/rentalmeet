@@ -320,8 +320,8 @@ export default function QuotationView({
                     <p className="text-sm font-semibold text-gray-700 mb-2">Beverages:</p>
                     <div className="space-y-1">
                       {selectedAmenities.beverages.map((beverage, idx) => {
-                        const qty = quantities[`beverage_${beverage.name}`] || 0;
-                        const total = (beverage.ratePerUnit || 0) * qty;
+                        const qty = beverage.quantity || 0;
+                        const total = beverage.total || ((beverage.ratePerUnit || 0) * qty);
                         return (
                           <div key={idx} className="flex justify-between text-sm pl-4">
                             <span className="text-gray-700">
@@ -342,8 +342,8 @@ export default function QuotationView({
                     <p className="text-sm font-semibold text-gray-700 mb-2">Refreshments & Snacks:</p>
                     <div className="space-y-1">
                       {selectedAmenities.refreshmentFood.map((food, idx) => {
-                        const qty = quantities[`food_${food.name}`] || 0;
-                        const total = (food.ratePerPlate || 0) * qty;
+                        const qty = food.quantity || 0;
+                        const total = food.total || ((food.ratePerPlate || 0) * qty);
                         return (
                           <div key={idx} className="flex justify-between text-sm pl-4">
                             <span className="text-gray-700">
@@ -364,12 +364,13 @@ export default function QuotationView({
                     <p className="text-sm font-semibold text-gray-700 mb-2">Lunch Thalis:</p>
                     <div className="space-y-1">
                       {selectedAmenities.lunchThalis.map((thali, idx) => {
-                        const qty = quantities[`thali_${thali.type}`] || 0;
-                        const total = (thali.ratePerPlate || 0) * qty;
+                        // Use quantity from thali object directly (already calculated in booking data)
+                        const qty = thali.quantity || 0;
+                        const total = thali.total || ((thali.ratePerPlate || 0) * qty);
                         return (
                           <div key={idx} className="flex justify-between text-sm pl-4">
                             <span className="text-gray-700">
-                              • {thali.type}
+                              • {thali.thaliType} - {thali.category}
                               <span className="text-xs text-gray-500"> (₹{thali.ratePerPlate} × {qty} plates)</span>
                             </span>
                             <span className="font-semibold text-gray-900">₹{total.toLocaleString('en-IN')}</span>

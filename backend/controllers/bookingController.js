@@ -62,6 +62,7 @@ exports.createBooking = async (req, res) => {
     console.log('=== BOOKING REQUEST DEBUG ===');
     console.log('Amount (Total):', amount);
     console.log('Amenities Total:', amenitiesTotal);
+    console.log('Selected Amenities:', JSON.stringify(selectedAmenities, null, 2));
     console.log('Price Breakdown:', JSON.stringify(priceBreakdown, null, 2));
     console.log('============================');
     

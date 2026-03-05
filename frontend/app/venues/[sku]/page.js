@@ -746,71 +746,119 @@ export default function VenueDetail() {
                 </div>
               )}
 
-              {/* Lunch Thalis */}
+              {/* Lunch Thalis - New Structure */}
               {venue.amenities?.lunchThalis?.length > 0 && (
                 <div className="mb-5">
-                  <h3 className="text-base font-semibold text-dark-700 mb-2 flex items-center gap-2">
+                  <h3 className="text-base font-semibold text-dark-700 mb-3 flex items-center gap-2">
                     <Utensils className="w-4 h-4 text-primary-500" />
                     Lunch Thalis
                   </h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    {venue.amenities.lunchThalis.filter(t => t.available).map((thali, idx) => {
-                      const key = `thali_${thali.type}`;
-                      const qty = quantities[key] || 0;
-                      const isSelected = isAmenitySelected('lunchThalis', thali.type);
-                      
-                      return (
-                        <div
-                          key={idx}
-                          className={`p-2 border-2 rounded-lg transition-all ${
-                            isSelected ? 'border-primary-500 bg-primary-50' : 'border-gray-200'
-                          }`}
-                        >
-                          <label className="flex items-center gap-2 cursor-pointer mb-2">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => toggleAmenity('lunchThalis', { ...thali, name: thali.type })}
-                              className="w-4 h-4 rounded border-2 border-gray-300 text-primary-500 focus:ring-2 focus:ring-primary-500 cursor-pointer"
-                            />
-                            <div className="flex-1">
-                              <span className="font-medium text-xs block">{thali.type}</span>
-                              <span className="text-xs text-gray-500">₹{thali.ratePerPlate}/plate</span>
-                            </div>
-                          </label>
-                          
-                          {isSelected && (
-                            <div className="flex items-center gap-1 ml-6">
-                              <button
-                                type="button"
-                                onClick={() => updateQuantity(key, Math.max(0, qty - 1))}
-                                className="w-6 h-6 rounded border border-gray-300 hover:border-primary-500 hover:bg-primary-50 flex items-center justify-center text-xs font-bold"
+                  <div className="space-y-3">
+                    {venue.amenities.lunchThalis.map((thali, thaliIdx) => (
+                      <div key={thaliIdx} className="bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-200 rounded-xl p-3">
+                        {/* Thali Type Header */}
+                        <h4 className="font-bold text-orange-900 mb-2 text-sm">{thali.thaliType}</h4>
+                        
+                        {/* Categories */}
+                        <div className="space-y-2">
+                          {thali.categories?.map((category, catIdx) => {
+                            const key = `thali_${thali.thaliType}_${category.category}`;
+                            const qty = quantities[key] || 0;
+                            const isSelected = selectedAmenities.lunchThalis?.some(
+                              t => t.thaliType === thali.thaliType && t.category === category.category
+                            );
+                            
+                            return (
+                              <div
+                                key={catIdx}
+                                className={`p-2 border-2 rounded-lg transition-all bg-white ${
+                                  isSelected ? 'border-orange-500 bg-orange-50' : 'border-orange-200'
+                                }`}
                               >
-                                -
-                              </button>
-                              <input
-                                type="number"
-                                value={qty}
-                                onChange={(e) => updateQuantity(key, parseInt(e.target.value) || 0)}
-                                className="w-12 h-6 text-center border border-gray-300 rounded text-xs"
-                                min="0"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => updateQuantity(key, qty + 1)}
-                                className="w-6 h-6 rounded border border-gray-300 hover:border-primary-500 hover:bg-primary-50 flex items-center justify-center text-xs font-bold"
-                              >
-                                +
-                              </button>
-                              <span className="text-xs font-semibold text-primary-600 ml-1">₹{((thali.ratePerPlate || 0) * qty).toLocaleString()}</span>
-                            </div>
-                          )}
+                                <label className="flex items-center gap-2 cursor-pointer mb-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => {
+                                      if (isSelected) {
+                                        // Remove from selection
+                                        setSelectedAmenities(prev => ({
+                                          ...prev,
+                                          lunchThalis: prev.lunchThalis.filter(
+                                            t => !(t.thaliType === thali.thaliType && t.category === category.category)
+                                          )
+                                        }));
+                                        // Reset quantity
+                                        setQuantities(prev => ({ ...prev, [key]: 0 }));
+                                      } else {
+                                        // Add to selection
+                                        setSelectedAmenities(prev => ({
+                                          ...prev,
+                                          lunchThalis: [...prev.lunchThalis, {
+                                            thaliType: thali.thaliType,
+                                            category: category.category,
+                                            ratePerPlate: category.ratePerPlate,
+                                            numberOfItems: category.numberOfItems,
+                                            itemNames: category.itemNames
+                                          }]
+                                        }));
+                                        // Set initial quantity to 1
+                                        setQuantities(prev => ({ ...prev, [key]: 1 }));
+                                      }
+                                    }}
+                                    className="w-4 h-4 rounded border-2 border-orange-300 text-orange-500 focus:ring-2 focus:ring-orange-500 cursor-pointer"
+                                  />
+                                  <div className="flex-1">
+                                    <span className="font-semibold text-xs block text-gray-800">{category.category}</span>
+                                    <span className="text-xs text-gray-600">
+                                      ₹{category.ratePerPlate}/plate • {category.numberOfItems} items
+                                    </span>
+                                    {category.itemNames && (
+                                      <span className="text-xs text-gray-500 block mt-0.5 italic">
+                                        {category.itemNames}
+                                      </span>
+                                    )}
+                                  </div>
+                                </label>
+                                
+                                {isSelected && (
+                                  <div className="flex items-center gap-1 ml-6">
+                                    <button
+                                      type="button"
+                                      onClick={() => updateQuantity(key, Math.max(0, qty - 1))}
+                                      className="w-6 h-6 rounded border border-orange-300 hover:border-orange-500 hover:bg-orange-100 flex items-center justify-center text-xs font-bold"
+                                    >
+                                      -
+                                    </button>
+                                    <input
+                                      type="number"
+                                      value={qty}
+                                      onChange={(e) => updateQuantity(key, parseInt(e.target.value) || 0)}
+                                      className="w-12 h-6 text-center border border-orange-300 rounded text-xs"
+                                      min="0"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => updateQuantity(key, qty + 1)}
+                                      className="w-6 h-6 rounded border border-orange-300 hover:border-orange-500 hover:bg-orange-100 flex items-center justify-center text-xs font-bold"
+                                    >
+                                      +
+                                    </button>
+                                    <span className="text-xs font-semibold text-orange-600 ml-1">
+                                      ₹{((category.ratePerPlate || 0) * qty).toLocaleString()}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
+
               {/* Kitchen & Dining */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {venue.amenities?.kitchenAccess?.available && (

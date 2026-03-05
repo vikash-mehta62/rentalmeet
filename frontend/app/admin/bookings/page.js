@@ -516,26 +516,117 @@ export default function AdminBookings() {
               )}
 
               {/* Selected Amenities */}
-              {selectedBooking.selectedAmenities && selectedBooking.selectedAmenities.length > 0 && (
+              {selectedBooking.selectedAmenities && (
+                (selectedBooking.selectedAmenities.basic?.length > 0 ||
+                 selectedBooking.selectedAmenities.beverages?.length > 0 ||
+                 selectedBooking.selectedAmenities.refreshmentFood?.length > 0 ||
+                 selectedBooking.selectedAmenities.lunchThalis?.length > 0) && (
                 <div>
-                  <h3 className="text-lg font-semibold mb-3">Selected Amenities</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    {selectedBooking.selectedAmenities.map((amenity, idx) => (
-                      <div key={idx} className="bg-gray-50 rounded-lg p-3">
-                        <p className="font-semibold text-gray-900">{amenity.name}</p>
-                        <div className="flex justify-between items-center mt-1">
-                          <span className="text-xs text-gray-600">
-                            Qty: {amenity.quantity} × ₹{amenity.price}
-                          </span>
-                          <span className="text-sm font-semibold text-primary-600">
-                            ₹{(amenity.quantity * amenity.price).toLocaleString()}
+                  <h3 className="text-lg font-semibold mb-3">Selected Amenities & Services</h3>
+                  <div className="space-y-3">
+                    {/* Basic Amenities */}
+                    {selectedBooking.selectedAmenities.basic?.length > 0 && (
+                      <div>
+                        <p className="text-sm font-semibold text-gray-700 mb-2">Basic Amenities:</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {selectedBooking.selectedAmenities.basic.map((amenity, idx) => (
+                            <div key={idx} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                              <p className="font-semibold text-gray-900 text-sm">{amenity.name}</p>
+                              <div className="flex justify-between items-center mt-1">
+                                <span className="text-xs text-gray-600">
+                                  {amenity.type} {amenity.rateType === 'Per Use' && `(x${amenity.quantity})`}
+                                </span>
+                                <span className="text-sm font-semibold text-primary-600">
+                                  ₹{amenity.total?.toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Beverages */}
+                    {selectedBooking.selectedAmenities.beverages?.length > 0 && (
+                      <div>
+                        <p className="text-sm font-semibold text-gray-700 mb-2">Beverages:</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {selectedBooking.selectedAmenities.beverages.map((bev, idx) => (
+                            <div key={idx} className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                              <p className="font-semibold text-gray-900 text-sm">{bev.name}</p>
+                              <p className="text-xs text-gray-600">{bev.brand}</p>
+                              <div className="flex justify-between items-center mt-1">
+                                <span className="text-xs text-gray-600">x{bev.quantity} persons</span>
+                                <span className="text-sm font-semibold text-blue-600">
+                                  ₹{bev.total?.toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Refreshments */}
+                    {selectedBooking.selectedAmenities.refreshmentFood?.length > 0 && (
+                      <div>
+                        <p className="text-sm font-semibold text-gray-700 mb-2">Refreshments & Snacks:</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {selectedBooking.selectedAmenities.refreshmentFood.map((food, idx) => (
+                            <div key={idx} className="bg-green-50 rounded-lg p-3 border border-green-200">
+                              <p className="font-semibold text-gray-900 text-sm">{food.name}</p>
+                              <div className="flex justify-between items-center mt-1">
+                                <span className="text-xs text-gray-600">x{food.quantity} plates</span>
+                                <span className="text-sm font-semibold text-green-600">
+                                  ₹{food.total?.toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Lunch Thalis */}
+                    {selectedBooking.selectedAmenities.lunchThalis?.length > 0 && (
+                      <div>
+                        <p className="text-sm font-semibold text-gray-700 mb-2">Lunch Thalis:</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {selectedBooking.selectedAmenities.lunchThalis.map((thali, idx) => (
+                            <div key={idx} className="bg-orange-50 rounded-lg p-3 border border-orange-200">
+                              <p className="font-semibold text-gray-900 text-sm">
+                                {thali.thaliType}
+                              </p>
+                              <p className="text-xs text-orange-700 font-medium">{thali.category}</p>
+                              <p className="text-xs text-gray-600 mt-1">{thali.itemNames}</p>
+                              <div className="flex justify-between items-center mt-2">
+                                <span className="text-xs text-gray-600">
+                                  x{thali.quantity} plates • {thali.numberOfItems} items
+                                </span>
+                                <span className="text-sm font-semibold text-orange-600">
+                                  ₹{thali.total?.toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Amenities Total */}
+                    {selectedBooking.amenitiesTotal > 0 && (
+                      <div className="bg-primary-50 rounded-lg p-3 border-2 border-primary-300">
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-gray-900">Amenities Total:</span>
+                          <span className="font-black text-primary-600 text-lg">
+                            ₹{selectedBooking.amenitiesTotal?.toLocaleString()}
                           </span>
                         </div>
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
-              )}
+              ))}
             </div>
           </div>
         </div>
