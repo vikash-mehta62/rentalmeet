@@ -68,7 +68,7 @@ export default function PricingSection() {
           </div>
 
           {/* Pricing Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
             {pricingPlans.map((plan, index) => (
               <div
                 key={index}
@@ -132,7 +132,7 @@ export default function PricingSection() {
           {/* Header */}
           <div className="text-center mb-12">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">WHY CHOOSE US</p>
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900" style={{ fontFamily: 'Georgia, serif' }}>
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900" style={{ fontFamily: 'Georgia, serif' }}>
               Trusted by Professionals
             </h2>
           </div>

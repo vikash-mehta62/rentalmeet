@@ -12,6 +12,10 @@ const uploadToCloudinary = async (fileBuffer, folder) => {
       ? `${process.env.CLOUDINARY_FOLDER}/${folder}` 
       : `rentalmeet/${folder}`;
     
+    console.log('Cloudinary upload starting...');
+    console.log('Folder:', folderPath);
+    console.log('Buffer size:', fileBuffer ? fileBuffer.length : 'No buffer');
+    
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
@@ -24,8 +28,10 @@ const uploadToCloudinary = async (fileBuffer, folder) => {
         },
         (error, result) => {
           if (error) {
-            reject(new Error('Image upload failed'));
+            console.error('Cloudinary upload error:', error);
+            reject(new Error('Image upload failed: ' + error.message));
           } else {
+            console.log('Cloudinary upload success');
             resolve(result);
           }
         }
@@ -34,7 +40,8 @@ const uploadToCloudinary = async (fileBuffer, folder) => {
       uploadStream.end(fileBuffer);
     });
   } catch (error) {
-    throw new Error('Image upload failed');
+    console.error('Cloudinary upload exception:', error);
+    throw new Error('Image upload failed: ' + error.message);
   }
 };
 

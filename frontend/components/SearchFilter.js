@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, MapPin, Users, Calendar, ChevronDown, Grid3x3 } from 'lucide-react';
+import { Search, Users, Calendar, ChevronDown, Grid3x3 } from 'lucide-react';
 import DatePicker from 'react-datepicker';
+import CityAutocomplete from './CityAutocomplete';
 import 'react-datepicker/dist/react-datepicker.css';
 
 export default function SearchFilter() {
@@ -13,30 +14,14 @@ export default function SearchFilter() {
   
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
-  const [locationInput, setLocationInput] = useState('');
-  const [locationSuggestions, setLocationSuggestions] = useState([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState('');
+  const [cityInput, setCityInput] = useState('');
   const [personsInput, setPersonsInput] = useState('');
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedVenueType, setSelectedVenueType] = useState('');
 
   useEffect(() => {
-    fetchLocations();
     fetchVenueTypes();
   }, []);
-
-  const fetchLocations = async () => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues/locations/all`);
-      const data = await response.json();
-      if (data.success) {
-        setLocations(data);
-      }
-    } catch (error) {
-      console.error('Error fetching locations:', error);
-    }
-  };
 
   const fetchVenueTypes = async () => {
     try {
@@ -50,35 +35,10 @@ export default function SearchFilter() {
     }
   };
 
-  // Location autocomplete
-  const handleLocationInput = (value) => {
-    setLocationInput(value);
-    if (value.length > 0) {
-      const allLocations = [
-        ...locations.cities,
-        ...locations.locations.flatMap(loc => loc.areas.map(area => `${area}, ${loc.city}`))
-      ];
-      const filtered = allLocations.filter(loc => 
-        loc.toLowerCase().includes(value.toLowerCase())
-      );
-      setLocationSuggestions(filtered.slice(0, 5));
-      setShowSuggestions(true);
-    } else {
-      setLocationSuggestions([]);
-      setShowSuggestions(false);
-    }
-  };
-
-  const selectLocation = (location) => {
-    setLocationInput(location);
-    setSelectedLocation(location);
-    setShowSuggestions(false);
-  };
-
   const handleSearch = () => {
     const params = new URLSearchParams();
     if (searchQuery) params.append('search', searchQuery);
-    if (selectedLocation) params.append('location', selectedLocation);
+    if (cityInput) params.append('location', cityInput);
     if (personsInput) params.append('capacity', personsInput);
     if (selectedDate) params.append('date', selectedDate.toISOString().split('T')[0]);
     if (selectedVenueType) params.append('type', selectedVenueType);
@@ -94,40 +54,20 @@ export default function SearchFilter() {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#F59F0A]" />
           <input
             type="text"
-            placeholder="Search venue name..."
+            placeholder="Search rooms..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all"
           />
         </div>
 
-        {/* Location Input with Autocomplete */}
-        <div className="relative">
-          <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#F59F0A] z-10" />
-          <input
-            type="text"
-            placeholder="Location (Bhopal, etc.)"
-            value={locationInput}
-            onChange={(e) => handleLocationInput(e.target.value)}
-            onFocus={() => locationSuggestions.length > 0 && setShowSuggestions(true)}
-            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-            className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all"
-          />
-          {showSuggestions && locationSuggestions.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
-              {locationSuggestions.map((suggestion, index) => (
-                <button
-                  key={index}
-                  onClick={() => selectLocation(suggestion)}
-                  className="w-full text-left px-4 py-2 hover:bg-gray-50 transition-colors flex items-center gap-2"
-                >
-                  <MapPin className="w-4 h-4 text-gray-400" />
-                  <span className="text-sm text-gray-700">{suggestion}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* City Input with Google Autocomplete */}
+        <CityAutocomplete
+          value={cityInput}
+          onChange={setCityInput}
+          placeholder="Search city..."
+          className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all"
+        />
 
         {/* Persons Input */}
         <div className="relative">
@@ -183,28 +123,7 @@ export default function SearchFilter() {
         </button>
       </div>
 
-      {/* Popular Cities */}
-      <div className="mt-8 pt-6 border-t border-gray-200">
-        <h3 className="text-center text-sm font-semibold text-gray-700 mb-4">
-          POPULAR CITIES
-        </h3>
-        <div className="flex flex-wrap justify-center gap-4">
-          {locations.cities.slice(0, 7).map((city) => (
-            <button
-              key={city}
-              onClick={() => {
-                setLocationInput(city);
-                setSelectedLocation(city);
-                handleSearch();
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <MapPin className="w-4 h-4 text-gray-600" />
-              <span className="text-sm font-medium text-gray-700">{city}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Popular Cities - Remove this section since we have Google autocomplete */}
 
       <style jsx global>{`
         .react-datepicker {

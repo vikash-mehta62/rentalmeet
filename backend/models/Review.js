@@ -11,6 +11,10 @@ const reviewSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  profileImage: {
+    type: String,
+    default: null
+  },
   rating: {
     type: Number,
     required: true,

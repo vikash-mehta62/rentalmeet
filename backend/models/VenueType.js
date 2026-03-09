@@ -7,6 +7,15 @@ const venueTypeSchema = new mongoose.Schema({
     unique: true,
     trim: true
   },
+  code: {
+    type: String,
+    required: true,
+    unique: true,
+    uppercase: true,
+    trim: true,
+    maxlength: 2,
+    minlength: 2
+  },
   description: {
     type: String,
     trim: true

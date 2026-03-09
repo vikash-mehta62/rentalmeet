@@ -19,6 +19,8 @@ export default function AdminUsers() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
     if (token) {
@@ -54,8 +56,8 @@ export default function AdminUsers() {
   const filterUsers = () => {
     let filtered = [...users];
 
-    // Hide admin users from the list
-    filtered = filtered.filter(u => u.role !== 'admin');
+    // Only show customers and owners (exclude admins and employees)
+    filtered = filtered.filter(u => u.role === 'customer' || u.role === 'owner');
 
     if (roleFilter !== 'all') {
       filtered = filtered.filter(u => u.role === roleFilter);
@@ -75,6 +77,7 @@ export default function AdminUsers() {
     }
 
     setFilteredUsers(filtered);
+    setCurrentPage(1); // Reset to first page when filters change
   };
 
   const handleStatusToggle = async (userId, currentStatus) => {
@@ -130,12 +133,27 @@ export default function AdminUsers() {
   };
 
   const stats = {
-    total: users.filter(u => u.role !== 'admin').length, // Exclude admins from total
-    admins: users.filter(u => u.role === 'admin').length,
+    total: users.filter(u => u.role === 'customer' || u.role === 'owner').length,
     owners: users.filter(u => u.role === 'owner').length,
     customers: users.filter(u => u.role === 'customer').length,
-    active: users.filter(u => u.isActive && u.role !== 'admin').length,
-    inactive: users.filter(u => !u.isActive && u.role !== 'admin').length,
+    active: users.filter(u => u.isActive && (u.role === 'customer' || u.role === 'owner')).length,
+    inactive: users.filter(u => !u.isActive && (u.role === 'customer' || u.role === 'owner')).length,
+  };
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleItemsPerPageChange = (value) => {
+    setItemsPerPage(Number(value));
+    setCurrentPage(1);
   };
 
   if (loading) {
@@ -149,16 +167,12 @@ export default function AdminUsers() {
   }
 
   return (
-    <AdminLayout title="Users Management" subtitle={`Manage all ${users.length} users`}>
+    <AdminLayout title="Users Management" subtitle={`Manage all ${stats.total} users`}>
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-lg shadow-soft border border-gray-100 p-4">
           <p className="text-xs text-gray-600 mb-1">Total</p>
           <p className="text-2xl font-bold text-dark-800">{stats.total}</p>
-        </div>
-        <div className="bg-purple-50 rounded-lg shadow-soft border border-purple-200 p-4">
-          <p className="text-xs text-purple-600 mb-1">Admins</p>
-          <p className="text-2xl font-bold text-purple-700">{stats.admins}</p>
         </div>
         <div className="bg-blue-50 rounded-lg shadow-soft border border-blue-200 p-4">
           <p className="text-xs text-blue-600 mb-1">Owners</p>
@@ -171,10 +185,6 @@ export default function AdminUsers() {
         <div className="bg-teal-50 rounded-lg shadow-soft border border-teal-200 p-4">
           <p className="text-xs text-teal-600 mb-1">Active</p>
           <p className="text-2xl font-bold text-teal-700">{stats.active}</p>
-        </div>
-        <div className="bg-gray-50 rounded-lg shadow-soft border border-gray-200 p-4">
-          <p className="text-xs text-gray-600 mb-1">Inactive</p>
-          <p className="text-2xl font-bold text-gray-700">{stats.inactive}</p>
         </div>
       </div>
 
@@ -237,14 +247,14 @@ export default function AdminUsers() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredUsers.length === 0 ? (
+              {paginatedUsers.length === 0 ? (
                 <tr>
                   <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
                     No users found
                   </td>
                 </tr>
               ) : (
-                filteredUsers.map((user) => (
+                paginatedUsers.map((user) => (
                   <tr key={user._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -304,6 +314,79 @@ export default function AdminUsers() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        {filteredUsers.length > 0 && (
+          <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+            {/* Items per page selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">Show</span>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => handleItemsPerPageChange(e.target.value)}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white text-sm"
+              >
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+              <span className="text-sm text-gray-600">
+                entries (Showing {startIndex + 1}-{Math.min(endIndex, filteredUsers.length)} of {filteredUsers.length})
+              </span>
+            </div>
+
+            {/* Page numbers */}
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                >
+                  Previous
+                </button>
+
+                <div className="flex gap-1">
+                  {[...Array(totalPages)].map((_, index) => {
+                    const page = index + 1;
+                    // Show first page, last page, current page, and pages around current
+                    if (
+                      page === 1 ||
+                      page === totalPages ||
+                      (page >= currentPage - 1 && page <= currentPage + 1)
+                    ) {
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => handlePageChange(page)}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
+                            currentPage === page
+                              ? 'bg-primary-500 text-white'
+                              : 'border border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      );
+                    } else if (page === currentPage - 2 || page === currentPage + 2) {
+                      return <span key={page} className="px-2 text-gray-400">...</span>;
+                    }
+                    return null;
+                  })}
+                </div>
+
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* User Details Modal */}

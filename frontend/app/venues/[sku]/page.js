@@ -547,20 +547,17 @@ export default function VenueDetail() {
                                 isSelected ? 'border-primary-500 bg-primary-50' : 'border-gray-200'
                               }`}
                             >
-                              <label className="flex items-center gap-2 cursor-pointer mb-2">
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={() => toggleAmenity('basic', amenity)}
-                                  className="w-4 h-4 rounded border-2 border-gray-300 text-primary-500 focus:ring-2 focus:ring-primary-500 cursor-pointer"
-                                />
-                                <div className="flex-1">
-                                  <span className="font-medium text-xs block">{amenity.name}</span>
-                                  <span className="text-xs text-gray-500">₹{amenity.rate} {amenity.rateType || 'Fixed'}</span>
+                              <label className="flex items-center justify-between cursor-pointer mb-2">
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => toggleAmenity('basic', amenity)}
+                                    className="w-4 h-4 rounded border-2 border-gray-300 text-primary-500 focus:ring-2 focus:ring-primary-500 cursor-pointer"
+                                  />
+                                  <span className="font-medium text-xs">{amenity.name}</span>
                                 </div>
-                                {!isPerUse && (
-                                  <span className="text-xs font-semibold text-primary-600">₹{amenity.rate}</span>
-                                )}
+                                <span className="text-xs font-semibold text-primary-600">₹{amenity.rate}</span>
                               </label>
                               
                               {isPerUse && (
@@ -627,17 +624,17 @@ export default function VenueDetail() {
                             isSelected ? 'border-primary-500 bg-primary-50' : 'border-gray-200'
                           }`}
                         >
-                          <label className="flex items-center gap-2 cursor-pointer mb-2">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => toggleAmenity('beverages', beverage)}
-                              className="w-4 h-4 rounded border-2 border-gray-300 text-primary-500 focus:ring-2 focus:ring-primary-500 cursor-pointer"
-                            />
-                            <div className="flex-1">
-                              <span className="font-medium text-xs block">{beverage.name}</span>
-                              <span className="text-xs text-gray-500">₹{beverage.ratePerUnit}/person</span>
+                          <label className="flex items-center justify-between cursor-pointer mb-2">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleAmenity('beverages', beverage)}
+                                className="w-4 h-4 rounded border-2 border-gray-300 text-primary-500 focus:ring-2 focus:ring-primary-500 cursor-pointer"
+                              />
+                              <span className="font-medium text-xs">{beverage.name}</span>
                             </div>
+                            <span className="text-xs font-semibold text-primary-600">₹{beverage.ratePerUnit}/person</span>
                           </label>
                           
                           <div className="flex items-center gap-1 ml-6">
@@ -700,17 +697,17 @@ export default function VenueDetail() {
                             isSelected ? 'border-primary-500 bg-primary-50' : 'border-gray-200'
                           }`}
                         >
-                          <label className="flex items-center gap-2 cursor-pointer mb-2">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => toggleAmenity('refreshmentFood', food)}
-                              className="w-4 h-4 rounded border-2 border-gray-300 text-primary-500 focus:ring-2 focus:ring-primary-500 cursor-pointer"
-                            />
-                            <div className="flex-1">
-                              <span className="font-medium text-xs block">{food.name}</span>
-                              <span className="text-xs text-gray-500">₹{food.ratePerPlate}/plate</span>
+                          <label className="flex items-center justify-between cursor-pointer mb-2">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleAmenity('refreshmentFood', food)}
+                                className="w-4 h-4 rounded border-2 border-gray-300 text-primary-500 focus:ring-2 focus:ring-primary-500 cursor-pointer"
+                              />
+                              <span className="font-medium text-xs">{food.name}</span>
                             </div>
+                            <span className="text-xs font-semibold text-primary-600">₹{food.ratePerPlate}/plate</span>
                           </label>
                           
                           {isSelected && (
@@ -775,50 +772,53 @@ export default function VenueDetail() {
                                   isSelected ? 'border-orange-500 bg-orange-50' : 'border-orange-200'
                                 }`}
                               >
-                                <label className="flex items-center gap-2 cursor-pointer mb-2">
-                                  <input
-                                    type="checkbox"
-                                    checked={isSelected}
-                                    onChange={() => {
-                                      if (isSelected) {
-                                        // Remove from selection
-                                        setSelectedAmenities(prev => ({
-                                          ...prev,
-                                          lunchThalis: prev.lunchThalis.filter(
-                                            t => !(t.thaliType === thali.thaliType && t.category === category.category)
-                                          )
-                                        }));
-                                        // Reset quantity
-                                        setQuantities(prev => ({ ...prev, [key]: 0 }));
-                                      } else {
-                                        // Add to selection
-                                        setSelectedAmenities(prev => ({
-                                          ...prev,
-                                          lunchThalis: [...prev.lunchThalis, {
-                                            thaliType: thali.thaliType,
-                                            category: category.category,
-                                            ratePerPlate: category.ratePerPlate,
-                                            numberOfItems: category.numberOfItems,
-                                            itemNames: category.itemNames
-                                          }]
-                                        }));
-                                        // Set initial quantity to 1
-                                        setQuantities(prev => ({ ...prev, [key]: 1 }));
-                                      }
-                                    }}
-                                    className="w-4 h-4 rounded border-2 border-orange-300 text-orange-500 focus:ring-2 focus:ring-orange-500 cursor-pointer"
-                                  />
-                                  <div className="flex-1">
-                                    <span className="font-semibold text-xs block text-gray-800">{category.category}</span>
-                                    <span className="text-xs text-gray-600">
-                                      ₹{category.ratePerPlate}/plate • {category.numberOfItems} items
-                                    </span>
-                                    {category.itemNames && (
-                                      <span className="text-xs text-gray-500 block mt-0.5 italic">
-                                        {category.itemNames}
+                                <label className="flex items-center justify-between cursor-pointer mb-2">
+                                  <div className="flex items-center gap-2 flex-1">
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={() => {
+                                        if (isSelected) {
+                                          // Remove from selection
+                                          setSelectedAmenities(prev => ({
+                                            ...prev,
+                                            lunchThalis: prev.lunchThalis.filter(
+                                              t => !(t.thaliType === thali.thaliType && t.category === category.category)
+                                            )
+                                          }));
+                                          // Reset quantity
+                                          setQuantities(prev => ({ ...prev, [key]: 0 }));
+                                        } else {
+                                          // Add to selection
+                                          setSelectedAmenities(prev => ({
+                                            ...prev,
+                                            lunchThalis: [...prev.lunchThalis, {
+                                              thaliType: thali.thaliType,
+                                              category: category.category,
+                                              ratePerPlate: category.ratePerPlate,
+                                              numberOfItems: category.numberOfItems,
+                                              itemNames: category.itemNames
+                                            }]
+                                          }));
+                                          // Set initial quantity to 1
+                                          setQuantities(prev => ({ ...prev, [key]: 1 }));
+                                        }
+                                      }}
+                                      className="w-4 h-4 rounded border-2 border-orange-300 text-orange-500 focus:ring-2 focus:ring-orange-500 cursor-pointer"
+                                    />
+                                    <div className="flex-1">
+                                      <span className="font-semibold text-xs block text-gray-800">{category.category}</span>
+                                      <span className="text-xs text-gray-500">
+                                        {category.numberOfItems} items
                                       </span>
-                                    )}
+                                      {category.itemNames && (
+                                        <span className="text-xs text-gray-500 block mt-0.5 italic">
+                                          {category.itemNames}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
+                                  <span className="text-xs font-semibold text-orange-600">₹{category.ratePerPlate}/plate</span>
                                 </label>
                                 
                                 {isSelected && (

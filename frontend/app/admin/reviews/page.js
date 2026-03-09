@@ -21,6 +21,8 @@ export default function AdminReviews() {
     description: '',
     order: 0
   });
+  const [profileImage, setProfileImage] = useState(null);
+  const [profileImagePreview, setProfileImagePreview] = useState(null);
 
   useEffect(() => {
     if (token) {
@@ -54,13 +56,24 @@ export default function AdminReviews() {
         ? `${process.env.NEXT_PUBLIC_API_URL}/reviews/admin/${editingReview._id}`
         : `${process.env.NEXT_PUBLIC_API_URL}/reviews/admin`;
       
+      // Use FormData for file upload
+      const formDataToSend = new FormData();
+      formDataToSend.append('name', formData.name);
+      formDataToSend.append('role', formData.role);
+      formDataToSend.append('rating', formData.rating);
+      formDataToSend.append('description', formData.description);
+      formDataToSend.append('order', formData.order);
+      
+      if (profileImage) {
+        formDataToSend.append('profileImage', profileImage);
+      }
+      
       const response = await fetch(url, {
         method: editingReview ? 'PUT' : 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(formData)
+        body: formDataToSend
       });
 
       const data = await response.json();
@@ -75,6 +88,18 @@ export default function AdminReviews() {
       toast.error('Failed to save review');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setProfileImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfileImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -110,6 +135,8 @@ export default function AdminReviews() {
       description: review.description,
       order: review.order || 0
     });
+    setProfileImagePreview(review.profileImage || null);
+    setProfileImage(null);
     setShowModal(true);
   };
 
@@ -123,6 +150,8 @@ export default function AdminReviews() {
       description: '',
       order: 0
     });
+    setProfileImage(null);
+    setProfileImagePreview(null);
   };
 
   const toggleActive = async (review) => {
@@ -212,34 +241,53 @@ export default function AdminReviews() {
                 review.isActive ? 'border-gray-200' : 'border-gray-300 opacity-60'
               }`}
             >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <h3 className="font-bold text-dark-800">{review.name}</h3>
-                  <p className="text-xs text-gray-500">{review.role}</p>
-                  <div className="flex items-center gap-1 mt-2">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        className={`w-4 h-4 ${
-                          i < review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
-                        }`}
-                      />
-                    ))}
+              <div className="flex items-start gap-4 mb-4">
+                {/* Profile Image */}
+                {review.profileImage ? (
+                  <img
+                    src={review.profileImage}
+                    alt={review.name}
+                    className="w-16 h-16 rounded-full object-cover border-2 border-gray-200 flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center flex-shrink-0">
+                    <span className="text-2xl font-bold text-primary-600">
+                      {review.name.charAt(0).toUpperCase()}
+                    </span>
                   </div>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleEdit(review)}
-                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(review._id)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                )}
+                
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-bold text-dark-800">{review.name}</h3>
+                      <p className="text-xs text-gray-500">{review.role}</p>
+                      <div className="flex items-center gap-1 mt-2">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`w-4 h-4 ${
+                              i < review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEdit(review)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(review._id)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
               
@@ -280,9 +328,9 @@ export default function AdminReviews() {
 
       {/* Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-6">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-8 max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
               <h2 className="text-xl font-bold text-dark-800">
                 {editingReview ? 'Edit Review' : 'Add Review'}
               </h2>
@@ -294,7 +342,36 @@ export default function AdminReviews() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              {/* Profile Image Upload */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Profile Image
+                </label>
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  {profileImagePreview ? (
+                    <img
+                      src={profileImagePreview}
+                      alt="Profile preview"
+                      className="w-20 h-20 rounded-full object-cover border-2 border-gray-200"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center">
+                      <span className="text-2xl text-gray-400">👤</span>
+                    </div>
+                  )}
+                  <div className="flex-1 w-full">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Upload a profile photo (optional)</p>
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Name *
@@ -353,7 +430,7 @@ export default function AdminReviews() {
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows="4"
                   maxLength="500"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 resize-none"
                   required
                 />
                 <p className="text-xs text-gray-500 mt-1">{formData.description.length}/500 characters</p>
@@ -372,7 +449,7 @@ export default function AdminReviews() {
                 />
               </div>
 
-              <div className="flex gap-3 pt-4">
+              <div className="flex flex-col sm:flex-row gap-3 pt-4 sticky bottom-0 bg-white border-t border-gray-200 -mx-6 px-6 py-4 rounded-b-2xl">
                 <button
                   type="button"
                   onClick={handleCloseModal}
@@ -383,7 +460,7 @@ export default function AdminReviews() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+                  className="flex-1 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? (
                     <>

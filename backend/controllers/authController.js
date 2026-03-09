@@ -4,10 +4,12 @@ const Counter = require('../models/Counter');
 
 // Helper function to generate user ID
 // Format: RM-ROLE-YEAR-SEQUENCE
-// Example: RM-CUST-2026-0001, RM-OWN-2026-0001
+// Example: RM-CUST-2026-0001, RM-OWN-2026-0001, RM-EMP-2026-0001
 const generateUserId = async (role) => {
   const year = new Date().getFullYear();
-  const rolePrefix = role === 'owner' ? 'OWN' : role === 'admin' ? 'ADM' : 'CUST';
+  const rolePrefix = role === 'owner' ? 'OWN' : 
+                     role === 'admin' ? 'ADM' : 
+                     role === 'employee' ? 'EMP' : 'CUST';
   
   // Create counter ID: user_ROLE_YEAR
   const counterId = `user_${rolePrefix}_${year}`;
@@ -23,6 +25,9 @@ const generateUserId = async (role) => {
   
   return userId;
 };
+
+// Export for use in other controllers
+module.exports.generateUserId = generateUserId;
 
 // Generate JWT Token
 const generateToken = (id) => {

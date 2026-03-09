@@ -70,6 +70,11 @@ app.use('/api/payment', require('./routes/payment'));
 app.use('/api/terms', require('./routes/terms'));
 app.use('/api/reviews', require('./routes/reviews'));
 
+// Public hero slides route
+const { getActiveHeroSlides, getPublicContactSettings } = require('./controllers/adminController');
+app.get('/api/hero-slides', getActiveHeroSlides);
+app.get('/api/contact-settings', getPublicContactSettings);
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date() });

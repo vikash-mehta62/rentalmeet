@@ -16,6 +16,7 @@ export default function AdminVenueTypes() {
   const [editingType, setEditingType] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
+    code: '',
     description: '',
     icon: '🏢',
     order: 0
@@ -104,6 +105,7 @@ export default function AdminVenueTypes() {
     setEditingType(type);
     setFormData({
       name: type.name,
+      code: type.code || '',
       description: type.description || '',
       icon: type.icon || '🏢',
       order: type.order || 0
@@ -116,6 +118,7 @@ export default function AdminVenueTypes() {
     setEditingType(null);
     setFormData({
       name: '',
+      code: '',
       description: '',
       icon: '🏢',
       order: 0
@@ -179,7 +182,7 @@ export default function AdminVenueTypes() {
                   <span className="text-4xl">{type.icon}</span>
                   <div>
                     <h3 className="font-bold text-dark-800">{type.name}</h3>
-                    <p className="text-xs text-gray-500">Order: {type.order}</p>
+                    <p className="text-xs text-gray-500">Code: {type.code} • Order: {type.order}</p>
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -263,6 +266,24 @@ export default function AdminVenueTypes() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                   required
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Code (2 letters) *
+                </label>
+                <input
+                  type="text"
+                  value={formData.code}
+                  onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 uppercase"
+                  maxLength="2"
+                  minLength="2"
+                  pattern="[A-Z]{2}"
+                  placeholder="MH"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">2-letter code for booking numbers (e.g., MH for Meeting Hall)</p>
               </div>
 
               <div>

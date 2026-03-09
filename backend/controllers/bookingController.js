@@ -2,26 +2,37 @@ const Booking = require('../models/Booking');
 const Venue = require('../models/Venue');
 const CommissionSettings = require('../models/CommissionSettings');
 const Counter = require('../models/Counter');
+const { getCityCode, getStateCode } = require('../utils/cityCodes');
 
 // Helper function to generate booking number
-// Format: RM-YEAR/STATE/CITY/SEQUENCE
-// Example: RM-2026/MH/MUMBAI/0001
+// Format: STATE(2) + CITY(3) + YEAR(2) + VENUETYPE(2) + SERIAL(6)
+// Example: MPBPL26MH000001 (Madhya Pradesh, Bhopal, 2026, Meeting Hall, Serial 1)
 const generateBookingNumber = async (venue) => {
-  const year = new Date().getFullYear();
-  const state = venue.location?.state?.toUpperCase().substring(0, 2) || 'XX';
-  const city = venue.location?.city?.toUpperCase().replace(/\s+/g, '') || 'CITY';
+  const year = new Date().getFullYear().toString().slice(-2); // Last 2 digits of year
+  const stateCode = getStateCode(venue.location?.state); // 2-letter state code
+  const cityCode = getCityCode(venue.location?.city); // 3-letter city code
   
-  // Create counter ID: booking_YEAR_STATE_CITY
-  const counterId = `booking_${year}_${state}_${city}`;
+  // Get venue type code (2 letters) from first venue type
+  let venueTypeCode = 'VN'; // Default
+  if (venue.venueTypes && venue.venueTypes.length > 0) {
+    const VenueType = require('../models/VenueType');
+    const venueType = await VenueType.findById(venue.venueTypes[0]);
+    if (venueType && venueType.code) {
+      venueTypeCode = venueType.code;
+    }
+  }
+  
+  // Create counter ID: booking_STATE_CITY_YEAR_VENUETYPE
+  const counterId = `booking_${stateCode}_${cityCode}_${year}_${venueTypeCode}`;
   
   // Get next sequence number
   const sequence = await Counter.getNextSequence(counterId);
   
-  // Format sequence with leading zeros (4 digits)
-  const sequenceStr = sequence.toString().padStart(4, '0');
+  // Format sequence with leading zeros (6 digits)
+  const sequenceStr = sequence.toString().padStart(6, '0');
   
-  // Generate booking number
-  const bookingNumber = `RM-${year}/${state}/${city}/${sequenceStr}`;
+  // Generate booking number: STATE + CITY + YEAR + VENUETYPE + SERIAL
+  const bookingNumber = `${stateCode}${cityCode}${year}${venueTypeCode}${sequenceStr}`;
   
   return bookingNumber;
 };

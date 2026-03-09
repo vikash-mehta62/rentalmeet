@@ -549,11 +549,58 @@ exports.updateUserStatus = async (req, res) => {
   }
 };
 
-// @desc    Get all bookings
+// @desc    Get all bookings with pagination and filters
 // @route   GET /api/admin/bookings
 exports.getAllBookings = async (req, res) => {
   try {
-    const bookings = await Booking.find()
+    const { 
+      page = 1, 
+      limit = 10, 
+      status, 
+      venue, 
+      search,
+      statsVenue // Separate venue filter for stats
+    } = req.query;
+
+    // Build query for bookings
+    let query = {};
+    
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+    
+    if (venue && venue !== 'all') {
+      query.venue = venue;
+    }
+    
+    if (search) {
+      // Search in customer name, email, or venue name
+      const customers = await User.find({
+        $or: [
+          { name: { $regex: search, $options: 'i' } },
+          { email: { $regex: search, $options: 'i' } }
+        ]
+      }).select('_id');
+      
+      const venues = await Venue.find({
+        businessName: { $regex: search, $options: 'i' }
+      }).select('_id');
+      
+      query.$or = [
+        { customer: { $in: customers.map(c => c._id) } },
+        { venue: { $in: venues.map(v => v._id) } }
+      ];
+    }
+
+    // Get total count for pagination
+    const totalBookings = await Booking.countDocuments(query);
+    
+    // Calculate pagination
+    const skip = (page - 1) * limit;
+    const totalPages = Math.ceil(totalBookings / limit);
+    
+    // Fetch paginated bookings
+    const bookings = await Booking.find(query)
       .populate('venue', 'businessName location images owner')
       .populate('customer', 'name email phone')
       .populate({
@@ -563,12 +610,32 @@ exports.getAllBookings = async (req, res) => {
           select: 'name email phone'
         }
       })
-      .sort('-createdAt');
+      .sort('-createdAt')
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    // Calculate stats (filtered by statsVenue if provided)
+    let statsQuery = {};
+    if (statsVenue && statsVenue !== 'all') {
+      statsQuery.venue = statsVenue;
+    }
+
+    const stats = {
+      total: await Booking.countDocuments(statsQuery),
+      pending: await Booking.countDocuments({ ...statsQuery, status: 'pending' }),
+      confirmed: await Booking.countDocuments({ ...statsQuery, status: 'confirmed' }),
+      completed: await Booking.countDocuments({ ...statsQuery, status: 'completed' }),
+      cancelled: await Booking.countDocuments({ ...statsQuery, status: 'cancelled' })
+    };
     
     res.json({
       success: true,
       count: bookings.length,
-      bookings
+      totalBookings,
+      totalPages,
+      currentPage: parseInt(page),
+      bookings,
+      stats
     });
   } catch (error) {
     res.status(500).json({
@@ -846,6 +913,478 @@ exports.updateTermsConditions = async (req, res) => {
       success: true,
       message: 'Terms and conditions updated successfully',
       terms
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// Hero Slides Management
+const HeroSlide = require('../models/HeroSlide');
+const { uploadToCloudinary } = require('../config/cloudinary');
+
+// @desc    Get all hero slides
+// @route   GET /api/admin/hero-slides
+exports.getAllHeroSlides = async (req, res) => {
+  try {
+    const slides = await HeroSlide.find().sort({ order: 1 });
+    res.json({
+      success: true,
+      data: slides
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Create hero slide
+// @route   POST /api/admin/hero-slides
+exports.createHeroSlide = async (req, res) => {
+  try {
+    const { title, subtitle, description, buttonText, buttonLink, order } = req.body;
+
+    console.log('Creating hero slide...');
+    console.log('File received:', req.file ? 'Yes' : 'No');
+    console.log('File details:', req.file ? { 
+      fieldname: req.file.fieldname, 
+      mimetype: req.file.mimetype, 
+      size: req.file.size 
+    } : 'N/A');
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'Image is required'
+      });
+    }
+
+    console.log('Uploading to Cloudinary...');
+    // Upload to Cloudinary using buffer
+    const result = await uploadToCloudinary(req.file.buffer, 'hero-slides');
+    console.log('Upload successful:', result.secure_url);
+
+    const slide = await HeroSlide.create({
+      title,
+      subtitle,
+      description,
+      image: result.secure_url,
+      buttonText: buttonText || 'Browse Venues',
+      buttonLink: buttonLink || '/venues',
+      order: order || 0
+    });
+
+    console.log('Hero slide created:', slide._id);
+
+    res.status(201).json({
+      success: true,
+      data: slide
+    });
+  } catch (error) {
+    console.error('Error creating hero slide:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Update hero slide
+// @route   PUT /api/admin/hero-slides/:id
+exports.updateHeroSlide = async (req, res) => {
+  try {
+    const { title, subtitle, description, buttonText, buttonLink, order, isActive } = req.body;
+    
+    const slide = await HeroSlide.findById(req.params.id);
+    if (!slide) {
+      return res.status(404).json({
+        success: false,
+        message: 'Hero slide not found'
+      });
+    }
+
+    // Update fields
+    if (title) slide.title = title;
+    if (subtitle !== undefined) slide.subtitle = subtitle;
+    if (description !== undefined) slide.description = description;
+    if (buttonText) slide.buttonText = buttonText;
+    if (buttonLink) slide.buttonLink = buttonLink;
+    if (order !== undefined) slide.order = order;
+    if (isActive !== undefined) slide.isActive = isActive;
+
+    // Update image if provided
+    if (req.file) {
+      const result = await uploadToCloudinary(req.file.buffer, 'hero-slides');
+      slide.image = result.secure_url;
+    }
+
+    await slide.save();
+
+    res.json({
+      success: true,
+      data: slide
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Delete hero slide
+// @route   DELETE /api/admin/hero-slides/:id
+exports.deleteHeroSlide = async (req, res) => {
+  try {
+    const slide = await HeroSlide.findById(req.params.id);
+    if (!slide) {
+      return res.status(404).json({
+        success: false,
+        message: 'Hero slide not found'
+      });
+    }
+
+    await slide.deleteOne();
+
+    res.json({
+      success: true,
+      message: 'Hero slide deleted successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Get active hero slides (public)
+// @route   GET /api/hero-slides
+exports.getActiveHeroSlides = async (req, res) => {
+  try {
+    const slides = await HeroSlide.find({ isActive: true }).sort({ order: 1 });
+    res.json({
+      success: true,
+      data: slides
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// Contact Settings Management
+const ContactSettings = require('../models/ContactSettings');
+
+// @desc    Get contact settings
+// @route   GET /api/admin/contact-settings
+exports.getContactSettings = async (req, res) => {
+  try {
+    let settings = await ContactSettings.findOne();
+    
+    // Create default settings if none exist
+    if (!settings) {
+      settings = await ContactSettings.create({
+        address: 'G-137, Gautam Nagar, Near Chokak Bridge, Bhopal',
+        phone: '+91 8423796767',
+        email: 'booking@rentalmeet.in',
+        availability: '24/7 Available',
+        filterSettings: {
+          capacityMin: 10,
+          capacityMax: 1000,
+          priceMin: 1000,
+          priceMax: 1000000
+        }
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: settings
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Update contact settings
+// @route   PUT /api/admin/contact-settings
+exports.updateContactSettings = async (req, res) => {
+  try {
+    const { address, phone, email, availability, socialMedia, filterSettings } = req.body;
+    
+    let settings = await ContactSettings.findOne();
+    
+    if (!settings) {
+      // Create new if doesn't exist
+      settings = await ContactSettings.create(req.body);
+    } else {
+      // Update existing
+      if (address) settings.address = address;
+      if (phone) settings.phone = phone;
+      if (email) settings.email = email;
+      if (availability) settings.availability = availability;
+      if (socialMedia) settings.socialMedia = socialMedia;
+      if (filterSettings) settings.filterSettings = filterSettings;
+      
+      await settings.save();
+    }
+    
+    res.json({
+      success: true,
+      data: settings,
+      message: 'Contact settings updated successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Get contact settings (public)
+// @route   GET /api/contact-settings
+exports.getPublicContactSettings = async (req, res) => {
+  try {
+    let settings = await ContactSettings.findOne();
+    
+    if (!settings) {
+      settings = {
+        address: 'G-137, Gautam Nagar, Near Chokak Bridge, Bhopal',
+        phone: '+91 8423796767',
+        email: 'booking@rentalmeet.in',
+        availability: '24/7 Available',
+        socialMedia: {}
+      };
+    }
+    
+    res.json({
+      success: true,
+      data: settings
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// Employee Management
+const { generateUserId } = require('./authController');
+
+// @desc    Get all employees
+// @route   GET /api/admin/employees
+exports.getAllEmployees = async (req, res) => {
+  try {
+    const employees = await User.find({ role: 'employee' })
+      .select('-password')
+      .populate('referredBy', 'name email userId')
+      .populate({
+        path: 'referrals.user',
+        select: 'name email userId role'
+      })
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: employees.length,
+      data: employees
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Create employee
+// @route   POST /api/admin/employees
+exports.createEmployee = async (req, res) => {
+  try {
+    const { name, email, phone, alternatePhone, address, city, state, pincode, password } = req.body;
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'User with this email or phone already exists'
+      });
+    }
+
+    // Generate userId for employee
+    const userId = await generateUserId('employee');
+
+    // Create employee
+    const employee = await User.create({
+      userId,
+      name,
+      email,
+      phone,
+      alternatePhone,
+      address,
+      city,
+      state,
+      pincode,
+      password,
+      role: 'employee',
+      isVerified: true // Auto-verify employees
+    });
+
+    // Generate unique referral code for employee
+    let newReferralCode;
+    let isUnique = false;
+    while (!isUnique) {
+      newReferralCode = employee.generateReferralCode();
+      const existingCode = await User.findOne({ referralCode: newReferralCode });
+      if (!existingCode) {
+        isUnique = true;
+      }
+    }
+    employee.referralCode = newReferralCode;
+    await employee.save();
+
+    // Remove password from response
+    const employeeData = employee.toObject();
+    delete employeeData.password;
+
+    res.status(201).json({
+      success: true,
+      data: employeeData,
+      message: 'Employee created successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Update employee
+// @route   PUT /api/admin/employees/:id
+exports.updateEmployee = async (req, res) => {
+  try {
+    const { name, email, phone, alternatePhone, address, city, state, pincode, password } = req.body;
+
+    const employee = await User.findById(req.params.id);
+    if (!employee || employee.role !== 'employee') {
+      return res.status(404).json({
+        success: false,
+        message: 'Employee not found'
+      });
+    }
+
+    // Check if email/phone is being changed and already exists
+    if (email && email !== employee.email) {
+      const existingEmail = await User.findOne({ email, _id: { $ne: req.params.id } });
+      if (existingEmail) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email already in use'
+        });
+      }
+    }
+
+    if (phone && phone !== employee.phone) {
+      const existingPhone = await User.findOne({ phone, _id: { $ne: req.params.id } });
+      if (existingPhone) {
+        return res.status(400).json({
+          success: false,
+          message: 'Phone already in use'
+        });
+      }
+    }
+
+    // Update fields
+    if (name) employee.name = name;
+    if (email) employee.email = email;
+    if (phone) employee.phone = phone;
+    if (alternatePhone !== undefined) employee.alternatePhone = alternatePhone;
+    if (address !== undefined) employee.address = address;
+    if (city !== undefined) employee.city = city;
+    if (state !== undefined) employee.state = state;
+    if (pincode !== undefined) employee.pincode = pincode;
+    if (password) employee.password = password; // Will be hashed by pre-save hook
+
+    await employee.save();
+
+    const employeeData = employee.toObject();
+    delete employeeData.password;
+
+    res.json({
+      success: true,
+      data: employeeData,
+      message: 'Employee updated successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Delete employee
+// @route   DELETE /api/admin/employees/:id
+exports.deleteEmployee = async (req, res) => {
+  try {
+    const employee = await User.findById(req.params.id);
+    if (!employee || employee.role !== 'employee') {
+      return res.status(404).json({
+        success: false,
+        message: 'Employee not found'
+      });
+    }
+
+    await employee.deleteOne();
+
+    res.json({
+      success: true,
+      message: 'Employee deleted successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Toggle employee status
+// @route   PUT /api/admin/employees/:id/status
+exports.toggleEmployeeStatus = async (req, res) => {
+  try {
+    const { isActive } = req.body;
+
+    const employee = await User.findById(req.params.id);
+    if (!employee || employee.role !== 'employee') {
+      return res.status(404).json({
+        success: false,
+        message: 'Employee not found'
+      });
+    }
+
+    employee.isActive = isActive;
+    await employee.save();
+
+    res.json({
+      success: true,
+      data: employee,
+      message: `Employee ${isActive ? 'activated' : 'deactivated'} successfully`
     });
   } catch (error) {
     res.status(500).json({

@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import CityAutocomplete from '@/components/CityAutocomplete';
 import { useAuthStore } from '@/lib/store';
 
 export default function BrowseVenues() {
@@ -225,6 +226,17 @@ export default function BrowseVenues() {
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
+              </div>
+
+              {/* City Filter */}
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Search by City</label>
+                <CityAutocomplete
+                  value={cityFilter}
+                  onChange={setCityFilter}
+                  placeholder="Search city..."
+                  className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all"
+                />
               </div>
 
               {/* Venue Type */}

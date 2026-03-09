@@ -12,12 +12,46 @@ export default function AdminSettings() {
   const { token, user } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [fetchingTerms, setFetchingTerms] = useState(false);
+  const [fetchingContact, setFetchingContact] = useState(false);
+  const [contactSettings, setContactSettings] = useState({
+    address: '',
+    phone: '',
+    email: '',
+    availability: '',
+    socialMedia: {
+      facebook: '',
+      twitter: '',
+      instagram: '',
+      linkedin: ''
+    }
+  });
   
   useEffect(() => {
     if (token) {
       fetchTerms();
+      fetchContactSettings();
     }
   }, [token]);
+
+  const fetchContactSettings = async () => {
+    setFetchingContact(true);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/contact-settings`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        setContactSettings(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching contact settings:', error);
+    } finally {
+      setFetchingContact(false);
+    }
+  };
 
   const fetchTerms = async () => {
     setFetchingTerms(true);
@@ -82,9 +116,194 @@ export default function AdminSettings() {
     }
   };
 
+  const handleSaveContact = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/contact-settings`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(contactSettings)
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast.success('Contact settings updated successfully!');
+      } else {
+        toast.error(data.message || 'Failed to update contact settings');
+      }
+    } catch (error) {
+      toast.error('Failed to save contact settings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <AdminLayout title="Settings" subtitle="Configure platform settings">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-5xl mx-auto space-y-6">
+        {/* Contact Settings */}
+        <div className="bg-white rounded-lg shadow-soft border border-gray-100 p-6">
+          <h2 className="text-xl font-bold text-dark-800 mb-6 flex items-center gap-2">
+            <SettingsIcon className="w-6 h-6 text-primary-500" />
+            Contact Information
+          </h2>
+          
+          {fetchingContact ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Address
+                </label>
+                <input
+                  type="text"
+                  value={contactSettings.address}
+                  onChange={(e) => setContactSettings({
+                    ...contactSettings,
+                    address: e.target.value
+                  })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  placeholder="G-137, Gautam Nagar, Near Chokak Bridge, Bhopal"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Phone
+                  </label>
+                  <input
+                    type="text"
+                    value={contactSettings.phone}
+                    onChange={(e) => setContactSettings({
+                      ...contactSettings,
+                      phone: e.target.value
+                    })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                    placeholder="+91 8423796767"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={contactSettings.email}
+                    onChange={(e) => setContactSettings({
+                      ...contactSettings,
+                      email: e.target.value
+                    })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                    placeholder="booking@rentalmeet.in"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Availability
+                </label>
+                <input
+                  type="text"
+                  value={contactSettings.availability}
+                  onChange={(e) => setContactSettings({
+                    ...contactSettings,
+                    availability: e.target.value
+                  })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  placeholder="24/7 Available"
+                />
+              </div>
+
+              <div className="pt-4 border-t">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">Social Media Links (Optional)</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Facebook</label>
+                    <input
+                      type="url"
+                      value={contactSettings.socialMedia?.facebook || ''}
+                      onChange={(e) => setContactSettings({
+                        ...contactSettings,
+                        socialMedia: {
+                          ...contactSettings.socialMedia,
+                          facebook: e.target.value
+                        }
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                      placeholder="https://facebook.com/..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Twitter</label>
+                    <input
+                      type="url"
+                      value={contactSettings.socialMedia?.twitter || ''}
+                      onChange={(e) => setContactSettings({
+                        ...contactSettings,
+                        socialMedia: {
+                          ...contactSettings.socialMedia,
+                          twitter: e.target.value
+                        }
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                      placeholder="https://twitter.com/..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Instagram</label>
+                    <input
+                      type="url"
+                      value={contactSettings.socialMedia?.instagram || ''}
+                      onChange={(e) => setContactSettings({
+                        ...contactSettings,
+                        socialMedia: {
+                          ...contactSettings.socialMedia,
+                          instagram: e.target.value
+                        }
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                      placeholder="https://instagram.com/..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">LinkedIn</label>
+                    <input
+                      type="url"
+                      value={contactSettings.socialMedia?.linkedin || ''}
+                      onChange={(e) => setContactSettings({
+                        ...contactSettings,
+                        socialMedia: {
+                          ...contactSettings.socialMedia,
+                          linkedin: e.target.value
+                        }
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                      placeholder="https://linkedin.com/..."
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={handleSaveContact}
+                disabled={loading}
+                className="flex items-center gap-2 px-6 py-3 bg-primary-500 hover:bg-primary-600 disabled:bg-gray-300 text-white rounded-lg font-semibold transition-colors"
+              >
+                <Save className="w-5 h-5" />
+                {loading ? 'Saving...' : 'Save Contact Information'}
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* Terms & Conditions Settings */}
         <div className="bg-white rounded-lg shadow-soft border border-gray-100 p-6">
           <h2 className="text-xl font-bold text-dark-800 mb-6 flex items-center gap-2">

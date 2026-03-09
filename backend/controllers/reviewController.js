@@ -1,4 +1,5 @@
 const Review = require('../models/Review');
+const { uploadToCloudinary } = require('../config/cloudinary');
 
 // @desc    Get all active reviews (Public)
 // @route   GET /api/reviews
@@ -44,9 +45,18 @@ exports.createReview = async (req, res) => {
   try {
     const { name, role, rating, description, order } = req.body;
     
+    let profileImage = null;
+    
+    // Upload profile image if provided
+    if (req.file) {
+      const result = await uploadToCloudinary(req.file.buffer, 'reviews');
+      profileImage = result.secure_url;
+    }
+    
     const review = await Review.create({
       name,
       role,
+      profileImage,
       rating: rating || 5,
       description,
       order: order || 0
@@ -71,11 +81,7 @@ exports.updateReview = async (req, res) => {
   try {
     const { name, role, rating, description, order, isActive } = req.body;
     
-    const review = await Review.findByIdAndUpdate(
-      req.params.id,
-      { name, role, rating, description, order, isActive },
-      { new: true, runValidators: true }
-    );
+    const review = await Review.findById(req.params.id);
     
     if (!review) {
       return res.status(404).json({
@@ -83,6 +89,22 @@ exports.updateReview = async (req, res) => {
         message: 'Review not found'
       });
     }
+    
+    // Update fields
+    review.name = name || review.name;
+    review.role = role || review.role;
+    review.rating = rating || review.rating;
+    review.description = description || review.description;
+    review.order = order !== undefined ? order : review.order;
+    review.isActive = isActive !== undefined ? isActive : review.isActive;
+    
+    // Upload new profile image if provided
+    if (req.file) {
+      const result = await uploadToCloudinary(req.file.buffer, 'reviews');
+      review.profileImage = result.secure_url;
+    }
+    
+    await review.save();
     
     res.json({
       success: true,

@@ -28,7 +28,7 @@ export default function TestimonialsSection() {
       name: 'Amit Patel',
       role: 'Founder, Startup Hub',
       rating: 5,
-      description: 'Finding high-quality meeting spaces was always a challenge until we found RentalMeet. Their service is truly professional.'
+      description: 'Finding high-quality meeting venues was always a challenge until we found RentalMeet. Their service is truly professional.'
     }
   ];
 
@@ -73,7 +73,7 @@ export default function TestimonialsSection() {
         {/* Header */}
         <div className="text-center mb-12">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">TESTIMONIALS</p>
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'Georgia, serif' }}>
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'Georgia, serif' }}>
             What Our Clients Say
           </h2>
           <p className="text-gray-600 max-w-2xl mx-auto">
@@ -112,11 +112,19 @@ export default function TestimonialsSection() {
 
               {/* Author */}
               <div className="flex items-center gap-3 pt-4 border-t border-gray-100">
-                <div className="w-12 h-12 bg-gradient-to-br from-primary-400 to-primary-600 rounded-full flex items-center justify-center shadow-md">
-                  <span className="text-white font-bold text-lg">
-                    {review.name.charAt(0).toUpperCase()}
-                  </span>
-                </div>
+                {review.profileImage ? (
+                  <img
+                    src={review.profileImage}
+                    alt={review.name}
+                    className="w-12 h-12 rounded-full object-cover shadow-md border-2 border-white"
+                  />
+                ) : (
+                  <div className="w-12 h-12 bg-gradient-to-br from-primary-400 to-primary-600 rounded-full flex items-center justify-center shadow-md">
+                    <span className="text-white font-bold text-lg">
+                      {review.name.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                )}
                 <div>
                   <h4 className="font-bold text-gray-900">{review.name}</h4>
                   <p className="text-sm text-gray-600">{review.role}</p>

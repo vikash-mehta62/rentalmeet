@@ -21,13 +21,47 @@ const {
   getPayment,
   getReports,
   getTermsConditions,
-  updateTermsConditions
+  updateTermsConditions,
+  getAllHeroSlides,
+  createHeroSlide,
+  updateHeroSlide,
+  deleteHeroSlide,
+  getContactSettings,
+  updateContactSettings,
+  getAllEmployees,
+  createEmployee,
+  updateEmployee,
+  deleteEmployee,
+  toggleEmployeeStatus
 } = require('../controllers/adminController');
 const { protect, authorize } = require('../middleware/auth');
+const { upload } = require('../middleware/upload');
 
 const router = express.Router();
 
-// All routes are admin only
+// Hero Slides routes (with explicit auth)
+router.get('/hero-slides', protect, authorize('admin'), getAllHeroSlides);
+router.post('/hero-slides', protect, authorize('admin'), upload.single('image'), createHeroSlide);
+router.put('/hero-slides/:id', protect, authorize('admin'), upload.single('image'), updateHeroSlide);
+router.delete('/hero-slides/:id', protect, authorize('admin'), deleteHeroSlide);
+
+// Contact Settings routes
+router.route('/contact-settings')
+  .get(protect, authorize('admin'), getContactSettings)
+  .put(protect, authorize('admin'), updateContactSettings);
+
+// Employee Management routes
+router.route('/employees')
+  .get(protect, authorize('admin'), getAllEmployees)
+  .post(protect, authorize('admin'), createEmployee);
+
+router.route('/employees/:id')
+  .put(protect, authorize('admin'), updateEmployee)
+  .delete(protect, authorize('admin'), deleteEmployee);
+
+router.put('/employees/:id/status', protect, authorize('admin'), toggleEmployeeStatus);
+
+// All other routes are admin only
 router.use(protect);
 router.use(authorize('admin'));
 
