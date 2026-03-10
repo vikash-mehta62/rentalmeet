@@ -539,14 +539,14 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
   }
 
   return (
-    <div className="fixed inset-0 z-[150] bg-white overflow-y-auto">
+    <div className="fixed inset-0 z-[150] bg-white dark:bg-slate-950 overflow-y-auto">
       {/* Header - Fixed at top */}
-      <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-4 md:px-6 md:py-5 flex items-center justify-between shadow-sm">
+      <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 px-4 py-4 md:px-6 md:py-5 flex items-center justify-between shadow-sm">
         <div>
-          <h2 className="text-xl md:text-2xl font-bold text-dark-800">Book Venue</h2>
-          <p className="text-sm text-gray-600">{venue.businessName}</p>
+          <h2 className="text-xl md:text-2xl font-bold text-dark-800 dark:text-slate-100">Book Venue</h2>
+          <p className="text-sm text-gray-600 dark:text-slate-400">{venue.businessName}</p>
         </div>
-        <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+        <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
           <X className="w-6 h-6" />
         </button>
       </div>
@@ -556,7 +556,7 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
         <div className="space-y-6">
           {/* Duration Selection */}
           <div>
-            <label className="block text-sm font-semibold text-dark-700 mb-3">Select Duration *</label>
+            <label className="block text-sm font-semibold text-dark-700 dark:text-slate-200 mb-3">Select Duration *</label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {['1', '2', '4', '8'].map((hours) => {
                 const bookingType = mapDurationToBookingType(hours);
@@ -569,7 +569,7 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
                     type="button"
                     onClick={() => handleDurationChange(hours)}
                     className={`p-4 border-2 rounded-xl text-center transition-all ${
-                      formData.duration === hours ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-primary-300'
+                      formData.duration === hours ? 'border-primary-500 bg-primary-50' : 'border-gray-200 dark:border-slate-700 hover:border-primary-300'
                     }`}
                   >
                     <Clock className="w-6 h-6 mx-auto mb-2 text-primary-500" />
@@ -586,14 +586,14 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
           {/* Date & Time */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-dark-700 mb-2">Booking Date *</label>
+              <label className="block text-sm font-semibold text-dark-700 dark:text-slate-200 mb-2">Booking Date *</label>
               <input
                 type="date"
                 name="bookingDate"
                 value={formData.bookingDate}
                 onChange={handleDateChange}
                 min={new Date().toISOString().split('T')[0]}
-                className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full px-4 py-3 text-sm border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                 required
               />
               {formData.isWeekend && (
@@ -601,12 +601,12 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
               )}
             </div>
             <div>
-              <label className="block text-sm font-semibold text-dark-700 mb-2">Start Time *</label>
+              <label className="block text-sm font-semibold text-dark-700 dark:text-slate-200 mb-2">Start Time *</label>
               <select 
                 name="startTime" 
                 value={formData.startTime} 
                 onChange={handleChange} 
-                className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white" 
+                className="w-full px-4 py-3 text-sm border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" 
                 required
               >
                 <option value="">Select start time</option>
@@ -640,37 +640,37 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
               </select>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-dark-700 mb-2">End Time</label>
+              <label className="block text-sm font-semibold text-dark-700 dark:text-slate-200 mb-2">End Time</label>
               <input 
                 type="text" 
                 name="endTime" 
                 value={formData.endTime} 
                 readOnly
-                className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed" 
+                className="w-full px-4 py-3 text-sm border border-gray-300 dark:border-slate-700 rounded-lg bg-gray-50 dark:bg-slate-800 text-gray-600 dark:text-slate-300 cursor-not-allowed" 
                 placeholder="Auto-calculated"
               />
             </div>
           </div>
 
           {/* Customer Details */}
-          <div className="border-t pt-6">
-            <h3 className="text-lg font-bold mb-4 text-dark-800">Your Details</h3>
+          <div className="border-t pt-6 border-gray-200 dark:border-slate-800">
+            <h3 className="text-lg font-bold mb-4 text-dark-800 dark:text-slate-100">Your Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold mb-2">Full Name *</label>
-                <input type="text" name="customerName" value={formData.customerName} onChange={handleChange} className="w-full px-4 py-3 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500" required />
+                <label className="block text-sm font-semibold mb-2 dark:text-slate-200">Full Name *</label>
+                <input type="text" name="customerName" value={formData.customerName} onChange={handleChange} className="w-full px-4 py-3 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-700 text-slate-900 dark:text-slate-100" required />
               </div>
               <div>
-                <label className="block text-sm font-semibold mb-2">Email *</label>
-                <input type="email" name="customerEmail" value={formData.customerEmail} onChange={handleChange} className="w-full px-4 py-3 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500" required />
+                <label className="block text-sm font-semibold mb-2 dark:text-slate-200">Email *</label>
+                <input type="email" name="customerEmail" value={formData.customerEmail} onChange={handleChange} className="w-full px-4 py-3 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-700 text-slate-900 dark:text-slate-100" required />
               </div>
               <div>
-                <label className="block text-sm font-semibold mb-2">Phone *</label>
-                <input type="tel" name="customerPhone" value={formData.customerPhone} onChange={handleChange} maxLength={10} className="w-full px-4 py-3 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500" required />
+                <label className="block text-sm font-semibold mb-2 dark:text-slate-200">Phone *</label>
+                <input type="tel" name="customerPhone" value={formData.customerPhone} onChange={handleChange} maxLength={10} className="w-full px-4 py-3 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-700 text-slate-900 dark:text-slate-100" required />
               </div>
               <div>
-                <label className="block text-sm font-semibold mb-2">Event Type *</label>
-                <select name="eventType" value={formData.eventType} onChange={handleChange} className="w-full px-4 py-3 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500" required>
+                <label className="block text-sm font-semibold mb-2 dark:text-slate-200">Event Type *</label>
+                <select name="eventType" value={formData.eventType} onChange={handleChange} className="w-full px-4 py-3 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-700 text-slate-900 dark:text-slate-100" required>
                   <option value="">Select event type</option>
                   {venue.venueType?.map((type, idx) => (
                     <option key={idx} value={type}>{type}</option>
@@ -678,13 +678,13 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-semibold mb-2">Guest Count *</label>
-                <input type="number" name="guestCount" value={formData.guestCount} onChange={handleChange} min="1" max={venue.capacity} className="w-full px-4 py-3 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500" required />
-                <p className="text-xs text-gray-500 mt-1">Max: {venue.capacity}</p>
+                <label className="block text-sm font-semibold mb-2 dark:text-slate-200">Guest Count *</label>
+                <input type="number" name="guestCount" value={formData.guestCount} onChange={handleChange} min="1" max={venue.capacity} className="w-full px-4 py-3 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-700 text-slate-900 dark:text-slate-100" required />
+                <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">Max: {venue.capacity}</p>
               </div>
               <div>
-                <label className="block text-sm font-semibold mb-2">Special Requirements</label>
-                <textarea name="specialRequirements" value={formData.specialRequirements} onChange={handleChange} rows="3" className="w-full px-4 py-3 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500" placeholder="Any special requests..." />
+                <label className="block text-sm font-semibold mb-2 dark:text-slate-200">Special Requirements</label>
+                <textarea name="specialRequirements" value={formData.specialRequirements} onChange={handleChange} rows="3" className="w-full px-4 py-3 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-700 text-slate-900 dark:text-slate-100" placeholder="Any special requests..." />
               </div>
             </div>
           </div>
@@ -692,9 +692,9 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
 
 
           {/* Price Summary */}
-          <div className="bg-gradient-to-br from-primary-50 to-blue-50 border-2 border-primary-200 rounded-xl p-6">
-            <h3 className="text-base font-bold mb-4">Price Summary</h3>
-            <div className="space-y-2 text-sm mb-4">
+          <div className="bg-gradient-to-br from-primary-50 to-blue-50 dark:from-slate-800 dark:to-slate-800 border-2 border-primary-200 dark:border-slate-700 rounded-xl p-6">
+            <h3 className="text-base font-bold mb-4 text-slate-900 dark:text-slate-100">Price Summary</h3>
+            <div className="space-y-2 text-sm mb-4 text-slate-900 dark:text-slate-200">
               <div className="flex justify-between">
                 <span>Venue Rental:</span>
                 <span className="font-semibold">₹{calculatedPrice.basePrice.toLocaleString()}</span>

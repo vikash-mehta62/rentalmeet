@@ -57,7 +57,7 @@ export default function TestimonialsSection() {
 
   if (loading) {
     return (
-      <section className="py-16 px-4 sm:px-6 bg-gradient-to-br from-purple-50 via-white to-pink-50">
+      <section className="py-16 px-4 sm:px-6 bg-gradient-to-br from-purple-50 via-white to-pink-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
         <div className="max-w-7xl mx-auto">
           <div className="text-center">
             <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
@@ -68,15 +68,15 @@ export default function TestimonialsSection() {
   }
 
   return (
-    <section className="py-16 px-4 sm:px-6 bg-gradient-to-br from-purple-50 via-white to-pink-50">
+    <section className="py-16 px-4 sm:px-6 bg-gradient-to-br from-purple-50 via-white to-pink-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">TESTIMONIALS</p>
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'Georgia, serif' }}>
+          <p className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-2">TESTIMONIALS</p>
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-slate-100 mb-2" style={{ fontFamily: 'Georgia, serif' }}>
             What Our Clients Say
           </h2>
-          <p className="text-gray-600 max-w-2xl mx-auto">
+          <p className="text-gray-600 dark:text-slate-300 max-w-2xl mx-auto">
             Hear from our satisfied clients about their experience with RentalMeet
           </p>
         </div>
@@ -86,7 +86,7 @@ export default function TestimonialsSection() {
           {reviews.map((review) => (
             <div
               key={review._id}
-              className="bg-white rounded-xl p-8 shadow-md hover:shadow-xl transition-all duration-300 relative group"
+              className="bg-white dark:bg-slate-900 rounded-xl p-8 shadow-md hover:shadow-xl transition-all duration-300 relative group border border-transparent dark:border-slate-800"
             >
               {/* Quote Icon */}
               <div className="absolute top-6 right-6 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -106,7 +106,7 @@ export default function TestimonialsSection() {
               </div>
 
               {/* Review Text */}
-              <p className="text-gray-700 text-sm leading-relaxed mb-6 italic">
+              <p className="text-gray-700 dark:text-slate-300 text-sm leading-relaxed mb-6 italic">
                 "{review.description}"
               </p>
 
@@ -126,8 +126,8 @@ export default function TestimonialsSection() {
                   </div>
                 )}
                 <div>
-                  <h4 className="font-bold text-gray-900">{review.name}</h4>
-                  <p className="text-sm text-gray-600">{review.role}</p>
+                  <h4 className="font-bold text-gray-900 dark:text-slate-100">{review.name}</h4>
+                  <p className="text-sm text-gray-600 dark:text-slate-300">{review.role}</p>
                 </div>
               </div>
             </div>
@@ -136,15 +136,15 @@ export default function TestimonialsSection() {
 
         {/* Trust Badge */}
         <div className="mt-12 text-center">
-          <div className="inline-flex items-center gap-2 px-6 py-3 bg-white rounded-full shadow-md">
+          <div className="inline-flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-900 rounded-full shadow-md border border-transparent dark:border-slate-800">
             <div className="flex -space-x-2">
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="w-8 h-8 bg-gradient-to-br from-primary-400 to-primary-600 rounded-full border-2 border-white flex items-center justify-center">
+                <div key={i} className="w-8 h-8 bg-gradient-to-br from-primary-400 to-primary-600 rounded-full border-2 border-white dark:border-slate-800 flex items-center justify-center">
                   <span className="text-white text-xs font-bold">👤</span>
                 </div>
               ))}
             </div>
-            <span className="text-sm font-semibold text-gray-700">
+            <span className="text-sm font-semibold text-gray-700 dark:text-slate-300">
               Trusted by 500+ clients
             </span>
           </div>

@@ -18,6 +18,26 @@ export const useAuthStore = create(
   )
 );
 
+// Theme Store (light/dark) persisted in localStorage
+export const useThemeStore = create(
+  persist(
+    (set, get) => ({
+      theme: 'light',
+      setTheme: (theme) => {
+        set({ theme });
+      },
+      toggleTheme: () => {
+        const next = get().theme === 'dark' ? 'light' : 'dark';
+        set({ theme: next });
+      }
+    }),
+    {
+      name: 'theme-storage',
+      storage: createJSONStorage(() => localStorage),
+    }
+  )
+);
+
 // Venue Form Store with localStorage persistence
 export const useVenueFormStore = create(
   persist(

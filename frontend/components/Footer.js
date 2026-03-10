@@ -68,7 +68,7 @@ export default function Footer() {
   ];
 
   return (
-    <footer className="bg-white border-t border-gray-200">
+    <footer className="bg-white dark:bg-slate-950 border-t border-gray-200 dark:border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Company Info */}
@@ -80,14 +80,14 @@ export default function Footer() {
                 className="h-12 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
               />
             </Link>
-            <p className="text-sm text-gray-600 leading-relaxed mb-4">
+            <p className="text-sm text-gray-600 dark:text-slate-300 leading-relaxed mb-4">
               Premium meeting venues and event spaces for every occasion. Experience luxury venues with world-class facilities for your corporate events, meetings, and celebrations.
             </p>
             
             {/* Social Media Links */}
             {socialLinks.some(link => link.show) && (
               <div>
-                <h5 className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3">Follow Us</h5>
+                <h5 className="text-xs font-semibold text-gray-700 dark:text-slate-200 uppercase tracking-wider mb-3">Follow Us</h5>
                 <div className="flex gap-3">
                   {socialLinks.filter(link => link.show).map((link) => {
                     const Icon = link.icon;
@@ -97,7 +97,7 @@ export default function Footer() {
                         href={link.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-9 h-9 bg-gray-100 hover:bg-[#F59F0A] text-gray-600 hover:text-white rounded-lg flex items-center justify-center transition-all duration-300 hover:scale-110 hover:shadow-md"
+                        className="w-9 h-9 bg-gray-100 dark:bg-slate-800 hover:bg-[#F59F0A] text-gray-600 dark:text-slate-300 hover:text-white rounded-lg flex items-center justify-center transition-all duration-300 hover:scale-110 hover:shadow-md"
                         aria-label={link.name}
                         title={link.name}
                       >
@@ -112,13 +112,13 @@ export default function Footer() {
 
           {/* Quick Links */}
           <div>
-            <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Quick Links</h4>
+            <h4 className="text-sm font-bold text-gray-900 dark:text-slate-100 uppercase tracking-wider mb-4">Quick Links</h4>
             <ul className="space-y-2">
               {quickLinks.map((item) => (
                 <li key={item.name}>
                   <Link 
                     href={item.href}
-                    className="text-sm text-gray-600 hover:text-[#F59F0A] transition-colors"
+                    className="text-sm text-gray-600 dark:text-slate-300 hover:text-[#F59F0A] transition-colors"
                   >
                     {item.name}
                   </Link>
@@ -129,11 +129,11 @@ export default function Footer() {
 
           {/* Contact Us */}
           <div>
-            <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Contact Us</h4>
+            <h4 className="text-sm font-bold text-gray-900 dark:text-slate-100 uppercase tracking-wider mb-4">Contact Us</h4>
             <ul className="space-y-3">
               <li className="flex items-start gap-2">
                 <MapPin className="w-4 h-4 text-[#F59F0A] flex-shrink-0 mt-0.5" />
-                <span className="text-sm text-gray-600">
+                <span className="text-sm text-gray-600 dark:text-slate-300">
                   {contactSettings.address}
                 </span>
               </li>
@@ -141,7 +141,7 @@ export default function Footer() {
                 <Phone className="w-4 h-4 text-[#F59F0A] flex-shrink-0" />
                 <a 
                   href={`tel:${contactSettings.phone.replace(/\s/g, '')}`} 
-                  className="text-sm text-gray-600 hover:text-[#F59F0A] transition-colors"
+                  className="text-sm text-gray-600 dark:text-slate-300 hover:text-[#F59F0A] transition-colors"
                 >
                   {contactSettings.phone}
                 </a>
@@ -150,30 +150,30 @@ export default function Footer() {
                 <Mail className="w-4 h-4 text-[#F59F0A] flex-shrink-0" />
                 <a 
                   href={`mailto:${contactSettings.email}`} 
-                  className="text-sm text-gray-600 hover:text-[#F59F0A] transition-colors"
+                  className="text-sm text-gray-600 dark:text-slate-300 hover:text-[#F59F0A] transition-colors"
                 >
                   {contactSettings.email}
                 </a>
               </li>
               <li className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-[#F59F0A] flex-shrink-0" />
-                <span className="text-sm text-gray-600">{contactSettings.availability}</span>
+                <span className="text-sm text-gray-600 dark:text-slate-300">{contactSettings.availability}</span>
               </li>
             </ul>
           </div>
         </div>
 
         {/* Bottom Bar */}
-        <div className="mt-12 pt-8 border-t border-gray-200">
+        <div className="mt-12 pt-8 border-t border-gray-200 dark:border-slate-800">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 dark:text-slate-400">
               © {currentYear} RentalMeet. All rights reserved.
             </p>
             <div className="flex gap-6">
-              <Link href="/privacy" className="text-sm text-gray-500 hover:text-[#F59F0A] transition-colors">
+              <Link href="/privacy" className="text-sm text-gray-500 dark:text-slate-400 hover:text-[#F59F0A] transition-colors">
                 Privacy Policy
               </Link>
-              <Link href="/terms" className="text-sm text-gray-500 hover:text-[#F59F0A] transition-colors">
+              <Link href="/terms" className="text-sm text-gray-500 dark:text-slate-400 hover:text-[#F59F0A] transition-colors">
                 Terms of Service
               </Link>
             </div>

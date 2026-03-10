@@ -311,10 +311,10 @@ export default function VenueDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-950">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading venue details...</p>
+          <p className="text-gray-600 dark:text-slate-300">Loading venue details...</p>
         </div>
       </div>
     );
@@ -322,11 +322,11 @@ export default function VenueDetail() {
 
   if (error || !venue) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-950">
         <div className="text-center">
-          <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-700 mb-2">Venue Not Found</h2>
-          <p className="text-gray-500 mb-6">{error || 'The venue you are looking for does not exist'}</p>
+          <Building2 className="w-16 h-16 text-gray-300 dark:text-slate-600 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-700 dark:text-slate-200 mb-2">Venue Not Found</h2>
+          <p className="text-gray-500 dark:text-slate-400 mb-6">{error || 'The venue you are looking for does not exist'}</p>
           <Link href="/venues" className="btn-primary inline-flex items-center gap-2">
             <ArrowLeft className="w-5 h-5" />
             Back to Browse
@@ -341,14 +341,14 @@ export default function VenueDetail() {
   const imagesByCategory = getImagesByCategory();
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-950">
       {/* Navbar */}
       <Navbar />
 
       {/* Back to all venues link - with top padding for fixed navbar */}
-      <div className="bg-white border-b border-gray-200 mt-20">
+      <div className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <Link href="/venues" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
+          <Link href="/venues" className="inline-flex items-center gap-2 text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-slate-100 transition-colors">
             <ArrowLeft className="w-4 h-4" />
             <span className="text-sm font-medium">Back to all venues</span>
           </Link>
@@ -361,7 +361,7 @@ export default function VenueDetail() {
           {/* Left Column - Images & Details (65%) - Scrollable */}
           <div className="lg:col-span-2 space-y-6">
             {/* Main Image with Scrollable Thumbnails */}
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-lg overflow-hidden border border-transparent dark:border-slate-800">
               {/* Main Large Image */}
               <div className="relative w-full aspect-[16/10] bg-gray-900 group overflow-hidden rounded-t-xl">
                 {venue.images?.[currentMainImage]?.url ? (
@@ -420,7 +420,7 @@ export default function VenueDetail() {
 
               {/* Scrollable Thumbnail Images */}
               {venue.images?.length > 1 && (
-                <div className="relative bg-gray-50 p-3">
+                <div className="relative bg-gray-50 dark:bg-slate-800 p-3">
                   <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
                     {venue.images.map((image, idx) => (
                       <div
@@ -446,11 +446,11 @@ export default function VenueDetail() {
             </div>
 
             {/* Venue Name & Basic Info */}
-            <div className="bg-white rounded-2xl shadow-lg p-6">
-              <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-lg p-6 border border-transparent dark:border-slate-800">
+              <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-slate-100 mb-4">
                 {venue.businessName}
               </h1>
-              <div className="flex flex-wrap items-center gap-3 text-gray-600">
+              <div className="flex flex-wrap items-center gap-3 text-gray-600 dark:text-slate-300">
                 <span className="flex items-center gap-2">
                   <MapPin className="w-5 h-5 text-primary-500" />
                   {venue.location?.city}, {venue.location?.area}
@@ -470,13 +470,13 @@ export default function VenueDetail() {
             </div>
             {/* Venue Types - Attractive Pills */}
             {venue.venueType?.length > 0 && (
-              <div className="bg-gradient-to-r from-primary-50 to-blue-50 rounded-2xl shadow-soft border border-primary-100 p-6">
-                <h3 className="text-sm font-semibold text-gray-600 mb-3 uppercase tracking-wide">Venue Types</h3>
+            <div className="bg-gradient-to-r from-primary-50 to-blue-50 dark:from-slate-800 dark:to-slate-800 rounded-2xl shadow-soft border border-primary-100 dark:border-slate-700 p-6">
+                <h3 className="text-sm font-semibold text-gray-600 dark:text-slate-300 mb-3 uppercase tracking-wide">Venue Types</h3>
                 <div className="flex flex-wrap gap-3">
                   {venue.venueType.map((type, idx) => (
                     <span
                       key={idx}
-                      className="px-5 py-2.5 bg-white text-primary-700 text-sm font-bold rounded-full shadow-md hover:shadow-lg transition-all hover:scale-105 border border-primary-200"
+                      className="px-5 py-2.5 bg-white dark:bg-slate-900 text-primary-700 text-sm font-bold rounded-full shadow-md hover:shadow-lg transition-all hover:scale-105 border border-primary-200 dark:border-slate-700"
                     >
                       {type}
                     </span>
@@ -486,19 +486,19 @@ export default function VenueDetail() {
             )}
 
             {/* Description */}
-            <div className="bg-white rounded-2xl shadow-soft border border-gray-100 p-6 md:p-8">
-              <h2 className="text-2xl font-bold text-dark-800 mb-4 flex items-center gap-2">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-soft border border-gray-100 dark:border-slate-800 p-6 md:p-8">
+              <h2 className="text-2xl font-bold text-dark-800 dark:text-slate-100 mb-4 flex items-center gap-2">
                 <Building2 className="w-6 h-6 text-primary-500" />
                 About This Venue
               </h2>
-              <p className="text-gray-700 leading-relaxed whitespace-pre-line text-lg">
+              <p className="text-gray-700 dark:text-slate-300 leading-relaxed whitespace-pre-line text-lg">
                 {venue.description}
               </p>
             </div>
 
             {/* Amenities - Interactive Selection */}
-            <div className="bg-white rounded-2xl shadow-soft border border-gray-100 p-6">
-              <h2 className="text-2xl font-bold text-dark-800 mb-6">Select Amenities & Services</h2>
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-soft border border-gray-100 dark:border-slate-800 p-6">
+              <h2 className="text-2xl font-bold text-dark-800 dark:text-slate-100 mb-6">Select Amenities & Services</h2>
               
               {/* Basic Amenities */}
               {venue.amenities?.basic?.length > 0 && (
@@ -544,7 +544,7 @@ export default function VenueDetail() {
                             <div
                               key={idx}
                               className={`p-2 border-2 rounded-lg transition-all ${
-                                isSelected ? 'border-primary-500 bg-primary-50' : 'border-gray-200'
+                                isSelected ? 'border-primary-500 bg-primary-50' : 'border-gray-200 dark:border-slate-700'
                               }`}
                             >
                               <label className="flex items-center justify-between cursor-pointer mb-2">
@@ -577,8 +577,8 @@ export default function VenueDetail() {
                                     value={qty}
                                     onChange={(e) => isSelected && updateQuantity(key, parseInt(e.target.value) || 0)}
                                     disabled={!isSelected}
-                                    className={`w-12 h-6 text-center border border-gray-300 rounded text-xs ${
-                                      !isSelected ? 'bg-gray-100 cursor-not-allowed' : ''
+                                    className={`w-12 h-6 text-center border border-gray-300 dark:border-slate-700 rounded text-xs ${
+                                      !isSelected ? 'bg-gray-100 dark:bg-slate-800 cursor-not-allowed' : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100'
                                     }`}
                                     min="0"
                                   />
@@ -621,7 +621,7 @@ export default function VenueDetail() {
                         <div
                           key={idx}
                           className={`p-2 border-2 rounded-lg transition-all ${
-                            isSelected ? 'border-primary-500 bg-primary-50' : 'border-gray-200'
+                            isSelected ? 'border-primary-500 bg-primary-50' : 'border-gray-200 dark:border-slate-700'
                           }`}
                         >
                           <label className="flex items-center justify-between cursor-pointer mb-2">
@@ -653,8 +653,8 @@ export default function VenueDetail() {
                               value={qty}
                               onChange={(e) => isSelected && updateQuantity(key, parseInt(e.target.value) || 0)}
                               disabled={!isSelected}
-                              className={`w-12 h-6 text-center border border-gray-300 rounded text-xs ${
-                                !isSelected ? 'bg-gray-100 cursor-not-allowed' : ''
+                            className={`w-12 h-6 text-center border border-gray-300 dark:border-slate-700 rounded text-xs ${
+                              !isSelected ? 'bg-gray-100 dark:bg-slate-800 cursor-not-allowed' : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100'
                               }`}
                               min="0"
                             />
@@ -694,7 +694,7 @@ export default function VenueDetail() {
                         <div
                           key={idx}
                           className={`p-2 border-2 rounded-lg transition-all ${
-                            isSelected ? 'border-primary-500 bg-primary-50' : 'border-gray-200'
+                            isSelected ? 'border-primary-500 bg-primary-50' : 'border-gray-200 dark:border-slate-700'
                           }`}
                         >
                           <label className="flex items-center justify-between cursor-pointer mb-2">
@@ -715,7 +715,7 @@ export default function VenueDetail() {
                               <button
                                 type="button"
                                 onClick={() => updateQuantity(key, Math.max(0, qty - 1))}
-                                className="w-6 h-6 rounded border border-gray-300 hover:border-primary-500 hover:bg-primary-50 flex items-center justify-center text-xs font-bold"
+                                  className="w-6 h-6 rounded border border-gray-300 dark:border-slate-700 hover:border-primary-500 hover:bg-primary-50 flex items-center justify-center text-xs font-bold"
                               >
                                 -
                               </button>
@@ -723,13 +723,13 @@ export default function VenueDetail() {
                                 type="number"
                                 value={qty}
                                 onChange={(e) => updateQuantity(key, parseInt(e.target.value) || 0)}
-                                className="w-12 h-6 text-center border border-gray-300 rounded text-xs"
+                                  className="w-12 h-6 text-center border border-gray-300 dark:border-slate-700 rounded text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                                 min="0"
                               />
                               <button
                                 type="button"
                                 onClick={() => updateQuantity(key, qty + 1)}
-                                className="w-6 h-6 rounded border border-gray-300 hover:border-primary-500 hover:bg-primary-50 flex items-center justify-center text-xs font-bold"
+                                  className="w-6 h-6 rounded border border-gray-300 dark:border-slate-700 hover:border-primary-500 hover:bg-primary-50 flex items-center justify-center text-xs font-bold"
                               >
                                 +
                               </button>
@@ -752,7 +752,7 @@ export default function VenueDetail() {
                   </h3>
                   <div className="space-y-3">
                     {venue.amenities.lunchThalis.map((thali, thaliIdx) => (
-                      <div key={thaliIdx} className="bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-200 rounded-xl p-3">
+                      <div key={thaliIdx} className="bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-slate-800 dark:to-slate-800 border-2 border-orange-200 dark:border-slate-700 rounded-xl p-3">
                         {/* Thali Type Header */}
                         <h4 className="font-bold text-orange-900 mb-2 text-sm">{thali.thaliType}</h4>
                         
@@ -768,8 +768,8 @@ export default function VenueDetail() {
                             return (
                               <div
                                 key={catIdx}
-                                className={`p-2 border-2 rounded-lg transition-all bg-white ${
-                                  isSelected ? 'border-orange-500 bg-orange-50' : 'border-orange-200'
+                                className={`p-2 border-2 rounded-lg transition-all bg-white dark:bg-slate-900 ${
+                                  isSelected ? 'border-orange-500 bg-orange-50' : 'border-orange-200 dark:border-slate-700'
                                 }`}
                               >
                                 <label className="flex items-center justify-between cursor-pointer mb-2">
@@ -834,7 +834,7 @@ export default function VenueDetail() {
                                       type="number"
                                       value={qty}
                                       onChange={(e) => updateQuantity(key, parseInt(e.target.value) || 0)}
-                                      className="w-12 h-6 text-center border border-orange-300 rounded text-xs"
+                                      className="w-12 h-6 text-center border border-orange-300 dark:border-slate-700 rounded text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                                       min="0"
                                     />
                                     <button
@@ -889,9 +889,9 @@ export default function VenueDetail() {
             </div>
 
             {/* Location Details */}
-            <div className="bg-white rounded-2xl shadow-soft border border-gray-100 p-6">
-              <h2 className="text-2xl font-bold text-dark-800 mb-4">Location</h2>
-              <div className="space-y-3 text-gray-600">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-soft border border-gray-100 dark:border-slate-800 p-6">
+              <h2 className="text-2xl font-bold text-dark-800 dark:text-slate-100 mb-4">Location</h2>
+              <div className="space-y-3 text-gray-600 dark:text-slate-300">
                 <p><strong>Address:</strong> {venue.location?.address}</p>
                 <p><strong>Landmark:</strong> {venue.location?.landmark}</p>
                 <p><strong>City:</strong> {venue.location?.city}</p>
@@ -914,8 +914,8 @@ export default function VenueDetail() {
 
             {/* Pricing - Card Format - Moved to bottom */}
             {venue.pricing && (
-              <div className="bg-white rounded-2xl shadow-soft border border-gray-100 p-6">
-                <h2 className="text-2xl font-bold text-dark-800 mb-4">Pricing (Weekday)</h2>
+              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-soft border border-gray-100 dark:border-slate-800 p-6">
+                <h2 className="text-2xl font-bold text-dark-800 dark:text-slate-100 mb-4">Pricing (Weekday)</h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* 1 Hour Card */}
                   {venue.pricing.perHour && (
@@ -929,7 +929,7 @@ export default function VenueDetail() {
                     >
                       <div className="text-center">
                         <Clock className="w-8 h-8 mx-auto mb-2 text-primary-500" />
-                        <h3 className="font-bold text-lg mb-1">1 Hour</h3>
+                        <h3 className="font-bold text-lg mb-1 text-gray-900 dark:text-slate-100">1 Hour</h3>
                         <p className="text-2xl font-bold text-primary-600">₹{venue.pricing.perHour.weekday?.toLocaleString()}</p>
                       </div>
                     </div>
@@ -947,8 +947,8 @@ export default function VenueDetail() {
                     >
                       <div className="text-center">
                         <Clock className="w-8 h-8 mx-auto mb-2 text-primary-500" />
-                        <h3 className="font-bold text-lg mb-1">4 Hours</h3>
-                        <p className="text-sm text-gray-500 mb-1">Half Day</p>
+                        <h3 className="font-bold text-lg mb-1 text-gray-900 dark:text-slate-100">4 Hours</h3>
+                        <p className="text-sm text-gray-500 dark:text-slate-400 mb-1">Half Day</p>
                         <p className="text-2xl font-bold text-primary-600">₹{venue.pricing.halfDay.weekday?.toLocaleString()}</p>
                       </div>
                     </div>
@@ -966,8 +966,8 @@ export default function VenueDetail() {
                     >
                       <div className="text-center">
                         <Calendar className="w-8 h-8 mx-auto mb-2 text-primary-500" />
-                        <h3 className="font-bold text-lg mb-1">Full Day</h3>
-                        <p className="text-sm text-gray-500 mb-1">8 hours</p>
+                        <h3 className="font-bold text-lg mb-1 text-gray-900 dark:text-slate-100">Full Day</h3>
+                        <p className="text-sm text-gray-500 dark:text-slate-400 mb-1">8 hours</p>
                         <p className="text-2xl font-bold text-primary-600">₹{venue.pricing.fullDay.weekday?.toLocaleString()}</p>
                       </div>
                     </div>
@@ -981,15 +981,15 @@ export default function VenueDetail() {
           <div className="lg:col-span-1">
             <div className="lg:sticky lg:top-[100px] space-y-3">
               {/* Booking Card - Extra Compact */}
-              <div className="bg-white rounded-xl shadow-xl border border-gray-200 p-3">
-                <h2 className="text-lg font-bold text-gray-900 mb-2">Book This Venue</h2>
+              <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-gray-200 dark:border-slate-800 p-3">
+                <h2 className="text-lg font-bold text-gray-900 dark:text-slate-100 mb-2">Book This Venue</h2>
                 
                 {/* Price Range */}
-                <div className="mb-3 pb-3 border-b border-gray-200">
-                  <p className="text-gray-600 text-xs mb-0.5">Starting from</p>
+                <div className="mb-3 pb-3 border-b border-gray-200 dark:border-slate-700">
+                  <p className="text-gray-600 dark:text-slate-400 text-xs mb-0.5">Starting from</p>
                   <p className="text-2xl font-bold text-primary-600">
                     ₹{venue.pricing?.perHour?.weekday?.toLocaleString()}
-                    <span className="text-xs text-gray-600">/hour</span>
+                    <span className="text-xs text-gray-600 dark:text-slate-400">/hour</span>
                   </p>
                 </div>
 
@@ -997,24 +997,24 @@ export default function VenueDetail() {
                 <div className="space-y-2.5">
                   {/* Date Picker */}
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Select Date</label>
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200 mb-1">Select Date</label>
                     <DatePicker
                       selected={quickBooking.date}
                       onChange={(date) => setQuickBooking(prev => ({ ...prev, date }))}
                       minDate={new Date()}
                       dateFormat="dd/MM/yyyy"
                       placeholderText="Pick a date"
-                      className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      className="w-full px-2.5 py-1.5 border border-gray-300 dark:border-slate-700 rounded-lg text-xs focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                       calendarClassName="custom-calendar"
                     />
                   </div>
                   
                   {/* Time Dropdown */}
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Start Time</label>
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200 mb-1">Start Time</label>
                     <select
                       value={quickBooking.startTime}
-                      className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white"
+                      className="w-full px-2.5 py-1.5 border border-gray-300 dark:border-slate-700 rounded-lg text-xs focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                       onChange={(e) => setQuickBooking(prev => ({ ...prev, startTime: e.target.value }))}
                     >
                       <option value="">Select start time</option>
@@ -1050,7 +1050,7 @@ export default function VenueDetail() {
 
                   {/* Duration Buttons */}
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Duration</label>
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200 mb-1">Duration</label>
                     <div className="grid grid-cols-4 gap-1.5">
                       <button
                         type="button"
@@ -1058,7 +1058,7 @@ export default function VenueDetail() {
                         className={`px-1.5 py-1 rounded-md text-xs font-semibold transition-all ${
                           quickBooking.duration === '1'
                             ? 'bg-primary-500 text-white shadow-md'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-700'
                         }`}
                       >
                         1H
@@ -1069,7 +1069,7 @@ export default function VenueDetail() {
                         className={`px-1.5 py-1 rounded-md text-xs font-semibold transition-all ${
                           quickBooking.duration === '2'
                             ? 'bg-primary-500 text-white shadow-md'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-700'
                         }`}
                       >
                         2H
@@ -1080,7 +1080,7 @@ export default function VenueDetail() {
                         className={`px-1.5 py-1 rounded-md text-xs font-semibold transition-all ${
                           quickBooking.duration === '4'
                             ? 'bg-primary-500 text-white shadow-md'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-700'
                         }`}
                       >
                         4H
@@ -1091,7 +1091,7 @@ export default function VenueDetail() {
                         className={`px-1.5 py-1 rounded-md text-xs font-semibold transition-all ${
                           quickBooking.duration === '8'
                             ? 'bg-primary-500 text-white shadow-md'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-700'
                         }`}
                       >
                         Full Day
@@ -1101,19 +1101,19 @@ export default function VenueDetail() {
 
                   {/* Estimated Total */}
                   {estimate.total > 0 && (
-                    <div className="bg-primary-50 rounded-lg p-2.5 border border-primary-200">
+                  <div className="bg-primary-50 dark:bg-slate-800/50 rounded-lg p-2.5 border border-primary-200 dark:border-slate-700">
                       <div className="flex justify-between items-center mb-1">
-                        <span className="text-xs text-gray-600">Base Price:</span>
-                        <span className="text-xs font-semibold text-gray-900">₹{estimate.basePrice.toLocaleString()}</span>
+                        <span className="text-xs text-gray-600 dark:text-slate-300">Base Price:</span>
+                        <span className="text-xs font-semibold text-gray-900 dark:text-slate-100">₹{estimate.basePrice.toLocaleString()}</span>
                       </div>
                       {estimate.amenitiesTotal > 0 && (
                         <div className="flex justify-between items-center mb-1">
-                          <span className="text-xs text-gray-600">Amenities:</span>
-                          <span className="text-xs font-semibold text-gray-900">₹{estimate.amenitiesTotal.toLocaleString()}</span>
+                          <span className="text-xs text-gray-600 dark:text-slate-300">Amenities:</span>
+                          <span className="text-xs font-semibold text-gray-900 dark:text-slate-100">₹{estimate.amenitiesTotal.toLocaleString()}</span>
                         </div>
                       )}
-                      <div className="flex justify-between items-center pt-1.5 border-t border-primary-300">
-                        <span className="text-xs font-bold text-gray-900">Estimated Total:</span>
+                      <div className="flex justify-between items-center pt-1.5 border-t border-primary-300 dark:border-slate-700">
+                        <span className="text-xs font-bold text-gray-900 dark:text-slate-100">Estimated Total:</span>
                         <span className="text-lg font-bold text-primary-600">₹{estimate.total.toLocaleString()}</span>
                       </div>
                     </div>
@@ -1136,7 +1136,7 @@ export default function VenueDetail() {
                 </div>
 
                 {/* Venue Info */}
-                <div className="mt-3 pt-3 border-t border-gray-200 space-y-1.5 text-xs text-gray-600">
+                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 space-y-1.5 text-xs text-gray-600 dark:text-slate-300">
                   <div className="flex items-center gap-1.5">
                     <Clock className="w-3.5 h-3.5 text-primary-500 flex-shrink-0" />
                     <span className="text-xs">{venue.availability?.openingTime} - {venue.availability?.closingTime}</span>
@@ -1153,7 +1153,7 @@ export default function VenueDetail() {
               </div>
 
               {/* Share Button */}
-              <button className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white border-2 border-primary-500 text-primary-500 rounded-lg text-xs font-semibold hover:bg-primary-50 transition-colors shadow-md">
+              <button className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white dark:bg-slate-900 border-2 border-primary-500 text-primary-500 rounded-lg text-xs font-semibold hover:bg-primary-50 dark:hover:bg-slate-800 transition-colors shadow-md">
                 <Share2 className="w-3.5 h-3.5" />
                 Share Venue
               </button>

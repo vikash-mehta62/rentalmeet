@@ -142,7 +142,7 @@ export default function AdminPayments() {
           <p className="text-2xl font-bold text-red-700">{stats.failed}</p>
         </div>
         <div className="bg-blue-50 rounded-lg shadow-soft border border-blue-200 p-4">
-          <p className="text-xs text-blue-600 mb-1">Revenue</p>
+          <p className="text-xs text-blue-600 mb-1">Paid Amount</p>
           <p className="text-xl font-bold text-blue-700">₹{stats.totalRevenue.toLocaleString()}</p>
         </div>
         <div className="bg-teal-50 rounded-lg shadow-soft border border-teal-200 p-4">

@@ -73,24 +73,24 @@ export default function FacilitiesSection() {
   ];
 
   return (
-<section className="py-16 px-4 sm:px-6 bg-[#f9f8f5]">
+<section className="py-16 px-4 sm:px-6 bg-[#f9f8f5] dark:bg-slate-900">
       <div className="max-w-7xl mx-auto">
 
         {/* Header */}
         <div className="text-center mb-12">
 
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">
+          <p className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-2">
             FACILITIES
           </p>
 
           <h2
-            className="text-4xl md:text-5xl font-semibold leading-10 text-gray-900"
+            className="text-4xl md:text-5xl font-semibold leading-10 text-gray-900 dark:text-slate-100"
             style={{ fontFamily: 'Playfair Display, Georgia, serif' }}
           >
             Unparalleled Amenities
           </h2>
 
-          <p className="mt-3 text-sm md:text-base text-gray-600 max-w-2xl mx-auto">
+          <p className="mt-3 text-sm md:text-base text-gray-600 dark:text-slate-300 max-w-2xl mx-auto">
             Every space comes equipped with premium facilities to ensure your meeting runs flawlessly.
           </p>
 
@@ -105,7 +105,7 @@ export default function FacilitiesSection() {
             return (
               <div
                 key={index}
-                className="bg-[#f9f8f5] rounded-xl p-6  hover:shadow-md transition-all duration-300 border shadow-md border-gray-200 text-center"
+                className="bg-[#f9f8f5] dark:bg-slate-900 rounded-xl p-6  hover:shadow-md transition-all duration-300 border shadow-md border-gray-200 dark:border-slate-800 text-center"
               >
 
                 {/* Icon */}
@@ -114,12 +114,12 @@ export default function FacilitiesSection() {
                 </div>
 
                 {/* Title */}
-                <h3 className="text-lg font-bold text-gray-900 mb-2">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100 mb-2">
                   {facility.title}
                 </h3>
 
                 {/* Description */}
-                <p className="text-sm text-gray-600 leading-relaxed">
+                <p className="text-sm text-gray-600 dark:text-slate-300 leading-relaxed">
                   {facility.description}
                 </p>
 

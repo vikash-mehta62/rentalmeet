@@ -162,24 +162,24 @@ export default function BrowseVenues() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8F9FA]">
+      <div className="min-h-screen flex items-center justify-center bg-[#F8F9FA] dark:bg-slate-950">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading venues...</p>
+          <p className="text-slate-600 dark:text-slate-300">Loading venues...</p>
         </div>
       </div>
     );
   }
 
    return (
-    <div className="min-h-screen bg-[#F8F9FA]">
+    <div className="min-h-screen bg-[#F8F9FA] dark:bg-slate-950">
       <Navbar />
 
       {/* Header Section */}
-      <div className="bg-white border-b border-slate-200 pt-24 pb-6">
+      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 pt-24 pb-6">
         <div className="max-w-7xl mx-auto px-6">
-          <h1 className="text-3xl font-bold text-slate-900">Browse Venues</h1>
-          <p className="text-slate-600 mt-2">Find the perfect venue for your next meeting, conference, or corporate event.</p>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Browse Venues</h1>
+          <p className="text-slate-600 dark:text-slate-300 mt-2">Find the perfect venue for your next meeting, conference, or corporate event.</p>
         </div>
       </div>
 
@@ -211,7 +211,7 @@ export default function BrowseVenues() {
             ${mobileFiltersOpen ? 'fixed inset-0 z-[115] lg:relative lg:z-auto' : 'hidden lg:block'}
           `}>
             <div className={`
-              bg-white border border-slate-200 rounded-lg p-5 space-y-6
+              bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 space-y-6
               ${mobileFiltersOpen 
                 ? 'fixed right-0 top-0 bottom-0 w-80 max-w-[85vw] overflow-y-auto z-[120] rounded-none shadow-2xl' 
                 : 'sticky top-24'
@@ -230,13 +230,13 @@ export default function BrowseVenues() {
               )}
 
               {/* Header */}
-              <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-                <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+                <h3 className="font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                   <Filter className="w-4 h-4" /> Filters
                 </h3>
                 <button 
                   onClick={resetFilters} 
-                  className="text-xs text-slate-500 hover:text-primary-500 transition-colors font-medium"
+                  className="text-xs text-slate-500 dark:text-slate-400 hover:text-primary-500 transition-colors font-medium"
                 >
                   Reset Filters
                 </button>
@@ -244,13 +244,13 @@ export default function BrowseVenues() {
 
               {/* Search */}
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700">Search</label>
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">Search</label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     type="text"
                     placeholder="Search rooms..."
-                    className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all"
+                    className="w-full pl-9 pr-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
@@ -259,18 +259,18 @@ export default function BrowseVenues() {
 
               {/* City Filter */}
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700">Search by City</label>
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">Search by City</label>
                 <CityAutocomplete
                   value={cityFilter}
                   onChange={setCityFilter}
                   placeholder="Search city..."
-                  className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all"
+                  className="w-full pl-9 pr-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all"
                 />
               </div>
 
               {/* Venue Type */}
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700">Venue Type</label>
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">Venue Type</label>
                 <div className="space-y-2">
                   {venueTypes.map(type => (
                     <label key={type._id} className="flex items-center gap-2 cursor-pointer group">
@@ -278,9 +278,9 @@ export default function BrowseVenues() {
                         type="checkbox" 
                         checked={typeFilter === type.name}
                         onChange={() => setTypeFilter(typeFilter === type.name ? '' : type.name)}
-                        className="w-4 h-4 rounded border-slate-300 text-primary-500 focus:ring-primary-500" 
+                        className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-primary-500 focus:ring-primary-500" 
                       />
-                      <span className="text-sm text-slate-600 group-hover:text-slate-900">{type.icon} {type.name}</span>
+                      <span className="text-sm text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100">{type.icon} {type.name}</span>
                     </label>
                   ))}
                 </div>
@@ -288,7 +288,7 @@ export default function BrowseVenues() {
 
               {/* Capacity */}
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700">Capacity: {filterSettings.capacityMin} - {filterSettings.capacityMax} persons</label>
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">Capacity: {filterSettings.capacityMin} - {filterSettings.capacityMax} persons</label>
                 <input
                   type="range"
                   min={filterSettings.capacityMin}
@@ -305,7 +305,7 @@ export default function BrowseVenues() {
 
               {/* Price Range */}
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700">Price: ₹{filterSettings.priceMin.toLocaleString('en-IN')} - ₹{filterSettings.priceMax.toLocaleString('en-IN')}/hr</label>
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">Price: ₹{filterSettings.priceMin.toLocaleString('en-IN')} - ₹{filterSettings.priceMax.toLocaleString('en-IN')}/hr</label>
                 <input
                   type="range"
                   min={filterSettings.priceMin}
@@ -317,10 +317,10 @@ export default function BrowseVenues() {
               </div>
 
               {/* Reset Filters Button */}
-              <div className="pt-4 border-t border-slate-200">
+              <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
                 <button
                   onClick={resetFilters}
-                  className="w-full px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+                  className="w-full px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -351,19 +351,19 @@ export default function BrowseVenues() {
                 const taxAmount = Math.round(currentPrice * 0.18);
 
                 return (
-                  <div key={venue._id} className="group bg-white rounded-lg border border-slate-200 overflow-hidden flex flex-col sm:flex-row hover:shadow-lg transition-all duration-300">
+                  <div key={venue._id} className="group bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col sm:flex-row hover:shadow-lg transition-all duration-300">
                     {/* Image Section with Gallery */}
                     <div className="w-full sm:w-80 flex-shrink-0">
                       <div className="flex gap-1 h-52 sm:h-56">
                         {/* Main Image */}
-                        <div className="flex-1 relative overflow-hidden bg-slate-100">
+                        <div className="flex-1 relative overflow-hidden bg-slate-100 dark:bg-slate-800">
                           <img
-                            src={venue.images?.[0]?.url || '/api/placeholder/400/300'}
+                            src={venue.images?.[0]?.url || '/her-img2.jpg'}
                             alt={venue.businessName}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                           />
                           {venue.isVerified && (
-                            <div className="absolute top-3 left-3 px-2 py-1 bg-white/95 text-[10px] font-semibold text-slate-700 rounded shadow-sm">
+                            <div className="absolute top-3 left-3 px-2 py-1 bg-white/95 dark:bg-slate-900/90 text-[10px] font-semibold text-slate-700 dark:text-slate-200 rounded shadow-sm">
                               Company-Serviced
                             </div>
                           )}
@@ -373,7 +373,7 @@ export default function BrowseVenues() {
                         {venue.images?.length > 1 && (
                           <div className="w-20 flex flex-col gap-1">
                             {venue.images.slice(1, 3).map((img, idx) => (
-                              <div key={idx} className="flex-1 relative overflow-hidden bg-slate-100 rounded">
+                              <div key={idx} className="flex-1 relative overflow-hidden bg-slate-100 dark:bg-slate-800 rounded">
                                 <img
                                   src={img.url}
                                   alt={`${venue.businessName} ${idx + 2}`}
@@ -394,8 +394,8 @@ export default function BrowseVenues() {
                     {/* Info Section */}
                     <div className="flex-1 p-5 flex flex-col">
                       <div className="flex-1">
-                        <h3 className="text-lg font-bold text-slate-900 mb-1">{venue.businessName}</h3>
-                        <p className="text-sm text-slate-500 flex items-center gap-1 mb-3">
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1">{venue.businessName}</h3>
+                        <p className="text-sm text-slate-500 dark:text-slate-300 flex items-center gap-1 mb-3">
                           <MapPin className="w-3.5 h-3.5 text-primary-500" /> 
                           {venue.location?.area}, {venue.location?.city}
                         </p>
@@ -406,12 +406,12 @@ export default function BrowseVenues() {
                             <div className="flex items-center gap-1 bg-green-600 text-white px-2 py-0.5 rounded text-xs font-semibold">
                               {venue.rating} <Star className="w-3 h-3 fill-current" />
                             </div>
-                            <span className="text-xs text-slate-500">({venue.reviewCount || 0} Ratings) • Very Good</span>
+                            <span className="text-xs text-slate-500 dark:text-slate-400">({venue.reviewCount || 0} Ratings) • Very Good</span>
                           </div>
                         )}
 
                         {/* Amenities */}
-                        <div className="flex flex-wrap gap-3 text-xs text-slate-600">
+                        <div className="flex flex-wrap gap-3 text-xs text-slate-600 dark:text-slate-300">
                           <span className="flex items-center gap-1">
                             <Users className="w-3.5 h-3.5" /> {venue.capacity}
                           </span>
@@ -429,17 +429,17 @@ export default function BrowseVenues() {
                       </div>
 
                       {/* Pricing Bottom */}
-                      <div className="mt-4 pt-4 border-t border-slate-100 flex items-end justify-between">
+                      <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-end justify-between">
                         <div>
                           <div className="flex items-baseline gap-2">
-                            <span className="text-2xl font-bold text-slate-900">₹{currentPrice}</span>
+                            <span className="text-2xl font-bold text-slate-900 dark:text-slate-100">₹{currentPrice}</span>
                           </div>
                         </div>
                         
                         <div className="flex gap-2">
                           <Link 
                             href={`/venues/${venue.sku}`} 
-                            className="px-4 py-2 border border-slate-300 rounded-md text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                            className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-md text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                           >
                             View Details
                           </Link>
@@ -459,9 +459,9 @@ export default function BrowseVenues() {
 
             {/* Showing Count at Bottom */}
             {filteredVenues.length > 0 && (
-              <div className="mt-8 pt-6 border-t border-slate-200 text-center">
-                <p className="text-slate-600 text-sm">
-                  Showing <span className="font-semibold text-slate-900">{filteredVenues.length}</span> of <span className="font-semibold text-slate-900">{venues.length}</span> venues
+              <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-800 text-center">
+                <p className="text-slate-600 dark:text-slate-300 text-sm">
+                  Showing <span className="font-semibold text-slate-900 dark:text-slate-100">{filteredVenues.length}</span> of <span className="font-semibold text-slate-900 dark:text-slate-100">{venues.length}</span> venues
                 </p>
               </div>
             )}

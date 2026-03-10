@@ -47,7 +47,7 @@ export default function SearchFilter() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow-2xl p-8">
+    <div className="max-w-5xl mx-auto bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-8 border border-transparent dark:border-slate-800">
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
         {/* Search Input */}
         <div className="relative">
@@ -57,7 +57,7 @@ export default function SearchFilter() {
             placeholder="Search rooms..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all"
+            className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400"
           />
         </div>
 
@@ -66,7 +66,7 @@ export default function SearchFilter() {
           value={cityInput}
           onChange={setCityInput}
           placeholder="Search city..."
-          className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all"
+          className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
         />
 
         {/* Persons Input */}
@@ -78,7 +78,7 @@ export default function SearchFilter() {
             value={personsInput}
             onChange={(e) => setPersonsInput(e.target.value)}
             min="1"
-            className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all"
+            className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
           />
         </div>
 
@@ -91,7 +91,7 @@ export default function SearchFilter() {
             minDate={new Date()}
             placeholderText="Select Date"
             dateFormat="dd/MM/yyyy"
-            className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all cursor-pointer"
+            className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all cursor-pointer bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
             calendarClassName="custom-calendar"
           />
         </div>
@@ -103,7 +103,7 @@ export default function SearchFilter() {
           <select
             value={selectedVenueType}
             onChange={(e) => setSelectedVenueType(e.target.value)}
-            className="w-full pl-12 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all appearance-none bg-white cursor-pointer"
+            className="w-full pl-12 pr-10 py-3 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all appearance-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 cursor-pointer"
           >
             <option value="">Venue Type</option>
             {venueTypes.map(type => (

@@ -54,15 +54,15 @@ export default function PricingSection() {
   return (
     <>
       {/* Pricing Section */}
-      <section className="py-16 px-4 sm:px-6 bg-gradient-to-br from-orange-50 via-white to-yellow-50">
+      <section className="py-16 px-4 sm:px-6 bg-gradient-to-br from-orange-50 via-white to-yellow-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="text-center mb-12">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">PRICING</p>
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4" style={{ fontFamily: 'Georgia, serif' }}>
+            <p className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-2">PRICING</p>
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-slate-100 mb-4" style={{ fontFamily: 'Georgia, serif' }}>
               Exclusive Packages
             </h2>
-            <p className="text-base md:text-lg text-gray-600 max-w-2xl mx-auto">
+            <p className="text-base md:text-lg text-gray-600 dark:text-slate-300 max-w-2xl mx-auto">
               Flexible pricing options tailored to your needs. Choose the duration that works best for you.
             </p>
           </div>
@@ -72,7 +72,7 @@ export default function PricingSection() {
             {pricingPlans.map((plan, index) => (
               <div
                 key={index}
-                className={`relative bg-white rounded-xl p-6 transition-all duration-300 ${
+                className={`relative bg-white dark:bg-slate-900 rounded-xl p-6 transition-all duration-300 border border-transparent dark:border-slate-800 ${
                   plan.popular
                     ? 'border-2 border-[#F59F0A] shadow-lg scale-105'
                     : 'border border-gray-200 shadow-sm hover:shadow-md'
@@ -95,7 +95,7 @@ export default function PricingSection() {
                 </div>
 
                 {/* Duration */}
-                <h3 className="text-xl font-bold text-gray-900 text-center mb-3">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-slate-100 text-center mb-3">
                   {plan.duration}
                 </h3>
 
@@ -105,7 +105,7 @@ export default function PricingSection() {
                 </p>
 
                 {/* Description */}
-                <p className="text-sm text-gray-600 text-center mb-6">
+                <p className="text-sm text-gray-600 dark:text-slate-300 text-center mb-6">
                   {plan.description}
                 </p>
 
@@ -127,12 +127,12 @@ export default function PricingSection() {
       </section>
 
       {/* Why Choose Us Section */}
-      <section className="py-16 px-4 sm:px-6 bg-gray-50">
+      <section className="py-16 px-4 sm:px-6 bg-gray-50 dark:bg-slate-900">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="text-center mb-12">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">WHY CHOOSE US</p>
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900" style={{ fontFamily: 'Georgia, serif' }}>
+            <p className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-2">WHY CHOOSE US</p>
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-slate-100" style={{ fontFamily: 'Georgia, serif' }}>
               Trusted by Professionals
             </h2>
           </div>
@@ -154,12 +154,12 @@ export default function PricingSection() {
                   </div>
 
                   {/* Title */}
-                  <h3 className="text-xl font-bold text-gray-900 mb-3">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-slate-100 mb-3">
                     {feature.title}
                   </h3>
 
                   {/* Description */}
-                  <p className="text-sm text-gray-600 leading-relaxed">
+                  <p className="text-sm text-gray-600 dark:text-slate-300 leading-relaxed">
                     {feature.description}
                   </p>
                 </div>

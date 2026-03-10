@@ -56,6 +56,22 @@ h1, h2, h3, h4, h5, h6 {
     text-wrap: balance;
   }
   
+
+/* Dark Mode Overrides */
+.dark body {
+  background: #0b1220;
+  color: #e5e7eb;
+}
+.dark .card {
+  @apply bg-slate-800 text-slate-100 border border-slate-700;
+}
+.dark .btn-secondary {
+  @apply border-slate-600 text-slate-200 hover:bg-slate-700;
+}
+.dark .glass-effect {
+  @apply bg-slate-800/70 border-slate-700;
+}
+  
   .animate-float {
     animation: float 3s ease-in-out infinite;
   }

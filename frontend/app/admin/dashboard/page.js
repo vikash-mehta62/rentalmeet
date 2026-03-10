@@ -72,14 +72,7 @@ export default function AdminDashboard() {
       bgColor: 'bg-purple-50',
       textColor: 'text-purple-600'
     },
-    {
-      title: 'Total Revenue',
-      value: `₹${stats.totalRevenue?.toLocaleString()}`,
-      icon: IndianRupee,
-      color: 'bg-orange-500',
-      bgColor: 'bg-orange-50',
-      textColor: 'text-orange-600'
-    },
+    
     {
       title: 'Pending Venues',
       value: stats.pendingVenues,
