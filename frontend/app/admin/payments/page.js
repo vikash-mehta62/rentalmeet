@@ -106,9 +106,6 @@ export default function AdminPayments() {
     totalRevenue: payments
       .filter(p => p.paymentStatus === 'paid')
       .reduce((sum, p) => sum + (p.amount || 0), 0),
-    totalCommission: payments
-      .filter(p => p.paymentStatus === 'paid')
-      .reduce((sum, p) => sum + (p.commission || 0), 0),
     ownerEarnings: payments
       .filter(p => p.paymentStatus === 'paid')
       .reduce((sum, p) => sum + (p.ownerEarnings || 0), 0)
@@ -147,10 +144,6 @@ export default function AdminPayments() {
         <div className="bg-blue-50 rounded-lg shadow-soft border border-blue-200 p-4">
           <p className="text-xs text-blue-600 mb-1">Revenue</p>
           <p className="text-xl font-bold text-blue-700">₹{stats.totalRevenue.toLocaleString()}</p>
-        </div>
-        <div className="bg-purple-50 rounded-lg shadow-soft border border-purple-200 p-4">
-          <p className="text-xs text-purple-600 mb-1">Commission</p>
-          <p className="text-xl font-bold text-purple-700">₹{stats.totalCommission.toLocaleString()}</p>
         </div>
         <div className="bg-teal-50 rounded-lg shadow-soft border border-teal-200 p-4">
           <p className="text-xs text-teal-600 mb-1">Owner Earnings</p>
@@ -201,7 +194,6 @@ export default function AdminPayments() {
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Customer</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Venue</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Amount</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Commission</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Owner Gets</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Date</th>
@@ -250,10 +242,6 @@ export default function AdminPayments() {
                     </td>
                     <td className="px-6 py-4">
                       <p className="font-bold text-lg text-primary-600">₹{payment.amount?.toLocaleString()}</p>
-                    </td>
-                    <td className="px-6 py-4">
-                      <p className="font-semibold text-purple-600">₹{payment.commission?.toLocaleString()}</p>
-                      <p className="text-xs text-gray-500">{payment.commissionRate}%</p>
                     </td>
                     <td className="px-6 py-4">
                       <p className="font-semibold text-green-600">₹{payment.ownerEarnings?.toLocaleString()}</p>

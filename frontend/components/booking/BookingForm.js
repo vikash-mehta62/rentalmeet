@@ -17,9 +17,8 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
   const [terms, setTerms] = useState(null);
   const [platformSettings, setPlatformSettings] = useState({
     gstRate: 18,
-    platformFeeType: 'fixed',
-    platformFeeValue: 500,
-    commissionRate: 15
+    platformFeeType: 'percentage',
+    platformFeeValue: 5
   });
   
   // Fetch terms and conditions and platform settings
@@ -48,8 +47,7 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
         setPlatformSettings({
           gstRate: data.settings.gstRate,
           platformFeeType: data.settings.platformFee.feeType,
-          platformFeeValue: data.settings.platformFee.feeValue,
-          commissionRate: data.settings.commissionRate
+          platformFeeValue: data.settings.platformFee.feeValue
         });
       }
     } catch (error) {

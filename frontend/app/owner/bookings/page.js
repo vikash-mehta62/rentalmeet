@@ -415,7 +415,6 @@ export default function OwnerBookings() {
                       {booking.bookingType}
                     </span>
                     <span>Total Amount: ₹{booking.amount?.toLocaleString()}</span>
-                    <span>Commission: ₹{booking.commission?.toLocaleString()} ({booking.commissionRate}%)</span>
                   </div>
 
                   {/* Actions */}

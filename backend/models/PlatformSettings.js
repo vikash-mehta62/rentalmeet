@@ -14,12 +14,12 @@ const platformSettingsSchema = new mongoose.Schema({
   platformFeeType: {
     type: String,
     enum: ['fixed', 'percentage'],
-    default: 'fixed'
+    default: 'percentage'
   },
   platformFeeValue: {
     type: Number,
     required: true,
-    default: 500, // ₹500 or 5%
+    default: 5,
     min: 0
   },
   
@@ -27,7 +27,7 @@ const platformSettingsSchema = new mongoose.Schema({
   commissionRate: {
     type: Number,
     required: true,
-    default: 15, // 15% commission
+    default: 0,
     min: 0,
     max: 100
   },
@@ -46,9 +46,9 @@ platformSettingsSchema.statics.getSettings = async function() {
   if (!settings) {
     settings = await this.create({
       gstRate: 18,
-      platformFeeType: 'fixed',
-      platformFeeValue: 500,
-      commissionRate: 15
+      platformFeeType: 'percentage',
+      platformFeeValue: 5,
+      commissionRate: 0
     });
   }
   return settings;

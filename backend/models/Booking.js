@@ -137,11 +137,19 @@ const bookingSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Auto calculate commission and owner earnings
+// Auto adjust earnings when saving (commission disabled by default)
 bookingSchema.pre('save', function(next) {
-  if (this.isModified('amount') || this.isModified('commissionRate')) {
+  if (this.commissionRate && this.commissionRate > 0) {
     this.commission = (this.amount * this.commissionRate) / 100;
     this.ownerEarnings = this.amount - this.commission;
+  } else {
+    this.commission = 0;
+    // Prefer subtotal from priceBreakdown when available
+    if (this.priceBreakdown && typeof this.priceBreakdown.subtotal === 'number') {
+      this.ownerEarnings = this.priceBreakdown.subtotal;
+    } else if (typeof this.ownerEarnings !== 'number' || isNaN(this.ownerEarnings)) {
+      this.ownerEarnings = this.amount;
+    }
   }
   next();
 });

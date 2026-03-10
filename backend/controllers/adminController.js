@@ -271,28 +271,15 @@ exports.updateVenueSettings = async (req, res) => {
 // @route   GET /api/admin/commission
 exports.getCommissionSettings = async (req, res) => {
   try {
-    const PlatformSettings = require('../models/PlatformSettings');
-    const Booking = require('../models/Booking');
-    
-    // Get current settings
-    const settings = await PlatformSettings.getSettings();
-    
-    // Get commission stats from completed bookings
-    const completedBookings = await Booking.find({ status: 'completed' });
-    const totalCommission = completedBookings.reduce((sum, b) => sum + (b.commission || 0), 0);
-    const averageCommission = completedBookings.length > 0 
-      ? totalCommission / completedBookings.length 
-      : 0;
-    
     res.json({
       success: true,
       settings: {
-        commissionRate: settings.commissionRate
+        commissionRate: 0
       },
       stats: {
-        totalCommission,
-        totalBookings: completedBookings.length,
-        averageCommission
+        totalCommission: 0,
+        totalBookings: 0,
+        averageCommission: 0
       }
     });
   } catch (error) {
@@ -307,27 +294,10 @@ exports.getCommissionSettings = async (req, res) => {
 // @route   PUT /api/admin/commission
 exports.updateCommissionRate = async (req, res) => {
   try {
-    const PlatformSettings = require('../models/PlatformSettings');
-    const { commissionRate } = req.body;
-    
-    // Update existing settings document
-    let settings = await PlatformSettings.findOne();
-    
-    if (settings) {
-      settings.commissionRate = commissionRate;
-      settings.updatedBy = req.user.id;
-      await settings.save();
-    } else {
-      settings = await PlatformSettings.create({
-        commissionRate,
-        updatedBy: req.user.id
-      });
-    }
-    
     res.json({
       success: true,
-      message: 'Commission rate updated',
-      settings
+      message: 'Commission is disabled. Rate set to 0.',
+      settings: { commissionRate: 0 }
     });
   } catch (error) {
     res.status(500).json({
@@ -777,6 +747,12 @@ exports.getReports = async (req, res) => {
     const totalCommission = paidBookings.reduce((sum, b) => sum + (b.commission || 0), 0);
     const ownerEarnings = paidBookings.reduce((sum, b) => sum + (b.ownerEarnings || 0), 0);
     const averageBooking = paidBookings.length > 0 ? totalRevenue / paidBookings.length : 0;
+    const platformFeeTotal = paidBookings.reduce((sum, b) => {
+      const subtotal = b.priceBreakdown?.subtotal || 0;
+      const gst = b.priceBreakdown?.gst || 0;
+      const fee = (b.amount || 0) - subtotal - gst;
+      return sum + (fee > 0 ? fee : 0);
+    }, 0);
     
     // Bookings data
     const allBookings = await Booking.find({ createdAt: { $gte: startDate } });
@@ -823,7 +799,7 @@ exports.getReports = async (req, res) => {
       reports: {
         revenue: {
           total: totalRevenue,
-          commission: totalCommission,
+          platformFee: platformFeeTotal,
           ownerEarnings,
           average: Math.round(averageBooking)
         },

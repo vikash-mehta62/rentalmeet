@@ -103,8 +103,8 @@ export default function AdminReports() {
             <p className="text-xs text-gray-500 mt-1">From all bookings</p>
           </div>
           <div className="bg-white rounded-lg p-4">
-            <p className="text-sm text-gray-600 mb-1">Platform Commission</p>
-            <p className="text-2xl font-bold text-purple-600">₹{(reportData.revenue?.commission || 0).toLocaleString()}</p>
+            <p className="text-sm text-gray-600 mb-1">Platform Fee Earned</p>
+            <p className="text-2xl font-bold text-purple-600">₹{(reportData.revenue?.platformFee || 0).toLocaleString()}</p>
             <p className="text-xs text-gray-500 mt-1">Platform earnings</p>
           </div>
           <div className="bg-white rounded-lg p-4">

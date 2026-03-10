@@ -13,15 +13,13 @@ export default function PlatformSettings() {
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState({
     gstRate: 18,
-    platformFeeType: 'fixed',
-    platformFeeValue: 500,
-    commissionRate: 15
+    platformFeeType: 'percentage',
+    platformFeeValue: 5
   });
   const [newSettings, setNewSettings] = useState({
     gstRate: 18,
-    platformFeeType: 'fixed',
-    platformFeeValue: 500,
-    commissionRate: 15
+    platformFeeType: 'percentage',
+    platformFeeValue: 5
   });
 
   useEffect(() => {
@@ -95,10 +93,8 @@ export default function PlatformSettings() {
       ? newSettings.platformFeeValue 
       : (subtotal * newSettings.platformFeeValue) / 100;
     const total = subtotal + gst + platformFee;
-    const commission = (subtotal * newSettings.commissionRate) / 100;
-    const ownerEarnings = subtotal - commission;
-    
-    return { subtotal, gst, platformFee, total, commission, ownerEarnings };
+    const ownerEarnings = subtotal;
+    return { subtotal, gst, platformFee, total, ownerEarnings };
   };
 
   const example = calculateExample();
@@ -114,7 +110,7 @@ export default function PlatformSettings() {
   }
 
   return (
-    <AdminLayout title="Platform Settings" subtitle="Manage GST, Platform Fee & Commission">
+    <AdminLayout title="Platform Settings" subtitle="Manage GST & Platform Fee">
       {/* Current Settings */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         {/* GST Rate */}
@@ -141,15 +137,7 @@ export default function PlatformSettings() {
           </p>
         </div>
 
-        {/* Commission Rate */}
-        <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-lg shadow-soft border border-green-200 p-6">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-green-700 font-semibold">Commission Rate</p>
-            <Percent className="w-5 h-5 text-green-600" />
-          </div>
-          <p className="text-5xl font-bold text-green-900">{settings.commissionRate}%</p>
-          <p className="text-xs text-green-600 mt-1">Owner commission</p>
-        </div>
+        
       </div>
 
       {/* Update Settings */}
@@ -230,27 +218,10 @@ export default function PlatformSettings() {
               </p>
             </div>
 
-            {/* Commission Rate */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Commission Rate (%)
-              </label>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                step="0.1"
-                value={newSettings.commissionRate}
-                onChange={(e) => setNewSettings({ ...newSettings, commissionRate: parseFloat(e.target.value) || 0 })}
-                className="w-full px-4 py-3 text-xl font-bold text-center border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              />
-              <p className="text-xs text-gray-500 mt-1">Commission deducted from venue owner earnings</p>
-            </div>
-
             <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-sm text-yellow-800 font-semibold mb-2">⚠️ Important Note:</p>
               <p className="text-xs text-yellow-700">
-                Changes will apply to all new bookings. Existing bookings will retain their original rates.
+                Changes will apply to all new bookings.
               </p>
             </div>
 
@@ -297,16 +268,7 @@ export default function PlatformSettings() {
                 <span className="text-2xl font-bold text-primary-600">₹{example.total.toLocaleString()}</span>
               </div>
 
-              <div className="border-t border-gray-200 pt-3 mt-3">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-gray-700">Commission ({newSettings.commissionRate}%):</span>
-                  <span className="text-lg font-semibold text-red-600">- ₹{example.commission.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-lg font-bold text-gray-900">Owner Receives:</span>
-                  <span className="text-2xl font-bold text-green-600">₹{example.ownerEarnings.toLocaleString()}</span>
-                </div>
-              </div>
+              
             </div>
           </div>
 
@@ -314,9 +276,9 @@ export default function PlatformSettings() {
             <p className="text-sm font-semibold text-blue-800 mb-2">Breakdown:</p>
             <ul className="text-xs text-blue-700 space-y-1">
               <li>• Customer pays: ₹{example.total.toLocaleString()}</li>
-              <li>• Platform earns: ₹{(example.platformFee + example.commission).toLocaleString()} (Fee + Commission)</li>
+            <li>• Platform earns: ₹{example.platformFee.toLocaleString()} (Platform Fee)</li>
               <li>• Government gets: ₹{example.gst.toLocaleString()} (GST)</li>
-              <li>• Venue owner gets: ₹{example.ownerEarnings.toLocaleString()} (After commission)</li>
+            <li>• Venue owner gets: ₹{example.ownerEarnings.toLocaleString()}</li>
             </ul>
           </div>
         </div>

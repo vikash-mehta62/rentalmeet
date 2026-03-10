@@ -641,9 +641,6 @@ export default function AdminBookings() {
                     </td>
                     <td className="px-6 py-4">
                       <p className="font-bold text-primary-600">₹{booking.amount?.toLocaleString()}</p>
-                      {booking.commission > 0 && (
-                        <p className="text-xs text-gray-500">Comm: ₹{booking.commission?.toLocaleString()}</p>
-                      )}
                     </td>
                     <td className="px-6 py-4">
                       {getStatusBadge(booking.status)}
@@ -906,22 +903,7 @@ export default function AdminBookings() {
                       ₹{selectedBooking.amount?.toLocaleString()}
                     </span>
                   </div>
-                  {selectedBooking.commission > 0 && (
-                    <>
-                      <div className="flex justify-between items-center pb-2 border-b border-primary-200">
-                        <span className="text-gray-700">Platform Commission ({selectedBooking.commissionRate}%)</span>
-                        <span className="font-semibold text-purple-600">
-                          ₹{selectedBooking.commission?.toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-lg font-semibold text-gray-900">Owner Earnings</span>
-                        <span className="text-lg font-bold text-green-600">
-                          ₹{selectedBooking.ownerEarnings?.toLocaleString()}
-                        </span>
-                      </div>
-                    </>
-                  )}
+                  
                 </div>
               </div>
 

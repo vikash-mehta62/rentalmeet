@@ -445,8 +445,11 @@ exports.getPublicPlatformSettings = async (req, res) => {
       success: true,
       settings: {
         gstRate: settings.gstRate,
-        platformFee: settings.platformFee,
-        commissionRate: settings.commissionRate
+        platformFee: {
+          feeType: settings.platformFeeType,
+          feeValue: settings.platformFeeValue
+        },
+        commissionRate: 0
       }
     });
   } catch (error) {

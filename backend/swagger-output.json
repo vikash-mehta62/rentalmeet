@@ -55,7 +55,8 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/contact-settings": {
@@ -68,7 +69,8 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "security": []
       }
     },
     "/health": {
@@ -78,7 +80,8 @@
           "200": {
             "description": "OK"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/auth/register": {
@@ -96,37 +99,20 @@
           }
         },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "example": "any"
-                  },
-                  "email": {
-                    "example": "any"
-                  },
-                  "phone": {
-                    "example": "any"
-                  },
-                  "password": {
-                    "example": "any"
-                  },
-                  "role": {
-                    "example": "any"
-                  },
-                  "referralCode": {
-                    "example": "any"
-                  }
-                }
+                "$ref": "#/components/schemas/AuthRegister"
               }
             }
           }
         },
         "tags": [
           "Auth"
-        ]
+        ],
+        "security": [],
+        "summary": "Register new user"
       }
     },
     "/api/auth/login": {
@@ -147,25 +133,20 @@
           }
         },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "email": {
-                    "example": "any"
-                  },
-                  "password": {
-                    "example": "any"
-                  }
-                }
+                "$ref": "#/components/schemas/AuthLogin"
               }
             }
           }
         },
         "tags": [
           "Auth"
-        ]
+        ],
+        "security": [],
+        "summary": "Login user"
       }
     },
     "/api/auth/me": {
@@ -223,43 +204,19 @@
           }
         },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "example": "any"
-                  },
-                  "email": {
-                    "example": "any"
-                  },
-                  "phone": {
-                    "example": "any"
-                  },
-                  "address": {
-                    "example": "any"
-                  },
-                  "city": {
-                    "example": "any"
-                  },
-                  "state": {
-                    "example": "any"
-                  },
-                  "pincode": {
-                    "example": "any"
-                  },
-                  "profilePicture": {
-                    "example": "any"
-                  }
-                }
+                "$ref": "#/components/schemas/UserUpdate"
               }
             }
           }
         },
         "tags": [
           "Auth"
-        ]
+        ],
+        "summary": "Update profile"
       }
     },
     "/api/auth/change-password": {
@@ -289,25 +246,19 @@
           }
         },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "currentPassword": {
-                    "example": "any"
-                  },
-                  "newPassword": {
-                    "example": "any"
-                  }
-                }
+                "$ref": "#/components/schemas/ChangePassword"
               }
             }
           }
         },
         "tags": [
           "Auth"
-        ]
+        ],
+        "summary": "Change password"
       }
     },
     "/api/venues/": {
@@ -503,7 +454,8 @@
         },
         "tags": [
           "Venues"
-        ]
+        ],
+        "security": []
       }
     },
     "/api/venues/platform-settings/public": {
@@ -519,7 +471,8 @@
         },
         "tags": [
           "Venues"
-        ]
+        ],
+        "security": []
       }
     },
     "/api/venues/sku/{sku}": {
@@ -548,7 +501,8 @@
         },
         "tags": [
           "Venues"
-        ]
+        ],
+        "security": []
       }
     },
     "/api/venues/{id}": {
@@ -616,22 +570,19 @@
           }
         },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "bankDetails": {
-                    "example": "any"
-                  }
-                }
+                "$ref": "#/components/schemas/VenueUpdate"
               }
             }
           }
         },
         "tags": [
           "Venues"
-        ]
+        ],
+        "summary": "Update venue"
       },
       "delete": {
         "description": "",
@@ -1987,28 +1938,19 @@
           }
         },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "customPlatformFee": {
-                    "example": "any"
-                  },
-                  "customGST": {
-                    "example": "any"
-                  },
-                  "customCommission": {
-                    "example": "any"
-                  }
-                }
+                "$ref": "#/components/schemas/VenueCustomSettingsUpdate"
               }
             }
           }
         },
         "tags": [
           "Admin"
-        ]
+        ],
+        "summary": "Update custom GST/Platform Fee for venue"
       }
     },
     "/api/admin/users": {
@@ -2359,20 +2301,6 @@
             "description": "Internal Server Error"
           }
         },
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "commissionRate": {
-                    "example": "any"
-                  }
-                }
-              }
-            }
-          }
-        },
         "tags": [
           "Admin"
         ]
@@ -2428,31 +2356,19 @@
           }
         },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "gstRate": {
-                    "example": "any"
-                  },
-                  "platformFeeType": {
-                    "example": "any"
-                  },
-                  "platformFeeValue": {
-                    "example": "any"
-                  },
-                  "commissionRate": {
-                    "example": "any"
-                  }
-                }
+                "$ref": "#/components/schemas/PlatformSettingsUpdate"
               }
             }
           }
         },
         "tags": [
           "Admin"
-        ]
+        ],
+        "summary": "Update GST & Platform Fee"
       }
     },
     "/api/admin/terms": {
@@ -2801,22 +2717,19 @@
           }
         },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "status": {
-                    "example": "any"
-                  }
-                }
+                "$ref": "#/components/schemas/BookingUpdateStatus"
               }
             }
           }
         },
         "tags": [
           "Bookings"
-        ]
+        ],
+        "summary": "Update booking status"
       }
     },
     "/api/bookings/{id}/cancel": {
@@ -2854,22 +2767,19 @@
           }
         },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "reason": {
-                    "example": "any"
-                  }
-                }
+                "$ref": "#/components/schemas/BookingCancel"
               }
             }
           }
         },
         "tags": [
           "Bookings"
-        ]
+        ],
+        "summary": "Cancel booking"
       }
     },
     "/api/upload/image": {
@@ -2899,25 +2809,19 @@
           }
         },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "file": {
-                    "example": "any"
-                  },
-                  "folder": {
-                    "example": "any"
-                  }
-                }
+                "$ref": "#/components/schemas/UploadBase64"
               }
             }
           }
         },
         "tags": [
           "Upload"
-        ]
+        ],
+        "summary": "Upload image (base64)"
       }
     },
     "/api/upload/document": {
@@ -2947,25 +2851,19 @@
           }
         },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "file": {
-                    "example": "any"
-                  },
-                  "folder": {
-                    "example": "any"
-                  }
-                }
+                "$ref": "#/components/schemas/UploadBase64"
               }
             }
           }
         },
         "tags": [
           "Upload"
-        ]
+        ],
+        "summary": "Upload document (base64)"
       }
     },
     "/api/upload/": {
@@ -3388,6 +3286,1085 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "AuthRegister": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "object"
+          },
+          "required": {
+            "type": "array",
+            "example": [
+              "name",
+              "email",
+              "phone",
+              "password"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "John Doe"
+                  }
+                }
+              },
+              "email": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "john@example.com"
+                  }
+                }
+              },
+              "phone": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "9876543210"
+                  }
+                }
+              },
+              "password": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "Strong@123"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "AuthLogin": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "object"
+          },
+          "required": {
+            "type": "array",
+            "example": [
+              "email",
+              "password"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "email": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "john@example.com"
+                  }
+                }
+              },
+              "password": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "Strong@123"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "UserUpdate": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "object"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  }
+                }
+              },
+              "phone": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  }
+                }
+              },
+              "city": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  }
+                }
+              },
+              "state": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  }
+                }
+              },
+              "address": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "ChangePassword": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "object"
+          },
+          "required": {
+            "type": "array",
+            "example": [
+              "currentPassword",
+              "newPassword"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "currentPassword": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "OldPass@1"
+                  }
+                }
+              },
+              "newPassword": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "NewPass@2"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "VenueCreate": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "object"
+          },
+          "required": {
+            "type": "array",
+            "example": [
+              "businessName",
+              "venueType",
+              "description",
+              "capacity",
+              "areaSqft",
+              "location",
+              "amenities",
+              "pricing",
+              "termsAccepted"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "businessName": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "ABC Conference Hall"
+                  }
+                }
+              },
+              "venueType": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "array"
+                  },
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "example": "string"
+                      }
+                    }
+                  },
+                  "example": {
+                    "type": "array",
+                    "example": [
+                      "Meeting Hall"
+                    ],
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "description": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  }
+                }
+              },
+              "capacity": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "100-200"
+                  }
+                }
+              },
+              "areaSqft": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "number"
+                  },
+                  "example": {
+                    "type": "number",
+                    "example": 2500
+                  }
+                }
+              },
+              "location": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "object"
+                  },
+                  "required": {
+                    "type": "array",
+                    "example": [
+                      "address",
+                      "landmark",
+                      "city",
+                      "area",
+                      "pincode",
+                      "googleMapLink",
+                      "parkingAvailability"
+                    ],
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "properties": {
+                    "type": "object",
+                    "properties": {
+                      "address": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "string"
+                          }
+                        }
+                      },
+                      "landmark": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "string"
+                          }
+                        }
+                      },
+                      "city": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "string"
+                          }
+                        }
+                      },
+                      "area": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "string"
+                          }
+                        }
+                      },
+                      "pincode": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "string"
+                          }
+                        }
+                      },
+                      "googleMapLink": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "string"
+                          }
+                        }
+                      },
+                      "parkingAvailability": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "string"
+                          },
+                          "enum": {
+                            "type": "array",
+                            "example": [
+                              "Free",
+                              "Paid",
+                              "Limited",
+                              "None"
+                            ],
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "amenities": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "object"
+                  }
+                }
+              },
+              "pricing": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "object"
+                  }
+                }
+              },
+              "images": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "array"
+                  },
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "example": "object"
+                      }
+                    }
+                  }
+                }
+              },
+              "documents": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "object"
+                  }
+                }
+              },
+              "bankDetails": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "object"
+                  }
+                }
+              },
+              "termsAccepted": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "boolean"
+                  },
+                  "example": {
+                    "type": "boolean",
+                    "example": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "VenueUpdate": {
+        "$ref": "#/components/schemas/VenueCreate"
+      },
+      "VenueCustomSettingsUpdate": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "object"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "customPlatformFee": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "object"
+                  },
+                  "properties": {
+                    "type": "object",
+                    "properties": {
+                      "enabled": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "boolean"
+                          }
+                        }
+                      },
+                      "feeType": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "string"
+                          },
+                          "enum": {
+                            "type": "array",
+                            "example": [
+                              "fixed",
+                              "percentage"
+                            ],
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      },
+                      "feeValue": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "customGST": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "object"
+                  },
+                  "properties": {
+                    "type": "object",
+                    "properties": {
+                      "enabled": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "boolean"
+                          }
+                        }
+                      },
+                      "rate": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "PlatformSettingsUpdate": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "object"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "gstRate": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "number"
+                  },
+                  "example": {
+                    "type": "number",
+                    "example": 18
+                  }
+                }
+              },
+              "platformFeeType": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "enum": {
+                    "type": "array",
+                    "example": [
+                      "fixed",
+                      "percentage"
+                    ],
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "percentage"
+                  }
+                }
+              },
+              "platformFeeValue": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "number"
+                  },
+                  "example": {
+                    "type": "number",
+                    "example": 5
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "BookingCreate": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "object"
+          },
+          "required": {
+            "type": "array",
+            "example": [
+              "venue",
+              "bookingDate",
+              "startTime",
+              "endTime",
+              "bookingType",
+              "amount"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "venue": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "65f0c1..."
+                  }
+                }
+              },
+              "bookingDate": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "format": {
+                    "type": "string",
+                    "example": "date"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "2026-03-20"
+                  }
+                }
+              },
+              "startTime": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "10:00 AM"
+                  }
+                }
+              },
+              "endTime": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "02:00 PM"
+                  }
+                }
+              },
+              "bookingType": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "enum": {
+                    "type": "array",
+                    "example": [
+                      "hourly",
+                      "halfday",
+                      "fullday"
+                    ],
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "amount": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "number"
+                  },
+                  "example": {
+                    "type": "number",
+                    "example": 11800
+                  }
+                }
+              },
+              "selectedAmenities": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "object"
+                  }
+                }
+              },
+              "amenitiesTotal": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "number"
+                  },
+                  "example": {
+                    "type": "number",
+                    "example": 800
+                  }
+                }
+              },
+              "priceBreakdown": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "object"
+                  },
+                  "properties": {
+                    "type": "object",
+                    "properties": {
+                      "basePrice": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "number"
+                          }
+                        }
+                      },
+                      "amenitiesTotal": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "number"
+                          }
+                        }
+                      },
+                      "subtotal": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "number"
+                          }
+                        }
+                      },
+                      "gstRate": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "number"
+                          }
+                        }
+                      },
+                      "gst": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "number"
+                          }
+                        }
+                      },
+                      "platformFee": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "number"
+                          }
+                        }
+                      },
+                      "total": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "customerDetails": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "object"
+                  },
+                  "properties": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "string"
+                          }
+                        }
+                      },
+                      "email": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "string"
+                          }
+                        }
+                      },
+                      "phone": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "string"
+                          }
+                        }
+                      },
+                      "eventType": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "string"
+                          }
+                        }
+                      },
+                      "guestCount": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "number"
+                          }
+                        }
+                      },
+                      "specialRequirements": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "BookingUpdateStatus": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "object"
+          },
+          "required": {
+            "type": "array",
+            "example": [
+              "status"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "enum": {
+                    "type": "array",
+                    "example": [
+                      "pending",
+                      "confirmed",
+                      "cancelled",
+                      "completed"
+                    ],
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "BookingCancel": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "object"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "reason": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "UploadBase64": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "object"
+          },
+          "required": {
+            "type": "array",
+            "example": [
+              "file"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "file": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "description": {
+                    "type": "string",
+                    "example": "base64 encoded data URL"
+                  }
+                }
+              },
+              "folder": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "documents"
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     }
   },

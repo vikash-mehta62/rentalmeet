@@ -41,7 +41,6 @@ export default function AdminLayout({ children, title, subtitle }) {
     { name: 'Payments', href: '/admin/payments', icon: IndianRupee },
     { name: 'Reports', href: '/admin/reports', icon: BarChart3 },
     { name: 'Reviews', href: '/admin/reviews', icon: MessageSquare },
-    { name: 'Commission', href: '/admin/commission', icon: FileText },
     { name: 'Platform Settings', href: '/admin/platform-settings', icon: Settings },
     { name: 'Settings', href: '/admin/settings', icon: Settings },
   ];

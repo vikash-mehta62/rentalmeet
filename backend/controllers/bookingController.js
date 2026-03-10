@@ -1,6 +1,5 @@
 const Booking = require('../models/Booking');
 const Venue = require('../models/Venue');
-const CommissionSettings = require('../models/CommissionSettings');
 const Counter = require('../models/Counter');
 const { getCityCode, getStateCode } = require('../utils/cityCodes');
 
@@ -91,45 +90,24 @@ exports.createBooking = async (req, res) => {
     const bookingNumber = await generateBookingNumber(venueDetails);
     console.log('Generated Booking Number:', bookingNumber);
     
-    // Get platform settings for commission rate
-    const PlatformSettings = require('../models/PlatformSettings');
-    const settings = await PlatformSettings.getSettings();
-    
-    // Check for custom commission (venueDetails already fetched above)
-    const commissionRate = venueDetails?.customCommission?.enabled 
-      ? venueDetails.customCommission.rate 
-      : settings.commissionRate;
-    
-    // Calculate commission from subtotal (before GST and platform fee)
-    const subtotal = priceBreakdown?.subtotal || 0;
-    
-    // Debug logging
-    console.log('=== COMMISSION CALCULATION DEBUG ===');
-    console.log('Price Breakdown:', priceBreakdown);
-    console.log('Subtotal:', subtotal);
-    console.log('Commission Rate:', commissionRate);
-    console.log('Total Amount:', amount);
-    
-    // If subtotal is 0 or missing, calculate from amount by removing GST and platform fee
-    let finalSubtotal = subtotal;
-    if (!subtotal || subtotal === 0) {
-      // Fallback: Try to reverse calculate subtotal from total
-      const gstRate = priceBreakdown?.gstRate || settings.gstRate || 18;
-      const platformFee = priceBreakdown?.platformFee || 0;
-      // Total = Subtotal + GST + Platform Fee
-      // Total = Subtotal + (Subtotal * gstRate/100) + Platform Fee
-      // Total = Subtotal * (1 + gstRate/100) + Platform Fee
-      // Subtotal = (Total - Platform Fee) / (1 + gstRate/100)
-      finalSubtotal = (amount - platformFee) / (1 + gstRate / 100);
-      console.log('Calculated subtotal from total:', finalSubtotal);
+    // Calculate owner earnings (no commission; only platform fee retained)
+    let ownerEarnings = 0;
+    try {
+      // Prefer client-provided subtotal
+      if (priceBreakdown?.subtotal) {
+        ownerEarnings = priceBreakdown.subtotal;
+      } else {
+        // Fallback: reverse-calc subtotal from total using gstRate and platformFee if available
+        const PlatformSettings = require('../models/PlatformSettings');
+        const settings = await PlatformSettings.getSettings();
+        const gstRate = priceBreakdown?.gstRate || settings.gstRate || 18;
+        const platformFee = priceBreakdown?.platformFee || 0;
+        ownerEarnings = (amount - platformFee) / (1 + gstRate / 100);
+      }
+    } catch (calcErr) {
+      console.warn('Owner earnings calc fallback error:', calcErr?.message);
+      ownerEarnings = amount;
     }
-    
-    const commission = (finalSubtotal * commissionRate) / 100;
-    const ownerEarnings = finalSubtotal - commission;
-    
-    console.log('Final Commission:', commission);
-    console.log('Owner Earnings:', ownerEarnings);
-    console.log('===================================');
     
     // Create booking
     const booking = await Booking.create({
@@ -141,9 +119,9 @@ exports.createBooking = async (req, res) => {
       endTime,
       bookingType,
       amount, // Total amount including GST and platform fee
-      commission,
+      commission: 0,
       ownerEarnings,
-      commissionRate,
+      commissionRate: 0,
       selectedAmenities: selectedAmenities || {
         basic: [],
         beverages: [],

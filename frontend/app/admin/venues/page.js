@@ -21,8 +21,7 @@ export default function AdminVenues() {
   const [platformSettings, setPlatformSettings] = useState(null);
   const [customSettings, setCustomSettings] = useState({
     customPlatformFee: { enabled: false, feeType: 'fixed', feeValue: 0 },
-    customGST: { enabled: false, rate: 18 },
-    customCommission: { enabled: false, rate: 15 }
+    customGST: { enabled: false, rate: 18 }
   });
 
   useEffect(() => {
@@ -121,8 +120,7 @@ export default function AdminVenues() {
     // Initialize custom settings from venue data
     setCustomSettings({
       customPlatformFee: venue.customPlatformFee || { enabled: false, feeType: 'fixed', feeValue: 0 },
-      customGST: venue.customGST || { enabled: false, rate: 18 },
-      customCommission: venue.customCommission || { enabled: false, rate: 15 }
+      customGST: venue.customGST || { enabled: false, rate: 18 }
     });
     setModalOpen(true);
   };
@@ -132,8 +130,7 @@ export default function AdminVenues() {
     setModalOpen(false);
     setCustomSettings({
       customPlatformFee: { enabled: false, feeType: 'fixed', feeValue: 0 },
-      customGST: { enabled: false, rate: 18 },
-      customCommission: { enabled: false, rate: 15 }
+      customGST: { enabled: false, rate: 18 }
     });
   };
 
@@ -441,10 +438,10 @@ export default function AdminVenues() {
                   <h3 className="text-lg font-semibold mb-4 text-orange-900">Custom Settings</h3>
                   
                   {/* Default Platform Settings Reference */}
-                  {platformSettings && platformSettings.platformFee && (
+                  {platformSettings && (
                     <div className="bg-white rounded-lg p-3 mb-4 border border-orange-100">
                       <p className="text-xs font-semibold text-gray-600 mb-2">Default Platform Settings:</p>
-                      <div className="grid grid-cols-3 gap-3 text-xs">
+                      <div className="grid grid-cols-2 gap-3 text-xs">
                         <div>
                           <span className="text-gray-600">GST: </span>
                           <span className="font-semibold">{platformSettings.gstRate || 18}%</span>
@@ -452,14 +449,10 @@ export default function AdminVenues() {
                         <div>
                           <span className="text-gray-600">Platform Fee: </span>
                           <span className="font-semibold">
-                            {platformSettings.platformFee.feeType === 'fixed' 
-                              ? `₹${platformSettings.platformFee.feeValue || 0}` 
-                              : `${platformSettings.platformFee.feeValue || 0}%`}
+                            {platformSettings.platformFeeType === 'fixed' 
+                              ? `₹${platformSettings.platformFeeValue || 0}` 
+                              : `${platformSettings.platformFeeValue || 0}%`}
                           </span>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">Commission: </span>
-                          <span className="font-semibold">{platformSettings.commissionRate || 15}%</span>
                         </div>
                       </div>
                     </div>
@@ -555,41 +548,7 @@ export default function AdminVenues() {
                       )}
                     </div>
 
-                    {/* Custom Commission */}
-                    <div className="bg-white rounded-lg p-4 border border-gray-200">
-                      <div className="flex items-center justify-between mb-3">
-                        <label className="text-sm font-semibold text-gray-700">Custom Commission Rate</label>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={customSettings.customCommission.enabled}
-                            onChange={(e) => setCustomSettings({
-                              ...customSettings,
-                              customCommission: { ...customSettings.customCommission, enabled: e.target.checked }
-                            })}
-                            className="sr-only peer"
-                          />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
-                        </label>
-                      </div>
-                      {customSettings.customCommission.enabled && (
-                        <div>
-                          <label className="text-xs text-gray-600 mb-1 block">Commission Rate (%)</label>
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.01"
-                            value={customSettings.customCommission.rate}
-                            onChange={(e) => setCustomSettings({
-                              ...customSettings,
-                              customCommission: { ...customSettings.customCommission, rate: parseFloat(e.target.value) || 0 }
-                            })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                          />
-                        </div>
-                      )}
-                    </div>
+                    
 
                     {/* Update Settings Button */}
                     <button

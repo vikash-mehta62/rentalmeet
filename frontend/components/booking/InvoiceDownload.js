@@ -216,12 +216,6 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
         <span>Subtotal:</span>
         <span>₹${(booking.amount || 0).toLocaleString()}</span>
       </div>
-      ${userRole === 'admin' || userRole === 'owner' ? `
-        <div class="total-row">
-          <span>Platform Commission (${booking.commissionRate}%):</span>
-          <span style="color: #9333EA;">- ₹${(booking.commission || 0).toLocaleString()}</span>
-        </div>
-      ` : ''}
       ${userRole === 'owner' ? `
         <div class="total-row">
           <span>Your Earnings:</span>
