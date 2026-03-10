@@ -24,6 +24,13 @@ export default function BrowseVenues() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [venueTypes, setVenueTypes] = useState([]);
+  const [filterSettings, setFilterSettings] = useState({
+    capacityMin: 10,
+    capacityMax: 1000,
+    priceMin: 1000,
+    priceMax: 1000000
+  });
+  const [priceFilter, setPriceFilter] = useState(null);
 
   const capacityRanges = [
     { label: '10-50', min: 10, max: 50 },
@@ -37,6 +44,7 @@ export default function BrowseVenues() {
   useEffect(() => {
     fetchVenues();
     fetchVenueTypes();
+    fetchPublicContactSettings();
   }, []);
 
   useEffect(() => {
@@ -73,6 +81,18 @@ export default function BrowseVenues() {
     }
   };
 
+  const fetchPublicContactSettings = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/contact-settings`);
+      const data = await response.json();
+      if (data.success && data.data?.filterSettings) {
+        setFilterSettings(data.data.filterSettings);
+      }
+    } catch (e) {
+      // ignore and keep defaults
+    }
+  };
+
   const filterVenues = () => {
     let filtered = venues;
 
@@ -96,7 +116,7 @@ export default function BrowseVenues() {
       );
     }
 
-    if (capacityFilter) {
+  if (capacityFilter) {
       const range = capacityRanges.find(r => r.label === capacityFilter);
       if (range) {
         filtered = filtered.filter(venue => {
@@ -104,6 +124,14 @@ export default function BrowseVenues() {
           return cap >= range.min && cap <= range.max;
         });
       }
+    }
+    if (priceFilter !== null) {
+      filtered = filtered.filter(venue => {
+        const weekday = venue.pricing?.perHour?.weekday || 0;
+        const weekend = venue.pricing?.perHour?.weekend || weekday;
+        const base = Math.min(weekday || Infinity, weekend || Infinity);
+        return base <= priceFilter;
+      });
     }
 
     setFilteredVenues(filtered);
@@ -114,6 +142,7 @@ export default function BrowseVenues() {
     setCityFilter('');
     setTypeFilter('');
     setCapacityFilter('');
+    setPriceFilter(null);
   };
 
   const getCities = () => {
@@ -259,11 +288,11 @@ export default function BrowseVenues() {
 
               {/* Capacity */}
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700">Capacity: 10 - 1000 persons</label>
+                <label className="text-sm font-semibold text-slate-700">Capacity: {filterSettings.capacityMin} - {filterSettings.capacityMax} persons</label>
                 <input
                   type="range"
-                  min="10"
-                  max="1000"
+                  min={filterSettings.capacityMin}
+                  max={filterSettings.capacityMax}
                   step="10"
                   className="w-full h-2 bg-primary-200 rounded-lg appearance-none cursor-pointer accent-primary-500"
                   onChange={(e) => {
@@ -276,13 +305,14 @@ export default function BrowseVenues() {
 
               {/* Price Range */}
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700">Price: ₹1,000 - ₹10,00,000/hr</label>
+                <label className="text-sm font-semibold text-slate-700">Price: ₹{filterSettings.priceMin.toLocaleString('en-IN')} - ₹{filterSettings.priceMax.toLocaleString('en-IN')}/hr</label>
                 <input
                   type="range"
-                  min="1000"
-                  max="1000000"
-                  step="10000"
+                  min={filterSettings.priceMin}
+                  max={filterSettings.priceMax}
+                  step={Math.max(1000, Math.round((filterSettings.priceMax - filterSettings.priceMin) / 50))}
                   className="w-full h-2 bg-primary-200 rounded-lg appearance-none cursor-pointer accent-primary-500"
+                  onChange={(e) => setPriceFilter(parseInt(e.target.value))}
                 />
               </div>
 

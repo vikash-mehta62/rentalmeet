@@ -18,6 +18,12 @@ export default function AdminSettings() {
     phone: '',
     email: '',
     availability: '',
+    filterSettings: {
+      capacityMin: 10,
+      capacityMax: 1000,
+      priceMin: 1000,
+      priceMax: 1000000
+    },
     socialMedia: {
       facebook: '',
       twitter: '',
@@ -290,6 +296,78 @@ export default function AdminSettings() {
                     />
                   </div>
                 </div>
+              </div>
+
+              {/* Filter Settings */}
+              <div className="pt-4 border-t">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">Filter Settings (Browse Page)</h3>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Capacity Min</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={contactSettings.filterSettings?.capacityMin || 0}
+                      onChange={(e) => setContactSettings({
+                        ...contactSettings,
+                        filterSettings: {
+                          ...contactSettings.filterSettings,
+                          capacityMin: parseInt(e.target.value) || 0
+                        }
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Capacity Max</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={contactSettings.filterSettings?.capacityMax || 0}
+                      onChange={(e) => setContactSettings({
+                        ...contactSettings,
+                        filterSettings: {
+                          ...contactSettings.filterSettings,
+                          capacityMax: parseInt(e.target.value) || 0
+                        }
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Price Min (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={contactSettings.filterSettings?.priceMin || 0}
+                      onChange={(e) => setContactSettings({
+                        ...contactSettings,
+                        filterSettings: {
+                          ...contactSettings.filterSettings,
+                          priceMin: parseInt(e.target.value) || 0
+                        }
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Price Max (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={contactSettings.filterSettings?.priceMax || 0}
+                      onChange={(e) => setContactSettings({
+                        ...contactSettings,
+                        filterSettings: {
+                          ...contactSettings.filterSettings,
+                          priceMax: parseInt(e.target.value) || 0
+                        }
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">Yeh values Browse Venues page ke Capacity aur Price sliders ko control karengi.</p>
               </div>
 
               <button

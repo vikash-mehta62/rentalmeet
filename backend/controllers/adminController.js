@@ -1141,7 +1141,13 @@ exports.getPublicContactSettings = async (req, res) => {
         phone: '+91 8423796767',
         email: 'booking@rentalmeet.in',
         availability: '24/7 Available',
-        socialMedia: {}
+        socialMedia: {},
+        filterSettings: {
+          capacityMin: 10,
+          capacityMax: 1000,
+          priceMin: 1000,
+          priceMax: 1000000
+        }
       };
     }
     
