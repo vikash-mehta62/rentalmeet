@@ -199,15 +199,11 @@ const venueSchema = new mongoose.Schema({
       type: Boolean,
       default: false
     },
-    feeType: {
-      type: String,
-      enum: ['fixed', 'percentage'],
-      default: 'fixed'
-    },
-    feeValue: {
+    percentage: {
       type: Number,
-      default: 0,
-      min: 0
+      default: 5,
+      min: 0,
+      max: 100
     }
   },
   
@@ -220,20 +216,6 @@ const venueSchema = new mongoose.Schema({
     rate: {
       type: Number,
       default: 18,
-      min: 0,
-      max: 100
-    }
-  },
-  
-  // Custom Commission Rate (Optional - if not set, uses default from PlatformSettings)
-  customCommission: {
-    enabled: {
-      type: Boolean,
-      default: false
-    },
-    rate: {
-      type: Number,
-      default: 15,
       min: 0,
       max: 100
     }

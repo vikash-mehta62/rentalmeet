@@ -5,16 +5,16 @@ import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
 import {
   Users, Search, Filter, Eye, X, Mail, Phone, Calendar,
-  CheckCircle, XCircle, Shield, User, Building2
+  CheckCircle, XCircle, Shield, User, Building2, Download, Briefcase
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function AdminUsers() {
   const { token } = useAuthStore();
   const [loading, setLoading] = useState(true);
-  const [users, setUsers] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
+  const [activeTab, setActiveTab] = useState('customers'); // customers, owners, employees
   const [filteredUsers, setFilteredUsers] = useState([]);
-  const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
@@ -30,7 +30,7 @@ export default function AdminUsers() {
 
   useEffect(() => {
     filterUsers();
-  }, [users, roleFilter, statusFilter, searchQuery]);
+  }, [allUsers, activeTab, statusFilter, searchQuery]);
 
   const fetchUsers = async () => {
     try {
@@ -42,8 +42,7 @@ export default function AdminUsers() {
       const data = await response.json();
       
       if (data.success) {
-        setUsers(data.users);
-        setFilteredUsers(data.users);
+        setAllUsers(data.users);
       }
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -54,30 +53,35 @@ export default function AdminUsers() {
   };
 
   const filterUsers = () => {
-    let filtered = [...users];
+    let filtered = [...allUsers];
 
-    // Only show customers and owners (exclude admins and employees)
-    filtered = filtered.filter(u => u.role === 'customer' || u.role === 'owner');
-
-    if (roleFilter !== 'all') {
-      filtered = filtered.filter(u => u.role === roleFilter);
+    // Filter by active tab
+    if (activeTab === 'customers') {
+      filtered = filtered.filter(u => u.role === 'customer');
+    } else if (activeTab === 'owners') {
+      filtered = filtered.filter(u => u.role === 'owner');
+    } else if (activeTab === 'employees') {
+      filtered = filtered.filter(u => u.role === 'employee');
     }
 
+    // Filter by status
     if (statusFilter !== 'all') {
       const isActive = statusFilter === 'active';
       filtered = filtered.filter(u => u.isActive === isActive);
     }
 
+    // Filter by search query
     if (searchQuery) {
       filtered = filtered.filter(u =>
         u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.phone?.includes(searchQuery)
+        u.phone?.includes(searchQuery) ||
+        u.userId?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
     setFilteredUsers(filtered);
-    setCurrentPage(1); // Reset to first page when filters change
+    setCurrentPage(1);
   };
 
   const handleStatusToggle = async (userId, currentStatus) => {
@@ -106,6 +110,40 @@ export default function AdminUsers() {
     }
   };
 
+  const exportToCSV = () => {
+    const headers = ['S.No', 'User ID', 'Name', 'Email', 'Phone', 'Role', 'Status', 'Referral Code', 'Joined Date'];
+    
+    const rows = filteredUsers.map((user, index) => [
+      index + 1,
+      user.userId || `RM-${user._id.slice(-8).toUpperCase()}`,
+      user.name,
+      user.email,
+      user.phone,
+      user.role,
+      user.isActive ? 'Active' : 'Inactive',
+      user.referralCode || 'N/A',
+      new Date(user.createdAt).toLocaleDateString('en-IN')
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${activeTab}_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success('CSV exported successfully!');
+  };
+
   const openModal = (user) => {
     setSelectedUser(user);
     setModalOpen(true);
@@ -120,7 +158,8 @@ export default function AdminUsers() {
     const badges = {
       admin: { bg: 'bg-purple-100', text: 'text-purple-700', icon: Shield },
       owner: { bg: 'bg-blue-100', text: 'text-blue-700', icon: Building2 },
-      customer: { bg: 'bg-green-100', text: 'text-green-700', icon: User }
+      customer: { bg: 'bg-green-100', text: 'text-green-700', icon: User },
+      employee: { bg: 'bg-orange-100', text: 'text-orange-700', icon: Briefcase }
     };
     const badge = badges[role] || badges.customer;
     const Icon = badge.icon;
@@ -133,11 +172,18 @@ export default function AdminUsers() {
   };
 
   const stats = {
-    total: users.filter(u => u.role === 'customer' || u.role === 'owner').length,
-    owners: users.filter(u => u.role === 'owner').length,
-    customers: users.filter(u => u.role === 'customer').length,
-    active: users.filter(u => u.isActive && (u.role === 'customer' || u.role === 'owner')).length,
-    inactive: users.filter(u => !u.isActive && (u.role === 'customer' || u.role === 'owner')).length,
+    customers: {
+      total: allUsers.filter(u => u.role === 'customer').length,
+      active: allUsers.filter(u => u.role === 'customer' && u.isActive).length,
+    },
+    owners: {
+      total: allUsers.filter(u => u.role === 'owner').length,
+      active: allUsers.filter(u => u.role === 'owner' && u.isActive).length,
+    },
+    employees: {
+      total: allUsers.filter(u => u.role === 'employee').length,
+      active: allUsers.filter(u => u.role === 'employee' && u.isActive).length,
+    }
   };
 
   // Pagination calculations
@@ -167,24 +213,65 @@ export default function AdminUsers() {
   }
 
   return (
-    <AdminLayout title="Users Management" subtitle={`Manage all ${stats.total} users`}>
+    <AdminLayout title="Users Management" subtitle={`Manage all users, owners, and employees`}>
+      {/* Tabs */}
+      <div className="bg-white rounded-lg shadow-soft border border-gray-100 mb-6">
+        <div className="flex border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('customers')}
+            className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors ${
+              activeTab === 'customers'
+                ? 'text-primary-600 border-b-2 border-primary-600 bg-primary-50'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <User className="w-5 h-5" />
+              <span>Customers ({stats.customers.total})</span>
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('owners')}
+            className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors ${
+              activeTab === 'owners'
+                ? 'text-primary-600 border-b-2 border-primary-600 bg-primary-50'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Building2 className="w-5 h-5" />
+              <span>Owners ({stats.owners.total})</span>
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('employees')}
+            className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors ${
+              activeTab === 'employees'
+                ? 'text-primary-600 border-b-2 border-primary-600 bg-primary-50'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Briefcase className="w-5 h-5" />
+              <span>Employees ({stats.employees.total})</span>
+            </div>
+          </button>
+        </div>
+      </div>
+
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-lg shadow-soft border border-gray-100 p-4">
           <p className="text-xs text-gray-600 mb-1">Total</p>
-          <p className="text-2xl font-bold text-dark-800">{stats.total}</p>
-        </div>
-        <div className="bg-blue-50 rounded-lg shadow-soft border border-blue-200 p-4">
-          <p className="text-xs text-blue-600 mb-1">Owners</p>
-          <p className="text-2xl font-bold text-blue-700">{stats.owners}</p>
+          <p className="text-2xl font-bold text-dark-800">{stats[activeTab].total}</p>
         </div>
         <div className="bg-green-50 rounded-lg shadow-soft border border-green-200 p-4">
-          <p className="text-xs text-green-600 mb-1">Customers</p>
-          <p className="text-2xl font-bold text-green-700">{stats.customers}</p>
+          <p className="text-xs text-green-600 mb-1">Active</p>
+          <p className="text-2xl font-bold text-green-700">{stats[activeTab].active}</p>
         </div>
-        <div className="bg-teal-50 rounded-lg shadow-soft border border-teal-200 p-4">
-          <p className="text-xs text-teal-600 mb-1">Active</p>
-          <p className="text-2xl font-bold text-teal-700">{stats.active}</p>
+        <div className="bg-red-50 rounded-lg shadow-soft border border-red-200 p-4">
+          <p className="text-xs text-red-600 mb-1">Inactive</p>
+          <p className="text-2xl font-bold text-red-700">{stats[activeTab].total - stats[activeTab].active}</p>
         </div>
       </div>
 
@@ -196,29 +283,16 @@ export default function AdminUsers() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by name, email, or phone..."
+              placeholder="Search by name, email, phone, or user ID..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
             />
           </div>
 
-          {/* Role Filter */}
-          <div className="flex items-center gap-2">
-            <Filter className="w-5 h-5 text-gray-600" />
-            <select
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white"
-            >
-              <option value="all">All Roles</option>
-              <option value="owner">Owner</option>
-              <option value="customer">Customer</option>
-            </select>
-          </div>
-
           {/* Status Filter */}
           <div className="flex items-center gap-2">
+            <Filter className="w-5 h-5 text-gray-600" />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -229,6 +303,16 @@ export default function AdminUsers() {
               <option value="inactive">Inactive</option>
             </select>
           </div>
+
+          {/* Export Button */}
+          <button
+            onClick={exportToCSV}
+            disabled={filteredUsers.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Download className="w-4 h-4" />
+            Export CSV
+          </button>
         </div>
       </div>
 
@@ -238,6 +322,7 @@ export default function AdminUsers() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">S.No</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">User</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Contact</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Role</th>
@@ -249,13 +334,16 @@ export default function AdminUsers() {
             <tbody className="divide-y divide-gray-200">
               {paginatedUsers.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
                     No users found
                   </td>
                 </tr>
               ) : (
-                paginatedUsers.map((user) => (
+                paginatedUsers.map((user, index) => (
                   <tr key={user._id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <span className="font-semibold text-gray-700">{startIndex + index + 1}</span>
+                    </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center font-bold text-primary-600">
@@ -264,7 +352,7 @@ export default function AdminUsers() {
                         <div>
                           <p className="font-semibold text-dark-800">{user.name}</p>
                           <p className="text-xs text-gray-500">
-                            {user.userId || `ID: ${user._id.slice(-8)}`}
+                            {user.userId || `RM-${user._id.slice(-8).toUpperCase()}`}
                           </p>
                         </div>
                       </div>
@@ -350,7 +438,6 @@ export default function AdminUsers() {
                 <div className="flex gap-1">
                   {[...Array(totalPages)].map((_, index) => {
                     const page = index + 1;
-                    // Show first page, last page, current page, and pages around current
                     if (
                       page === 1 ||
                       page === totalPages ||
@@ -451,7 +538,7 @@ export default function AdminUsers() {
                   <div>
                     <p className="text-gray-600">User ID</p>
                     <p className="font-semibold text-gray-900 font-mono">
-                      {selectedUser.userId || selectedUser._id}
+                      {selectedUser.userId || `RM-${selectedUser._id.slice(-8).toUpperCase()}`}
                     </p>
                   </div>
                   <div>
@@ -471,9 +558,8 @@ export default function AdminUsers() {
               <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-lg p-4 border border-orange-200">
                 <h3 className="text-lg font-semibold mb-3 text-orange-900">Referral Information</h3>
                 <div className="space-y-3">
-                  {/* User's Referral Code */}
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">User's Referral Code</p>
+                    <p className="text-sm text-gray-600 mb-1">Referral Code</p>
                     <div className="flex items-center gap-2">
                       <code className="px-3 py-1.5 bg-white rounded-lg font-mono font-bold text-orange-600 border border-orange-300">
                         {selectedUser.referralCode || 'Not Generated'}
@@ -486,7 +572,6 @@ export default function AdminUsers() {
                     </div>
                   </div>
 
-                  {/* Referred By */}
                   {selectedUser.referredBy && (
                     <div>
                       <p className="text-sm text-gray-600 mb-1">Referred By</p>
@@ -502,7 +587,6 @@ export default function AdminUsers() {
                     </div>
                   )}
 
-                  {/* Users Referred by This User */}
                   {selectedUser.referrals && selectedUser.referrals.length > 0 && (
                     <div>
                       <p className="text-sm text-gray-600 mb-2">Users Referred ({selectedUser.referrals.length})</p>
@@ -520,7 +604,6 @@ export default function AdminUsers() {
                     </div>
                   )}
 
-                  {/* No Referral Activity */}
                   {!selectedUser.referredBy && (!selectedUser.referrals || selectedUser.referrals.length === 0) && (
                     <div className="text-center py-3">
                       <p className="text-sm text-gray-500">No referral activity</p>

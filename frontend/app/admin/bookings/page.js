@@ -54,18 +54,25 @@ export default function AdminBookings() {
   const [statsVenuePage, setStatsVenuePage] = useState(1);
   const statsVenueDropdownRef = useRef(null);
   const statsVenueListRef = useRef(null);
+  
+  // Venue type filter states
+  const [venueTypes, setVenueTypes] = useState([]);
+  const [selectedVenueType, setSelectedVenueType] = useState('all');
+  const [venueTypeDropdownOpen, setVenueTypeDropdownOpen] = useState(false);
+  const venueTypeDropdownRef = useRef(null);
 
   useEffect(() => {
     if (token) {
       fetchBookings();
       fetchVenues(1, ''); // Load initial venues for booking filter
       fetchStatsVenues(1, ''); // Load initial venues for stats filter
+      fetchVenueTypes(); // Load venue types
     }
   }, [token]);
 
   useEffect(() => {
     fetchBookings();
-  }, [currentPage, itemsPerPage, statusFilter, selectedVenue, searchQuery, selectedStatsVenue]);
+  }, [currentPage, itemsPerPage, statusFilter, selectedVenue, searchQuery, selectedStatsVenue, selectedVenueType]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -75,6 +82,9 @@ export default function AdminBookings() {
       }
       if (statsVenueDropdownRef.current && !statsVenueDropdownRef.current.contains(event.target)) {
         setStatsVenueDropdownOpen(false);
+      }
+      if (venueTypeDropdownRef.current && !venueTypeDropdownRef.current.contains(event.target)) {
+        setVenueTypeDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -91,7 +101,8 @@ export default function AdminBookings() {
         status: statusFilter,
         ...(selectedVenue && { venue: selectedVenue._id }),
         ...(searchQuery && { search: searchQuery }),
-        ...(selectedStatsVenue && { statsVenue: selectedStatsVenue._id })
+        ...(selectedStatsVenue && { statsVenue: selectedStatsVenue._id }),
+        ...(selectedVenueType && selectedVenueType !== 'all' && { venueType: selectedVenueType })
       });
 
       const response = await fetch(
@@ -115,6 +126,20 @@ export default function AdminBookings() {
       toast.error('Failed to load bookings');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fetch venue types
+  const fetchVenueTypes = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venue-types`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setVenueTypes(data.venueTypes);
+      }
+    } catch (error) {
+      console.error('Error fetching venue types:', error);
     }
   };
 
@@ -280,11 +305,76 @@ export default function AdminBookings() {
 
   return (
     <AdminLayout title="Bookings Management" subtitle={`Manage all ${totalBookings} bookings`}>
-      {/* Stats Filter */}
+      {/* Combined Filters */}
       <div className="bg-white rounded-lg shadow-soft border border-gray-100 p-4 mb-4">
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-semibold text-gray-700">Filter Stats by Venue:</span>
-          <div className="relative flex-1 max-w-md" ref={statsVenueDropdownRef}>
+        <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+          {/* Venue Type Filter */}
+          <div className="flex items-center gap-3 flex-1">
+            <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">Filter by Venue Type:</span>
+            <div className="relative flex-1" ref={venueTypeDropdownRef}>
+              <button
+                onClick={() => setVenueTypeDropdownOpen(!venueTypeDropdownOpen)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white flex items-center justify-between hover:border-primary-500 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  {selectedVenueType === 'all' ? (
+                    <>
+                      <Building2 className="w-4 h-4 text-gray-600" />
+                      <span className="text-sm">All Venue Types</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-lg">{venueTypes.find(t => t.name === selectedVenueType)?.icon}</span>
+                      <span className="text-sm">{selectedVenueType}</span>
+                    </>
+                  )}
+                </div>
+                <ChevronDown className={`w-4 h-4 text-gray-600 transition-transform ${venueTypeDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {venueTypeDropdownOpen && (
+                <div className="absolute z-50 mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-2xl max-h-80 overflow-y-auto">
+                  <button
+                    onClick={() => {
+                      setSelectedVenueType('all');
+                      setVenueTypeDropdownOpen(false);
+                    }}
+                    className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors ${
+                      selectedVenueType === 'all' ? 'bg-primary-50 text-primary-700 font-semibold' : 'text-gray-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Building2 className="w-5 h-5" />
+                      <span className="text-sm">All Venue Types</span>
+                    </div>
+                  </button>
+                  
+                  {venueTypes.map((type) => (
+                    <button
+                      key={type._id}
+                      onClick={() => {
+                        setSelectedVenueType(type.name);
+                        setVenueTypeDropdownOpen(false);
+                      }}
+                      className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors border-t border-gray-100 ${
+                        selectedVenueType === type.name ? 'bg-primary-50 text-primary-700 font-semibold' : 'text-gray-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">{type.icon}</span>
+                        <span className="text-sm">{type.name}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Stats Venue Filter */}
+          <div className="flex items-center gap-3 flex-1">
+            <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">Filter Stats by Venue:</span>
+            <div className="relative flex-1" ref={statsVenueDropdownRef}>
             <button
               onClick={() => setStatsVenueDropdownOpen(!statsVenueDropdownOpen)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white flex items-center justify-between hover:border-primary-500 transition-colors"

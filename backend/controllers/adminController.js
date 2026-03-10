@@ -529,7 +529,8 @@ exports.getAllBookings = async (req, res) => {
       status, 
       venue, 
       search,
-      statsVenue // Separate venue filter for stats
+      statsVenue, // Separate venue filter for stats
+      venueType // Venue type filter
     } = req.query;
 
     // Build query for bookings
@@ -541,6 +542,20 @@ exports.getAllBookings = async (req, res) => {
     
     if (venue && venue !== 'all') {
       query.venue = venue;
+    }
+    
+    // Venue type filter
+    if (venueType && venueType !== 'all') {
+      const venuesWithType = await Venue.find({
+        venueType: venueType
+      }).select('_id');
+      
+      if (query.venue) {
+        // If venue is already filtered, combine with venue type
+        query.venue = { $in: venuesWithType.map(v => v._id), $eq: query.venue };
+      } else {
+        query.venue = { $in: venuesWithType.map(v => v._id) };
+      }
     }
     
     if (search) {
@@ -571,7 +586,7 @@ exports.getAllBookings = async (req, res) => {
     
     // Fetch paginated bookings
     const bookings = await Booking.find(query)
-      .populate('venue', 'businessName location images owner')
+      .populate('venue', 'businessName location images owner venueType')
       .populate('customer', 'name email phone')
       .populate({
         path: 'venue',
@@ -584,10 +599,24 @@ exports.getAllBookings = async (req, res) => {
       .skip(skip)
       .limit(parseInt(limit));
 
-    // Calculate stats (filtered by statsVenue if provided)
+    // Calculate stats (filtered by statsVenue and venueType if provided)
     let statsQuery = {};
     if (statsVenue && statsVenue !== 'all') {
       statsQuery.venue = statsVenue;
+    }
+    
+    // Apply venue type filter to stats
+    if (venueType && venueType !== 'all') {
+      const venuesWithType = await Venue.find({
+        venueType: venueType
+      }).select('_id');
+      
+      if (statsQuery.venue) {
+        // If statsVenue is already filtered, combine with venue type
+        statsQuery.venue = { $in: venuesWithType.map(v => v._id), $eq: statsQuery.venue };
+      } else {
+        statsQuery.venue = { $in: venuesWithType.map(v => v._id) };
+      }
     }
 
     const stats = {

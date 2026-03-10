@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
 import {
-  Percent, Save, IndianRupee, Settings as SettingsIcon, Calculator
+  Percent, Save, Settings as SettingsIcon, Calculator
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -13,13 +13,11 @@ export default function PlatformSettings() {
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState({
     gstRate: 18,
-    platformFeeType: 'percentage',
-    platformFeeValue: 5
+    platformFeePercentage: 5
   });
   const [newSettings, setNewSettings] = useState({
     gstRate: 18,
-    platformFeeType: 'percentage',
-    platformFeeValue: 5
+    platformFeePercentage: 5
   });
 
   useEffect(() => {
@@ -55,8 +53,8 @@ export default function PlatformSettings() {
       return;
     }
 
-    if (newSettings.platformFeeValue < 0) {
-      toast.error('Platform fee must be positive');
+    if (newSettings.platformFeePercentage < 0 || newSettings.platformFeePercentage > 100) {
+      toast.error('Platform fee must be between 0 and 100');
       return;
     }
 
@@ -89,12 +87,10 @@ export default function PlatformSettings() {
   const calculateExample = (amount = 10000) => {
     const subtotal = amount;
     const gst = (subtotal * newSettings.gstRate) / 100;
-    const platformFee = newSettings.platformFeeType === 'fixed' 
-      ? newSettings.platformFeeValue 
-      : (subtotal * newSettings.platformFeeValue) / 100;
+    const platformFee = (subtotal * newSettings.platformFeePercentage) / 100;
     const total = subtotal + gst + platformFee;
-    const ownerEarnings = subtotal;
-    return { subtotal, gst, platformFee, total, ownerEarnings };
+    
+    return { subtotal, gst, platformFee, total };
   };
 
   const example = calculateExample();
@@ -112,7 +108,7 @@ export default function PlatformSettings() {
   return (
     <AdminLayout title="Platform Settings" subtitle="Manage GST & Platform Fee">
       {/* Current Settings */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         {/* GST Rate */}
         <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg shadow-soft border border-blue-200 p-6">
           <div className="flex items-center justify-between mb-2">
@@ -126,18 +122,12 @@ export default function PlatformSettings() {
         {/* Platform Fee */}
         <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg shadow-soft border border-purple-200 p-6">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-purple-700 font-semibold">Current Platform Fee</p>
-            <IndianRupee className="w-5 h-5 text-purple-600" />
+            <p className="text-sm text-purple-700 font-semibold">Platform Fee</p>
+            <Percent className="w-5 h-5 text-purple-600" />
           </div>
-          <p className="text-5xl font-bold text-purple-900">
-            {settings.platformFeeType === 'fixed' ? '₹' : ''}{settings.platformFeeValue}{settings.platformFeeType === 'percentage' ? '%' : ''}
-          </p>
-          <p className="text-xs text-purple-600 mt-1">
-            {settings.platformFeeType === 'fixed' ? 'Fixed amount' : 'Percentage based'}
-          </p>
+          <p className="text-5xl font-bold text-purple-900">{settings.platformFeePercentage}%</p>
+          <p className="text-xs text-purple-600 mt-1">Percentage based</p>
         </div>
-
-        
       </div>
 
       {/* Update Settings */}
@@ -167,61 +157,27 @@ export default function PlatformSettings() {
               <p className="text-xs text-gray-500 mt-1">Enter GST percentage (e.g., 18 for 18%)</p>
             </div>
 
-            {/* Platform Fee Type */}
+            {/* Platform Fee Percentage */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Platform Fee Type
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setNewSettings({ ...newSettings, platformFeeType: 'fixed' })}
-                  className={`px-4 py-3 rounded-lg font-semibold transition-all ${
-                    newSettings.platformFeeType === 'fixed'
-                      ? 'bg-primary-500 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  Fixed Amount
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setNewSettings({ ...newSettings, platformFeeType: 'percentage' })}
-                  className={`px-4 py-3 rounded-lg font-semibold transition-all ${
-                    newSettings.platformFeeType === 'percentage'
-                      ? 'bg-primary-500 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  Percentage
-                </button>
-              </div>
-            </div>
-
-            {/* Platform Fee Value */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Platform Fee {newSettings.platformFeeType === 'fixed' ? '(₹)' : '(%)'}
+                Platform Fee (%)
               </label>
               <input
                 type="number"
                 min="0"
-                step={newSettings.platformFeeType === 'fixed' ? '1' : '0.1'}
-                value={newSettings.platformFeeValue}
-                onChange={(e) => setNewSettings({ ...newSettings, platformFeeValue: parseFloat(e.target.value) || 0 })}
+                max="100"
+                step="0.1"
+                value={newSettings.platformFeePercentage}
+                onChange={(e) => setNewSettings({ ...newSettings, platformFeePercentage: parseFloat(e.target.value) || 0 })}
                 className="w-full px-4 py-3 text-xl font-bold text-center border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               />
-              <p className="text-xs text-gray-500 mt-1">
-                {newSettings.platformFeeType === 'fixed' 
-                  ? 'Enter fixed amount in rupees (e.g., 500)'
-                  : 'Enter percentage (e.g., 5 for 5%)'}
-              </p>
+              <p className="text-xs text-gray-500 mt-1">Enter percentage (e.g., 5 for 5%)</p>
             </div>
 
             <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-sm text-yellow-800 font-semibold mb-2">⚠️ Important Note:</p>
               <p className="text-xs text-yellow-700">
-                Changes will apply to all new bookings.
+                Changes will apply to all new bookings. Existing bookings will retain their original rates.
               </p>
             </div>
 
@@ -257,9 +213,7 @@ export default function PlatformSettings() {
               </div>
               
               <div className="flex justify-between items-center">
-                <span className="text-gray-700">
-                  Platform Fee ({newSettings.platformFeeType === 'fixed' ? '₹' : ''}{newSettings.platformFeeValue}{newSettings.platformFeeType === 'percentage' ? '%' : ''}):
-                </span>
+                <span className="text-gray-700">Platform Fee ({newSettings.platformFeePercentage}%):</span>
                 <span className="text-lg font-semibold text-purple-600">+ ₹{example.platformFee.toLocaleString()}</span>
               </div>
               
@@ -267,8 +221,6 @@ export default function PlatformSettings() {
                 <span className="text-lg font-bold text-gray-900">Customer Pays:</span>
                 <span className="text-2xl font-bold text-primary-600">₹{example.total.toLocaleString()}</span>
               </div>
-
-              
             </div>
           </div>
 
@@ -276,9 +228,9 @@ export default function PlatformSettings() {
             <p className="text-sm font-semibold text-blue-800 mb-2">Breakdown:</p>
             <ul className="text-xs text-blue-700 space-y-1">
               <li>• Customer pays: ₹{example.total.toLocaleString()}</li>
-            <li>• Platform earns: ₹{example.platformFee.toLocaleString()} (Platform Fee)</li>
+              <li>• Platform earns: ₹{example.platformFee.toLocaleString()} (Platform Fee)</li>
               <li>• Government gets: ₹{example.gst.toLocaleString()} (GST)</li>
-            <li>• Venue owner gets: ₹{example.ownerEarnings.toLocaleString()}</li>
+              <li>• Venue owner gets: ₹{example.subtotal.toLocaleString()}</li>
             </ul>
           </div>
         </div>

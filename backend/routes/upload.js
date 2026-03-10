@@ -6,8 +6,8 @@ const { uploadToCloudinary } = require('../config/cloudinary');
 
 // @route   POST /api/upload/image
 // @desc    Upload image to Cloudinary
-// @access  Private
-router.post('/image', protect, async (req, res) => {
+// @access  Public
+router.post('/image', async (req, res) => {
   try {
     const { file, folder = 'general' } = req.body;
 
@@ -55,8 +55,8 @@ router.post('/image', protect, async (req, res) => {
 
 // @route   POST /api/upload/document
 // @desc    Upload document to Cloudinary
-// @access  Private
-router.post('/document', protect, async (req, res) => {
+// @access  Public
+router.post('/document', async (req, res) => {
   try {
     const { file, folder = 'documents' } = req.body;
 
@@ -104,8 +104,8 @@ router.post('/document', protect, async (req, res) => {
 
 // @route   POST /api/upload
 // @desc    Upload file to Cloudinary (generic)
-// @access  Private
-router.post('/', protect, upload.single('file'), async (req, res) => {
+// @access  Public
+router.post('/', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({

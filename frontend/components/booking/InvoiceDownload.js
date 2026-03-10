@@ -3,14 +3,25 @@
 import { Download } from 'lucide-react';
 
 export default function InvoiceDownload({ booking, userRole = 'customer' }) {
-  const generateInvoice = () => {
-    // Create invoice HTML
+  const computeParts = () => {
+    const subtotal = booking?.priceBreakdown?.subtotal ?? booking?.ownerEarnings ?? 0;
+    const gst = booking?.priceBreakdown?.gst ?? 0;
+    const total = booking?.amount ?? (subtotal + gst);
+    const platformFee = Math.max(0, total - subtotal - gst);
+    const gstRate = subtotal > 0 && gst > 0 ? Math.round((gst / subtotal) * 100) : 18;
+    return { subtotal, gst, gstRate, total, platformFee };
+  };
+
+  const buildVenueInvoiceHTML = () => {
+    const { subtotal, gst, gstRate, total } = computeParts();
+    const grand = subtotal + gst;
+    // Create invoice HTML (Venue GST)
     const invoiceHTML = `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Invoice - ${booking.bookingNumber || booking._id.slice(-8).toUpperCase()}</title>
+  <title>Venue Tax Invoice - ${booking.bookingNumber || booking._id.slice(-8).toUpperCase()}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: Arial, sans-serif; padding: 40px; color: #333; }
@@ -52,7 +63,7 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
         <p style="color: #666; font-size: 14px; margin-top: 5px;">Venue Booking Platform</p>
       </div>
       <div class="invoice-title">
-        <h1>INVOICE</h1>
+        <h1>TAX INVOICE (Venue)</h1>
         <p>Invoice #: ${booking.bookingNumber || booking._id.slice(-8).toUpperCase()}</p>
         <p>Date: ${new Date(booking.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
         <p class="status-badge status-${booking.paymentStatus}">${booking.paymentStatus.toUpperCase()}</p>
@@ -78,7 +89,7 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
       </div>
 
       <div class="section">
-        <div class="section-title">VENUE DETAILS</div>
+        <div class="section-title">SUPPLIER (VENUE)</div>
         <div class="info-item">
           <div class="info-label">Venue Name</div>
           <div class="info-value">${booking.venue?.businessName || 'N/A'}</div>
@@ -86,6 +97,10 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
         <div class="info-item">
           <div class="info-label">Location</div>
           <div class="info-value">${booking.venue?.location?.city || 'N/A'}, ${booking.venue?.location?.area || 'N/A'}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">GSTIN</div>
+          <div class="info-value">${booking.venue?.documents?.gstNumber || 'Not Available'}</div>
         </div>
         <div class="info-item">
           <div class="info-label">Booking Date</div>
@@ -200,31 +215,19 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
       </table>
     </div>
 
-    <!-- Total Section -->
+    <!-- Total Section (with GST) -->
     <div class="total-section">
       <div class="total-row">
-        <span>Venue Rental:</span>
-        <span>₹${(booking.priceBreakdown?.basePrice || ((booking.amount || 0) - (booking.amenitiesTotal || 0))).toLocaleString()}</span>
+        <span>Taxable Value (Venue Subtotal):</span>
+        <span>₹${(subtotal || 0).toLocaleString()}</span>
       </div>
-      ${booking.amenitiesTotal > 0 ? `
-        <div class="total-row">
-          <span>Amenities & Services:</span>
-          <span>₹${(booking.amenitiesTotal || 0).toLocaleString()}</span>
-        </div>
-      ` : ''}
       <div class="total-row">
-        <span>Subtotal:</span>
-        <span>₹${(booking.amount || 0).toLocaleString()}</span>
+        <span>GST @ ${gstRate}%:</span>
+        <span>₹${(gst || 0).toLocaleString()}</span>
       </div>
-      ${userRole === 'owner' ? `
-        <div class="total-row">
-          <span>Your Earnings:</span>
-          <span style="color: #059669;">₹${(booking.ownerEarnings || 0).toLocaleString()}</span>
-        </div>
-      ` : ''}
       <div class="total-row grand">
-        <span>TOTAL AMOUNT:</span>
-        <span>₹${(booking.amount || 0).toLocaleString()}</span>
+        <span>VENUE INVOICE TOTAL:</span>
+        <span>₹${(grand || 0).toLocaleString()}</span>
       </div>
     </div>
 
@@ -281,26 +284,153 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
 </body>
 </html>
     `;
+    return invoiceHTML;
+  };
 
-    // Create blob and download
-    const blob = new Blob([invoiceHTML], { type: 'text/html' });
+  const buildPlatformInvoiceHTML = () => {
+    const { platformFee } = computeParts();
+    // Create invoice HTML (Platform Service)
+    const invoiceHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Platform Invoice - ${booking.bookingNumber || booking._id.slice(-8).toUpperCase()}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; padding: 40px; color: #333; }
+    .invoice-container { max-width: 800px; margin: 0 auto; border: 2px solid #0EA5E9; padding: 30px; }
+    .header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 30px; border-bottom: 3px solid #0EA5E9; padding-bottom: 20px; }
+    .logo { font-size: 32px; font-weight: bold; color: #0EA5E9; }
+    .invoice-title { text-align: right; }
+    .invoice-title h1 { font-size: 28px; color: #0EA5E9; margin-bottom: 5px; }
+    .invoice-title p { color: #666; font-size: 14px; }
+    .section { margin-bottom: 25px; }
+    .section-title { font-size: 16px; font-weight: bold; color: #0EA5E9; margin-bottom: 10px; border-bottom: 2px solid #0EA5E9; padding-bottom: 5px; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    .info-item { padding: 8px; background: #E0F2FE; border-left: 3px solid #0EA5E9; }
+    .info-label { font-size: 12px; color: #666; margin-bottom: 3px; }
+    .info-value { font-size: 14px; font-weight: 600; color: #333; }
+    .total-section { margin-top: 20px; background: #E0F2FE; padding: 15px; border: 2px solid #0EA5E9; }
+    .total-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; }
+    .total-row.grand { font-size: 18px; font-weight: bold; color: #0EA5E9; border-top: 2px solid #0EA5E9; padding-top: 12px; margin-top: 8px; }
+    .footer { margin-top: 40px; text-align: center; padding-top: 20px; border-top: 2px solid #E5E7EB; color: #666; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="invoice-container">
+    <div class="header">
+      <div>
+        <div class="logo">RentalMeet</div>
+        <p style="color: #666; font-size: 14px; margin-top: 5px;">Platform Service Charges</p>
+      </div>
+      <div class="invoice-title">
+        <h1>PLATFORM INVOICE</h1>
+        <p>Ref #: ${booking.bookingNumber || booking._id.slice(-8).toUpperCase()}</p>
+        <p>Date: ${new Date(booking.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+      </div>
+    </div>
+
+    <div class="info-grid">
+      <div class="section">
+        <div class="section-title">BILLED TO</div>
+        <div class="info-item">
+          <div class="info-label">Customer Name</div>
+          <div class="info-value">${booking.customer?.name || 'N/A'}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Email</div>
+          <div class="info-value">${booking.customer?.email || 'N/A'}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Phone</div>
+          <div class="info-value">${booking.customer?.phone || 'N/A'}</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">SUPPLIER (PLATFORM)</div>
+        <div class="info-item">
+          <div class="info-label">Company</div>
+          <div class="info-value">RentalMeet Platform</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">GSTIN</div>
+          <div class="info-value">Not Available</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Reference Booking</div>
+          <div class="info-value">${booking.bookingNumber || booking._id}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="total-section">
+      <div class="total-row">
+        <span>Platform Service Fee:</span>
+        <span>₹${(platformFee || 0).toLocaleString()}</span>
+      </div>
+      <div class="total-row">
+        <span>GST on Platform Fee:</span>
+        <span>₹0</span>
+      </div>
+      <div class="total-row grand">
+        <span>PLATFORM INVOICE TOTAL:</span>
+        <span>₹${(platformFee || 0).toLocaleString()}</span>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p><strong>This invoice covers RentalMeet platform service charges only.</strong></p>
+      <p style="margin-top: 8px;">Venue rental and GST are billed separately in the Venue Tax Invoice.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+    return invoiceHTML;
+  };
+
+  const downloadHTML = (html, filename) => {
+    const blob = new Blob([html], { type: 'text/html' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Invoice-${booking.bookingNumber || booking._id.slice(-8).toUpperCase()}.html`;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
   };
 
+  const generateVenueInvoice = () => {
+    const html = buildVenueInvoiceHTML();
+    const filename = `VenueTaxInvoice-${booking.bookingNumber || booking._id.slice(-8).toUpperCase()}.html`;
+    downloadHTML(html, filename);
+  };
+
+  const generatePlatformInvoice = () => {
+    const html = buildPlatformInvoiceHTML();
+    const filename = `PlatformInvoice-${booking.bookingNumber || booking._id.slice(-8).toUpperCase()}.html`;
+    downloadHTML(html, filename);
+  };
+
   return (
-    <button
-      onClick={generateInvoice}
-      className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-semibold transition-colors"
-    >
-      <Download className="w-4 h-4" />
-      Download Invoice
-    </button>
+    <div className="flex items-center gap-2">
+      <button
+        onClick={generateVenueInvoice}
+        className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition-colors"
+      >
+        <Download className="w-4 h-4" />
+        Venue Invoice (GST)
+      </button>
+      <button
+        onClick={generatePlatformInvoice}
+        className="flex items-center gap-2 px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-sm font-semibold transition-colors"
+      >
+        <Download className="w-4 h-4" />
+        Platform Invoice
+      </button>
+    </div>
   );
 }

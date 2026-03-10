@@ -37,18 +37,6 @@ const bookingSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-  commission: {
-    type: Number,
-    required: true
-  },
-  ownerEarnings: {
-    type: Number,
-    required: true
-  },
-  commissionRate: {
-    type: Number,
-    default: 15
-  },
   // Selected amenities and services
   selectedAmenities: {
     basic: [{
