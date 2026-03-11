@@ -175,7 +175,7 @@ export default function Login() {
               Login as {' '}
               <span className="font-semibold text-primary-500">
                 {selectedRole === 'customer' ? 'Client (User)' : 
-                 selectedRole === 'owner' ? 'Space Owner' : 
+                 selectedRole === 'owner' ? 'Business Owner' : 
                  'Service Vendor'}
               </span>
             </p>
