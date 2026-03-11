@@ -145,7 +145,7 @@ Featured Venues at RentalMeet
                       <p className="text-xs text-gray-500 dark:text-slate-400 mb-0.5">Starting from</p>
                       <p className="text-2xl font-bold text-[#F59F0A]">
                         Rs.{venue.pricing?.perHour?.weekday?.toLocaleString('en-IN') || 0}
-                        <span className="text-xs font-normal text-gray-500 dark:text-slate-400">/hr</span>
+                        <span className="text-xs font-normal text-gray-500 dark:text-slate-400"></span>
                       </p>
                     </div>
                     <button className="bg-white dark:bg-slate-900 border-2 border-gray-200 dark:border-slate-700 hover:border-[#F59F0A] hover:bg-[#F59F0A] hover:text-white text-gray-700 dark:text-slate-200 font-semibold px-4 py-2 rounded-lg transition-all duration-300 text-sm whitespace-nowrap">

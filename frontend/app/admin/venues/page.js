@@ -5,7 +5,7 @@ import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
 import {
   Building2, MapPin, Users, IndianRupee, Eye, CheckCircle,
-  XCircle, Ban, Search, Filter, X, Calendar, Phone, Mail, ChevronDown
+  XCircle, Ban, Search, Filter, X, Calendar, Phone, Mail, ChevronDown, Download
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -334,6 +334,58 @@ export default function AdminVenues() {
               <option value="suspended">Suspended</option>
             </select>
           </div>
+
+          {/* Export Button */}
+          <button
+            onClick={() => {
+              try {
+                const headers = [
+                  'S.No', 'Venue Name', 'SKU', 'Owner Name', 'Owner Email', 'Owner Phone',
+                  'City', 'Area', 'Capacity', 'Status', 'Created Date'
+                ];
+                
+                const rows = filteredVenues.map((venue, index) => [
+                  index + 1,
+                  venue.businessName || 'N/A',
+                  venue.sku || 'N/A',
+                  venue.owner?.name || 'N/A',
+                  venue.owner?.email || 'N/A',
+                  venue.owner?.phone || 'N/A',
+                  venue.location?.city || 'N/A',
+                  venue.location?.area || 'N/A',
+                  venue.capacity || 'N/A',
+                  venue.status || 'N/A',
+                  new Date(venue.createdAt).toLocaleDateString('en-IN')
+                ]);
+
+                const csvContent = [
+                  headers.join(','),
+                  ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+                ].join('\\n');
+
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                
+                link.setAttribute('href', url);
+                link.setAttribute('download', `venues_${new Date().toISOString().split('T')[0]}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                toast.success('Venues exported successfully!');
+              } catch (error) {
+                console.error('Export error:', error);
+                toast.error('Failed to export venues');
+              }
+            }}
+            disabled={filteredVenues.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Download className="w-4 h-4" />
+            Export CSV
+          </button>
         </div>
       </div>
 
@@ -343,6 +395,7 @@ export default function AdminVenues() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">S.No</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Venue</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Owner</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Location</th>
@@ -354,13 +407,16 @@ export default function AdminVenues() {
             <tbody className="divide-y divide-gray-200">
               {filteredVenues.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
                     No venues found
                   </td>
                 </tr>
               ) : (
-                filteredVenues.map((venue) => (
+                filteredVenues.map((venue, index) => (
                   <tr key={venue._id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <span className="font-semibold text-gray-700">{index + 1}</span>
+                    </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         {venue.images?.[0]?.url ? (

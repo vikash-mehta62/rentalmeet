@@ -48,7 +48,7 @@ export default function Login() {
       // Default redirect based on role
       if (user.role === 'owner') {
         router.push('/owner/dashboard');
-      } else if (user.role === 'admin') {
+      } else if (user.role === 'admin' || user.role === 'subadmin') {
         router.push('/admin/dashboard');
       } else if (user.role === 'customer') {
         router.push('/customer/dashboard');
@@ -108,7 +108,7 @@ export default function Login() {
         // Default redirect based on role
         if (data.user.role === 'owner') {
           router.push('/owner/dashboard');
-        } else if (data.user.role === 'admin') {
+        } else if (data.user.role === 'admin' || data.user.role === 'subadmin') {
           router.push('/admin/dashboard');
         } else if (data.user.role === 'customer') {
           router.push('/customer/dashboard');

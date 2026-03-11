@@ -12,8 +12,10 @@ export default function CTASection() {
         
         {/* Left Side: Content */}
         <div className="flex-1 text-left">
-          <h2 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-gray-900 mb-6 leading-tight" style={{ fontFamily: 'Georgia, serif' }}>
-            Ready to Book Your Venue?
+        <h2 
+className="text-[52px] md:text-[64px] font-semibold leading-[1.1] text-gray-900 dark:text-slate-100"
+style={{ fontFamily: 'Playfair Display, serif' }}
+>            Ready to Book Your Venue?
           </h2>
           <p className="text-lg md:text-xl text-gray-900/80 mb-10 max-w-xl">
             Transform your meetings with our premium venues. Download our app to manage bookings on the go.

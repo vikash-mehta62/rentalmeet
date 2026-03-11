@@ -745,31 +745,42 @@ exports.getPayment = async (req, res) => {
 // @route   GET /api/admin/reports
 exports.getReports = async (req, res) => {
   try {
-    const { range = 'month' } = req.query;
+    const { range, startDate, endDate } = req.query;
     
     // Calculate date range
-    let startDate = new Date();
-    switch (range) {
-      case 'week':
-        startDate.setDate(startDate.getDate() - 7);
-        break;
-      case 'month':
-        startDate.setMonth(startDate.getMonth() - 1);
-        break;
-      case 'quarter':
-        startDate.setMonth(startDate.getMonth() - 3);
-        break;
-      case 'year':
-        startDate.setFullYear(startDate.getFullYear() - 1);
-        break;
-      default:
-        startDate = new Date(0); // All time
+    let queryStartDate, queryEndDate;
+    
+    if (startDate && endDate) {
+      // Custom date range
+      queryStartDate = new Date(startDate);
+      queryEndDate = new Date(endDate);
+    } else {
+      // Predefined range
+      queryEndDate = new Date();
+      queryStartDate = new Date();
+      
+      switch (range) {
+        case 'week':
+          queryStartDate.setDate(queryStartDate.getDate() - 7);
+          break;
+        case 'month':
+          queryStartDate.setMonth(queryStartDate.getMonth() - 1);
+          break;
+        case 'quarter':
+          queryStartDate.setMonth(queryStartDate.getMonth() - 3);
+          break;
+        case 'year':
+          queryStartDate.setFullYear(queryStartDate.getFullYear() - 1);
+          break;
+        default:
+          queryStartDate = new Date(0); // All time
+      }
     }
     
     // Revenue data
     const paidBookings = await Booking.find({
       paymentStatus: 'paid',
-      createdAt: { $gte: startDate }
+      createdAt: { $gte: queryStartDate, $lte: queryEndDate }
     });
     
     const totalRevenue = paidBookings.reduce((sum, b) => sum + (b.amount || 0), 0);
@@ -784,7 +795,9 @@ exports.getReports = async (req, res) => {
     }, 0);
     
     // Bookings data
-    const allBookings = await Booking.find({ createdAt: { $gte: startDate } });
+    const allBookings = await Booking.find({ 
+      createdAt: { $gte: queryStartDate, $lte: queryEndDate } 
+    });
     const bookingsStats = {
       total: allBookings.length,
       completed: allBookings.filter(b => b.status === 'completed').length,
@@ -808,19 +821,19 @@ exports.getReports = async (req, res) => {
     // Payment status breakdown
     const paidPayments = await Booking.find({ 
       paymentStatus: 'paid',
-      createdAt: { $gte: startDate }
+      createdAt: { $gte: queryStartDate, $lte: queryEndDate }
     });
     const pendingPayments = await Booking.find({ 
       paymentStatus: 'pending',
-      createdAt: { $gte: startDate }
+      createdAt: { $gte: queryStartDate, $lte: queryEndDate }
     });
     const failedPayments = await Booking.find({ 
       paymentStatus: 'failed',
-      createdAt: { $gte: startDate }
+      createdAt: { $gte: queryStartDate, $lte: queryEndDate }
     });
     const refundedPayments = await Booking.find({ 
       paymentStatus: 'refunded',
-      createdAt: { $gte: startDate }
+      createdAt: { $gte: queryStartDate, $lte: queryEndDate }
     });
     
     res.json({
@@ -1225,7 +1238,7 @@ exports.getAllEmployees = async (req, res) => {
 // @route   POST /api/admin/employees
 exports.createEmployee = async (req, res) => {
   try {
-    const { name, email, phone, alternatePhone, address, city, state, pincode, password } = req.body;
+    const { name, email, phone, alternatePhone, address, city, state, pincode, password, employeeDetails } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
@@ -1236,7 +1249,7 @@ exports.createEmployee = async (req, res) => {
       });
     }
 
-    // Generate userId for employee
+    // Generate userId for employee with EMP prefix
     const userId = await generateUserId('employee');
 
     // Create employee
@@ -1252,7 +1265,8 @@ exports.createEmployee = async (req, res) => {
       pincode,
       password,
       role: 'employee',
-      isVerified: true // Auto-verify employees
+      isVerified: true, // Auto-verify employees
+      employeeDetails: employeeDetails || {}
     });
 
     // Generate unique referral code for employee
@@ -1278,6 +1292,7 @@ exports.createEmployee = async (req, res) => {
       message: 'Employee created successfully'
     });
   } catch (error) {
+    console.error('Create employee error:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -1289,7 +1304,7 @@ exports.createEmployee = async (req, res) => {
 // @route   PUT /api/admin/employees/:id
 exports.updateEmployee = async (req, res) => {
   try {
-    const { name, email, phone, alternatePhone, address, city, state, pincode, password } = req.body;
+    const { name, email, phone, alternatePhone, address, city, state, pincode, password, employeeDetails } = req.body;
 
     const employee = await User.findById(req.params.id);
     if (!employee || employee.role !== 'employee') {
@@ -1330,6 +1345,14 @@ exports.updateEmployee = async (req, res) => {
     if (state !== undefined) employee.state = state;
     if (pincode !== undefined) employee.pincode = pincode;
     if (password) employee.password = password; // Will be hashed by pre-save hook
+    
+    // Update employee details
+    if (employeeDetails) {
+      employee.employeeDetails = {
+        ...employee.employeeDetails,
+        ...employeeDetails
+      };
+    }
 
     await employee.save();
 
@@ -1342,6 +1365,7 @@ exports.updateEmployee = async (req, res) => {
       message: 'Employee updated successfully'
     });
   } catch (error) {
+    console.error('Update employee error:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -1396,6 +1420,214 @@ exports.toggleEmployeeStatus = async (req, res) => {
       success: true,
       data: employee,
       message: `Employee ${isActive ? 'activated' : 'deactivated'} successfully`
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// ==================== SUBADMIN MANAGEMENT ====================
+
+// @desc    Get all subadmins
+// @route   GET /api/admin/subadmins
+exports.getAllSubAdmins = async (req, res) => {
+  try {
+    const subadmins = await User.find({ role: 'subadmin' })
+      .select('-password')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: subadmins.length,
+      data: subadmins
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Create subadmin
+// @route   POST /api/admin/subadmins
+exports.createSubAdmin = async (req, res) => {
+  try {
+    const { name, email, phone, alternatePhone, address, city, state, pincode, password } = req.body;
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'User with this email or phone already exists'
+      });
+    }
+
+    // Generate userId for subadmin with SUB prefix
+    const userId = await generateUserId('subadmin');
+
+    // Create subadmin
+    const subadmin = await User.create({
+      userId,
+      name,
+      email,
+      phone,
+      alternatePhone,
+      address,
+      city,
+      state,
+      pincode,
+      password,
+      role: 'subadmin',
+      isActive: true
+    });
+
+    // Generate unique referral code for subadmin
+    let newReferralCode;
+    let isUnique = false;
+    while (!isUnique) {
+      newReferralCode = subadmin.generateReferralCode();
+      const existingCode = await User.findOne({ referralCode: newReferralCode });
+      if (!existingCode) {
+        isUnique = true;
+      }
+    }
+    subadmin.referralCode = newReferralCode;
+    await subadmin.save();
+
+    // Remove password from response
+    const subadminData = subadmin.toObject();
+    delete subadminData.password;
+
+    res.status(201).json({
+      success: true,
+      data: subadminData,
+      message: 'SubAdmin created successfully'
+    });
+  } catch (error) {
+    console.error('Create subadmin error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Update subadmin
+// @route   PUT /api/admin/subadmins/:id
+exports.updateSubAdmin = async (req, res) => {
+  try {
+    const { name, email, phone, alternatePhone, address, city, state, pincode, password } = req.body;
+
+    const subadmin = await User.findById(req.params.id);
+    if (!subadmin || subadmin.role !== 'subadmin') {
+      return res.status(404).json({
+        success: false,
+        message: 'SubAdmin not found'
+      });
+    }
+
+    // Check if email/phone is being changed and already exists
+    if (email && email !== subadmin.email) {
+      const existingEmail = await User.findOne({ email, _id: { $ne: req.params.id } });
+      if (existingEmail) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email already in use'
+        });
+      }
+    }
+
+    if (phone && phone !== subadmin.phone) {
+      const existingPhone = await User.findOne({ phone, _id: { $ne: req.params.id } });
+      if (existingPhone) {
+        return res.status(400).json({
+          success: false,
+          message: 'Phone already in use'
+        });
+      }
+    }
+
+    // Update fields
+    if (name) subadmin.name = name;
+    if (email) subadmin.email = email;
+    if (phone) subadmin.phone = phone;
+    if (alternatePhone !== undefined) subadmin.alternatePhone = alternatePhone;
+    if (address !== undefined) subadmin.address = address;
+    if (city !== undefined) subadmin.city = city;
+    if (state !== undefined) subadmin.state = state;
+    if (pincode !== undefined) subadmin.pincode = pincode;
+    if (password) subadmin.password = password; // Will be hashed by pre-save hook
+
+    await subadmin.save();
+
+    const subadminData = subadmin.toObject();
+    delete subadminData.password;
+
+    res.json({
+      success: true,
+      data: subadminData,
+      message: 'SubAdmin updated successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Delete subadmin
+// @route   DELETE /api/admin/subadmins/:id
+exports.deleteSubAdmin = async (req, res) => {
+  try {
+    const subadmin = await User.findById(req.params.id);
+    if (!subadmin || subadmin.role !== 'subadmin') {
+      return res.status(404).json({
+        success: false,
+        message: 'SubAdmin not found'
+      });
+    }
+
+    await subadmin.deleteOne();
+
+    res.json({
+      success: true,
+      message: 'SubAdmin deleted successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Toggle subadmin status
+// @route   PUT /api/admin/subadmins/:id/status
+exports.toggleSubAdminStatus = async (req, res) => {
+  try {
+    const { isActive } = req.body;
+
+    const subadmin = await User.findById(req.params.id);
+    if (!subadmin || subadmin.role !== 'subadmin') {
+      return res.status(404).json({
+        success: false,
+        message: 'SubAdmin not found'
+      });
+    }
+
+    subadmin.isActive = isActive;
+    await subadmin.save();
+
+    res.json({
+      success: true,
+      data: subadmin,
+      message: `SubAdmin ${isActive ? 'activated' : 'deactivated'} successfully`
     });
   } catch (error) {
     res.status(500).json({

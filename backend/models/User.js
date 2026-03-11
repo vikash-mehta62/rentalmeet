@@ -29,7 +29,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['owner', 'admin', 'customer', 'employee'],
+    enum: ['owner', 'admin', 'subadmin', 'customer', 'employee'],
     default: 'customer'
   },
   password: {
@@ -82,7 +82,125 @@ const userSchema = new mongoose.Schema({
       type: Date,
       default: Date.now
     }
-  }]
+  }],
+  
+  // Employee-specific fields
+  employeeDetails: {
+    title: {
+      type: String,
+      enum: ['Mr', 'Mrs', 'Ms', 'Dr', 'Prof'],
+    },
+    fatherOrHusbandName: {
+      type: String
+    },
+    dateOfBirth: {
+      type: Date
+    },
+    gender: {
+      type: String,
+      enum: ['Male', 'Female', 'Other']
+    },
+    maritalStatus: {
+      type: String,
+      enum: ['Single', 'Married', 'Divorced', 'Widowed']
+    },
+    bloodGroup: {
+      type: String,
+      enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
+    },
+    qualification: {
+      tenth: {
+        board: String,
+        year: Number,
+        percentage: Number,
+        certificate: String // URL
+      },
+      twelfth: {
+        board: String,
+        year: Number,
+        percentage: Number,
+        certificate: String // URL
+      },
+      graduation: {
+        degree: String,
+        university: String,
+        year: Number,
+        percentage: Number,
+        certificate: String // URL
+      },
+      postGraduation: {
+        degree: String,
+        university: String,
+        year: Number,
+        percentage: Number,
+        certificate: String // URL
+      }
+    },
+    photo: {
+      type: String // URL
+    },
+    position: {
+      type: String
+    },
+    department: {
+      type: String
+    },
+    employmentType: {
+      type: String,
+      enum: ['Permanent', 'Contract'],
+      default: 'Permanent'
+    },
+    salary: {
+      type: Number // For permanent employees
+    },
+    contractDetails: {
+      paymentType: {
+        type: String,
+        enum: ['perLead', 'overall']
+      },
+      amount: Number
+    },
+    joiningDate: {
+      type: Date
+    },
+    reportingManager: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    previousExperience: {
+      type: Number, // in years
+      default: 0
+    },
+    documents: {
+      aadhaarNumber: {
+        type: String
+      },
+      aadhaarFront: {
+        type: String // URL
+      },
+      aadhaarBack: {
+        type: String // URL
+      },
+      panNumber: {
+        type: String
+      },
+      panCard: {
+        type: String // URL
+      }
+    },
+    bankDetails: {
+      accountHolderName: String,
+      accountNumber: String,
+      ifscCode: String,
+      bankName: String,
+      branchName: String
+    },
+    emergencyContact: {
+      name: String,
+      relationship: String,
+      phone: String
+    }
+  }
 }, {
   timestamps: true
 });
@@ -97,7 +215,8 @@ userSchema.pre('save', async function(next) {
 // Generate unique referral code
 userSchema.methods.generateReferralCode = function() {
   const prefix = this.role === 'owner' ? 'OWN' : 
-                 this.role === 'employee' ? 'EMP' : 'USR';
+                 this.role === 'employee' ? 'EMP' :
+                 this.role === 'subadmin' ? 'SUB' : 'USR';
   const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
   return `${prefix}${randomStr}`;
 };

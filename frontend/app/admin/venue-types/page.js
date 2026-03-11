@@ -209,15 +209,21 @@ export default function AdminVenueTypes() {
                 <span className={`text-xs font-semibold ${type.isActive ? 'text-green-600' : 'text-gray-500'}`}>
                   {type.isActive ? 'Active' : 'Inactive'}
                 </span>
+                
+                {/* Toggle Switch */}
                 <button
                   onClick={() => toggleActive(type)}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                    type.isActive
-                      ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                    type.isActive ? 'bg-green-500' : 'bg-gray-300'
                   }`}
+                  role="switch"
+                  aria-checked={type.isActive}
                 >
-                  {type.isActive ? 'Deactivate' : 'Activate'}
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      type.isActive ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
                 </button>
               </div>
             </div>

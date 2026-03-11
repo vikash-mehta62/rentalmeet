@@ -260,6 +260,82 @@ export default function AdminBookings() {
     setModalOpen(false);
   };
 
+  // Export bookings to CSV
+  const exportToCSV = () => {
+    if (bookings.length === 0) {
+      toast.error('No bookings to export');
+      return;
+    }
+
+    try {
+      // CSV Headers
+      const headers = [
+        'S.No',
+        'Booking Number',
+        'Booking Date',
+        'Time Slot',
+        'Venue Name',
+        'Venue Location',
+        'Customer Name',
+        'Customer Email',
+        'Customer Phone',
+        'Event Type',
+        'Guest Count',
+        'Amount',
+        'Amenities Total',
+        'Total Amount',
+        'Booking Status',
+        'Payment Status',
+        'Created Date'
+      ];
+
+      // CSV Rows
+      const rows = bookings.map((booking, index) => [
+        index + 1,
+        booking.bookingNumber || `#${booking._id.slice(-8).toUpperCase()}`,
+        new Date(booking.bookingDate).toLocaleDateString('en-IN'),
+        `${booking.startTime} - ${booking.endTime}`,
+        booking.venue?.businessName || 'N/A',
+        `${booking.venue?.location?.city || ''}, ${booking.venue?.location?.area || ''}`,
+        booking.customer?.name || 'N/A',
+        booking.customer?.email || 'N/A',
+        booking.customerDetails?.phone || booking.customer?.phone || 'N/A',
+        booking.customerDetails?.eventType || 'N/A',
+        booking.customerDetails?.guestCount || 'N/A',
+        booking.amount - (booking.amenitiesTotal || 0),
+        booking.amenitiesTotal || 0,
+        booking.amount,
+        booking.status,
+        booking.paymentStatus,
+        new Date(booking.createdAt).toLocaleDateString('en-IN')
+      ]);
+
+      // Create CSV content
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+      ].join('\n');
+
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `bookings_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success(`${bookings.length} bookings exported successfully`);
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Failed to export bookings');
+    }
+  };
+
   const getStatusBadge = (status) => {
     const badges = {
       pending: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: Clock },
@@ -484,6 +560,7 @@ export default function AdminBookings() {
               </div>
             )}
           </div>
+          </div>
         </div>
       </div>
 
@@ -660,6 +737,16 @@ export default function AdminBookings() {
               <option value="cancelled">Cancelled</option>
             </select>
           </div>
+
+          {/* Export Button */}
+          <button
+            onClick={exportToCSV}
+            disabled={bookings.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Download className="w-5 h-5" />
+            Export CSV
+          </button>
         </div>
       </div>
 
@@ -669,6 +756,7 @@ export default function AdminBookings() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">S.No</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Booking ID</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Venue</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Customer</th>
@@ -682,13 +770,16 @@ export default function AdminBookings() {
             <tbody className="divide-y divide-gray-200">
               {bookings.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan="9" className="px-6 py-8 text-center text-gray-500">
                     No bookings found
                   </td>
                 </tr>
               ) : (
-                bookings.map((booking) => (
+                bookings.map((booking, index) => (
                   <tr key={booking._id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <span className="font-semibold text-gray-700">{index + 1}</span>
+                    </td>
                     <td className="px-6 py-4">
                       <p className="font-mono text-sm font-semibold text-dark-800">
                         {booking.bookingNumber || `#${booking._id.slice(-8).toUpperCase()}`}
@@ -1031,10 +1122,6 @@ export default function AdminBookings() {
 
               {/* Selected Amenities */}
               {selectedBooking.selectedAmenities && (
-                (selectedBooking.selectedAmenities.basic?.length > 0 ||
-                 selectedBooking.selectedAmenities.beverages?.length > 0 ||
-                 selectedBooking.selectedAmenities.refreshmentFood?.length > 0 ||
-                 selectedBooking.selectedAmenities.lunchThalis?.length > 0) && (
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Selected Amenities & Services</h3>
                   <div className="space-y-3">
@@ -1140,7 +1227,7 @@ export default function AdminBookings() {
                     )}
                   </div>
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </div>

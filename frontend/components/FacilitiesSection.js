@@ -83,10 +83,10 @@ export default function FacilitiesSection() {
             FACILITIES
           </p>
 
-          <h2
-            className="text-4xl md:text-5xl font-semibold leading-10 text-gray-900 dark:text-slate-100"
-            style={{ fontFamily: 'Playfair Display, Georgia, serif' }}
-          >
+           <h2 
+className="text-[52px] md:text-[64px] font-semibold leading-[1.1] text-gray-900 dark:text-slate-100"
+style={{ fontFamily: 'Playfair Display, serif' }}
+>
             Unparalleled Amenities
           </h2>
 

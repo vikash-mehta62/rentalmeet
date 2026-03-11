@@ -190,6 +190,7 @@ export default function AdminPayments() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">S.No</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Payment ID</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Customer</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Venue</th>
@@ -208,8 +209,11 @@ export default function AdminPayments() {
                   </td>
                 </tr>
               ) : (
-                filteredPayments.map((payment) => (
+                filteredPayments.map((payment, index) => (
                   <tr key={payment._id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <span className="font-semibold text-gray-700">{index + 1}</span>
+                    </td>
                     <td className="px-6 py-4">
                       <p className="font-mono text-xs font-semibold text-dark-800">
                         {payment.paymentDetails?.paymentId?.slice(0, 20) || 'N/A'}...

@@ -73,8 +73,10 @@ export default function TestimonialsSection() {
         {/* Header */}
         <div className="text-center mb-12">
           <p className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-2">TESTIMONIALS</p>
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-slate-100 mb-2" style={{ fontFamily: 'Georgia, serif' }}>
-            What Our Clients Say
+        <h2 
+className="text-[52px] md:text-[64px] font-semibold leading-[1.1] text-gray-900 dark:text-slate-100"
+style={{ fontFamily: 'Playfair Display, serif' }}
+>            What Our Clients Say
           </h2>
           <p className="text-gray-600 dark:text-slate-300 max-w-2xl mx-auto">
             Hear from our satisfied clients about their experience with RentalMeet

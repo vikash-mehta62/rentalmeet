@@ -3,34 +3,33 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
-import { Users, Plus, Edit2, Trash2, Eye, EyeOff, X, Save, UserPlus } from 'lucide-react';
+import EmployeeForm from '@/components/admin/EmployeeForm';
+import { Users, Plus, Edit2, Trash2, Eye, EyeOff, X, Download, Search, Filter } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function EmployeesPage() {
   const { token } = useAuthStore();
   const [employees, setEmployees] = useState([]);
+  const [filteredEmployees, setFilteredEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    alternatePhone: '',
-    address: '',
-    city: '',
-    state: '',
-    pincode: '',
-    password: ''
-  });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
     if (token) {
       fetchEmployees();
     }
   }, [token]);
+
+  useEffect(() => {
+    filterEmployees();
+  }, [employees, searchQuery, statusFilter]);
 
   const fetchEmployees = async () => {
     try {
@@ -51,52 +50,32 @@ export default function EmployeesPage() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const filterEmployees = () => {
+    let filtered = [...employees];
 
-    try {
-      const url = editingEmployee
-        ? `${process.env.NEXT_PUBLIC_API_URL}/admin/employees/${editingEmployee._id}`
-        : `${process.env.NEXT_PUBLIC_API_URL}/admin/employees`;
-
-      const response = await fetch(url, {
-        method: editingEmployee ? 'PUT' : 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        toast.success(data.message);
-        setShowModal(false);
-        resetForm();
-        fetchEmployees();
-      } else {
-        toast.error(data.message);
-      }
-    } catch (error) {
-      console.error('Error saving employee:', error);
-      toast.error('Failed to save employee');
+    // Status filter
+    if (statusFilter !== 'all') {
+      const isActive = statusFilter === 'active';
+      filtered = filtered.filter(e => e.isActive === isActive);
     }
+
+    // Search filter
+    if (searchQuery) {
+      filtered = filtered.filter(e =>
+        e.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.phone?.includes(searchQuery) ||
+        e.userId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.employeeDetails?.position?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    setFilteredEmployees(filtered);
+    setCurrentPage(1);
   };
 
   const handleEdit = (employee) => {
     setEditingEmployee(employee);
-    setFormData({
-      name: employee.name,
-      email: employee.email,
-      phone: employee.phone,
-      alternatePhone: employee.alternatePhone || '',
-      address: employee.address || '',
-      city: employee.city || '',
-      state: employee.state || '',
-      pincode: employee.pincode || '',
-      password: '' // Don't populate password
-    });
     setShowModal(true);
   };
 
@@ -150,29 +129,63 @@ export default function EmployeesPage() {
     }
   };
 
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      email: '',
-      phone: '',
-      alternatePhone: '',
-      address: '',
-      city: '',
-      state: '',
-      pincode: '',
-      password: ''
-    });
-    setEditingEmployee(null);
-  };
-
   const viewDetails = (employee) => {
     setSelectedEmployee(employee);
     setShowDetailsModal(true);
   };
 
+  const exportToCSV = () => {
+    const headers = [
+      'S.No', 'Employee ID', 'Name', 'Email', 'Phone', 'Position', 
+      'Department', 'Employment Type', 'Status', 'Joining Date'
+    ];
+    
+    const rows = filteredEmployees.map((emp, index) => [
+      index + 1,
+      emp.userId || `RM-${emp._id.slice(-8).toUpperCase()}`,
+      emp.name,
+      emp.email,
+      emp.phone,
+      emp.employeeDetails?.position || 'N/A',
+      emp.employeeDetails?.department || 'N/A',
+      emp.employeeDetails?.employmentType || 'N/A',
+      emp.isActive ? 'Active' : 'Inactive',
+      emp.employeeDetails?.joiningDate ? new Date(emp.employeeDetails.joiningDate).toLocaleDateString('en-IN') : 'N/A'
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `employees_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success('CSV exported successfully!');
+  };
+
+  // Pagination
+  const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedEmployees = filteredEmployees.slice(startIndex, endIndex);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   if (loading) {
     return (
-      <AdminLayout>
+      <AdminLayout title="Employee Management" subtitle="Loading employees...">
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
         </div>
@@ -181,17 +194,16 @@ export default function EmployeesPage() {
   }
 
   return (
-    <AdminLayout>
+    <AdminLayout title="Employee Management" subtitle={`Manage all ${employees.length} employees`}>
       <div className="space-y-6">
-        {/* Header */}
+        {/* Header with Add Button */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Employee Management</h1>
-            <p className="text-gray-600 mt-1">Manage your employees and their access</p>
+            <p className="text-gray-600 mt-1">Manage your employees and their details</p>
           </div>
           <button
             onClick={() => {
-              resetForm();
+              setEditingEmployee(null);
               setShowModal(true);
             }}
             className="flex items-center gap-2 bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition-colors"
@@ -236,6 +248,47 @@ export default function EmployeesPage() {
           </div>
         </div>
 
+        {/* Filters */}
+        <div className="bg-white rounded-lg shadow-soft border border-gray-100 p-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            {/* Search */}
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by name, email, phone, position..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+
+            {/* Status Filter */}
+            <div className="flex items-center gap-2">
+              <Filter className="w-5 h-5 text-gray-600" />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white"
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+
+            {/* Export Button */}
+            <button
+              onClick={exportToCSV}
+              disabled={filteredEmployees.length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Download className="w-4 h-4" />
+              Export CSV
+            </button>
+          </div>
+        </div>
+
         {/* Employees Table */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="overflow-x-auto">
@@ -243,19 +296,22 @@ export default function EmployeesPage() {
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    S.No
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Employee ID
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Name
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Email
+                    Contact
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Phone
+                    Position
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Referral Code
+                    Type
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
@@ -266,91 +322,178 @@ export default function EmployeesPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {employees.map((employee) => (
-                  <tr key={employee._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {employee.userId || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {employee.name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {employee.email}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {employee.phone}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded font-mono text-xs">
-                        {employee.referralCode || 'N/A'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-semibold rounded ${
-                        employee.isActive !== false
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {employee.isActive !== false ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => viewDetails(employee)}
-                          className="text-blue-600 hover:text-blue-900"
-                          title="View Details"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleEdit(employee)}
-                          className="text-yellow-600 hover:text-yellow-900"
-                          title="Edit"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => toggleStatus(employee._id, employee.isActive)}
-                          className={`${
-                            employee.isActive !== false
-                              ? 'text-red-600 hover:text-red-900'
-                              : 'text-green-600 hover:text-green-900'
-                          }`}
-                          title={employee.isActive !== false ? 'Deactivate' : 'Activate'}
-                        >
-                          {employee.isActive !== false ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                        <button
-                          onClick={() => handleDelete(employee._id)}
-                          className="text-red-600 hover:text-red-900"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                {paginatedEmployees.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" className="px-6 py-8 text-center text-gray-500">
+                      No employees found
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  paginatedEmployees.map((employee, index) => (
+                    <tr key={employee._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="font-semibold text-gray-700">{startIndex + index + 1}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {employee.userId || `RM-${employee._id.slice(-8).toUpperCase()}`}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-3">
+                          {employee.employeeDetails?.photo ? (
+                            <img
+                              src={employee.employeeDetails.photo}
+                              alt={employee.name}
+                              className="w-10 h-10 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center font-bold text-primary-600">
+                              {employee.name?.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">{employee.name}</p>
+                            <p className="text-xs text-gray-500">{employee.employeeDetails?.department || 'N/A'}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        <p>{employee.email}</p>
+                        <p className="text-xs">{employee.phone}</p>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {employee.employeeDetails?.position || 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 text-xs font-semibold rounded ${
+                          employee.employeeDetails?.employmentType === 'Permanent'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-orange-100 text-orange-800'
+                        }`}>
+                          {employee.employeeDetails?.employmentType || 'N/A'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 text-xs font-semibold rounded ${
+                          employee.isActive !== false
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {employee.isActive !== false ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => viewDetails(employee)}
+                            className="text-blue-600 hover:text-blue-900"
+                            title="View Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleEdit(employee)}
+                            className="text-yellow-600 hover:text-yellow-900"
+                            title="Edit"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => toggleStatus(employee._id, employee.isActive)}
+                            className={`${
+                              employee.isActive !== false
+                                ? 'text-red-600 hover:text-red-900'
+                                : 'text-green-600 hover:text-green-900'
+                            }`}
+                            title={employee.isActive !== false ? 'Deactivate' : 'Activate'}
+                          >
+                            {employee.isActive !== false ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                          <button
+                            onClick={() => handleDelete(employee._id)}
+                            className="text-red-600 hover:text-red-900"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
 
-          {employees.length === 0 && (
-            <div className="text-center py-12">
-              <UserPlus className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No employees yet</h3>
-              <p className="text-gray-600 mb-4">Add your first employee to get started</p>
-              <button
-                onClick={() => {
-                  resetForm();
-                  setShowModal(true);
-                }}
-                className="inline-flex items-center gap-2 bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition-colors"
-              >
-                <Plus className="w-5 h-5" />
-                Add Employee
-              </button>
+          {/* Pagination */}
+          {filteredEmployees.length > 0 && (
+            <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">Show</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white text-sm"
+                >
+                  <option value="10">10</option>
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </select>
+                <span className="text-sm text-gray-600">
+                  entries (Showing {startIndex + 1}-{Math.min(endIndex, filteredEmployees.length)} of {filteredEmployees.length})
+                </span>
+              </div>
+
+              {totalPages > 1 && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                  >
+                    Previous
+                  </button>
+
+                  <div className="flex gap-1">
+                    {[...Array(totalPages)].map((_, index) => {
+                      const page = index + 1;
+                      if (
+                        page === 1 ||
+                        page === totalPages ||
+                        (page >= currentPage - 1 && page <= currentPage + 1)
+                      ) {
+                        return (
+                          <button
+                            key={page}
+                            onClick={() => handlePageChange(page)}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
+                              currentPage === page
+                                ? 'bg-primary-500 text-white'
+                                : 'border border-gray-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        );
+                      } else if (page === currentPage - 2 || page === currentPage + 2) {
+                        return <span key={page} className="px-2 text-gray-400">...</span>;
+                      }
+                      return null;
+                    })}
+                  </div>
+
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -358,169 +501,21 @@ export default function EmployeesPage() {
 
       {/* Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  {editingEmployee ? 'Edit Employee' : 'Add New Employee'}
-                </h2>
-                <button
-                  onClick={() => {
-                    setShowModal(false);
-                    resetForm();
-                  }}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Email <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Phone <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Alternate Phone
-                    </label>
-                    <input
-                      type="tel"
-                      value={formData.alternatePhone}
-                      onChange={(e) => setFormData({ ...formData, alternatePhone: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Address
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.address}
-                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      City
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.city}
-                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      State
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.state}
-                      onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Pincode
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.pincode}
-                      onChange={(e) => setFormData({ ...formData, pincode: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Password {!editingEmployee && <span className="text-red-500">*</span>}
-                    </label>
-                    <input
-                      type="password"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      required={!editingEmployee}
-                      placeholder={editingEmployee ? 'Leave blank to keep current password' : ''}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowModal(false);
-                      resetForm();
-                    }}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Save className="w-4 h-4" />
-                    {editingEmployee ? 'Update Employee' : 'Create Employee'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
+        <EmployeeForm
+          employee={editingEmployee}
+          onClose={() => {
+            setShowModal(false);
+            setEditingEmployee(null);
+          }}
+          onSuccess={fetchEmployees}
+          token={token}
+        />
       )}
 
-      {/* Details Modal */}
+      {/* Details Modal - Simple version, you can enhance it */}
       {showDetailsModal && selectedEmployee && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Employee Details</h2>
@@ -532,7 +527,8 @@ export default function EmployeesPage() {
                 </button>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-6">
+                {/* Basic Info */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-600">Employee ID</p>
@@ -540,22 +536,31 @@ export default function EmployeesPage() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Name</p>
-                    <p className="font-semibold">{selectedEmployee.name}</p>
+                    <p className="font-semibold">{selectedEmployee.employeeDetails?.title} {selectedEmployee.name}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Email</p>
-                    <p className="font-semibold">{selectedEmployee.email}</p>
+                    <p className="text-sm text-gray-600">Position</p>
+                    <p className="font-semibold">{selectedEmployee.employeeDetails?.position || 'N/A'}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Phone</p>
-                    <p className="font-semibold">{selectedEmployee.phone}</p>
+                    <p className="text-sm text-gray-600">Department</p>
+                    <p className="font-semibold">{selectedEmployee.employeeDetails?.department || 'N/A'}</p>
                   </div>
-                  {selectedEmployee.alternatePhone && (
-                    <div>
-                      <p className="text-sm text-gray-600">Alternate Phone</p>
-                      <p className="font-semibold">{selectedEmployee.alternatePhone}</p>
-                    </div>
-                  )}
+                  <div>
+                    <p className="text-sm text-gray-600">Employment Type</p>
+                    <p className="font-semibold">{selectedEmployee.employeeDetails?.employmentType || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Compensation</p>
+                    <p className="font-semibold">
+                      {selectedEmployee.employeeDetails?.employmentType === 'Permanent' 
+                        ? `₹${selectedEmployee.employeeDetails?.salary?.toLocaleString('en-IN') || 'N/A'}/month`
+                        : selectedEmployee.employeeDetails?.contractDetails
+                          ? `₹${selectedEmployee.employeeDetails.contractDetails.amount?.toLocaleString('en-IN')} (${selectedEmployee.employeeDetails.contractDetails.paymentType === 'perLead' ? 'Per Lead' : 'Overall Contract'})`
+                          : 'N/A'
+                      }
+                    </p>
+                  </div>
                   <div>
                     <p className="text-sm text-gray-600">Status</p>
                     <span className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
@@ -568,100 +573,22 @@ export default function EmployeesPage() {
                   </div>
                 </div>
 
-                {/* Referral Information */}
-                <div className="pt-4 border-t bg-gradient-to-br from-orange-50 to-yellow-50 rounded-lg p-4 border border-orange-200">
-                  <h3 className="text-lg font-semibold mb-3 text-orange-900">Referral Information</h3>
-                  <div className="space-y-3">
-                    {/* Employee's Referral Code */}
+                {/* Contact */}
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-3">Contact Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm text-gray-600 mb-1">Employee's Referral Code</p>
-                      <div className="flex items-center gap-2">
-                        <code className="px-3 py-1.5 bg-white rounded-lg font-mono font-bold text-orange-600 border border-orange-300">
-                          {selectedEmployee.referralCode || 'Not Generated'}
-                        </code>
-                        {selectedEmployee.referralCount > 0 && (
-                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
-                            {selectedEmployee.referralCount} referral{selectedEmployee.referralCount > 1 ? 's' : ''}
-                          </span>
-                        )}
-                      </div>
+                      <p className="text-sm text-gray-600">Email</p>
+                      <p className="font-semibold">{selectedEmployee.email}</p>
                     </div>
-
-                    {/* Referred By */}
-                    {selectedEmployee.referredBy && (
-                      <div>
-                        <p className="text-sm text-gray-600 mb-1">Referred By</p>
-                        <div className="bg-white rounded-lg p-3 border border-orange-200">
-                          <p className="font-semibold text-gray-900">{selectedEmployee.referredBy.name}</p>
-                          <p className="text-sm text-gray-600">{selectedEmployee.referredBy.email}</p>
-                          {selectedEmployee.referredBy.userId && (
-                            <p className="text-xs text-gray-500 mt-1">ID: {selectedEmployee.referredBy.userId}</p>
-                          )}
-                          {selectedEmployee.referredByCode && (
-                            <p className="text-xs text-orange-600 mt-1">
-                              Code used: <code className="font-mono font-bold">{selectedEmployee.referredByCode}</code>
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Users Referred by This Employee */}
-                    {selectedEmployee.referrals && selectedEmployee.referrals.length > 0 && (
-                      <div>
-                        <p className="text-sm text-gray-600 mb-2">Users Referred ({selectedEmployee.referrals.length})</p>
-                        <div className="space-y-2 max-h-40 overflow-y-auto">
-                          {selectedEmployee.referrals.map((referral, idx) => (
-                            <div key={idx} className="bg-white rounded-lg p-2 border border-orange-200 text-sm">
-                              <p className="font-semibold text-gray-900">{referral.user?.name || 'User'}</p>
-                              <p className="text-xs text-gray-600">{referral.user?.email || 'N/A'}</p>
-                              {referral.user?.userId && (
-                                <p className="text-xs text-gray-500">ID: {referral.user.userId}</p>
-                              )}
-                              {referral.user?.role && (
-                                <span className="inline-block px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs mt-1">
-                                  {referral.user.role}
-                                </span>
-                              )}
-                              <p className="text-xs text-orange-600 mt-1">
-                                Joined: {new Date(referral.joinedAt).toLocaleDateString('en-IN')}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* No Referral Activity */}
-                    {!selectedEmployee.referredBy && (!selectedEmployee.referrals || selectedEmployee.referrals.length === 0) && (
-                      <div className="text-center py-3">
-                        <p className="text-sm text-gray-500">No referral activity</p>
-                      </div>
-                    )}
+                    <div>
+                      <p className="text-sm text-gray-600">Phone</p>
+                      <p className="font-semibold">{selectedEmployee.phone}</p>
+                    </div>
                   </div>
                 </div>
 
-                {(selectedEmployee.address || selectedEmployee.city || selectedEmployee.state) && (
-                  <div className="pt-4 border-t">
-                    <p className="text-sm text-gray-600 mb-2">Address</p>
-                    <p className="font-semibold">
-                      {[selectedEmployee.address, selectedEmployee.city, selectedEmployee.state, selectedEmployee.pincode]
-                        .filter(Boolean)
-                        .join(', ')}
-                    </p>
-                  </div>
-                )}
-
-                <div className="pt-4 border-t">
-                  <p className="text-sm text-gray-600">Joined</p>
-                  <p className="font-semibold">
-                    {new Date(selectedEmployee.createdAt).toLocaleDateString('en-IN', {
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric'
-                    })}
-                  </p>
-                </div>
+                {/* More details can be added here */}
               </div>
             </div>
           </div>

@@ -8,7 +8,8 @@ const Counter = require('../models/Counter');
 const generateUserId = async (role) => {
   const year = new Date().getFullYear();
   const rolePrefix = role === 'owner' ? 'OWN' : 
-                     role === 'admin' ? 'ADM' : 
+                     role === 'admin' ? 'ADM' :
+                     role === 'subadmin' ? 'SUB' :
                      role === 'employee' ? 'EMP' : 'CUST';
   
   // Create counter ID: user_ROLE_YEAR

@@ -20,7 +20,7 @@ export default function AdminLayout({ children, title, subtitle }) {
   }, []);
 
   useEffect(() => {
-    if (hydrated && (!token || user?.role !== 'admin')) {
+    if (hydrated && (!token || (user?.role !== 'admin' && user?.role !== 'subadmin'))) {
       router.push('/login');
     }
   }, [hydrated, token, user, router]);
@@ -37,6 +37,7 @@ export default function AdminLayout({ children, title, subtitle }) {
     { name: 'Venue Types', href: '/admin/venue-types', icon: Grid3x3 },
     { name: 'Users', href: '/admin/users', icon: Users },
     { name: 'Employees', href: '/admin/employees', icon: Users },
+    { name: 'SubAdmins', href: '/admin/subadmins', icon: Shield },
     { name: 'Bookings', href: '/admin/bookings', icon: BookOpen },
     { name: 'Payments', href: '/admin/payments', icon: IndianRupee },
     { name: 'Reports', href: '/admin/reports', icon: BarChart3 },
@@ -45,7 +46,7 @@ export default function AdminLayout({ children, title, subtitle }) {
     { name: 'Settings', href: '/admin/settings', icon: Settings },
   ];
 
-  if (!hydrated || !token || user?.role !== 'admin') {
+  if (!hydrated || !token || (user?.role !== 'admin' && user?.role !== 'subadmin')) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">

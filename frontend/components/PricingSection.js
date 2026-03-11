@@ -10,25 +10,25 @@ export default function PricingSection() {
     {
       duration: '1 Hour',
       priceRange: 'Rs.1,000 - Rs.5,000',
-      description: 'Based on room size and facilities',
+      description: 'Based on venues size and facilities',
       popular: false
     },
     {
       duration: '2 Hours',
       priceRange: 'Rs.1,800 - Rs.9,000',
-      description: 'Based on room size and facilities',
+      description: 'Based on venues size and facilities',
       popular: false
     },
     {
       duration: '4 Hours',
       priceRange: 'Rs.3,000 - Rs.15,000',
-      description: 'Based on room size and facilities',
+      description: 'Based on venues size and facilities',
       popular: true
     },
     {
       duration: 'Full Day',
       priceRange: 'Rs.6,000 - Rs.30,000',
-      description: 'Based on room size and facilities',
+      description: 'Based on venues size and facilities',
       popular: false
     }
   ];
@@ -59,8 +59,10 @@ export default function PricingSection() {
           {/* Header */}
           <div className="text-center mb-12">
             <p className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-2">PRICING</p>
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-slate-100 mb-4" style={{ fontFamily: 'Georgia, serif' }}>
-              Exclusive Packages
+        <h2 
+className="text-[52px] md:text-[64px] font-semibold leading-[1.1] text-gray-900 dark:text-slate-100"
+style={{ fontFamily: 'Playfair Display, serif' }}
+>              Exclusive Packages
             </h2>
             <p className="text-base md:text-lg text-gray-600 dark:text-slate-300 max-w-2xl mx-auto">
               Flexible pricing options tailored to your needs. Choose the duration that works best for you.
@@ -132,8 +134,10 @@ export default function PricingSection() {
           {/* Header */}
           <div className="text-center mb-12">
             <p className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-2">WHY CHOOSE US</p>
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-slate-100" style={{ fontFamily: 'Georgia, serif' }}>
-              Trusted by Professionals
+        <h2 
+className="text-[52px] md:text-[64px] font-semibold leading-[1.1] text-gray-900 dark:text-slate-100"
+style={{ fontFamily: 'Playfair Display, serif' }}
+>              Trusted by Professionals
             </h2>
           </div>
 

@@ -32,7 +32,12 @@ const {
   createEmployee,
   updateEmployee,
   deleteEmployee,
-  toggleEmployeeStatus
+  toggleEmployeeStatus,
+  getAllSubAdmins,
+  createSubAdmin,
+  updateSubAdmin,
+  deleteSubAdmin,
+  toggleSubAdminStatus
 } = require('../controllers/adminController');
 const { protect, authorize } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
@@ -60,6 +65,17 @@ router.route('/employees/:id')
   .delete(protect, authorize('admin'), deleteEmployee);
 
 router.put('/employees/:id/status', protect, authorize('admin'), toggleEmployeeStatus);
+
+// SubAdmin Management routes (only main admin can manage subadmins)
+router.route('/subadmins')
+  .get(protect, authorize('admin'), getAllSubAdmins)
+  .post(protect, authorize('admin'), createSubAdmin);
+
+router.route('/subadmins/:id')
+  .put(protect, authorize('admin'), updateSubAdmin)
+  .delete(protect, authorize('admin'), deleteSubAdmin);
+
+router.put('/subadmins/:id/status', protect, authorize('admin'), toggleSubAdminStatus);
 
 // All other routes are admin only
 router.use(protect);
