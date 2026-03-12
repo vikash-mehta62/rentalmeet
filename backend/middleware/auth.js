@@ -56,3 +56,30 @@ exports.authorize = (...roles) => {
     next();
   };
 };
+
+// Check if subadmin has specific permission
+exports.checkPermission = (permission) => {
+  return (req, res, next) => {
+    // Main admin has all permissions
+    if (req.user.role === 'admin') {
+      return next();
+    }
+    
+    // Check if subadmin has the required permission
+    if (req.user.role === 'subadmin') {
+      if (!req.user.permissions || !req.user.permissions[permission]) {
+        return res.status(403).json({
+          success: false,
+          message: `You don't have permission to access this resource`
+        });
+      }
+      return next();
+    }
+    
+    // Other roles are not allowed
+    return res.status(403).json({
+      success: false,
+      message: 'Not authorized to access this route'
+    });
+  };
+};

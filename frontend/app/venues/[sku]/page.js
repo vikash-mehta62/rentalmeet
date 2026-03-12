@@ -894,10 +894,22 @@ export default function VenueDetail() {
               <div className="space-y-3 text-gray-600 dark:text-slate-300">
                 <p><strong>Address:</strong> {venue.location?.address}</p>
                 <p><strong>Landmark:</strong> {venue.location?.landmark}</p>
+                {venue.location?.state && (
+                  <p><strong>State:</strong> {venue.location?.state}</p>
+                )}
                 <p><strong>City:</strong> {venue.location?.city}</p>
+                {venue.location?.village && (
+                  <p><strong>Village:</strong> {venue.location?.village}</p>
+                )}
                 <p><strong>Area:</strong> {venue.location?.area}</p>
                 <p><strong>Pincode:</strong> {venue.location?.pincode}</p>
                 <p><strong>Parking:</strong> {venue.location?.parkingAvailability}</p>
+                {venue.location?.nearestBusAuto && (
+                  <p><strong>Nearest Bus/Auto:</strong> {venue.location?.nearestBusAuto}</p>
+                )}
+                {venue.location?.nearestMetroTrain && (
+                  <p><strong>Nearest Metro/Train:</strong> {venue.location?.nearestMetroTrain}</p>
+                )}
                 {venue.location?.googleMapLink && (
                   <a
                     href={venue.location.googleMapLink}
@@ -917,8 +929,8 @@ export default function VenueDetail() {
               <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-soft border border-gray-100 dark:border-slate-800 p-6">
                 <h2 className="text-2xl font-bold text-dark-800 dark:text-slate-100 mb-4">Pricing (Weekday)</h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* 1 Hour Card */}
-                  {venue.pricing.perHour && (
+                  {/* 1 Hour Card - Only show if enabled */}
+                  {venue.pricing.enabledOptions?.perHour && venue.pricing.perHour && (
                     <div 
                       onClick={() => setQuickBooking(prev => ({ ...prev, duration: '1' }))}
                       className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${
@@ -935,8 +947,8 @@ export default function VenueDetail() {
                     </div>
                   )}
                   
-                  {/* 4 Hours Card */}
-                  {venue.pricing.halfDay && (
+                  {/* 4 Hours Card - Only show if enabled */}
+                  {venue.pricing.enabledOptions?.halfDay && venue.pricing.halfDay && (
                     <div 
                       onClick={() => setQuickBooking(prev => ({ ...prev, duration: '4' }))}
                       className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${
@@ -954,8 +966,8 @@ export default function VenueDetail() {
                     </div>
                   )}
                   
-                  {/* 8 Hours Card */}
-                  {venue.pricing.fullDay && (
+                  {/* 8 Hours Card - Only show if enabled */}
+                  {venue.pricing.enabledOptions?.fullDay && venue.pricing.fullDay && (
                     <div 
                       onClick={() => setQuickBooking(prev => ({ ...prev, duration: '8' }))}
                       className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${
@@ -1052,50 +1064,58 @@ export default function VenueDetail() {
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200 mb-1">Duration</label>
                     <div className="grid grid-cols-4 gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setQuickBooking(prev => ({ ...prev, duration: '1' }))}
-                        className={`px-1.5 py-1 rounded-md text-xs font-semibold transition-all ${
-                          quickBooking.duration === '1'
-                            ? 'bg-primary-500 text-white shadow-md'
-                            : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-700'
-                        }`}
-                      >
-                        1H
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setQuickBooking(prev => ({ ...prev, duration: '2' }))}
-                        className={`px-1.5 py-1 rounded-md text-xs font-semibold transition-all ${
-                          quickBooking.duration === '2'
-                            ? 'bg-primary-500 text-white shadow-md'
-                            : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-700'
-                        }`}
-                      >
-                        2H
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setQuickBooking(prev => ({ ...prev, duration: '4' }))}
-                        className={`px-1.5 py-1 rounded-md text-xs font-semibold transition-all ${
-                          quickBooking.duration === '4'
-                            ? 'bg-primary-500 text-white shadow-md'
-                            : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-700'
-                        }`}
-                      >
-                        4H
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setQuickBooking(prev => ({ ...prev, duration: '8' }))}
-                        className={`px-1.5 py-1 rounded-md text-xs font-semibold transition-all ${
-                          quickBooking.duration === '8'
-                            ? 'bg-primary-500 text-white shadow-md'
-                            : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-700'
-                        }`}
-                      >
-                        Full Day
-                      </button>
+                      {venue.pricing?.enabledOptions?.perHour && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setQuickBooking(prev => ({ ...prev, duration: '1' }))}
+                            className={`px-1.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                              quickBooking.duration === '1'
+                                ? 'bg-primary-500 text-white shadow-md'
+                                : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-700'
+                            }`}
+                          >
+                            1H
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setQuickBooking(prev => ({ ...prev, duration: '2' }))}
+                            className={`px-1.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                              quickBooking.duration === '2'
+                                ? 'bg-primary-500 text-white shadow-md'
+                                : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-700'
+                            }`}
+                          >
+                            2H
+                          </button>
+                        </>
+                      )}
+                      {venue.pricing?.enabledOptions?.halfDay && (
+                        <button
+                          type="button"
+                          onClick={() => setQuickBooking(prev => ({ ...prev, duration: '4' }))}
+                          className={`px-1.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                            quickBooking.duration === '4'
+                              ? 'bg-primary-500 text-white shadow-md'
+                              : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-700'
+                          }`}
+                        >
+                          4H
+                        </button>
+                      )}
+                      {venue.pricing?.enabledOptions?.fullDay && (
+                        <button
+                          type="button"
+                          onClick={() => setQuickBooking(prev => ({ ...prev, duration: '8' }))}
+                          className={`px-1.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                            quickBooking.duration === '8'
+                              ? 'bg-primary-500 text-white shadow-md'
+                              : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-700'
+                          }`}
+                        >
+                          Full Day
+                        </button>
+                      )}
                     </div>
                   </div>
 

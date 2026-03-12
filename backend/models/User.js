@@ -56,6 +56,22 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  // SubAdmin Permissions (only for subadmin role)
+  permissions: {
+    dashboard: { type: Boolean, default: false },
+    heroSlides: { type: Boolean, default: false },
+    venues: { type: Boolean, default: false },
+    venueTypes: { type: Boolean, default: false },
+    users: { type: Boolean, default: false },
+    employees: { type: Boolean, default: false },
+    subadmins: { type: Boolean, default: false },
+    bookings: { type: Boolean, default: false },
+    payments: { type: Boolean, default: false },
+    reports: { type: Boolean, default: false },
+    reviews: { type: Boolean, default: false },
+    platformSettings: { type: Boolean, default: false },
+    settings: { type: Boolean, default: false }
+  },
   // Referral System
   referralCode: {
     type: String,

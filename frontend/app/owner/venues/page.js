@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import Link from 'next/link';
+import VenueDetailsModal from '@/components/venue/VenueDetailsModal';
 import {
   Building2, Plus, Eye, Edit, Trash2, Search,
   CheckCircle2, Clock, XCircle, AlertCircle, Calendar, IndianRupee, MapPin
@@ -16,6 +17,8 @@ export default function MyVenues() {
   const [filteredVenues, setFilteredVenues] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedVenue, setSelectedVenue] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
     if (token) {
@@ -83,6 +86,16 @@ export default function MyVenues() {
     } catch (error) {
       console.error('Error deleting venue:', error);
     }
+  };
+
+  const openModal = (venue) => {
+    setSelectedVenue(venue);
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setSelectedVenue(null);
+    setModalOpen(false);
   };
 
   const getStatusBadge = (status) => {
@@ -258,13 +271,13 @@ export default function MyVenues() {
 
                 {/* Actions */}
                 <div className="flex items-center gap-2">
-                  <Link
-                    href={`/venues/${venue.sku}`}
+                  <button
+                    onClick={() => openModal(venue)}
                     className="flex-1 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg font-semibold transition-colors text-center flex items-center justify-center gap-1"
                   >
                     <Eye className="w-4 h-4" />
                     View
-                  </Link>
+                  </button>
                   <Link
                     href={`/owner/venues/${venue._id}/edit`}
                     className="flex-1 px-3 py-2 bg-primary-50 hover:bg-primary-100 text-primary-600 rounded-lg font-semibold transition-colors text-center flex items-center justify-center gap-1"
@@ -283,6 +296,15 @@ export default function MyVenues() {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Venue Details Modal */}
+      {modalOpen && selectedVenue && (
+        <VenueDetailsModal
+          venue={selectedVenue}
+          onClose={closeModal}
+          showActions={false}
+        />
       )}
     </OwnerLayout>
   );

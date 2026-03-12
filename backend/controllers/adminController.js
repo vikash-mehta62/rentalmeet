@@ -316,11 +316,16 @@ exports.getPlatformSettings = async (req, res) => {
     // Get current settings (only one document)
     const settings = await PlatformSettings.getSettings();
     
+    // Add platformFeePercentage for frontend compatibility
+    const settingsObj = settings.toObject();
+    settingsObj.platformFeePercentage = settingsObj.platformFeeValue;
+    
     res.json({
       success: true,
-      settings
+      settings: settingsObj
     });
   } catch (error) {
+    console.error('Platform settings fetch error:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -333,7 +338,10 @@ exports.getPlatformSettings = async (req, res) => {
 exports.updatePlatformSettings = async (req, res) => {
   try {
     const PlatformSettings = require('../models/PlatformSettings');
-    const { gstRate, platformFeeType, platformFeeValue, commissionRate } = req.body;
+    const { gstRate, platformFeeType, platformFeeValue, platformFeePercentage, commissionRate } = req.body;
+    
+    // Handle both platformFeeValue and platformFeePercentage (frontend compatibility)
+    const feeValue = platformFeeValue !== undefined ? platformFeeValue : platformFeePercentage;
     
     // Find existing settings or create new
     let settings = await PlatformSettings.findOne();
@@ -342,17 +350,17 @@ exports.updatePlatformSettings = async (req, res) => {
       // Update existing document
       settings.gstRate = gstRate !== undefined ? gstRate : settings.gstRate;
       settings.platformFeeType = platformFeeType || settings.platformFeeType;
-      settings.platformFeeValue = platformFeeValue !== undefined ? platformFeeValue : settings.platformFeeValue;
+      settings.platformFeeValue = feeValue !== undefined ? feeValue : settings.platformFeeValue;
       settings.commissionRate = commissionRate !== undefined ? commissionRate : settings.commissionRate;
       settings.updatedBy = req.user.id;
       await settings.save();
     } else {
       // Create new document
       settings = await PlatformSettings.create({
-        gstRate,
-        platformFeeType,
-        platformFeeValue,
-        commissionRate,
+        gstRate: gstRate || 18,
+        platformFeeType: platformFeeType || 'percentage',
+        platformFeeValue: feeValue || 5,
+        commissionRate: commissionRate || 0,
         updatedBy: req.user.id
       });
     }
@@ -363,6 +371,7 @@ exports.updatePlatformSettings = async (req, res) => {
       settings
     });
   } catch (error) {
+    console.error('Platform settings update error:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -1456,7 +1465,7 @@ exports.getAllSubAdmins = async (req, res) => {
 // @route   POST /api/admin/subadmins
 exports.createSubAdmin = async (req, res) => {
   try {
-    const { name, email, phone, alternatePhone, address, city, state, pincode, password } = req.body;
+    const { name, email, phone, alternatePhone, address, city, state, pincode, password, permissions } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
@@ -1470,7 +1479,19 @@ exports.createSubAdmin = async (req, res) => {
     // Generate userId for subadmin with SUB prefix
     const userId = await generateUserId('subadmin');
 
-    // Create subadmin
+    // Generate unique referral code
+    const tempSubadmin = new User({ role: 'subadmin' });
+    let newReferralCode;
+    let isUnique = false;
+    while (!isUnique) {
+      newReferralCode = tempSubadmin.generateReferralCode();
+      const existingCode = await User.findOne({ referralCode: newReferralCode });
+      if (!existingCode) {
+        isUnique = true;
+      }
+    }
+
+    // Create subadmin with all data including referral code (single save)
     const subadmin = await User.create({
       userId,
       name,
@@ -1483,21 +1504,10 @@ exports.createSubAdmin = async (req, res) => {
       pincode,
       password,
       role: 'subadmin',
-      isActive: true
+      isActive: true,
+      permissions: permissions || {},
+      referralCode: newReferralCode
     });
-
-    // Generate unique referral code for subadmin
-    let newReferralCode;
-    let isUnique = false;
-    while (!isUnique) {
-      newReferralCode = subadmin.generateReferralCode();
-      const existingCode = await User.findOne({ referralCode: newReferralCode });
-      if (!existingCode) {
-        isUnique = true;
-      }
-    }
-    subadmin.referralCode = newReferralCode;
-    await subadmin.save();
 
     // Remove password from response
     const subadminData = subadmin.toObject();
@@ -1521,9 +1531,10 @@ exports.createSubAdmin = async (req, res) => {
 // @route   PUT /api/admin/subadmins/:id
 exports.updateSubAdmin = async (req, res) => {
   try {
-    const { name, email, phone, alternatePhone, address, city, state, pincode, password } = req.body;
+    const { name, email, phone, alternatePhone, address, city, state, pincode, password, permissions } = req.body;
 
-    const subadmin = await User.findById(req.params.id);
+    // Find subadmin with password field
+    const subadmin = await User.findById(req.params.id).select('+password');
     if (!subadmin || subadmin.role !== 'subadmin') {
       return res.status(404).json({
         success: false,
@@ -1561,7 +1572,8 @@ exports.updateSubAdmin = async (req, res) => {
     if (city !== undefined) subadmin.city = city;
     if (state !== undefined) subadmin.state = state;
     if (pincode !== undefined) subadmin.pincode = pincode;
-    if (password) subadmin.password = password; // Will be hashed by pre-save hook
+    if (password && password.trim() !== '') subadmin.password = password; // Will be hashed by pre-save hook
+    if (permissions !== undefined) subadmin.permissions = permissions;
 
     await subadmin.save();
 

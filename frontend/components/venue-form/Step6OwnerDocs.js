@@ -30,6 +30,8 @@ export default function Step6OwnerDocs() {
       panNumber: formData.documents?.idProof?.number || '',
       businessProofType: formData.documents?.businessProof?.type || '',
       businessProofOther: formData.documents?.businessProof?.otherSpecify || '',
+      hasGST: formData.ownerInfo?.hasGST || false,
+      gstNumber: formData.ownerInfo?.gstNumber || '',
       accountHolder: formData.bankDetails?.accountHolderName || '',
       accountNumber: formData.bankDetails?.accountNumber || '',
       ifsc: formData.bankDetails?.ifscCode || '',
@@ -52,6 +54,8 @@ export default function Step6OwnerDocs() {
         panNumber: formData.documents?.idProof?.number || '',
         businessProofType: formData.documents?.businessProof?.type || '',
         businessProofOther: formData.documents?.businessProof?.otherSpecify || '',
+        hasGST: formData.ownerInfo?.hasGST || false,
+        gstNumber: formData.ownerInfo?.gstNumber || '',
         accountHolder: formData.bankDetails?.accountHolderName || '',
         accountNumber: formData.bankDetails?.accountNumber || '',
         ifsc: formData.bankDetails?.ifscCode || '',
@@ -340,6 +344,46 @@ export default function Step6OwnerDocs() {
                 )}
               </div>
             </div>
+
+            {/* GST Section */}
+            <div className="mt-4 p-4 bg-white rounded-lg border border-gray-200">
+              <div className="flex items-center gap-3 mb-3">
+                <input
+                  type="checkbox"
+                  {...register('hasGST')}
+                  id="hasGST"
+                  className="w-5 h-5 rounded border-gray-300 text-primary-500 focus:ring-2 focus:ring-primary-500"
+                />
+                <label htmlFor="hasGST" className="text-sm font-semibold text-dark-700 cursor-pointer">
+                  I have GST Registration
+                </label>
+              </div>
+              
+              {watch('hasGST') && (
+                <div className="mt-3">
+                  <label className="block text-sm font-semibold text-dark-700 mb-2">
+                    GST Number *
+                  </label>
+                  <input
+                    type="text"
+                    {...register('gstNumber', { 
+                      required: watch('hasGST') ? 'GST number is required' : false,
+                      pattern: {
+                        value: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/,
+                        message: 'Enter valid GST number (e.g., 22AAAAA0000A1Z5)'
+                      }
+                    })}
+                    className="input-field"
+                    placeholder="22AAAAA0000A1Z5"
+                    maxLength={15}
+                    style={{ textTransform: 'uppercase' }}
+                  />
+                  {errors.gstNumber && (
+                    <p className="text-error text-sm mt-1">{errors.gstNumber.message}</p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -428,13 +472,13 @@ export default function Step6OwnerDocs() {
                     />
                   </label>
                   {idProofFiles.front && (
-                    <div className="mt-3">
-                      <p className="text-xs text-green-600 mb-2">✓ Uploaded to cloud</p>
-                      <div className="border-2 border-gray-200 rounded-lg overflow-hidden">
+                    <div className="mt-2">
+                      <p className="text-xs text-green-600 mb-1">✓ Uploaded to cloud</p>
+                      <div className="border-2 border-gray-200 rounded-lg overflow-hidden w-32">
                         <img 
                           src={idProofFiles.front.url} 
                           alt="Aadhaar Front" 
-                          className="w-full h-32 object-cover"
+                          className="w-full h-20 object-cover"
                         />
                       </div>
                     </div>
@@ -466,13 +510,13 @@ export default function Step6OwnerDocs() {
                     />
                   </label>
                   {idProofFiles.back && (
-                    <div className="mt-3">
-                      <p className="text-xs text-green-600 mb-2">✓ Uploaded to cloud</p>
-                      <div className="border-2 border-gray-200 rounded-lg overflow-hidden">
+                    <div className="mt-2">
+                      <p className="text-xs text-green-600 mb-1">✓ Uploaded to cloud</p>
+                      <div className="border-2 border-gray-200 rounded-lg overflow-hidden w-32">
                         <img 
                           src={idProofFiles.back.url} 
                           alt="Aadhaar Back" 
-                          className="w-full h-32 object-cover"
+                          className="w-full h-20 object-cover"
                         />
                       </div>
                     </div>
@@ -531,13 +575,13 @@ export default function Step6OwnerDocs() {
                     />
                   </label>
                   {idProofFiles.pan && (
-                    <div className="mt-3">
-                      <p className="text-xs text-green-600 mb-2">✓ Uploaded to cloud</p>
-                      <div className="border-2 border-gray-200 rounded-lg overflow-hidden">
+                    <div className="mt-2">
+                      <p className="text-xs text-green-600 mb-1">✓ Uploaded to cloud</p>
+                      <div className="border-2 border-gray-200 rounded-lg overflow-hidden w-32">
                         <img 
                           src={idProofFiles.pan.url} 
                           alt="PAN Card" 
-                          className="w-full h-32 object-cover"
+                          className="w-full h-20 object-cover"
                         />
                       </div>
                     </div>
@@ -580,9 +624,9 @@ export default function Step6OwnerDocs() {
             </label>
 
             {selfie && (
-              <div className="mt-3">
-                <img src={selfie.url} alt="Selfie" className="w-32 h-32 object-cover rounded-lg border-2 border-green-500" />
-                <p className="text-xs text-green-600 mt-1">✓ Uploaded to cloud</p>
+              <div className="mt-2">
+                <p className="text-xs text-green-600 mb-1">✓ Uploaded to cloud</p>
+                <img src={selfie.url} alt="Selfie" className="w-24 h-24 object-cover rounded-lg border-2 border-green-500" />
               </div>
             )}
           </div>
@@ -653,36 +697,36 @@ export default function Step6OwnerDocs() {
                 />
               </label>
               {businessDoc && (
-                <div className="mt-3">
-                  <p className="text-xs text-green-600 mb-2">✓ Uploaded to cloud{businessDoc.format ? ` • ${businessDoc.format.toUpperCase()}` : ''}</p>
+                <div className="mt-2">
+                  <p className="text-xs text-green-600 mb-1">✓ Uploaded to cloud{businessDoc.format ? ` • ${businessDoc.format.toUpperCase()}` : ''}</p>
                   {businessDoc.format === 'pdf' ? (
-                    <div className="border-2 border-gray-200 rounded-lg p-4 bg-gray-50">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                          <svg className="w-6 h-6 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                    <div className="border-2 border-gray-200 rounded-lg p-3 bg-gray-50 w-64">
+                      <div className="flex items-center gap-2">
+                        <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <svg className="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" />
                           </svg>
                         </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-semibold text-gray-900">{businessDoc.name}</p>
-                          <p className="text-xs text-gray-500">PDF Document</p>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-gray-900 truncate">{businessDoc.name}</p>
+                          <p className="text-xs text-gray-500">PDF</p>
                         </div>
                         <a 
                           href={businessDoc.url} 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className="px-3 py-1 bg-primary-500 text-white text-xs rounded-lg hover:bg-primary-600"
+                          className="px-2 py-1 bg-primary-500 text-white text-xs rounded hover:bg-primary-600 flex-shrink-0"
                         >
                           View
                         </a>
                       </div>
                     </div>
                   ) : (
-                    <div className="border-2 border-gray-200 rounded-lg overflow-hidden">
+                    <div className="border-2 border-gray-200 rounded-lg overflow-hidden w-32">
                       <img 
                         src={businessDoc.url} 
                         alt="Business Document" 
-                        className="w-full h-48 object-cover"
+                        className="w-full h-20 object-cover"
                       />
                     </div>
                   )}

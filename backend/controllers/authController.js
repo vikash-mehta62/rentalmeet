@@ -170,7 +170,8 @@ exports.login = async (req, res) => {
         name: user.name,
         email: user.email,
         phone: user.phone,
-        role: user.role
+        role: user.role,
+        permissions: user.permissions // Include permissions for subadmins
       }
     });
   } catch (error) {

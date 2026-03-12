@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
 import EmployeeForm from '@/components/admin/EmployeeForm';
+import EmployeeDetailsModal from '@/components/admin/EmployeeDetailsModal';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 import { Users, Plus, Edit2, Trash2, Eye, EyeOff, X, Download, Search, Filter } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -195,7 +197,8 @@ export default function EmployeesPage() {
 
   return (
     <AdminLayout title="Employee Management" subtitle={`Manage all ${employees.length} employees`}>
-      <div className="space-y-6">
+      <PermissionGuard permission="employees">
+        <div className="space-y-6">
         {/* Header with Add Button */}
         <div className="flex justify-between items-center">
           <div>
@@ -512,88 +515,14 @@ export default function EmployeesPage() {
         />
       )}
 
-      {/* Details Modal - Simple version, you can enhance it */}
+      {/* Details Modal - Enhanced version with tabs */}
       {showDetailsModal && selectedEmployee && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Employee Details</h2>
-                <button
-                  onClick={() => setShowDetailsModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              <div className="space-y-6">
-                {/* Basic Info */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-600">Employee ID</p>
-                    <p className="font-semibold">{selectedEmployee.userId || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Name</p>
-                    <p className="font-semibold">{selectedEmployee.employeeDetails?.title} {selectedEmployee.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Position</p>
-                    <p className="font-semibold">{selectedEmployee.employeeDetails?.position || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Department</p>
-                    <p className="font-semibold">{selectedEmployee.employeeDetails?.department || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Employment Type</p>
-                    <p className="font-semibold">{selectedEmployee.employeeDetails?.employmentType || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Compensation</p>
-                    <p className="font-semibold">
-                      {selectedEmployee.employeeDetails?.employmentType === 'Permanent' 
-                        ? `₹${selectedEmployee.employeeDetails?.salary?.toLocaleString('en-IN') || 'N/A'}/month`
-                        : selectedEmployee.employeeDetails?.contractDetails
-                          ? `₹${selectedEmployee.employeeDetails.contractDetails.amount?.toLocaleString('en-IN')} (${selectedEmployee.employeeDetails.contractDetails.paymentType === 'perLead' ? 'Per Lead' : 'Overall Contract'})`
-                          : 'N/A'
-                      }
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Status</p>
-                    <span className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
-                      selectedEmployee.isActive !== false
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {selectedEmployee.isActive !== false ? 'Active' : 'Inactive'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Contact */}
-                <div className="border-t pt-4">
-                  <h3 className="font-semibold mb-3">Contact Information</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-600">Email</p>
-                      <p className="font-semibold">{selectedEmployee.email}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Phone</p>
-                      <p className="font-semibold">{selectedEmployee.phone}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* More details can be added here */}
-              </div>
-            </div>
-          </div>
-        </div>
+        <EmployeeDetailsModal
+          employee={selectedEmployee}
+          onClose={() => setShowDetailsModal(false)}
+        />
       )}
+      </PermissionGuard>
     </AdminLayout>
   );
 }

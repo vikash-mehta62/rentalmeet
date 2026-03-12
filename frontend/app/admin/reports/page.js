@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 import {
   BarChart3, TrendingUp, Download, Calendar, IndianRupee,
   Building2, Users, BookOpen, PieChart, FileText
@@ -202,8 +203,9 @@ export default function AdminReports() {
 
   return (
     <AdminLayout title="Reports & Analytics" subtitle="Comprehensive business insights">
-      {/* Date Range Filter */}
-      <div className="bg-white rounded-lg shadow-soft border border-gray-100 p-6 mb-6">
+      <PermissionGuard permission="reports">
+        {/* Date Range Filter */}
+        <div className="bg-white rounded-lg shadow-soft border border-gray-100 p-6 mb-6">
         <div className="space-y-4">
           {/* Mode Selection */}
           <div className="flex items-center gap-4">
@@ -480,6 +482,7 @@ export default function AdminReports() {
           background-color: #FEF3C7;
         }
       `}</style>
+      </PermissionGuard>
     </AdminLayout>
   );
 }

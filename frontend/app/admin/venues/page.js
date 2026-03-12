@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
+import VenueDetailsModal from '@/components/venue/VenueDetailsModal';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 import {
   Building2, MapPin, Users, IndianRupee, Eye, CheckCircle,
   XCircle, Ban, Search, Filter, X, Calendar, Phone, Mail, ChevronDown, Download
@@ -169,7 +171,7 @@ export default function AdminVenues() {
     });
   };
 
-  const handleUpdateSettings = async () => {
+  const handleUpdateSettings = async (settings) => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/venues/${selectedVenue._id}/settings`, {
         method: 'PUT',
@@ -177,7 +179,7 @@ export default function AdminVenues() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(customSettings)
+        body: JSON.stringify(settings)
       });
 
       const data = await response.json();
@@ -187,6 +189,7 @@ export default function AdminVenues() {
         fetchVenues();
         // Update selected venue with new data
         setSelectedVenue(data.venue);
+        setCustomSettings(settings);
       } else {
         toast.error(data.message || 'Failed to update settings');
       }
@@ -216,8 +219,9 @@ export default function AdminVenues() {
 
   return (
     <AdminLayout title="Venues Management" subtitle={`Manage all ${venues.length} venues`}>
-      {/* Venue Type Filter */}
-      <div className="bg-white rounded-lg shadow-soft border border-gray-100 p-4 mb-6">
+      <PermissionGuard permission="venues">
+        {/* Venue Type Filter */}
+        <div className="bg-white rounded-lg shadow-soft border border-gray-100 p-4 mb-6">
         <div className="flex items-center gap-3">
           <Building2 className="w-5 h-5 text-gray-600" />
           <label className="text-sm font-semibold text-gray-700">Filter Stats by Venue Type:</label>
@@ -476,289 +480,17 @@ export default function AdminVenues() {
 
       {/* Venue Details Modal */}
       {modalOpen && selectedVenue && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            {/* Modal Header */}
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-bold text-dark-800">{selectedVenue.businessName}</h2>
-                <p className="text-sm text-gray-600">SKU: {selectedVenue.sku}</p>
-              </div>
-              <button
-                onClick={closeModal}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6 space-y-6">
-              {/* Images */}
-              {selectedVenue.images?.length > 0 && (
-                <div>
-                  <h3 className="text-lg font-semibold mb-3">Images</h3>
-                  <div className="grid grid-cols-3 gap-3">
-                    {selectedVenue.images.slice(0, 6).map((img, idx) => (
-                      <img
-                        key={idx}
-                        src={img.url}
-                        alt={`${selectedVenue.businessName} ${idx + 1}`}
-                        className="w-full h-32 object-cover rounded-lg"
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Owner Details */}
-              <div className="bg-blue-50 rounded-lg p-4">
-                <h3 className="text-lg font-semibold mb-3 text-blue-900">Owner Details</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-gray-600">Name</p>
-                    <p className="font-semibold text-gray-900">{selectedVenue.owner?.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600">Email</p>
-                    <p className="font-semibold text-gray-900">{selectedVenue.owner?.email}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600">Phone</p>
-                    <p className="font-semibold text-gray-900">{selectedVenue.owner?.phone}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Venue Details */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Capacity</p>
-                  <p className="font-semibold text-gray-900">{selectedVenue.capacity} guests</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Status</p>
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                    selectedVenue.status === 'approved' ? 'bg-green-100 text-green-700' :
-                    selectedVenue.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                    selectedVenue.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                    'bg-gray-100 text-gray-700'
-                  }`}>
-                    {selectedVenue.status}
-                  </span>
-                </div>
-              </div>
-
-              {/* Location */}
-              <div>
-                <h3 className="text-lg font-semibold mb-3">Location</h3>
-                <div className="space-y-2 text-sm">
-                  <p><span className="text-gray-600">Address:</span> {selectedVenue.location?.address}</p>
-                  <p><span className="text-gray-600">City:</span> {selectedVenue.location?.city}</p>
-                  <p><span className="text-gray-600">Area:</span> {selectedVenue.location?.area}</p>
-                  <p><span className="text-gray-600">Pincode:</span> {selectedVenue.location?.pincode}</p>
-                </div>
-              </div>
-
-              {/* Pricing */}
-              <div>
-                <h3 className="text-lg font-semibold mb-3">Pricing</h3>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-xs text-gray-600 mb-1">Per Hour</p>
-                    <p className="font-bold text-primary-600">₹{selectedVenue.pricing?.perHour?.weekday}</p>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-xs text-gray-600 mb-1">Half Day</p>
-                    <p className="font-bold text-primary-600">₹{selectedVenue.pricing?.halfDay?.weekday}</p>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-xs text-gray-600 mb-1">Full Day</p>
-                    <p className="font-bold text-primary-600">₹{selectedVenue.pricing?.fullDay?.weekday}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Description */}
-              {selectedVenue.description && (
-                <div>
-                  <h3 className="text-lg font-semibold mb-3">Description</h3>
-                  <p className="text-sm text-gray-700">{selectedVenue.description}</p>
-                </div>
-              )}
-
-              {/* Custom Settings Section */}
-              {(selectedVenue.status === 'approved' || selectedVenue.status === 'suspended') && (
-                <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
-                  <h3 className="text-lg font-semibold mb-4 text-orange-900">Custom Settings</h3>
-                  
-                  {/* Default Platform Settings Reference */}
-                  {platformSettings && (
-                    <div className="bg-white rounded-lg p-3 mb-4 border border-orange-100">
-                      <p className="text-xs font-semibold text-gray-600 mb-2">Default Platform Settings:</p>
-                      <div className="grid grid-cols-2 gap-3 text-xs">
-                        <div>
-                          <span className="text-gray-600">GST: </span>
-                          <span className="font-semibold">{platformSettings.gstRate || 18}%</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">Platform Fee: </span>
-                          <span className="font-semibold">
-                            {platformSettings.platformFeeType === 'fixed' 
-                              ? `₹${platformSettings.platformFeeValue || 0}` 
-                              : `${platformSettings.platformFeeValue || 0}%`}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="space-y-4">
-                    {/* Custom GST */}
-                    <div className="bg-white rounded-lg p-4 border border-gray-200">
-                      <div className="flex items-center justify-between mb-3">
-                        <label className="text-sm font-semibold text-gray-700">Custom GST Rate</label>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={customSettings.customGST.enabled}
-                            onChange={(e) => setCustomSettings({
-                              ...customSettings,
-                              customGST: { ...customSettings.customGST, enabled: e.target.checked }
-                            })}
-                            className="sr-only peer"
-                          />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
-                        </label>
-                      </div>
-                      {customSettings.customGST.enabled && (
-                        <div>
-                          <label className="text-xs text-gray-600 mb-1 block">GST Rate (%)</label>
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.01"
-                            value={customSettings.customGST.rate}
-                            onChange={(e) => setCustomSettings({
-                              ...customSettings,
-                              customGST: { ...customSettings.customGST, rate: parseFloat(e.target.value) || 0 }
-                            })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Custom Platform Fee */}
-                    <div className="bg-white rounded-lg p-4 border border-gray-200">
-                      <div className="flex items-center justify-between mb-3">
-                        <label className="text-sm font-semibold text-gray-700">Custom Platform Fee</label>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={customSettings.customPlatformFee.enabled}
-                            onChange={(e) => setCustomSettings({
-                              ...customSettings,
-                              customPlatformFee: { ...customSettings.customPlatformFee, enabled: e.target.checked }
-                            })}
-                            className="sr-only peer"
-                          />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
-                        </label>
-                      </div>
-                      {customSettings.customPlatformFee.enabled && (
-                        <div className="space-y-3">
-                          <div>
-                            <label className="text-xs text-gray-600 mb-1 block">Fee Type</label>
-                            <select
-                              value={customSettings.customPlatformFee.feeType}
-                              onChange={(e) => setCustomSettings({
-                                ...customSettings,
-                                customPlatformFee: { ...customSettings.customPlatformFee, feeType: e.target.value }
-                              })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                            >
-                              <option value="fixed">Fixed Amount (₹)</option>
-                              <option value="percentage">Percentage (%)</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="text-xs text-gray-600 mb-1 block">
-                              Fee Value {customSettings.customPlatformFee.feeType === 'fixed' ? '(₹)' : '(%)'}
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              step={customSettings.customPlatformFee.feeType === 'fixed' ? '1' : '0.01'}
-                              value={customSettings.customPlatformFee.feeValue}
-                              onChange={(e) => setCustomSettings({
-                                ...customSettings,
-                                customPlatformFee: { ...customSettings.customPlatformFee, feeValue: parseFloat(e.target.value) || 0 }
-                              })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    
-
-                    {/* Update Settings Button */}
-                    <button
-                      onClick={handleUpdateSettings}
-                      className="w-full px-4 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors"
-                    >
-                      Update Custom Settings
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex gap-3 pt-4 border-t">
-                {selectedVenue.status === 'pending' && (
-                  <>
-                    <button
-                      onClick={() => handleStatusUpdate(selectedVenue._id, 'approve')}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors"
-                    >
-                      <CheckCircle className="w-5 h-5" />
-                      Approve
-                    </button>
-                    <button
-                      onClick={() => handleStatusUpdate(selectedVenue._id, 'reject')}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors"
-                    >
-                      <XCircle className="w-5 h-5" />
-                      Reject
-                    </button>
-                  </>
-                )}
-                {selectedVenue.status === 'approved' && (
-                  <button
-                    onClick={() => handleStatusUpdate(selectedVenue._id, 'suspend')}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-semibold transition-colors"
-                  >
-                    <Ban className="w-5 h-5" />
-                    Suspend
-                  </button>
-                )}
-                {selectedVenue.status === 'suspended' && (
-                  <button
-                    onClick={() => handleStatusUpdate(selectedVenue._id, 'activate')}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors"
-                  >
-                    <CheckCircle className="w-5 h-5" />
-                    Activate
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <VenueDetailsModal
+          venue={selectedVenue}
+          onClose={closeModal}
+          onStatusUpdate={handleStatusUpdate}
+          showActions={true}
+          platformSettings={platformSettings}
+          customSettings={customSettings}
+          onUpdateSettings={handleUpdateSettings}
+        />
       )}
+      </PermissionGuard>
     </AdminLayout>
   );
 }

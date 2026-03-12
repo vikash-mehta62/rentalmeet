@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 import { Image as ImageIcon, Plus, Edit2, Trash2, Eye, EyeOff } from 'lucide-react';
 
 export default function HeroSlidesPage() {
@@ -186,7 +187,8 @@ export default function HeroSlidesPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
+      <PermissionGuard permission="heroSlides">
+        <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
@@ -434,6 +436,7 @@ export default function HeroSlidesPage() {
           </div>
         </div>
       )}
+      </PermissionGuard>
     </AdminLayout>
   );
 }

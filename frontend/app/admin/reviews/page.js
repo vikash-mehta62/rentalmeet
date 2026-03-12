@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 import {
   Plus, Edit2, Trash2, Save, X, Star, MessageSquare
 } from 'lucide-react';
@@ -205,7 +206,8 @@ export default function AdminReviews() {
 
   return (
     <AdminLayout title="Reviews" subtitle="Manage customer testimonials">
-      <div className="max-w-6xl mx-auto">
+      <PermissionGuard permission="reviews">
+        <div className="max-w-6xl mx-auto">
         {/* Header Actions */}
         <div className="flex justify-between items-center mb-6">
           <div>
@@ -479,6 +481,7 @@ export default function AdminReviews() {
           </div>
         </div>
       )}
+      </PermissionGuard>
     </AdminLayout>
   );
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 import {
   Percent, Save, Settings as SettingsIcon, Calculator
 } from 'lucide-react';
@@ -86,8 +87,8 @@ export default function PlatformSettings() {
   // Calculate example
   const calculateExample = (amount = 10000) => {
     const subtotal = amount;
-    const gst = (subtotal * newSettings.gstRate) / 100;
-    const platformFee = (subtotal * newSettings.platformFeePercentage) / 100;
+    const gst = (subtotal * (newSettings.gstRate || 0)) / 100;
+    const platformFee = (subtotal * (newSettings.platformFeePercentage || 0)) / 100;
     const total = subtotal + gst + platformFee;
     
     return { subtotal, gst, platformFee, total };
@@ -107,8 +108,9 @@ export default function PlatformSettings() {
 
   return (
     <AdminLayout title="Platform Settings" subtitle="Manage GST & Platform Fee">
-      {/* Current Settings */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <PermissionGuard permission="platformSettings">
+        {/* Current Settings */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         {/* GST Rate */}
         <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg shadow-soft border border-blue-200 p-6">
           <div className="flex items-center justify-between mb-2">
@@ -125,7 +127,7 @@ export default function PlatformSettings() {
             <p className="text-sm text-purple-700 font-semibold">Platform Fee</p>
             <Percent className="w-5 h-5 text-purple-600" />
           </div>
-          <p className="text-5xl font-bold text-purple-900">{settings.platformFeePercentage}%</p>
+          <p className="text-5xl font-bold text-purple-900">{settings.platformFeePercentage || 0}%</p>
           <p className="text-xs text-purple-600 mt-1">Percentage based</p>
         </div>
       </div>
@@ -208,13 +210,13 @@ export default function PlatformSettings() {
               </div>
               
               <div className="flex justify-between items-center">
-                <span className="text-gray-700">GST ({newSettings.gstRate}%):</span>
-                <span className="text-lg font-semibold text-blue-600">+ ₹{example.gst.toLocaleString()}</span>
+                <span className="text-gray-700">GST ({newSettings.gstRate || 0}%):</span>
+                <span className="text-lg font-semibold text-blue-600">+ ₹{(example.gst || 0).toLocaleString()}</span>
               </div>
               
               <div className="flex justify-between items-center">
-                <span className="text-gray-700">Platform Fee ({newSettings.platformFeePercentage}%):</span>
-                <span className="text-lg font-semibold text-purple-600">+ ₹{example.platformFee.toLocaleString()}</span>
+                <span className="text-gray-700">Platform Fee ({newSettings.platformFeePercentage || 0}%):</span>
+                <span className="text-lg font-semibold text-purple-600">+ ₹{(example.platformFee || 0).toLocaleString()}</span>
               </div>
               
               <div className="border-t-2 border-gray-300 pt-3 flex justify-between items-center">
@@ -235,6 +237,7 @@ export default function PlatformSettings() {
           </div>
         </div>
       </div>
+      </PermissionGuard>
     </AdminLayout>
   );
 }

@@ -56,64 +56,107 @@ export default function Step1BasicInfo() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 animate-slide-up">
-      {/* Business Name */}
-      <div className="form-group">
-        <label className="flex items-center text-sm font-semibold text-dark-700 mb-2">
-          <Building2 className="w-4 h-4 mr-2 text-primary-500" />
-          Business/Venue Name *
-        </label>
-        <input
-          type="text"
-          {...register('businessName', { required: 'Business name is required' })}
-          className="input-field"
-          placeholder="Elite Conference Center"
-        />
-        {errors.businessName && (
-          <p className="text-error text-sm mt-1 flex items-center">
-            <span className="mr-1">⚠️</span> {errors.businessName.message}
-          </p>
-        )}
-      </div>
+      {/* Row 1: Business Name | Venue Type */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Business Name */}
+        <div className="form-group">
+          <label className="flex items-center text-sm font-semibold text-dark-700 mb-2">
+            <Building2 className="w-4 h-4 mr-2 text-primary-500" />
+            Business/Venue Name *
+          </label>
+          <input
+            type="text"
+            {...register('businessName', { required: 'Business name is required' })}
+            className="input-field"
+            placeholder="Elite Conference Center"
+          />
+          {errors.businessName && (
+            <p className="text-error text-sm mt-1 flex items-center">
+              <span className="mr-1">⚠️</span> {errors.businessName.message}
+            </p>
+          )}
+        </div>
 
-      {/* Venue Type */}
-      <div className="form-group">
-        <label className="block text-sm font-semibold text-dark-700 mb-3">
-          Venue Type (Select all that apply) *
-        </label>
-        {loadingTypes ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="w-6 h-6 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
-            <span className="ml-3 text-gray-600">Loading venue types...</span>
-          </div>
-        ) : venueTypes.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {venueTypes.map((type) => (
-              <label key={type._id} className="flex items-center space-x-2 cursor-pointer group">
-                <input
-                  type="checkbox"
-                  value={type.name}
-                  {...register('venueType', { required: 'Select at least one venue type' })}
-                  className="w-5 h-5 rounded border-dark-200 text-primary-500 focus:ring-primary-500 focus:ring-2 transition-all"
-                />
-                <span className="text-sm text-dark-700 group-hover:text-primary-500 transition-colors flex items-center gap-1">
+        {/* Venue Type - Single Select Dropdown */}
+        <div className="form-group">
+          <label className="flex items-center text-sm font-semibold text-dark-700 mb-2">
+            <Building2 className="w-4 h-4 mr-2 text-primary-500" />
+            Venue Type *
+          </label>
+          {loadingTypes ? (
+            <div className="flex items-center py-3 px-4 bg-gray-50 rounded-lg">
+              <div className="w-5 h-5 border-3 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+              <span className="ml-3 text-gray-600 text-sm">Loading...</span>
+            </div>
+          ) : (
+            <select
+              {...register('venueType', { required: 'Venue type is required' })}
+              className="input-field"
+            >
+              <option value="">Select venue type</option>
+              {venueTypes.map((type) => (
+                <option key={type._id} value={type.name}>
                   {type.icon} {type.name}
-                </span>
-              </label>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
-            <p className="text-gray-600">No venue types available. Please contact admin.</p>
-          </div>
-        )}
-        {errors.venueType && (
-          <p className="text-error text-sm mt-2 flex items-center">
-            <span className="mr-1">⚠️</span> {errors.venueType.message}
-          </p>
-        )}
+                </option>
+              ))}
+            </select>
+          )}
+          {errors.venueType && (
+            <p className="text-error text-sm mt-1 flex items-center">
+              <span className="mr-1">⚠️</span> {errors.venueType.message}
+            </p>
+          )}
+        </div>
       </div>
 
-      {/* Description */}
+      {/* Row 2: Maximum Capacity | Total Area */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Maximum Capacity */}
+        <div className="form-group">
+          <label className="flex items-center text-sm font-semibold text-dark-700 mb-2">
+            <Users className="w-4 h-4 mr-2 text-primary-500" />
+            Maximum Capacity *
+          </label>
+          <select
+            {...register('capacity', { required: 'Capacity is required' })}
+            className="input-field"
+          >
+            <option value="">Select capacity range</option>
+            {capacityOptions.map((option) => (
+              <option key={option} value={option}>{option} persons</option>
+            ))}
+          </select>
+          {errors.capacity && (
+            <p className="text-error text-sm mt-1 flex items-center">
+              <span className="mr-1">⚠️</span> {errors.capacity.message}
+            </p>
+          )}
+        </div>
+
+        {/* Total Area */}
+        <div className="form-group">
+          <label className="flex items-center text-sm font-semibold text-dark-700 mb-2">
+            <Maximize2 className="w-4 h-4 mr-2 text-primary-500" />
+            Total Area (sq.ft) *
+          </label>
+          <input
+            type="number"
+            {...register('areaSqft', { 
+              required: 'Area is required',
+              min: { value: 1, message: 'Area must be greater than 0' }
+            })}
+            className="input-field"
+            placeholder="1000"
+          />
+          {errors.areaSqft && (
+            <p className="text-error text-sm mt-1 flex items-center">
+              <span className="mr-1">⚠️</span> {errors.areaSqft.message}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Row 3: Venue Description (Full Width) */}
       <div className="form-group">
         <label className="flex items-center text-sm font-semibold text-dark-700 mb-2">
           <FileText className="w-4 h-4 mr-2 text-primary-500" />
@@ -136,50 +179,6 @@ export default function Step1BasicInfo() {
         {errors.description && (
           <p className="text-error text-sm mt-1 flex items-center">
             <span className="mr-1">⚠️</span> {errors.description.message}
-          </p>
-        )}
-      </div>
-
-      {/* Capacity */}
-      <div className="form-group">
-        <label className="flex items-center text-sm font-semibold text-dark-700 mb-2">
-          <Users className="w-4 h-4 mr-2 text-primary-500" />
-          Maximum Capacity *
-        </label>
-        <select
-          {...register('capacity', { required: 'Capacity is required' })}
-          className="input-field"
-        >
-          <option value="">Select capacity range</option>
-          {capacityOptions.map((option) => (
-            <option key={option} value={option}>{option} persons</option>
-          ))}
-        </select>
-        {errors.capacity && (
-          <p className="text-error text-sm mt-1 flex items-center">
-            <span className="mr-1">⚠️</span> {errors.capacity.message}
-          </p>
-        )}
-      </div>
-
-      {/* Area */}
-      <div className="form-group">
-        <label className="flex items-center text-sm font-semibold text-dark-700 mb-2">
-          <Maximize2 className="w-4 h-4 mr-2 text-primary-500" />
-          Total Area (sq.ft) *
-        </label>
-        <input
-          type="number"
-          {...register('areaSqft', { 
-            required: 'Area is required',
-            min: { value: 1, message: 'Area must be greater than 0' }
-          })}
-          className="input-field"
-          placeholder="1000"
-        />
-        {errors.areaSqft && (
-          <p className="text-error text-sm mt-1 flex items-center">
-            <span className="mr-1">⚠️</span> {errors.areaSqft.message}
           </p>
         )}
       </div>

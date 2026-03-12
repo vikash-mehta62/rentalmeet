@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 import {
   BookOpen, Search, Filter, Eye, X, Calendar, Clock, MapPin,
   User, Building2, IndianRupee, CheckCircle, XCircle, AlertCircle,
@@ -381,8 +382,9 @@ export default function AdminBookings() {
 
   return (
     <AdminLayout title="Bookings Management" subtitle={`Manage all ${totalBookings} bookings`}>
-      {/* Combined Filters */}
-      <div className="bg-white rounded-lg shadow-soft border border-gray-100 p-4 mb-4">
+      <PermissionGuard permission="bookings">
+        {/* Combined Filters */}
+        <div className="bg-white rounded-lg shadow-soft border border-gray-100 p-4 mb-4">
         <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
           {/* Venue Type Filter */}
           <div className="flex items-center gap-3 flex-1">
@@ -1063,28 +1065,91 @@ export default function AdminBookings() {
                   <IndianRupee className="w-5 h-5" />
                   Financial Breakdown
                 </h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center pb-2 border-b border-primary-200">
-                    <span className="text-gray-700">Base Amount</span>
-                    <span className="font-semibold text-gray-900">
-                      ₹{(selectedBooking.amount - (selectedBooking.amenitiesTotal || 0)).toLocaleString()}
+                <div className="space-y-2">
+                  {(() => {
+                    // If priceBreakdown exists, use it
+                    if (selectedBooking.priceBreakdown?.basePrice) {
+                      return (
+                        <>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-700">Venue Rental</span>
+                            <span className="font-semibold text-gray-900">
+                              ₹{selectedBooking.priceBreakdown.basePrice.toLocaleString()}
+                            </span>
+                          </div>
+                          {selectedBooking.priceBreakdown.amenitiesTotal > 0 && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-gray-700">Amenities & Services</span>
+                              <span className="font-semibold text-gray-900">
+                                ₹{selectedBooking.priceBreakdown.amenitiesTotal.toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex justify-between items-center pt-2 border-t border-primary-200">
+                            <span className="text-sm text-gray-700">Subtotal</span>
+                            <span className="font-semibold text-gray-900">
+                              ₹{selectedBooking.priceBreakdown.subtotal.toLocaleString()}
+                            </span>
+                          </div>
+                          {selectedBooking.priceBreakdown.gst > 0 && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-gray-700">GST ({selectedBooking.priceBreakdown.gstRate || 0}%)</span>
+                              <span className="font-semibold text-blue-600">
+                                ₹{selectedBooking.priceBreakdown.gst.toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          {selectedBooking.priceBreakdown.platformFee > 0 && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-gray-700">Platform Fee</span>
+                              <span className="font-semibold text-purple-600">
+                                ₹{selectedBooking.priceBreakdown.platformFee.toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                        </>
+                      );
+                    } else {
+                      // Fallback for old bookings without priceBreakdown
+                      const baseAmount = selectedBooking.amount - (selectedBooking.amenitiesTotal || 0);
+                      return (
+                        <>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-700">Venue Rental</span>
+                            <span className="font-semibold text-gray-900">
+                              ₹{baseAmount.toLocaleString()}
+                            </span>
+                          </div>
+                          {selectedBooking.amenitiesTotal > 0 && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-gray-700">Amenities & Services</span>
+                              <span className="font-semibold text-gray-900">
+                                ₹{selectedBooking.amenitiesTotal.toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex justify-between items-center pt-2 border-t border-primary-200">
+                            <span className="text-sm text-gray-700">Subtotal</span>
+                            <span className="font-semibold text-gray-900">
+                              ₹{baseAmount.toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-500 italic">GST & Platform Fee</span>
+                            <span className="font-semibold text-gray-700 italic">
+                              (Included in total)
+                            </span>
+                          </div>
+                        </>
+                      );
+                    }
+                  })()}
+                  <div className="flex justify-between items-center pt-3 border-t-2 border-primary-300">
+                    <span className="text-base font-bold text-gray-900">Total Amount</span>
+                    <span className="text-xl font-bold text-primary-600">
+                      ₹{(selectedBooking.priceBreakdown?.total || selectedBooking.amount).toLocaleString()}
                     </span>
                   </div>
-                  {selectedBooking.amenitiesTotal > 0 && (
-                    <div className="flex justify-between items-center pb-2 border-b border-primary-200">
-                      <span className="text-gray-700">Amenities</span>
-                      <span className="font-semibold text-gray-900">
-                        ₹{selectedBooking.amenitiesTotal?.toLocaleString()}
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex justify-between items-center pb-2 border-b border-primary-200">
-                    <span className="text-lg font-semibold text-gray-900">Total Amount</span>
-                    <span className="text-lg font-bold text-primary-600">
-                      ₹{selectedBooking.amount?.toLocaleString()}
-                    </span>
-                  </div>
-                  
                 </div>
               </div>
 
@@ -1232,6 +1297,7 @@ export default function AdminBookings() {
           </div>
         </div>
       )}
+      </PermissionGuard>
     </AdminLayout>
   );
 }

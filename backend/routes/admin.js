@@ -39,32 +39,32 @@ const {
   deleteSubAdmin,
   toggleSubAdminStatus
 } = require('../controllers/adminController');
-const { protect, authorize } = require('../middleware/auth');
+const { protect, authorize, checkPermission } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
 
 const router = express.Router();
 
 // Hero Slides routes (with explicit auth)
-router.get('/hero-slides', protect, authorize('admin'), getAllHeroSlides);
-router.post('/hero-slides', protect, authorize('admin'), upload.single('image'), createHeroSlide);
-router.put('/hero-slides/:id', protect, authorize('admin'), upload.single('image'), updateHeroSlide);
-router.delete('/hero-slides/:id', protect, authorize('admin'), deleteHeroSlide);
+router.get('/hero-slides', protect, authorize('admin'), checkPermission('heroSlides'), getAllHeroSlides);
+router.post('/hero-slides', protect, authorize('admin'), checkPermission('heroSlides'), upload.single('image'), createHeroSlide);
+router.put('/hero-slides/:id', protect, authorize('admin'), checkPermission('heroSlides'), upload.single('image'), updateHeroSlide);
+router.delete('/hero-slides/:id', protect, authorize('admin'), checkPermission('heroSlides'), deleteHeroSlide);
 
 // Contact Settings routes
 router.route('/contact-settings')
-  .get(protect, authorize('admin'), getContactSettings)
-  .put(protect, authorize('admin'), updateContactSettings);
+  .get(protect, authorize('admin'), checkPermission('settings'), getContactSettings)
+  .put(protect, authorize('admin'), checkPermission('settings'), updateContactSettings);
 
 // Employee Management routes
 router.route('/employees')
-  .get(protect, authorize('admin'), getAllEmployees)
-  .post(protect, authorize('admin'), createEmployee);
+  .get(protect, authorize('admin'), checkPermission('employees'), getAllEmployees)
+  .post(protect, authorize('admin'), checkPermission('employees'), createEmployee);
 
 router.route('/employees/:id')
-  .put(protect, authorize('admin'), updateEmployee)
-  .delete(protect, authorize('admin'), deleteEmployee);
+  .put(protect, authorize('admin'), checkPermission('employees'), updateEmployee)
+  .delete(protect, authorize('admin'), checkPermission('employees'), deleteEmployee);
 
-router.put('/employees/:id/status', protect, authorize('admin'), toggleEmployeeStatus);
+router.put('/employees/:id/status', protect, authorize('admin'), checkPermission('employees'), toggleEmployeeStatus);
 
 // SubAdmin Management routes (only main admin can manage subadmins)
 router.route('/subadmins')
@@ -77,49 +77,42 @@ router.route('/subadmins/:id')
 
 router.put('/subadmins/:id/status', protect, authorize('admin'), toggleSubAdminStatus);
 
-// All other routes are admin only
-router.use(protect);
-router.use(authorize('admin'));
-
 // Venue routes
-router.get('/venues/pending', getPendingVenues);
-router.put('/venues/:id/approve', approveVenue);
-router.put('/venues/:id/reject', rejectVenue);
-router.put('/venues/:id/suspend', suspendVenue);
-router.put('/venues/:id/activate', activateVenue);
-router.put('/venues/:id/settings', updateVenueSettings);
+router.get('/venues/pending', protect, authorize('admin'), checkPermission('venues'), getPendingVenues);
+router.put('/venues/:id/approve', protect, authorize('admin'), checkPermission('venues'), approveVenue);
+router.put('/venues/:id/reject', protect, authorize('admin'), checkPermission('venues'), rejectVenue);
+router.put('/venues/:id/suspend', protect, authorize('admin'), checkPermission('venues'), suspendVenue);
+router.put('/venues/:id/activate', protect, authorize('admin'), checkPermission('venues'), activateVenue);
+router.put('/venues/:id/settings', protect, authorize('admin'), checkPermission('venues'), updateVenueSettings);
 
 // User routes
-router.get('/users', getAllUsers);
-router.get('/users/:id', getUser);
-router.put('/users/:id/status', updateUserStatus);
+router.get('/users', protect, authorize('admin'), checkPermission('users'), getAllUsers);
+router.get('/users/:id', protect, authorize('admin'), checkPermission('users'), getUser);
+router.put('/users/:id/status', protect, authorize('admin'), checkPermission('users'), updateUserStatus);
 
 // Booking routes
-router.get('/bookings', getAllBookings);
-router.get('/bookings/:id', getBooking);
+router.get('/bookings', protect, authorize('admin'), checkPermission('bookings'), getAllBookings);
+router.get('/bookings/:id', protect, authorize('admin'), checkPermission('bookings'), getBooking);
 
 // Payment routes
-router.get('/payments', getAllPayments);
-router.get('/payments/:id', getPayment);
+router.get('/payments', protect, authorize('admin'), checkPermission('payments'), getAllPayments);
+router.get('/payments/:id', protect, authorize('admin'), checkPermission('payments'), getPayment);
 
-// Commission routes
-router.route('/commission')
-  .get(getCommissionSettings)
-  .put(updateCommissionRate);
+// Commission routes (removed - no longer used)
 
 // Platform Settings routes (GST & Platform Fee)
 router.route('/platform-settings')
-  .get(getPlatformSettings)
-  .put(updatePlatformSettings);
+  .get(protect, authorize('admin'), checkPermission('platformSettings'), getPlatformSettings)
+  .put(protect, authorize('admin'), checkPermission('platformSettings'), updatePlatformSettings);
 
 // Terms & Conditions routes
 router.route('/terms')
-  .get(getTermsConditions)
-  .put(updateTermsConditions);
+  .get(protect, authorize('admin'), checkPermission('settings'), getTermsConditions)
+  .put(protect, authorize('admin'), checkPermission('settings'), updateTermsConditions);
 
 // Reports and stats
-router.get('/reports', getReports);
-router.get('/earnings', getEarningsReport);
-router.get('/stats', getDashboardStats);
+router.get('/reports', protect, authorize('admin'), checkPermission('reports'), getReports);
+router.get('/earnings', protect, authorize('admin'), checkPermission('reports'), getEarningsReport);
+router.get('/stats', protect, authorize('admin'), checkPermission('dashboard'), getDashboardStats);
 
 module.exports = router;

@@ -23,7 +23,22 @@ export default function SubAdminsPage() {
     city: '',
     state: '',
     pincode: '',
-    password: ''
+    password: '',
+    permissions: {
+      dashboard: false,
+      heroSlides: false,
+      venues: false,
+      venueTypes: false,
+      users: false,
+      employees: false,
+      subadmins: false,
+      bookings: false,
+      payments: false,
+      reports: false,
+      reviews: false,
+      platformSettings: false,
+      settings: false
+    }
   });
 
   useEffect(() => {
@@ -123,7 +138,22 @@ export default function SubAdminsPage() {
       city: subadmin.city || '',
       state: subadmin.state || '',
       pincode: subadmin.pincode || '',
-      password: ''
+      password: '',
+      permissions: subadmin.permissions || {
+        dashboard: false,
+        heroSlides: false,
+        venues: false,
+        venueTypes: false,
+        users: false,
+        employees: false,
+        subadmins: false,
+        bookings: false,
+        payments: false,
+        reports: false,
+        reviews: false,
+        platformSettings: false,
+        settings: false
+      }
     });
     setShowModal(true);
   };
@@ -190,7 +220,22 @@ export default function SubAdminsPage() {
       city: '',
       state: '',
       pincode: '',
-      password: ''
+      password: '',
+      permissions: {
+        dashboard: false,
+        heroSlides: false,
+        venues: false,
+        venueTypes: false,
+        users: false,
+        employees: false,
+        subadmins: false,
+        bookings: false,
+        payments: false,
+        reports: false,
+        reviews: false,
+        platformSettings: false,
+        settings: false
+      }
     });
   };
 
@@ -256,7 +301,7 @@ export default function SubAdminsPage() {
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <p className="text-gray-600 mt-1">SubAdmins have the same access as main admin</p>
+            <p className="text-gray-600 mt-1">Manage SubAdmins with custom access permissions</p>
           </div>
           <button
             onClick={() => {
@@ -270,7 +315,22 @@ export default function SubAdminsPage() {
                 city: '',
                 state: '',
                 pincode: '',
-                password: ''
+                password: '',
+                permissions: {
+                  dashboard: false,
+                  heroSlides: false,
+                  venues: false,
+                  venueTypes: false,
+                  users: false,
+                  employees: false,
+                  subadmins: false,
+                  bookings: false,
+                  payments: false,
+                  reports: false,
+                  reviews: false,
+                  platformSettings: false,
+                  settings: false
+                }
               });
               setShowModal(true);
             }}
@@ -595,6 +655,64 @@ export default function SubAdminsPage() {
                 <p className="text-xs text-gray-500 mt-1">
                   {editingSubAdmin ? 'Leave blank to keep current password' : 'Minimum 6 characters'}
                 </p>
+              </div>
+
+              {/* Permissions Section */}
+              <div className="border-t pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Access Permissions <span className="text-red-500">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allSelected = Object.values(formData.permissions).every(v => v);
+                      const newPermissions = {};
+                      Object.keys(formData.permissions).forEach(key => {
+                        newPermissions[key] = !allSelected;
+                      });
+                      setFormData({ ...formData, permissions: newPermissions });
+                    }}
+                    className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+                  >
+                    {Object.values(formData.permissions).every(v => v) ? 'Deselect All' : 'Select All'}
+                  </button>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {[
+                      { key: 'dashboard', label: 'Dashboard' },
+                      { key: 'heroSlides', label: 'Hero Slides' },
+                      { key: 'venues', label: 'Venues' },
+                      { key: 'venueTypes', label: 'Venue Types' },
+                      { key: 'users', label: 'Users' },
+                      { key: 'employees', label: 'Employees' },
+                      { key: 'subadmins', label: 'SubAdmins' },
+                      { key: 'bookings', label: 'Bookings' },
+                      { key: 'payments', label: 'Payments' },
+                      { key: 'reports', label: 'Reports' },
+                      { key: 'reviews', label: 'Reviews' },
+                      { key: 'platformSettings', label: 'Platform Settings' },
+                      { key: 'settings', label: 'Settings' }
+                    ].map(perm => (
+                      <label key={perm.key} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.permissions[perm.key]}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            permissions: {
+                              ...formData.permissions,
+                              [perm.key]: e.target.checked
+                            }
+                          })}
+                          className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                        />
+                        <span className="text-sm text-gray-700">{perm.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t">

@@ -221,11 +221,22 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
       const amenitiesTotal = calculateAmenitiesTotal();
       const subtotal = basePrice + amenitiesTotal;
       
-      // Calculate GST (check if venue has custom GST)
-      const gstRate = venue.customGST?.enabled 
-        ? venue.customGST.rate 
-        : platformSettings.gstRate;
-      const gst = (subtotal * gstRate) / 100;
+      // Calculate GST - Priority: Owner's hasGST > Custom GST > Platform Default
+      let gstRate = 0;
+      let gst = 0;
+      
+      // First check if owner has GST registration
+      if (venue.ownerInfo?.hasGST) {
+        // Owner has GST - check if venue has custom GST rate
+        if (venue.customGST?.enabled) {
+          gstRate = venue.customGST.rate;
+        } else {
+          // Use platform default GST
+          gstRate = platformSettings.gstRate;
+        }
+        gst = (subtotal * gstRate) / 100;
+      }
+      // If owner doesn't have GST (hasGST = false), GST remains 0
       
       // Calculate Platform Fee (check if venue has custom fee)
       let platformFee = 0;
@@ -709,10 +720,12 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
                 <span>Subtotal:</span>
                 <span className="font-semibold">₹{calculatedPrice.subtotal.toLocaleString()}</span>
               </div>
-              <div className="flex justify-between">
-                <span>GST ({calculatedPrice.gstRate}%):</span>
-                <span className="font-semibold text-blue-600">₹{calculatedPrice.gst.toLocaleString()}</span>
-              </div>
+              {venue.ownerInfo?.hasGST && calculatedPrice.gst > 0 && (
+                <div className="flex justify-between">
+                  <span>GST ({calculatedPrice.gstRate}%):</span>
+                  <span className="font-semibold text-blue-600">₹{calculatedPrice.gst.toLocaleString()}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span>Platform Fee:</span>
                 <span className="font-semibold text-purple-600">₹{calculatedPrice.platformFee.toLocaleString()}</span>

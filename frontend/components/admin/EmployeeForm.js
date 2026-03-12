@@ -163,7 +163,9 @@ export default function EmployeeForm({ employee, onClose, onSuccess, token }) {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e) {
+      e.preventDefault();
+    }
     setLoading(true);
 
     try {
@@ -337,7 +339,7 @@ export default function EmployeeForm({ employee, onClose, onSuccess, token }) {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <div>
           <div className="p-6">
             {/* Step 1: Basic Details */}
             {currentStep === 1 && (
@@ -1344,7 +1346,8 @@ export default function EmployeeForm({ employee, onClose, onSuccess, token }) {
               </button>
             ) : (
               <button
-                type="submit"
+                type="button"
+                onClick={handleSubmit}
                 disabled={loading}
                 className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center gap-2"
               >
@@ -1362,7 +1365,7 @@ export default function EmployeeForm({ employee, onClose, onSuccess, token }) {
               </button>
             )}
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

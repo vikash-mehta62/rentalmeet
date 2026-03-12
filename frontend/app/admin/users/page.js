@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 import {
   Users, Search, Filter, Eye, X, Mail, Phone, Calendar,
   CheckCircle, XCircle, Shield, User, Building2, Download, Briefcase
@@ -214,8 +215,9 @@ export default function AdminUsers() {
 
   return (
     <AdminLayout title="Users Management" subtitle={`Manage all users, owners, and employees`}>
-      {/* Tabs */}
-      <div className="bg-white rounded-lg shadow-soft border border-gray-100 mb-6">
+      <PermissionGuard permission="users">
+        {/* Tabs */}
+        <div className="bg-white rounded-lg shadow-soft border border-gray-100 mb-6">
         <div className="flex border-b border-gray-200">
           <button
             onClick={() => setActiveTab('customers')}
@@ -638,6 +640,7 @@ export default function AdminUsers() {
           </div>
         </div>
       )}
+      </PermissionGuard>
     </AdminLayout>
   );
 }

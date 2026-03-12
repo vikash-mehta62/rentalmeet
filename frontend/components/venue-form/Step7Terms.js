@@ -43,7 +43,9 @@ export default function Step7Terms() {
         location: {
           address: formData.location?.address || '',
           landmark: formData.location?.landmark || '',
+          state: formData.location?.state || '',
           city: formData.location?.city || '',
+          village: formData.location?.village || '',
           area: formData.location?.area || '',
           pincode: formData.location?.pincode || '',
           googleMapLink: formData.location?.googleMapLink || '',
@@ -65,6 +67,7 @@ export default function Step7Terms() {
         
         // Step 4: Pricing & Availability
         pricing: {
+          enabledOptions: formData.pricing?.enabledOptions || { perHour: true, halfDay: false, fullDay: false },
           perHour: {
             weekday: Number(formData.pricing?.perHour?.weekday) || 0,
             weekend: Number(formData.pricing?.perHour?.weekend) || 0
@@ -99,7 +102,9 @@ export default function Step7Terms() {
           email: formData.ownerInfo?.email || '',
           mobile: formData.ownerInfo?.mobile || '',
           alternatePhone: formData.ownerInfo?.alternatePhone || '',
-          role: formData.ownerInfo?.role || 'Owner'
+          role: formData.ownerInfo?.role || 'Owner',
+          hasGST: formData.ownerInfo?.hasGST || false,
+          gstNumber: formData.ownerInfo?.gstNumber || ''
         },
         documents: {
           idProof: {

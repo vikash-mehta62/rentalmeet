@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 import {
   CreditCard, Search, Filter, Eye, X, Calendar, IndianRupee,
   CheckCircle, XCircle, Clock, AlertCircle, User, Building2,
@@ -123,8 +124,9 @@ export default function AdminPayments() {
 
   return (
     <AdminLayout title="Payments Management" subtitle={`Track all ${payments.length} transactions`}>
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
+      <PermissionGuard permission="payments">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
         <div className="bg-white rounded-lg shadow-soft border border-gray-100 p-4">
           <p className="text-xs text-gray-600 mb-1">Total</p>
           <p className="text-2xl font-bold text-dark-800">{stats.total}</p>
@@ -483,6 +485,7 @@ export default function AdminPayments() {
           </div>
         </div>
       )}
+      </PermissionGuard>
     </AdminLayout>
   );
 }

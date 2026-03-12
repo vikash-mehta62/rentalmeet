@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useVenueFormStore } from '@/lib/store';
 import toast from 'react-hot-toast';
@@ -17,6 +17,13 @@ const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Sat
 
 export default function Step4Pricing() {
   const { formData, setFormData, setStep } = useVenueFormStore();
+  
+  // State for which pricing options are enabled
+  const [enabledOptions, setEnabledOptions] = useState({
+    perHour: formData.pricing?.enabledOptions?.perHour ?? true,
+    halfDay: formData.pricing?.enabledOptions?.halfDay ?? false,
+    fullDay: formData.pricing?.enabledOptions?.fullDay ?? false
+  });
   
   // Prepare default values from existing pricing data
   const prepareDefaultValues = () => {
@@ -54,11 +61,47 @@ export default function Step4Pricing() {
   React.useEffect(() => {
     if (formData.pricing) {
       reset(prepareDefaultValues());
+      if (formData.pricing.enabledOptions) {
+        setEnabledOptions(formData.pricing.enabledOptions);
+      }
     }
   }, [formData.pricing]);
 
+  const toggleOption = (option) => {
+    setEnabledOptions(prev => ({
+      ...prev,
+      [option]: !prev[option]
+    }));
+  };
+
   const onSubmit = (data) => {
-    setFormData({ pricing: data });
+    // Check if at least one option is enabled
+    if (!enabledOptions.perHour && !enabledOptions.halfDay && !enabledOptions.fullDay) {
+      toast.error('Please select at least one pricing option');
+      return;
+    }
+
+    // Validate that enabled options have prices
+    if (enabledOptions.perHour && (!data.perHour.weekday || !data.perHour.weekend)) {
+      toast.error('Please enter Per Hour pricing for both weekday and weekend');
+      return;
+    }
+    if (enabledOptions.halfDay && (!data.halfDay.weekday || !data.halfDay.weekend)) {
+      toast.error('Please enter Half Day pricing for both weekday and weekend');
+      return;
+    }
+    if (enabledOptions.fullDay && (!data.fullDay.weekday || !data.fullDay.weekend)) {
+      toast.error('Please enter Full Day pricing for both weekday and weekend');
+      return;
+    }
+
+    // Save with enabled options
+    setFormData({ 
+      pricing: {
+        ...data,
+        enabledOptions
+      }
+    });
     setStep(5);
     toast.success('Pricing saved! 🎉');
   };
@@ -74,46 +117,83 @@ export default function Step4Pricing() {
         <div className="flex items-start">
           <IndianRupee className="w-6 h-6 text-primary-500 mr-3 mt-1" />
           <div className="flex-1">
-            <h3 className="text-lg font-bold text-dark-800 mb-4">Pricing Structure</h3>
+            <h3 className="text-lg font-bold text-dark-800 mb-2">Pricing Structure</h3>
+            <p className="text-sm text-gray-600 mb-4">Select which pricing options you want to offer</p>
             
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="bg-white">
-                    <th className="text-left p-3 text-sm font-semibold">Period</th>
+                    <th className="text-left p-3 text-sm font-semibold">
+                      <span className="flex items-center gap-2">
+                        <span>Period</span>
+                        <span className="text-xs text-gray-500">(Select to enable)</span>
+                      </span>
+                    </th>
                     <th className="text-left p-3 text-sm font-semibold">Weekday (Mon-Fri)</th>
                     <th className="text-left p-3 text-sm font-semibold">Weekend (Sat-Sun)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  <tr className="bg-white">
-                    <td className="p-3 text-sm font-medium">Per Hour</td>
+                  {/* Per Hour */}
+                  <tr className={`${enabledOptions.perHour ? 'bg-white' : 'bg-gray-50 opacity-60'}`}>
+                    <td className="p-3">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={enabledOptions.perHour}
+                          onChange={() => toggleOption('perHour')}
+                          className="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-2 focus:ring-primary-500"
+                        />
+                        <span className="text-sm font-medium">Per Hour</span>
+                      </label>
+                    </td>
                     <td className="p-3">
                       <input
                         type="number"
-                        {...register('perHour.weekday', { required: 'Required' })}
+                        {...register('perHour.weekday')}
                         placeholder="₹"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        disabled={!enabledOptions.perHour}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg ${
+                          !enabledOptions.perHour ? 'bg-gray-100 cursor-not-allowed' : ''
+                        }`}
                       />
                     </td>
                     <td className="p-3">
                       <input
                         type="number"
-                        {...register('perHour.weekend', { required: 'Required' })}
+                        {...register('perHour.weekend')}
                         placeholder="₹"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        disabled={!enabledOptions.perHour}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg ${
+                          !enabledOptions.perHour ? 'bg-gray-100 cursor-not-allowed' : ''
+                        }`}
                       />
                     </td>
                   </tr>
                   
-                  <tr className="bg-white">
-                    <td className="p-3 text-sm font-medium">Half Day (4 hours)</td>
+                  {/* Half Day */}
+                  <tr className={`${enabledOptions.halfDay ? 'bg-white' : 'bg-gray-50 opacity-60'}`}>
+                    <td className="p-3">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={enabledOptions.halfDay}
+                          onChange={() => toggleOption('halfDay')}
+                          className="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-2 focus:ring-primary-500"
+                        />
+                        <span className="text-sm font-medium">Half Day (4 hours)</span>
+                      </label>
+                    </td>
                     <td className="p-3">
                       <input
                         type="number"
                         {...register('halfDay.weekday')}
                         placeholder="₹"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        disabled={!enabledOptions.halfDay}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg ${
+                          !enabledOptions.halfDay ? 'bg-gray-100 cursor-not-allowed' : ''
+                        }`}
                       />
                     </td>
                     <td className="p-3">
@@ -121,19 +201,36 @@ export default function Step4Pricing() {
                         type="number"
                         {...register('halfDay.weekend')}
                         placeholder="₹"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        disabled={!enabledOptions.halfDay}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg ${
+                          !enabledOptions.halfDay ? 'bg-gray-100 cursor-not-allowed' : ''
+                        }`}
                       />
                     </td>
                   </tr>
                   
-                  <tr className="bg-white">
-                    <td className="p-3 text-sm font-medium">Full Day (8 hours)</td>
+                  {/* Full Day */}
+                  <tr className={`${enabledOptions.fullDay ? 'bg-white' : 'bg-gray-50 opacity-60'}`}>
+                    <td className="p-3">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={enabledOptions.fullDay}
+                          onChange={() => toggleOption('fullDay')}
+                          className="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-2 focus:ring-primary-500"
+                        />
+                        <span className="text-sm font-medium">Full Day (8 hours)</span>
+                      </label>
+                    </td>
                     <td className="p-3">
                       <input
                         type="number"
                         {...register('fullDay.weekday')}
                         placeholder="₹"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        disabled={!enabledOptions.fullDay}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg ${
+                          !enabledOptions.fullDay ? 'bg-gray-100 cursor-not-allowed' : ''
+                        }`}
                       />
                     </td>
                     <td className="p-3">
@@ -141,17 +238,21 @@ export default function Step4Pricing() {
                         type="number"
                         {...register('fullDay.weekend')}
                         placeholder="₹"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        disabled={!enabledOptions.fullDay}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg ${
+                          !enabledOptions.fullDay ? 'bg-gray-100 cursor-not-allowed' : ''
+                        }`}
                       />
                     </td>
                   </tr>
                   
+                  {/* Extra Hour Rate */}
                   <tr className="bg-white">
                     <td className="p-3 text-sm font-medium">Extra Hour Rate</td>
                     <td className="p-3">
                       <input
                         type="number"
-                        {...register('extraHour.weekday')}
+                        {...register('extraHourRate.weekday')}
                         placeholder="₹"
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       />
@@ -159,7 +260,7 @@ export default function Step4Pricing() {
                     <td className="p-3">
                       <input
                         type="number"
-                        {...register('extraHour.weekend')}
+                        {...register('extraHourRate.weekend')}
                         placeholder="₹"
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       />
@@ -239,7 +340,7 @@ export default function Step4Pricing() {
                 Minimum Advance Booking Required *
               </label>
               <select
-                {...register('advanceBooking', { required: 'Select advance booking rule' })}
+                {...register('advanceBookingRule', { required: 'Select advance booking rule' })}
                 className="input-field"
               >
                 <option value="">Select option</option>
@@ -247,8 +348,8 @@ export default function Step4Pricing() {
                   <option key={option} value={option}>{option}</option>
                 ))}
               </select>
-              {errors.advanceBooking && (
-                <p className="text-error text-sm mt-1">{errors.advanceBooking.message}</p>
+              {errors.advanceBookingRule && (
+                <p className="text-error text-sm mt-1">{errors.advanceBookingRule.message}</p>
               )}
             </div>
           </div>
@@ -301,4 +402,3 @@ export default function Step4Pricing() {
     </form>
   );
 }
-

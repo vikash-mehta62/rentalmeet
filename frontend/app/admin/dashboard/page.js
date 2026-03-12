@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 import {
   Building2, Users, BookOpen, IndianRupee, TrendingUp,
   Calendar, CheckCircle, Clock, XCircle
@@ -119,8 +120,9 @@ export default function AdminDashboard() {
 
   return (
     <AdminLayout title="Dashboard" subtitle="Overview of your platform">
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <PermissionGuard permission="dashboard">
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {statCards.map((stat, index) => {
           const Icon = stat.icon;
           return (
@@ -176,6 +178,7 @@ export default function AdminDashboard() {
           </a>
         </div>
       </div>
+      </PermissionGuard>
     </AdminLayout>
   );
 }

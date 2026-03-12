@@ -90,7 +90,9 @@ const venueSchema = new mongoose.Schema({
   location: {
     address: { type: String, required: true },
     landmark: { type: String, required: true },
+    state: { type: String, required: true },
     city: { type: String, required: true },
+    village: { type: String }, // Optional field
     area: { type: String, required: true },
     pincode: { type: String, required: true },
     googleMapLink: { type: String, required: true },
@@ -175,6 +177,11 @@ const venueSchema = new mongoose.Schema({
   
   // STEP 4: Pricing & Availability
   pricing: {
+    enabledOptions: {
+      perHour: { type: Boolean, default: true },
+      halfDay: { type: Boolean, default: false },
+      fullDay: { type: Boolean, default: false }
+    },
     perHour: {
       weekday: Number,
       weekend: Number
@@ -258,7 +265,12 @@ const venueSchema = new mongoose.Schema({
     role: {
       type: String,
       enum: ['Owner', 'Manager', 'Representative']
-    }
+    },
+    hasGST: {
+      type: Boolean,
+      default: false
+    },
+    gstNumber: String
   },
   documents: {
     idProof: {

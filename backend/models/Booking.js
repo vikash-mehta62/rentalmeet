@@ -88,6 +88,8 @@ const bookingSchema = new mongoose.Schema({
     amenitiesTotal: Number,
     subtotal: Number,
     gst: Number,
+    gstRate: Number,
+    platformFee: Number,
     total: Number
   },
   // Customer details

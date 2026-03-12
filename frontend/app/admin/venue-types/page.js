@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 import {
   Plus, Edit2, Trash2, Save, X, Building2
 } from 'lucide-react';
@@ -151,7 +152,8 @@ export default function AdminVenueTypes() {
 
   return (
     <AdminLayout title="Venue Types" subtitle="Manage venue type categories">
-      <div className="max-w-6xl mx-auto">
+      <PermissionGuard permission="venueTypes">
+        <div className="max-w-6xl mx-auto">
         {/* Header Actions */}
         <div className="flex justify-between items-center mb-6">
           <div>
@@ -362,6 +364,7 @@ export default function AdminVenueTypes() {
           </div>
         </div>
       )}
+      </PermissionGuard>
     </AdminLayout>
   );
 }

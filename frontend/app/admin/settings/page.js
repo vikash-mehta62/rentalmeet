@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 import {
   Settings as SettingsIcon, Save, X
 } from 'lucide-react';
@@ -148,7 +149,8 @@ export default function AdminSettings() {
 
   return (
     <AdminLayout title="Settings" subtitle="Configure platform settings">
-      <div className="max-w-5xl mx-auto space-y-6">
+      <PermissionGuard permission="settings">
+        <div className="max-w-5xl mx-auto space-y-6">
         {/* Contact Settings */}
         <div className="bg-white rounded-lg shadow-soft border border-gray-100 p-6">
           <h2 className="text-xl font-bold text-dark-800 mb-6 flex items-center gap-2">
@@ -526,6 +528,7 @@ export default function AdminSettings() {
           )}
         </div>
       </div>
+      </PermissionGuard>
     </AdminLayout>
   );
 }
