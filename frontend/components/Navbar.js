@@ -90,7 +90,7 @@ export default function Navbar() {
             <img 
               src="/logo.png" 
               alt="RentalMeet Logo" 
-              className="h-12 w-auto object-contain"
+              className="h-16 w-auto object-contain"
             />
            
           </Link>

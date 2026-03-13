@@ -77,7 +77,7 @@ export default function Footer() {
               <img 
                 src="/logo.png" 
                 alt="RentalMeet Logo" 
-                className="h-12 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
+                className="h-16 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
               />
             </Link>
             <p className="text-sm text-gray-600 dark:text-slate-300 leading-relaxed mb-4">
