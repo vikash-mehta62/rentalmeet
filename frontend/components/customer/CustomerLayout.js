@@ -31,6 +31,7 @@ export default function CustomerLayout({ children, activePage = 'dashboard' }) {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home, href: '/customer/dashboard' },
     { id: 'bookings', label: 'My Bookings', icon: Calendar, href: '/customer/bookings' },
+    { id: 'profile', label: 'My Profile', icon: User, href: '/customer/profile' },
     { id: 'venues', label: 'Browse Venues', icon: Search, href: '/venues' },
   ];
 

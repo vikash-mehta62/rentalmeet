@@ -22,7 +22,10 @@ export default function CustomerProfile() {
     city: '',
     state: '',
     pincode: '',
-    profilePicture: ''
+    profilePicture: '',
+    gstNumber: '',
+    companyName: '',
+    panNumber: ''
   });
 
   // Password Form
@@ -51,7 +54,10 @@ export default function CustomerProfile() {
         city: user.city || '',
         state: user.state || '',
         pincode: user.pincode || '',
-        profilePicture: user.profilePicture || ''
+        profilePicture: user.profilePicture || '',
+        gstNumber: user.gstNumber || '',
+        companyName: user.companyName || '',
+        panNumber: user.panNumber || ''
       });
       setProfilePicturePreview(user.profilePicture || '');
     }
@@ -358,6 +364,55 @@ export default function CustomerProfile() {
                     rows="3"
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
                   />
+                </div>
+
+                {/* GST Details Section */}
+                <div className="pt-6 border-t border-gray-200">
+                  <h3 className="text-lg font-bold text-dark-800 mb-4">GST & Business Details (Optional)</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        GST Number
+                      </label>
+                      <input
+                        type="text"
+                        value={profileData.gstNumber}
+                        onChange={(e) => setProfileData({ ...profileData, gstNumber: e.target.value.toUpperCase() })}
+                        placeholder="22AAAAA0000A1Z5"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none uppercase"
+                        maxLength={15}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">15-character GST identification number</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Company/Business Name
+                      </label>
+                      <input
+                        type="text"
+                        value={profileData.companyName}
+                        onChange={(e) => setProfileData({ ...profileData, companyName: e.target.value })}
+                        placeholder="Your Company Name"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        PAN Number
+                      </label>
+                      <input
+                        type="text"
+                        value={profileData.panNumber}
+                        onChange={(e) => setProfileData({ ...profileData, panNumber: e.target.value.toUpperCase() })}
+                        placeholder="ABCDE1234F"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none uppercase"
+                        maxLength={10}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">10-character PAN number</p>
+                    </div>
+                  </div>
                 </div>
 
                 <button

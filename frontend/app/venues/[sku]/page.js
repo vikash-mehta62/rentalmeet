@@ -12,6 +12,7 @@ import {
   ChevronLeft, ChevronRight, Sparkles, Award, Shield
 } from 'lucide-react';
 import BookingForm from '@/components/booking/BookingForm';
+import VenueReviews from '@/components/venue/VenueReviews';
 import Navbar from '@/components/Navbar';
 import { useAuthStore } from '@/lib/store';
 import toast from 'react-hot-toast';
@@ -987,6 +988,9 @@ export default function VenueDetail() {
                 </div>
               </div>
             )}
+
+            {/* Reviews Section */}
+            <VenueReviews venueId={venue._id} />
           </div>
 
           {/* Right Column - Sticky Booking Card (35%) */}

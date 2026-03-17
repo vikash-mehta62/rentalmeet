@@ -1,7 +1,7 @@
 'use client';
 
-import { useRef } from 'react';
-import { Printer, Download, X, Mail, Phone, MapPin, Calendar, Clock, Users } from 'lucide-react';
+import { useRef, useState, useEffect } from 'react';
+import { Printer, Download, X, Mail, Phone, MapPin, Calendar, Users } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -16,6 +16,60 @@ export default function QuotationView({
 }) {
   
   const quotationRef = useRef(null);
+  const [platformSettings, setPlatformSettings] = useState(null);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/platform-settings`);
+        const data = await response.json();
+        if (data.success) {
+          setPlatformSettings(data.settings);
+        }
+      } catch (error) {
+        console.error('Error fetching platform settings:', error);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  const calculateVenueInvoice = () => {
+    const baseAmount = calculatedPrice.basePrice + calculatedPrice.amenitiesTotal;
+    const venueCGST = platformSettings ? (baseAmount * (platformSettings.venueCGST || 0)) / 100 : 0;
+    const venueSGST = platformSettings ? (baseAmount * (platformSettings.venueSGST || 0)) / 100 : 0;
+    const total = baseAmount + venueCGST + venueSGST;
+    
+    return {
+      baseAmount,
+      cgst: venueCGST,
+      sgst: venueSGST,
+      cgstRate: platformSettings?.venueCGST || 0,
+      sgstRate: platformSettings?.venueSGST || 0,
+      total
+    };
+  };
+
+  const calculatePlatformInvoice = () => {
+    const baseAmount = calculatedPrice.basePrice + calculatedPrice.amenitiesTotal;
+    const platformFee = platformSettings ? (baseAmount * (platformSettings.platformFeePercentage || 0)) / 100 : 0;
+    const platformCGST = platformSettings ? (platformFee * (platformSettings.platformCGST || 0)) / 100 : 0;
+    const platformSGST = platformSettings ? (platformFee * (platformSettings.platformSGST || 0)) / 100 : 0;
+    const total = platformFee + platformCGST + platformSGST;
+    
+    return {
+      platformFee,
+      cgst: platformCGST,
+      sgst: platformSGST,
+      cgstRate: platformSettings?.platformCGST || 0,
+      sgstRate: platformSettings?.platformSGST || 0,
+      feePercentage: platformSettings?.platformFeePercentage || 0,
+      total
+    };
+  };
+
+  const venueInvoice = calculateVenueInvoice();
+  const platformInvoice = calculatePlatformInvoice();
+  const grandTotal = venueInvoice.total + platformInvoice.total;
 
   const handlePrint = () => {
     window.print();
@@ -26,22 +80,18 @@ export default function QuotationView({
       const element = quotationRef.current;
       if (!element) return;
 
-      // Show loading toast
       const loadingToast = document.createElement('div');
       loadingToast.className = 'fixed top-4 right-4 bg-primary-500 text-white px-6 py-3 rounded-lg shadow-lg z-[200]';
       loadingToast.textContent = 'Generating PDF...';
       document.body.appendChild(loadingToast);
 
-      // Temporarily remove scroll and set full height for capture
       const originalOverflow = element.style.overflow;
       const originalMaxHeight = element.style.maxHeight;
       element.style.overflow = 'visible';
       element.style.maxHeight = 'none';
 
-      // Wait for layout to settle
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Capture the element as canvas with better quality
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
@@ -51,31 +101,24 @@ export default function QuotationView({
         windowHeight: element.scrollHeight
       });
 
-      // Restore original styles
       element.style.overflow = originalOverflow;
       element.style.maxHeight = originalMaxHeight;
 
-      // PDF dimensions (A4)
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       
-      // Canvas dimensions
       const imgWidth = pdfWidth;
       const imgHeight = (canvas.height * pdfWidth) / canvas.width;
       
-      // Convert canvas to image
       const imgData = canvas.toDataURL('image/png');
       
-      // Calculate how many pages needed
       let heightLeft = imgHeight;
       let position = 0;
       
-      // Add first page
       pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
       heightLeft -= pdfHeight;
       
-      // Add additional pages if content is longer
       while (heightLeft > 0) {
         position = heightLeft - imgHeight;
         pdf.addPage();
@@ -83,17 +126,13 @@ export default function QuotationView({
         heightLeft -= pdfHeight;
       }
       
-      // Generate filename
       const quotationNumber = `QT-${Date.now().toString().slice(-8)}`;
       const filename = `RentalMeet_Quotation_${quotationNumber}.pdf`;
       
-      // Download PDF
       pdf.save(filename);
 
-      // Remove loading toast
       document.body.removeChild(loadingToast);
 
-      // Show success toast
       const successToast = document.createElement('div');
       successToast.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-[200]';
       successToast.textContent = 'PDF Downloaded Successfully!';
@@ -122,7 +161,6 @@ export default function QuotationView({
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden flex flex-col">
         
-        {/* Header - Print Hidden */}
         <div className="flex items-center justify-between p-4 md:p-6 border-b bg-gradient-to-r from-primary-50 to-orange-50 print:hidden">
           <h2 className="text-xl md:text-2xl font-bold text-gray-900">Booking Quotation</h2>
           <div className="flex items-center gap-2">
@@ -149,10 +187,8 @@ export default function QuotationView({
           </div>
         </div>
 
-        {/* Quotation Content - Scrollable */}
         <div ref={quotationRef} className="flex-1 overflow-y-auto p-6 md:p-8 bg-white">
           
-          {/* Company Header */}
           <div className="text-center mb-8 pb-6 border-b-2 border-primary-500">
             <h1 className="text-3xl md:text-4xl font-black text-primary-600 mb-2">RentalMeet</h1>
             <p className="text-gray-600 text-sm md:text-base font-medium">Venue Booking Platform</p>
@@ -161,7 +197,6 @@ export default function QuotationView({
             </p>
           </div>
 
-          {/* Quotation Info */}
           <div className="grid grid-cols-2 gap-4 mb-8 bg-gray-50 p-4 rounded-lg">
             <div>
               <p className="text-xs text-gray-500 font-semibold uppercase">Quotation No.</p>
@@ -183,10 +218,7 @@ export default function QuotationView({
             </div>
           </div>
 
-          {/* Two Column Layout */}
           <div className="grid md:grid-cols-2 gap-6 mb-8">
-            
-            {/* Venue Details */}
             <div className="bg-blue-50 p-5 rounded-xl border-l-4 border-blue-500">
               <h3 className="text-base md:text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-blue-600" />
@@ -212,7 +244,6 @@ export default function QuotationView({
               </div>
             </div>
 
-            {/* Customer Details */}
             <div className="bg-green-50 p-5 rounded-xl border-l-4 border-green-500">
               <h3 className="text-base md:text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                 <Users className="w-5 h-5 text-green-600" />
@@ -243,7 +274,6 @@ export default function QuotationView({
             </div>
           </div>
 
-          {/* Booking Details */}
           <div className="bg-purple-50 p-5 rounded-xl border-l-4 border-purple-500 mb-8">
             <h3 className="text-base md:text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
               <Calendar className="w-5 h-5 text-purple-600" />
@@ -269,17 +299,21 @@ export default function QuotationView({
             </div>
           </div>
 
-          {/* Price Breakdown */}
-          <div className="mb-8">
-            <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-4 pb-2 border-b-2">
-              Price Breakdown
-            </h3>
+          <div className="mb-8 border-4 border-blue-300 rounded-xl p-6 bg-gradient-to-br from-blue-50 to-white">
+            <div className="flex items-center justify-between mb-6 pb-4 border-b-2 border-blue-400">
+              <h3 className="text-xl md:text-2xl font-black text-blue-900">
+                📄 INVOICE 1: VENUE RENTAL
+              </h3>
+              <div className="text-right">
+                <p className="text-xs text-gray-500 font-semibold">Invoice No.</p>
+                <p className="text-sm font-bold text-blue-900">{quotationNumber}-V</p>
+              </div>
+            </div>
 
-            {/* Base Price */}
-            <div className="bg-white border-2 border-gray-200 rounded-lg p-4 mb-4">
-              <div className="flex justify-between items-center mb-2">
+            <div className="bg-white border-2 border-blue-200 rounded-lg p-4 mb-4">
+              <div className="flex justify-between items-center">
                 <div>
-                  <p className="font-bold text-gray-900">Venue Rental</p>
+                  <p className="font-bold text-gray-900">Venue Rental Charges</p>
                   <p className="text-xs text-gray-500">
                     {formData.bookingType === 'hourly' ? 'Per Hour' : 
                      formData.bookingType === 'halfday' ? 'Half Day (4 hours)' : 
@@ -292,43 +326,36 @@ export default function QuotationView({
               </div>
             </div>
 
-            {/* Amenities & Services */}
-            {calculatedPrice.amenitiesTotal > 0 && (
-              <div className="bg-orange-50 border-2 border-orange-200 rounded-lg p-4 mb-4">
-                <h4 className="font-bold text-gray-900 mb-3 text-base">Selected Amenities & Services</h4>
+            {(calculatedPrice.amenitiesTotal > 0 || selectedAmenities.basic.length > 0) && (
+              <div className="bg-white border-2 border-blue-200 rounded-lg p-4 mb-4">
+                <h4 className="font-bold text-gray-900 mb-3 text-base">Amenities & Services</h4>
                 
-                {/* Basic Amenities */}
                 {selectedAmenities.basic.length > 0 && (
                   <div className="mb-3">
-                    <p className="text-sm font-semibold text-gray-700 mb-2">Basic Amenities:</p>
-                    <div className="space-y-1">
-                      {selectedAmenities.basic.map((amenity, idx) => (
-                        <div key={idx} className="flex justify-between text-sm pl-4">
-                          <span className="text-gray-700">• {amenity.name}</span>
-                          <span className="font-semibold text-gray-900">
-                            {amenity.type === 'Paid' ? `₹${amenity.rate.toLocaleString('en-IN')}` : 'Included'}
-                          </span>
-                        </div>
-                      ))}
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-700 font-semibold">Basic Amenities (Included):</span>
+                      <span className="font-semibold text-gray-900">₹0</span>
                     </div>
                   </div>
                 )}
 
-                {/* Beverages */}
                 {selectedAmenities.beverages.length > 0 && (
                   <div className="mb-3">
                     <p className="text-sm font-semibold text-gray-700 mb-2">Beverages:</p>
                     <div className="space-y-1">
                       {selectedAmenities.beverages.map((beverage, idx) => {
                         const qty = beverage.quantity || 0;
-                        const total = beverage.total || ((beverage.ratePerUnit || 0) * qty);
+                        const rate = beverage.ratePerUnit || 0;
+                        const total = beverage.total || (rate * qty);
                         return (
                           <div key={idx} className="flex justify-between text-sm pl-4">
                             <span className="text-gray-700">
-                              • {beverage.name} 
-                              <span className="text-xs text-gray-500"> (₹{beverage.ratePerUnit} × {qty} persons)</span>
+                              • {beverage.name}
+                              {rate > 0 && <span className="text-xs text-gray-500"> (₹{rate} × {qty} persons)</span>}
                             </span>
-                            <span className="font-semibold text-gray-900">₹{total.toLocaleString('en-IN')}</span>
+                            <span className="font-semibold text-gray-900">
+                              {rate > 0 ? `₹${total.toLocaleString('en-IN')}` : '₹0'}
+                            </span>
                           </div>
                         );
                       })}
@@ -336,21 +363,23 @@ export default function QuotationView({
                   </div>
                 )}
 
-                {/* Refreshments */}
                 {selectedAmenities.refreshmentFood.length > 0 && (
                   <div className="mb-3">
                     <p className="text-sm font-semibold text-gray-700 mb-2">Refreshments & Snacks:</p>
                     <div className="space-y-1">
                       {selectedAmenities.refreshmentFood.map((food, idx) => {
                         const qty = food.quantity || 0;
-                        const total = food.total || ((food.ratePerPlate || 0) * qty);
+                        const rate = food.ratePerPlate || 0;
+                        const total = food.total || (rate * qty);
                         return (
                           <div key={idx} className="flex justify-between text-sm pl-4">
                             <span className="text-gray-700">
                               • {food.name}
-                              <span className="text-xs text-gray-500"> (₹{food.ratePerPlate} × {qty} plates)</span>
+                              {rate > 0 && <span className="text-xs text-gray-500"> (₹{rate} × {qty} plates)</span>}
                             </span>
-                            <span className="font-semibold text-gray-900">₹{total.toLocaleString('en-IN')}</span>
+                            <span className="font-semibold text-gray-900">
+                              {rate > 0 ? `₹${total.toLocaleString('en-IN')}` : '₹0'}
+                            </span>
                           </div>
                         );
                       })}
@@ -358,22 +387,23 @@ export default function QuotationView({
                   </div>
                 )}
 
-                {/* Lunch Thalis */}
                 {selectedAmenities.lunchThalis.length > 0 && (
                   <div className="mb-3">
                     <p className="text-sm font-semibold text-gray-700 mb-2">Lunch Thalis:</p>
                     <div className="space-y-1">
                       {selectedAmenities.lunchThalis.map((thali, idx) => {
-                        // Use quantity from thali object directly (already calculated in booking data)
                         const qty = thali.quantity || 0;
-                        const total = thali.total || ((thali.ratePerPlate || 0) * qty);
+                        const rate = thali.ratePerPlate || 0;
+                        const total = thali.total || (rate * qty);
                         return (
                           <div key={idx} className="flex justify-between text-sm pl-4">
                             <span className="text-gray-700">
                               • {thali.thaliType} - {thali.category}
-                              <span className="text-xs text-gray-500"> (₹{thali.ratePerPlate} × {qty} plates)</span>
+                              {rate > 0 && <span className="text-xs text-gray-500"> (₹{rate} × {qty} plates)</span>}
                             </span>
-                            <span className="font-semibold text-gray-900">₹{total.toLocaleString('en-IN')}</span>
+                            <span className="font-semibold text-gray-900">
+                              {rate > 0 ? `₹${total.toLocaleString('en-IN')}` : '₹0'}
+                            </span>
                           </div>
                         );
                       })}
@@ -381,53 +411,154 @@ export default function QuotationView({
                   </div>
                 )}
 
-                {/* Additional Facilities */}
                 {selectedAmenities.additional.length > 0 && (
                   <div className="mb-3">
-                    <p className="text-sm font-semibold text-gray-700 mb-2">Additional Facilities:</p>
-                    <div className="space-y-1">
-                      {selectedAmenities.additional.map((facility, idx) => (
-                        <div key={idx} className="flex justify-between text-sm pl-4">
-                          <span className="text-gray-700">• {facility.name}</span>
-                          <span className="font-semibold text-gray-900">
-                            {facility.type === 'Paid' ? `₹${facility.charges.toLocaleString('en-IN')}` : 'Included'}
-                          </span>
-                        </div>
-                      ))}
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-700 font-semibold">Additional Facilities (Included):</span>
+                      <span className="font-semibold text-gray-900">₹0</span>
                     </div>
                   </div>
                 )}
 
-                <div className="flex justify-between pt-3 mt-3 border-t-2 border-orange-300">
-                  <span className="font-bold text-gray-900">Amenities Total:</span>
-                  <span className="font-black text-gray-900 text-lg">
-                    ₹{calculatedPrice.amenitiesTotal.toLocaleString('en-IN')}
-                  </span>
-                </div>
+                {calculatedPrice.amenitiesTotal > 0 && (
+                  <div className="flex justify-between pt-3 mt-3 border-t-2 border-gray-300">
+                    <span className="font-bold text-gray-900">Amenities Subtotal:</span>
+                    <span className="font-black text-gray-900 text-lg">
+                      ₹{calculatedPrice.amenitiesTotal.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Summary */}
-            <div className="bg-gradient-to-br from-primary-50 to-orange-50 border-2 border-primary-300 rounded-lg p-5">
+            <div className="bg-gradient-to-br from-blue-100 to-blue-50 border-2 border-blue-400 rounded-lg p-5">
               <div className="space-y-3">
                 <div className="flex justify-between text-base">
-                  <span className="font-semibold text-gray-700">Subtotal:</span>
-                  <span className="font-bold text-gray-900">₹{calculatedPrice.subtotal.toLocaleString('en-IN')}</span>
+                  <span className="font-semibold text-gray-700">Subtotal (Rental + Amenities):</span>
+                  <span className="font-bold text-gray-900">₹{venueInvoice.baseAmount.toLocaleString('en-IN')}</span>
                 </div>
-                <div className="flex justify-between pt-3 border-t-2 border-primary-400">
-                  <span className="text-xl font-black text-gray-900">Grand Total:</span>
-                  <span className="text-2xl md:text-3xl font-black text-primary-600">
-                    ₹{calculatedPrice.total.toLocaleString('en-IN')}
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-700">CGST ({venueInvoice.cgstRate}%):</span>
+                  <span className="font-semibold text-blue-700">₹{venueInvoice.cgst.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-700">SGST ({venueInvoice.sgstRate}%):</span>
+                  <span className="font-semibold text-blue-700">₹{venueInvoice.sgst.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between pt-3 border-t-2 border-blue-500">
+                  <span className="text-xl font-black text-blue-900">Venue Invoice Total:</span>
+                  <span className="text-2xl md:text-3xl font-black text-blue-900">
+                    ₹{venueInvoice.total.toLocaleString('en-IN')}
                   </span>
                 </div>
-                <p className="text-xs text-gray-600 text-center pt-2">
-                  Amount in Indian Rupees (INR)
+              </div>
+            </div>
+
+            {platformSettings?.gstInvoiceSignature && (
+              <div className="mt-6 pt-6 border-t-2 border-blue-300">
+                <div className="flex justify-end">
+                  <div className="text-center">
+                    <img 
+                      src={platformSettings.gstInvoiceSignature} 
+                      alt="Authorized Signature" 
+                      className="h-16 mb-2 mx-auto"
+                    />
+                    <p className="text-xs text-gray-600 font-semibold border-t border-gray-400 pt-1">
+                      Authorized Signature
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="mb-8 border-4 border-purple-300 rounded-xl p-6 bg-gradient-to-br from-purple-50 to-white">
+            <div className="flex items-center justify-between mb-6 pb-4 border-b-2 border-purple-400">
+              <h3 className="text-xl md:text-2xl font-black text-purple-900">
+                📄 INVOICE 2: PLATFORM FEE
+              </h3>
+              <div className="text-right">
+                <p className="text-xs text-gray-500 font-semibold">Invoice No.</p>
+                <p className="text-sm font-bold text-purple-900">{quotationNumber}-P</p>
+              </div>
+            </div>
+
+            <div className="bg-white border-2 border-purple-200 rounded-lg p-4 mb-4">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-700">Base Amount (Rental + Amenities):</span>
+                  <span className="font-semibold text-gray-900">₹{venueInvoice.baseAmount.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="font-bold text-gray-900">Platform Service Fee</p>
+                    <p className="text-xs text-gray-500">{platformInvoice.feePercentage}% of base amount</p>
+                  </div>
+                  <p className="text-xl font-black text-gray-900">
+                    ₹{platformInvoice.platformFee.toLocaleString('en-IN')}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-purple-100 to-purple-50 border-2 border-purple-400 rounded-lg p-5">
+              <div className="space-y-3">
+                <div className="flex justify-between text-base">
+                  <span className="font-semibold text-gray-700">Platform Fee:</span>
+                  <span className="font-bold text-gray-900">₹{platformInvoice.platformFee.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-700">CGST ({platformInvoice.cgstRate}%):</span>
+                  <span className="font-semibold text-purple-700">₹{platformInvoice.cgst.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-700">SGST ({platformInvoice.sgstRate}%):</span>
+                  <span className="font-semibold text-purple-700">₹{platformInvoice.sgst.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between pt-3 border-t-2 border-purple-500">
+                  <span className="text-xl font-black text-purple-900">Platform Invoice Total:</span>
+                  <span className="text-2xl md:text-3xl font-black text-purple-900">
+                    ₹{platformInvoice.total.toLocaleString('en-IN')}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {platformSettings?.platformInvoiceSignature && (
+              <div className="mt-6 pt-6 border-t-2 border-purple-300">
+                <div className="flex justify-end">
+                  <div className="text-center">
+                    <img 
+                      src={platformSettings.platformInvoiceSignature} 
+                      alt="Authorized Signature" 
+                      className="h-16 mb-2 mx-auto"
+                    />
+                    <p className="text-xs text-gray-600 font-semibold border-t border-gray-400 pt-1">
+                      Authorized Signature
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="mb-8 bg-gradient-to-br from-green-50 to-green-100 border-4 border-green-400 rounded-xl p-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Total Amount Payable</p>
+                <p className="text-2xl md:text-3xl font-black text-green-900">GRAND TOTAL</p>
+              </div>
+              <div className="text-right">
+                <p className="text-4xl md:text-5xl font-black text-green-900">
+                  ₹{grandTotal.toLocaleString('en-IN')}
+                </p>
+                <p className="text-xs text-gray-600 mt-2">
+                  (Venue: ₹{venueInvoice.total.toLocaleString('en-IN')} + Platform: ₹{platformInvoice.total.toLocaleString('en-IN')})
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Special Requirements */}
           {formData.specialRequirements && (
             <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded-lg mb-8">
               <h4 className="font-bold text-gray-900 mb-2">Special Requirements:</h4>
@@ -435,13 +566,16 @@ export default function QuotationView({
             </div>
           )}
 
-          {/* Terms & Conditions */}
           <div className="bg-gray-50 border-2 border-gray-300 rounded-lg p-5 mb-8">
             <h3 className="text-base md:text-lg font-bold text-gray-900 mb-3">Terms & Conditions:</h3>
             <ul className="space-y-2 text-xs md:text-sm text-gray-700">
               <li className="flex items-start gap-2">
                 <span className="text-primary-500 font-bold">•</span>
                 <span>This quotation is valid for 7 days from the date of issue.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-primary-500 font-bold">•</span>
+                <span>Two separate invoices will be generated: Venue Invoice and Platform Invoice.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-primary-500 font-bold">•</span>
@@ -462,7 +596,6 @@ export default function QuotationView({
             </ul>
           </div>
 
-          {/* Footer */}
           <div className="text-center pt-6 border-t-2 border-gray-300">
             <p className="text-sm font-semibold text-gray-900 mb-2">Thank you for choosing RentalMeet!</p>
             <p className="text-xs text-gray-600 mb-1">For any queries or support:</p>
@@ -480,7 +613,6 @@ export default function QuotationView({
           </div>
         </div>
 
-        {/* Action Buttons - Print Hidden */}
         <div className="border-t bg-gray-50 p-4 md:p-6 flex flex-col sm:flex-row gap-3 print:hidden">
           <button
             onClick={onClose}
@@ -499,4 +631,3 @@ export default function QuotationView({
     </div>
   );
 }
-

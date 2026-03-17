@@ -131,8 +131,14 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
     gst: 0,
     gstRate: 18,
     platformFee: 0,
+    discount: 0,
     total: 0
   });
+
+  // Coupon state
+  const [couponInput, setCouponInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponLoading, setCouponLoading] = useState(false);
 
   // Calculate base price
   const calculateBasePrice = (type, isWeekendDay) => {
@@ -261,10 +267,11 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
         gst,
         gstRate,
         platformFee,
-        total
+        discount: appliedCoupon ? appliedCoupon.discountAmount : 0,
+        total: appliedCoupon ? Math.max(0, total - appliedCoupon.discountAmount) : total
       });
     }
-  }, [formData.bookingType, formData.isWeekend, selectedAmenities, quantities, platformSettings, venue]);
+  }, [formData.bookingType, formData.isWeekend, selectedAmenities, quantities, platformSettings, venue, appliedCoupon]);
 
   // Check weekend
   const checkIfWeekend = (dateString) => {
@@ -313,6 +320,36 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
       bookingType: bookingType,
       endTime: endTime
     }));
+  };
+
+  const applyCoupon = async () => {
+    if (!couponInput.trim()) return;
+    if (!venue._id) return;
+    const baseTotal = calculatedPrice.subtotal + calculatedPrice.gst + calculatedPrice.platformFee;
+    setCouponLoading(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/coupons/validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ code: couponInput, venueId: venue._id, bookingAmount: baseTotal })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAppliedCoupon({ ...data.coupon, discountAmount: data.discountAmount });
+        toast.success(`Coupon applied! You save ₹${data.discountAmount}`);
+      } else {
+        toast.error(data.message || 'Invalid coupon');
+      }
+    } catch {
+      toast.error('Could not apply coupon');
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput('');
   };
 
 
@@ -498,6 +535,7 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
         amenitiesTotal: calculatedPrice.amenitiesTotal,
         selectedAmenities: amenitiesWithDetails,
         priceBreakdown: calculatedPrice,
+        couponCode: appliedCoupon?.code || null,
         customerDetails: {
           name: formData.customerName,
           email: formData.customerEmail,
@@ -730,7 +768,44 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
                 <span>Platform Fee:</span>
                 <span className="font-semibold text-purple-600">₹{calculatedPrice.platformFee.toLocaleString()}</span>
               </div>
+              {appliedCoupon && (
+                <div className="flex justify-between text-green-600">
+                  <span>Coupon ({appliedCoupon.code}):</span>
+                  <span className="font-semibold">-₹{appliedCoupon.discountAmount.toLocaleString()}</span>
+                </div>
+              )}
             </div>
+
+            {/* Coupon Input */}
+            {token && (
+              <div className="mb-4">
+                {appliedCoupon ? (
+                  <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                    <span className="text-sm text-green-700 font-semibold">🎉 {appliedCoupon.code} applied</span>
+                    <button onClick={removeCoupon} className="text-xs text-red-500 hover:text-red-700 font-medium">Remove</button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={couponInput}
+                      onChange={e => setCouponInput(e.target.value.toUpperCase())}
+                      placeholder="Enter coupon code"
+                      className="flex-1 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white dark:bg-slate-800 uppercase"
+                    />
+                    <button
+                      type="button"
+                      onClick={applyCoupon}
+                      disabled={couponLoading || !couponInput.trim()}
+                      className="px-4 py-2 bg-primary-600 text-white text-sm font-semibold rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors"
+                    >
+                      {couponLoading ? '...' : 'Apply'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex justify-between items-center pt-4 border-t-2 border-primary-300">
               <span className="text-base font-bold">Total Amount:</span>
               <div className="text-right">

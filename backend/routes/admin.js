@@ -103,7 +103,16 @@ router.get('/payments/:id', protect, authorize('admin'), checkPermission('paymen
 // Platform Settings routes (GST & Platform Fee)
 router.route('/platform-settings')
   .get(protect, authorize('admin'), checkPermission('platformSettings'), getPlatformSettings)
-  .put(protect, authorize('admin'), checkPermission('platformSettings'), updatePlatformSettings);
+  .put(
+    protect, 
+    authorize('admin'), 
+    checkPermission('platformSettings'), 
+    upload.fields([
+      { name: 'gstInvoiceSignature', maxCount: 1 },
+      { name: 'platformInvoiceSignature', maxCount: 1 }
+    ]),
+    updatePlatformSettings
+  );
 
 // Terms & Conditions routes
 router.route('/terms')

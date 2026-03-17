@@ -338,7 +338,19 @@ exports.getPlatformSettings = async (req, res) => {
 exports.updatePlatformSettings = async (req, res) => {
   try {
     const PlatformSettings = require('../models/PlatformSettings');
-    const { gstRate, platformFeeType, platformFeeValue, platformFeePercentage, commissionRate } = req.body;
+    const { uploadToCloudinary } = require('../config/cloudinary');
+    const { 
+      gstRate, 
+      platformFeeType, 
+      platformFeeValue, 
+      platformFeePercentage, 
+      commissionRate,
+      venueCGST,
+      venueSGST,
+      venueHSN,
+      platformCGST,
+      platformSGST
+    } = req.body;
     
     // Handle both platformFeeValue and platformFeePercentage (frontend compatibility)
     const feeValue = platformFeeValue !== undefined ? platformFeeValue : platformFeePercentage;
@@ -351,18 +363,59 @@ exports.updatePlatformSettings = async (req, res) => {
       settings.gstRate = gstRate !== undefined ? gstRate : settings.gstRate;
       settings.platformFeeType = platformFeeType || settings.platformFeeType;
       settings.platformFeeValue = feeValue !== undefined ? feeValue : settings.platformFeeValue;
+      settings.platformFeePercentage = feeValue !== undefined ? feeValue : settings.platformFeePercentage;
       settings.commissionRate = commissionRate !== undefined ? commissionRate : settings.commissionRate;
+      
+      // Update GST settings
+      settings.venueCGST = venueCGST !== undefined ? venueCGST : settings.venueCGST;
+      settings.venueSGST = venueSGST !== undefined ? venueSGST : settings.venueSGST;
+      settings.venueHSN = venueHSN !== undefined ? venueHSN : settings.venueHSN;
+      settings.platformCGST = platformCGST !== undefined ? platformCGST : settings.platformCGST;
+      settings.platformSGST = platformSGST !== undefined ? platformSGST : settings.platformSGST;
+      
+      // Handle signature uploads
+      if (req.files) {
+        if (req.files.gstInvoiceSignature && req.files.gstInvoiceSignature[0]) {
+          const result = await uploadToCloudinary(req.files.gstInvoiceSignature[0].buffer, 'signatures');
+          settings.gstInvoiceSignature = result.secure_url;
+        }
+        if (req.files.platformInvoiceSignature && req.files.platformInvoiceSignature[0]) {
+          const result = await uploadToCloudinary(req.files.platformInvoiceSignature[0].buffer, 'signatures');
+          settings.platformInvoiceSignature = result.secure_url;
+        }
+      }
+      
       settings.updatedBy = req.user.id;
       await settings.save();
     } else {
       // Create new document
-      settings = await PlatformSettings.create({
+      const newSettings = {
         gstRate: gstRate || 18,
         platformFeeType: platformFeeType || 'percentage',
         platformFeeValue: feeValue || 5,
+        platformFeePercentage: feeValue || 5,
         commissionRate: commissionRate || 0,
+        venueCGST: venueCGST || 9,
+        venueSGST: venueSGST || 9,
+        venueHSN: venueHSN || '',
+        platformCGST: platformCGST || 9,
+        platformSGST: platformSGST || 9,
         updatedBy: req.user.id
-      });
+      };
+      
+      // Handle signature uploads for new settings
+      if (req.files) {
+        if (req.files.gstInvoiceSignature && req.files.gstInvoiceSignature[0]) {
+          const result = await uploadToCloudinary(req.files.gstInvoiceSignature[0].buffer, 'signatures');
+          newSettings.gstInvoiceSignature = result.secure_url;
+        }
+        if (req.files.platformInvoiceSignature && req.files.platformInvoiceSignature[0]) {
+          const result = await uploadToCloudinary(req.files.platformInvoiceSignature[0].buffer, 'signatures');
+          newSettings.platformInvoiceSignature = result.secure_url;
+        }
+      }
+      
+      settings = await PlatformSettings.create(newSettings);
     }
     
     res.json({

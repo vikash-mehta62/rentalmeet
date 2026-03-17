@@ -227,14 +227,43 @@ export default function OwnerBookings() {
                         {booking.venue?.location?.city}, {booking.venue?.location?.area}
                       </p>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      booking.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                      booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
-                      booking.status === 'completed' ? 'bg-blue-100 text-blue-700' :
-                      'bg-red-100 text-red-700'
-                    }`}>
-                      {booking.status.toUpperCase()}
-                    </span>
+                    <div className="flex flex-col items-end gap-2">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                        booking.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                        booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
+                        booking.status === 'completed' ? 'bg-blue-100 text-blue-700' :
+                        'bg-red-100 text-red-700'
+                      }`}>
+                        {booking.status.toUpperCase()}
+                      </span>
+                      {booking.status === 'pending' && (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleUpdateStatus(booking._id, 'confirmed')}
+                            className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            Accept
+                          </button>
+                          <button
+                            onClick={() => handleUpdateStatus(booking._id, 'cancelled')}
+                            className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1"
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                            Reject
+                          </button>
+                        </div>
+                      )}
+                      {booking.status === 'confirmed' && (
+                        <button
+                          onClick={() => handleUpdateStatus(booking._id, 'completed')}
+                          className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Mark Completed
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Info Grid */}
@@ -429,33 +458,6 @@ export default function OwnerBookings() {
                       <Eye className="w-4 h-4" />
                       View Venue
                     </Link>
-                    {booking.status === 'pending' && (
-                      <>
-                        <button
-                          onClick={() => handleUpdateStatus(booking._id, 'confirmed')}
-                          className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
-                        >
-                          <CheckCircle2 className="w-4 h-4" />
-                          Accept Booking
-                        </button>
-                        <button
-                          onClick={() => handleUpdateStatus(booking._id, 'cancelled')}
-                          className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
-                        >
-                          <XCircle className="w-4 h-4" />
-                          Reject
-                        </button>
-                      </>
-                    )}
-                    {booking.status === 'confirmed' && (
-                      <button
-                        onClick={() => handleUpdateStatus(booking._id, 'completed')}
-                        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
-                      >
-                        <CheckCircle2 className="w-4 h-4" />
-                        Mark as Completed
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>

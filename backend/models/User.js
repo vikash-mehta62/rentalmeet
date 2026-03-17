@@ -100,6 +100,22 @@ const userSchema = new mongoose.Schema({
     }
   }],
   
+  // GST & Business Details (for all users)
+  gstNumber: {
+    type: String,
+    uppercase: true,
+    trim: true
+  },
+  companyName: {
+    type: String,
+    trim: true
+  },
+  panNumber: {
+    type: String,
+    uppercase: true,
+    trim: true
+  },
+  
   // Employee-specific fields
   employeeDetails: {
     title: {
@@ -202,6 +218,15 @@ const userSchema = new mongoose.Schema({
       },
       panCard: {
         type: String // URL
+      },
+      gstNumber: {
+        type: String,
+        uppercase: true,
+        trim: true
+      },
+      companyName: {
+        type: String,
+        trim: true
       }
     },
     bankDetails: {

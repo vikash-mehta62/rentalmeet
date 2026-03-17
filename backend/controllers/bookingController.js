@@ -1,6 +1,7 @@
 const Booking = require('../models/Booking');
 const Venue = require('../models/Venue');
 const Counter = require('../models/Counter');
+const Coupon = require('../models/Coupon');
 const { getCityCode, getStateCode } = require('../utils/cityCodes');
 
 // Helper function to generate booking number
@@ -66,7 +67,8 @@ exports.createBooking = async (req, res) => {
       selectedAmenities,
       amenitiesTotal,
       priceBreakdown,
-      customerDetails 
+      customerDetails,
+      couponCode
     } = req.body;
     
     console.log('=== BOOKING REQUEST DEBUG ===');
@@ -109,6 +111,38 @@ exports.createBooking = async (req, res) => {
       ownerEarnings = amount;
     }
     
+    // ── Coupon validation & application ──────────────────────────────────────
+    let appliedCoupon = null;
+    let discountAmount = 0;
+    let finalAmount = amount;
+
+    if (couponCode) {
+      const coupon = await Coupon.findOne({
+        code: couponCode.toUpperCase().trim(),
+        venue,
+        isActive: true
+      });
+
+      if (coupon) {
+        const now = new Date();
+        const expired = coupon.expiryDate && now > new Date(coupon.expiryDate);
+        const limitReached = coupon.maxUses !== null && coupon.usedCount >= coupon.maxUses;
+        const belowMin = amount < coupon.minBookingAmount;
+
+        if (!expired && !limitReached && !belowMin) {
+          if (coupon.discountType === 'percentage') {
+            discountAmount = (amount * coupon.discountValue) / 100;
+            if (coupon.maxDiscount) discountAmount = Math.min(discountAmount, coupon.maxDiscount);
+          } else {
+            discountAmount = Math.min(coupon.discountValue, amount);
+          }
+          discountAmount = Math.round(discountAmount);
+          finalAmount = amount - discountAmount;
+          appliedCoupon = coupon;
+        }
+      }
+    }
+
     // Create booking
     const booking = await Booking.create({
       bookingNumber,
@@ -118,7 +152,7 @@ exports.createBooking = async (req, res) => {
       startTime,
       endTime,
       bookingType,
-      amount, // Total amount including GST and platform fee
+      amount: finalAmount,
       commission: 0,
       ownerEarnings,
       commissionRate: 0,
@@ -130,9 +164,30 @@ exports.createBooking = async (req, res) => {
         additional: []
       },
       amenitiesTotal: amenitiesTotal || 0,
-      priceBreakdown: priceBreakdown || {},
-      customerDetails
+      priceBreakdown: { ...(priceBreakdown || {}), discount: discountAmount, total: finalAmount },
+      customerDetails,
+      ...(appliedCoupon && {
+        coupon: {
+          couponId: appliedCoupon._id,
+          code: appliedCoupon.code,
+          discountAmount
+        }
+      })
     });
+
+    // Record coupon usage
+    if (appliedCoupon) {
+      await Coupon.findByIdAndUpdate(appliedCoupon._id, {
+        $inc: { usedCount: 1 },
+        $push: {
+          usages: {
+            user: req.user.id,
+            booking: booking._id,
+            discountAmount
+          }
+        }
+      });
+    }
     
     // Populate venue and customer details
     await booking.populate('venue', 'businessName location sku images');

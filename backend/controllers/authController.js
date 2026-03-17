@@ -206,7 +206,25 @@ exports.getMe = async (req, res) => {
 // @route   PUT /api/auth/update-profile
 exports.updateProfile = async (req, res) => {
   try {
-    const { name, email, phone, address, city, state, pincode, profilePicture } = req.body;
+    const { 
+      name, 
+      email, 
+      phone, 
+      address, 
+      city, 
+      state, 
+      pincode, 
+      profilePicture,
+      gstNumber,
+      companyName,
+      panNumber
+    } = req.body;
+    
+    console.log('=== UPDATE PROFILE REQUEST ===');
+    console.log('User ID:', req.user.id);
+    console.log('GST Number:', gstNumber);
+    console.log('Company Name:', companyName);
+    console.log('PAN Number:', panNumber);
     
     // Check if email is being changed and if it's already taken
     if (email && email !== req.user.email) {
@@ -230,20 +248,52 @@ exports.updateProfile = async (req, res) => {
       }
     }
     
-    const user = await User.findByIdAndUpdate(
-      req.user.id,
-      {
-        name,
-        email,
-        phone,
-        address,
-        city,
-        state,
-        pincode,
-        profilePicture
-      },
-      { new: true, runValidators: true }
-    );
+    // Get current user first
+    const currentUser = await User.findById(req.user.id);
+    
+    if (!currentUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    console.log('Before update - GST:', currentUser.gstNumber, 'Company:', currentUser.companyName, 'PAN:', currentUser.panNumber);
+    
+    // Update basic fields
+    currentUser.name = name || currentUser.name;
+    currentUser.email = email || currentUser.email;
+    currentUser.phone = phone || currentUser.phone;
+    currentUser.address = address || currentUser.address;
+    currentUser.city = city || currentUser.city;
+    currentUser.state = state || currentUser.state;
+    currentUser.pincode = pincode || currentUser.pincode;
+    currentUser.profilePicture = profilePicture || currentUser.profilePicture;
+    
+    // Update GST & Business details (root level fields)
+    if (gstNumber !== undefined) {
+      currentUser.gstNumber = gstNumber;
+      console.log('Setting GST Number to:', gstNumber);
+    }
+    if (companyName !== undefined) {
+      currentUser.companyName = companyName;
+      console.log('Setting Company Name to:', companyName);
+    }
+    if (panNumber !== undefined) {
+      currentUser.panNumber = panNumber;
+      console.log('Setting PAN Number to:', panNumber);
+    }
+    
+    console.log('After update - GST:', currentUser.gstNumber, 'Company:', currentUser.companyName, 'PAN:', currentUser.panNumber);
+    
+    // Save the user
+    const savedUser = await currentUser.save();
+    
+    console.log('After save - GST:', savedUser.gstNumber, 'Company:', savedUser.companyName, 'PAN:', savedUser.panNumber);
+    
+    // Remove password from response
+    const user = savedUser.toObject();
+    delete user.password;
     
     res.json({
       success: true,
@@ -258,7 +308,15 @@ exports.updateProfile = async (req, res) => {
         city: user.city,
         state: user.state,
         pincode: user.pincode,
-        profilePicture: user.profilePicture
+        profilePicture: user.profilePicture,
+        gstNumber: user.gstNumber,
+        companyName: user.companyName,
+        panNumber: user.panNumber,
+        referralCode: user.referralCode,
+        referredBy: user.referredBy,
+        referredByCode: user.referredByCode,
+        referralCount: user.referralCount,
+        referrals: user.referrals
       }
     });
   } catch (error) {

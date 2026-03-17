@@ -69,6 +69,11 @@ app.use('/api/upload', require('./routes/upload'));
 app.use('/api/payment', require('./routes/payment'));
 app.use('/api/terms', require('./routes/terms'));
 app.use('/api/reviews', require('./routes/reviews'));
+app.use('/api/venues', require('./routes/venueReviews'));
+
+// Public coupon validation
+const { validateCoupon } = require('./controllers/couponController');
+app.post('/api/coupons/validate', require('./middleware/auth').protect, validateCoupon);
 
 // Public hero slides route
 const { getActiveHeroSlides, getPublicContactSettings } = require('./controllers/adminController');

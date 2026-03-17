@@ -3,6 +3,13 @@ const router = express.Router();
 const { protect, authorize } = require('../middleware/auth');
 const Venue = require('../models/Venue');
 const Booking = require('../models/Booking');
+const {
+  createCoupon,
+  getOwnerCoupons,
+  getCouponUsage,
+  updateCoupon,
+  deleteCoupon
+} = require('../controllers/couponController');
 
 // All routes require authentication and owner role
 router.use(protect);
@@ -173,5 +180,12 @@ router.delete('/venues/:id', async (req, res) => {
     });
   }
 });
+
+// ─── Coupon Routes ────────────────────────────────────────────────────────────
+router.post('/coupons', createCoupon);
+router.get('/coupons', getOwnerCoupons);
+router.get('/coupons/:id', getCouponUsage);
+router.put('/coupons/:id', updateCoupon);
+router.delete('/coupons/:id', deleteCoupon);
 
 module.exports = router;

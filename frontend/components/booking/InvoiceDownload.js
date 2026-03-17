@@ -1,8 +1,26 @@
 'use client';
 
+import React from 'react';
 import { Download } from 'lucide-react';
 
 export default function InvoiceDownload({ booking, userRole = 'customer' }) {
+  const [platformSettings, setPlatformSettings] = React.useState(null);
+
+  React.useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/platform-settings`);
+        const data = await response.json();
+        if (data.success) {
+          setPlatformSettings(data.settings);
+        }
+      } catch (error) {
+        console.error('Error fetching platform settings:', error);
+      }
+    };
+    fetchSettings();
+  }, []);
+
   const computeParts = () => {
     const subtotal = booking?.priceBreakdown?.subtotal ?? booking?.ownerEarnings ?? 0;
     const gst = booking?.priceBreakdown?.gst ?? 0;
@@ -13,7 +31,7 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
   };
 
   const buildVenueInvoiceHTML = () => {
-    const { subtotal, gst, gstRate, total } = computeParts();
+    const { subtotal, gst, gstRate } = computeParts();
     const grand = subtotal + gst;
     // Create invoice HTML (Venue GST)
     const invoiceHTML = `
@@ -157,17 +175,12 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
           </tr>
           
           ${booking.selectedAmenities?.basic?.length > 0 ? `
-            <tr style="background: #FFF7ED;">
-              <td colspan="4" style="font-weight: bold; color: #F59F0A; padding: 8px 12px;">Basic Amenities</td>
+            <tr>
+              <td><strong>Basic Amenities (Included)</strong></td>
+              <td>-</td>
+              <td>Free</td>
+              <td style="text-align: right; font-weight: 600;">₹0</td>
             </tr>
-            ${booking.selectedAmenities.basic.map(amenity => `
-              <tr>
-                <td style="padding-left: 24px;">${amenity.name} ${amenity.type === 'Free' ? '<span style="color: #059669; font-size: 11px;">(Free)</span>' : ''}</td>
-                <td>${amenity.quantity || 1}</td>
-                <td>₹${(amenity.rate || 0).toLocaleString()} ${amenity.rateType || 'Fixed'}</td>
-                <td style="text-align: right; font-weight: 600;">₹${(amenity.total || 0).toLocaleString()}</td>
-              </tr>
-            `).join('')}
           ` : ''}
           
           ${booking.selectedAmenities?.beverages?.length > 0 ? `
@@ -210,6 +223,15 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
                 <td style="text-align: right; font-weight: 600;">₹${(thali.total || 0).toLocaleString()}</td>
               </tr>
             `).join('')}
+          ` : ''}
+          
+          ${booking.selectedAmenities?.additional?.length > 0 ? `
+            <tr>
+              <td><strong>Additional Facilities (Included)</strong></td>
+              <td>-</td>
+              <td>Free</td>
+              <td style="text-align: right; font-weight: 600;">₹0</td>
+            </tr>
           ` : ''}
         </tbody>
       </table>
@@ -266,6 +288,18 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
               })}</div>
             </div>
           ` : ''}
+        </div>
+      </div>
+    ` : ''}
+
+    ${platformSettings?.gstInvoiceSignature ? `
+      <!-- Signature Section -->
+      <div class="section" style="margin-top: 40px;">
+        <div style="text-align: right;">
+          <img src="${platformSettings.gstInvoiceSignature}" alt="Authorized Signature" style="height: 60px; margin-bottom: 10px;" />
+          <div style="border-top: 2px solid #333; width: 200px; margin-left: auto; padding-top: 5px;">
+            <p style="font-size: 12px; font-weight: bold; color: #333;">Authorized Signature</p>
+          </div>
         </div>
       </div>
     ` : ''}
@@ -379,6 +413,18 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
         <span>₹${(platformFee || 0).toLocaleString()}</span>
       </div>
     </div>
+
+    ${platformSettings?.platformInvoiceSignature ? `
+      <!-- Signature Section -->
+      <div class="section" style="margin-top: 40px;">
+        <div style="text-align: right;">
+          <img src="${platformSettings.platformInvoiceSignature}" alt="Authorized Signature" style="height: 60px; margin-bottom: 10px;" />
+          <div style="border-top: 2px solid #333; width: 200px; margin-left: auto; padding-top: 5px;">
+            <p style="font-size: 12px; font-weight: bold; color: #333;">Authorized Signature</p>
+          </div>
+        </div>
+      </div>
+    ` : ''}
 
     <div class="footer">
       <p><strong>This invoice covers RentalMeet platform service charges only.</strong></p>
