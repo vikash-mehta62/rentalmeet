@@ -41,7 +41,7 @@ const generateToken = (id) => {
 // @route   POST /api/auth/register
 exports.register = async (req, res) => {
   try {
-    const { name, email, phone, password, role, referralCode } = req.body;
+    const { name, email, phone, password, role, referralCode, city, state } = req.body;
     
     // Check if user exists
     const userExists = await User.findOne({ $or: [{ email }, { phone }] });
@@ -75,6 +75,8 @@ exports.register = async (req, res) => {
       phone,
       password,
       role: userRole,
+      city: city || undefined,
+      state: state || undefined,
       referredBy: referrer ? referrer._id : null,
       referredByCode: referralCode ? referralCode.toUpperCase() : null
     });

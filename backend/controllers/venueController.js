@@ -219,16 +219,38 @@ exports.getVenues = async (req, res) => {
       .sort('-createdAt')
       .skip(skip)
       .limit(limitNum);
+
+    // Attach booking stats per venue
+    const Booking = require('../models/Booking');
+    const venueIds = venues.map(v => v._id);
+    const bookingStats = await Booking.aggregate([
+      { $match: { venue: { $in: venueIds } } },
+      { $group: {
+        _id: '$venue',
+        totalBookings: { $sum: 1 },
+        totalRevenue: { $sum: '$amount' }
+      }}
+    ]);
+    const statsMap = {};
+    bookingStats.forEach(s => { statsMap[s._id.toString()] = s; });
+
+    const venuesWithStats = venues.map(v => {
+      const obj = v.toObject();
+      const s = statsMap[v._id.toString()];
+      obj.totalBookings = s ? s.totalBookings : 0;
+      obj.totalRevenue = s ? s.totalRevenue : 0;
+      return obj;
+    });
     
     console.log(`Found ${venues.length} venues (page ${pageNum}) with query:`, query);
     
     res.json({
       success: true,
-      count: venues.length,
+      count: venuesWithStats.length,
       total: totalVenues,
       page: pageNum,
       pages: Math.ceil(totalVenues / limitNum),
-      venues
+      venues: venuesWithStats
     });
   } catch (error) {
     console.error('Get venues error:', error);

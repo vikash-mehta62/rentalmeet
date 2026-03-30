@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Building2, User, Mail, Phone, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { Building2, User, Mail, Phone, Lock, Eye, EyeOff, ArrowLeft, MapPin } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
 
 export default function Register() {
@@ -19,7 +19,9 @@ export default function Register() {
     password: '',
     confirmPassword: '',
     role: 'customer',
-    referralCode: ''
+    referralCode: '',
+    city: '',
+    state: ''
   });
   const [error, setError] = useState('');
 
@@ -110,7 +112,9 @@ export default function Register() {
           phone: formData.phone,
           password: formData.password,
           role: formData.role,
-          referralCode: formData.referralCode || undefined
+          referralCode: formData.referralCode || undefined,
+          city: formData.city || undefined,
+          state: formData.state || undefined
         })
       });
 
@@ -322,6 +326,40 @@ export default function Register() {
                 />
               </div>
             </div>
+
+            {/* City & State - only for customer */}
+            {formData.role === 'customer' && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="text"
+                      name="city"
+                      value={formData.city}
+                      onChange={handleChange}
+                      placeholder="Your city"
+                      className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="text"
+                      name="state"
+                      value={formData.state}
+                      onChange={handleChange}
+                      placeholder="Your state"
+                      className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Password */}
             <div>

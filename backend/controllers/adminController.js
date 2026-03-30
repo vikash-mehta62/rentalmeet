@@ -498,11 +498,37 @@ exports.getAllUsers = async (req, res) => {
       .populate('referredBy', 'name email')
       .populate('referrals.user', 'name email')
       .sort('-createdAt');
-    
+
+    // Get booking counts per user in one query
+    const bookingCounts = await Booking.aggregate([
+      { $group: { _id: '$customer', count: { $sum: 1 } } }
+    ]);
+    const bookingCountMap = {};
+    bookingCounts.forEach(b => {
+      if (b._id) bookingCountMap[b._id.toString()] = b.count;
+    });
+
+    // Get venue counts per owner in one query
+    const Venue = require('../models/Venue');
+    const venueCounts = await Venue.aggregate([
+      { $group: { _id: '$owner', count: { $sum: 1 } } }
+    ]);
+    const venueCountMap = {};
+    venueCounts.forEach(v => {
+      if (v._id) venueCountMap[v._id.toString()] = v.count;
+    });
+
+    const usersWithStats = users.map(u => {
+      const obj = u.toObject();
+      obj.bookingCount = bookingCountMap[u._id.toString()] || 0;
+      obj.venueCount = venueCountMap[u._id.toString()] || 0;
+      return obj;
+    });
+
     res.json({
       success: true,
-      count: users.length,
-      users
+      count: usersWithStats.length,
+      users: usersWithStats
     });
   } catch (error) {
     res.status(500).json({
@@ -1283,10 +1309,21 @@ exports.getAllEmployees = async (req, res) => {
       })
       .sort({ createdAt: -1 });
 
+    const employeesWithEarnings = employees.map(emp => {
+      const obj = emp.toObject();
+      const details = obj.employeeDetails || {};
+      if (details.employmentType === 'Permanent') {
+        obj.earning = details.salary || 0;
+      } else {
+        obj.earning = details.contractDetails?.amount || 0;
+      }
+      return obj;
+    });
+
     res.json({
       success: true,
-      count: employees.length,
-      data: employees
+      count: employeesWithEarnings.length,
+      data: employeesWithEarnings
     });
   } catch (error) {
     res.status(500).json({

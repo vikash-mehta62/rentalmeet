@@ -138,8 +138,9 @@ export default function EmployeesPage() {
 
   const exportToCSV = () => {
     const headers = [
-      'S.No', 'Employee ID', 'Name', 'Email', 'Phone', 'Position', 
-      'Department', 'Employment Type', 'Status', 'Joining Date'
+      'S.No', 'Employee ID', 'Name', 'Email', 'Phone', 'Position',
+      'Department', 'Employment Type', 'City', 'State', 'Status',
+      'Joining Date', 'Referral Code', 'No. of Referrals', 'Earning'
     ];
     
     const rows = filteredEmployees.map((emp, index) => [
@@ -151,8 +152,13 @@ export default function EmployeesPage() {
       emp.employeeDetails?.position || 'N/A',
       emp.employeeDetails?.department || 'N/A',
       emp.employeeDetails?.employmentType || 'N/A',
-      emp.isActive ? 'Active' : 'Inactive',
-      emp.employeeDetails?.joiningDate ? new Date(emp.employeeDetails.joiningDate).toLocaleDateString('en-IN') : 'N/A'
+      emp.city || 'N/A',
+      emp.state || 'N/A',
+      emp.isActive !== false ? 'Active' : 'Inactive',
+      emp.employeeDetails?.joiningDate ? new Date(emp.employeeDetails.joiningDate).toLocaleDateString('en-IN') : 'N/A',
+      emp.referralCode || 'N/A',
+      emp.referralCount || 0,
+      emp.earning || 0
     ]);
 
     const csvContent = [
@@ -298,76 +304,58 @@ export default function EmployeesPage() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    S.No
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Employee ID
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Contact
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Position
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">S.No</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contact</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-yellow-50">City</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-yellow-50">State</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-yellow-50">Referral Code</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-yellow-50">Referrals</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-yellow-50">Earning</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {paginatedEmployees.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan="12" className="px-6 py-8 text-center text-gray-500">
                       No employees found
                     </td>
                   </tr>
                 ) : (
                   paginatedEmployees.map((employee, index) => (
                     <tr key={employee._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="font-semibold text-gray-700">{startIndex + index + 1}</span>
+                      <td className="px-4 py-3">
+                        <span className="text-xs font-semibold text-gray-700">{startIndex + index + 1}</span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {employee.userId || `RM-${employee._id.slice(-8).toUpperCase()}`}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-3">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
                           {employee.employeeDetails?.photo ? (
-                            <img
-                              src={employee.employeeDetails.photo}
-                              alt={employee.name}
-                              className="w-10 h-10 rounded-full object-cover"
-                            />
+                            <img src={employee.employeeDetails.photo} alt={employee.name} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
                           ) : (
-                            <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center font-bold text-primary-600">
+                            <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center font-bold text-primary-600 text-xs flex-shrink-0">
                               {employee.name?.charAt(0).toUpperCase()}
                             </div>
                           )}
                           <div>
-                            <p className="text-sm font-semibold text-gray-900">{employee.name}</p>
-                            <p className="text-xs text-gray-500">{employee.employeeDetails?.department || 'N/A'}</p>
+                            <p className="text-xs font-semibold text-gray-900">{employee.name}</p>
+                            <p className="text-xs text-gray-500">{employee.userId || `RM-${employee._id.slice(-8).toUpperCase()}`}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        <p>{employee.email}</p>
-                        <p className="text-xs">{employee.phone}</p>
+                      <td className="px-4 py-3">
+                        <p className="text-xs text-gray-700">{employee.email}</p>
+                        <p className="text-xs text-gray-500">{employee.phone}</p>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {employee.employeeDetails?.position || 'N/A'}
+                      <td className="px-4 py-3">
+                        <p className="text-xs text-gray-900">{employee.employeeDetails?.position || 'N/A'}</p>
+                        <p className="text-xs text-gray-500">{employee.employeeDetails?.department || 'N/A'}</p>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs font-semibold rounded ${
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 text-xs font-semibold rounded ${
                           employee.employeeDetails?.employmentType === 'Permanent'
                             ? 'bg-green-100 text-green-800'
                             : 'bg-orange-100 text-orange-800'
@@ -375,47 +363,50 @@ export default function EmployeesPage() {
                           {employee.employeeDetails?.employmentType || 'N/A'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs font-semibold rounded ${
-                          employee.isActive !== false
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
+                      <td className="px-4 py-3 bg-yellow-50">
+                        <span className="text-xs text-gray-700">{employee.city || 'N/A'}</span>
+                      </td>
+                      <td className="px-4 py-3 bg-yellow-50">
+                        <span className="text-xs text-gray-700">{employee.state || 'N/A'}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 text-xs font-semibold rounded ${
+                          employee.isActive !== false ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                         }`}>
                           {employee.isActive !== false ? 'Active' : 'Inactive'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => viewDetails(employee)}
-                            className="text-blue-600 hover:text-blue-900"
-                            title="View Details"
-                          >
+                      <td className="px-4 py-3 bg-yellow-50">
+                        <code className="text-xs font-mono text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded">
+                          {employee.referralCode || 'N/A'}
+                        </code>
+                      </td>
+                      <td className="px-4 py-3 bg-yellow-50">
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-purple-100 text-purple-700 font-bold text-xs">
+                          {employee.referralCount || 0}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 bg-yellow-50">
+                        <span className="text-xs font-semibold text-green-700">
+                          ₹{(employee.earning || 0).toLocaleString('en-IN')}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5">
+                          <button onClick={() => viewDetails(employee)} className="text-blue-600 hover:text-blue-900" title="View Details">
                             <Eye className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => handleEdit(employee)}
-                            className="text-yellow-600 hover:text-yellow-900"
-                            title="Edit"
-                          >
+                          <button onClick={() => handleEdit(employee)} className="text-yellow-600 hover:text-yellow-900" title="Edit">
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => toggleStatus(employee._id, employee.isActive)}
-                            className={`${
-                              employee.isActive !== false
-                                ? 'text-red-600 hover:text-red-900'
-                                : 'text-green-600 hover:text-green-900'
-                            }`}
+                            className={employee.isActive !== false ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'}
                             title={employee.isActive !== false ? 'Deactivate' : 'Activate'}
                           >
                             {employee.isActive !== false ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                           </button>
-                          <button
-                            onClick={() => handleDelete(employee._id)}
-                            className="text-red-600 hover:text-red-900"
-                            title="Delete"
-                          >
+                          <button onClick={() => handleDelete(employee._id)} className="text-red-600 hover:text-red-900" title="Delete">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>

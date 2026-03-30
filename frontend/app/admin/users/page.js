@@ -6,7 +6,7 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import PermissionGuard from '@/components/admin/PermissionGuard';
 import {
   Users, Search, Filter, Eye, X, Mail, Phone, Calendar,
-  CheckCircle, XCircle, Shield, User, Building2, Download, Briefcase
+  CheckCircle, XCircle, Shield, User, Building2, Download
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -14,7 +14,7 @@ export default function AdminUsers() {
   const { token } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [allUsers, setAllUsers] = useState([]);
-  const [activeTab, setActiveTab] = useState('customers'); // customers, owners, employees
+  const [activeTab, setActiveTab] = useState('customers'); // customers, owners
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -61,8 +61,6 @@ export default function AdminUsers() {
       filtered = filtered.filter(u => u.role === 'customer');
     } else if (activeTab === 'owners') {
       filtered = filtered.filter(u => u.role === 'owner');
-    } else if (activeTab === 'employees') {
-      filtered = filtered.filter(u => u.role === 'employee');
     }
 
     // Filter by status
@@ -112,19 +110,43 @@ export default function AdminUsers() {
   };
 
   const exportToCSV = () => {
-    const headers = ['S.No', 'User ID', 'Name', 'Email', 'Phone', 'Role', 'Status', 'Referral Code', 'Joined Date'];
-    
-    const rows = filteredUsers.map((user, index) => [
-      index + 1,
-      user.userId || `RM-${user._id.slice(-8).toUpperCase()}`,
-      user.name,
-      user.email,
-      user.phone,
-      user.role,
-      user.isActive ? 'Active' : 'Inactive',
-      user.referralCode || 'N/A',
-      new Date(user.createdAt).toLocaleDateString('en-IN')
-    ]);
+    let headers, rows;
+
+    if (activeTab === 'customers') {
+      headers = ['S.No', 'User ID', 'Name', 'Email', 'Phone', 'Role', 'City', 'State', 'Status', 'Referral Code', 'Joined Date', 'No. of Bookings', 'No. of Referrals'];
+      rows = filteredUsers.map((user, index) => [
+        index + 1,
+        user.userId || `RM-${user._id.slice(-8).toUpperCase()}`,
+        user.name,
+        user.email,
+        user.phone,
+        user.role,
+        user.city || 'N/A',
+        user.state || 'N/A',
+        user.isActive ? 'Active' : 'Inactive',
+        user.referralCode || 'N/A',
+        new Date(user.createdAt).toLocaleDateString('en-IN'),
+        user.bookingCount || 0,
+        user.referralCount || 0
+      ]);
+    } else {
+      headers = ['S.No', 'User ID', 'Name', 'Email', 'Phone', 'Role', 'City', 'State', 'No. of Venues', 'Status', 'Referral Code', 'No. of Referrals', 'Joined Date'];
+      rows = filteredUsers.map((user, index) => [
+        index + 1,
+        user.userId || `RM-${user._id.slice(-8).toUpperCase()}`,
+        user.name,
+        user.email,
+        user.phone,
+        user.role,
+        user.city || 'N/A',
+        user.state || 'N/A',
+        user.venueCount || 0,
+        user.isActive ? 'Active' : 'Inactive',
+        user.referralCode || 'N/A',
+        user.referralCount || 0,
+        new Date(user.createdAt).toLocaleDateString('en-IN')
+      ]);
+    }
 
     const csvContent = [
       headers.join(','),
@@ -160,7 +182,7 @@ export default function AdminUsers() {
       admin: { bg: 'bg-purple-100', text: 'text-purple-700', icon: Shield },
       owner: { bg: 'bg-blue-100', text: 'text-blue-700', icon: Building2 },
       customer: { bg: 'bg-green-100', text: 'text-green-700', icon: User },
-      employee: { bg: 'bg-orange-100', text: 'text-orange-700', icon: Briefcase }
+      employee: { bg: 'bg-orange-100', text: 'text-orange-700', icon: User }
     };
     const badge = badges[role] || badges.customer;
     const Icon = badge.icon;
@@ -180,10 +202,6 @@ export default function AdminUsers() {
     owners: {
       total: allUsers.filter(u => u.role === 'owner').length,
       active: allUsers.filter(u => u.role === 'owner' && u.isActive).length,
-    },
-    employees: {
-      total: allUsers.filter(u => u.role === 'employee').length,
-      active: allUsers.filter(u => u.role === 'employee' && u.isActive).length,
     }
   };
 
@@ -214,7 +232,7 @@ export default function AdminUsers() {
   }
 
   return (
-    <AdminLayout title="Users Management" subtitle={`Manage all users, owners, and employees`}>
+    <AdminLayout title="Users Management" subtitle="Manage all users and owners">
       <PermissionGuard permission="users">
         {/* Tabs */}
         <div className="bg-white rounded-lg shadow-soft border border-gray-100 mb-6">
@@ -243,19 +261,6 @@ export default function AdminUsers() {
             <div className="flex items-center justify-center gap-2">
               <Building2 className="w-5 h-5" />
               <span>Owners ({stats.owners.total})</span>
-            </div>
-          </button>
-          <button
-            onClick={() => setActiveTab('employees')}
-            className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors ${
-              activeTab === 'employees'
-                ? 'text-primary-600 border-b-2 border-primary-600 bg-primary-50'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-            }`}
-          >
-            <div className="flex items-center justify-center gap-2">
-              <Briefcase className="w-5 h-5" />
-              <span>Employees ({stats.employees.total})</span>
             </div>
           </button>
         </div>
@@ -324,58 +329,81 @@ export default function AdminUsers() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">S.No</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">User</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Contact</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Role</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Joined</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Actions</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">S.No</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">User</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Contact</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Role</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">City</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">State</th>
+                {activeTab === 'owners' && (
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Venues</th>
+                )}
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Referral Code</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Joined</th>
+                {activeTab === 'customers' && (
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Bookings</th>
+                )}
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Referrals</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {paginatedUsers.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={activeTab === 'customers' ? 12 : 12} className="px-6 py-8 text-center text-gray-500">
                     No users found
                   </td>
                 </tr>
               ) : (
                 paginatedUsers.map((user, index) => (
                   <tr key={user._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <span className="font-semibold text-gray-700">{startIndex + index + 1}</span>
+                    <td className="px-4 py-3">
+                      <span className="text-xs font-semibold text-gray-700">{startIndex + index + 1}</span>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center font-bold text-primary-600">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center font-bold text-primary-600 text-xs flex-shrink-0">
                           {user.name?.charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <p className="font-semibold text-dark-800">{user.name}</p>
+                          <p className="text-xs font-semibold text-dark-800">{user.name}</p>
                           <p className="text-xs text-gray-500">
                             {user.userId || `RM-${user._id.slice(-8).toUpperCase()}`}
                           </p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="space-y-1">
-                        <p className="text-sm text-gray-700 flex items-center gap-2">
-                          <Mail className="w-4 h-4 text-gray-400" />
+                    <td className="px-4 py-3">
+                      <div className="space-y-0.5">
+                        <p className="text-xs text-gray-700 flex items-center gap-1">
+                          <Mail className="w-3 h-3 text-gray-400" />
                           {user.email}
                         </p>
-                        <p className="text-sm text-gray-700 flex items-center gap-2">
-                          <Phone className="w-4 h-4 text-gray-400" />
+                        <p className="text-xs text-gray-700 flex items-center gap-1">
+                          <Phone className="w-3 h-3 text-gray-400" />
                           {user.phone}
                         </p>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-3">
                       {getRoleBadge(user.role)}
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                    <td className="px-4 py-3 bg-yellow-50">
+                      <span className="text-xs text-gray-700">{user.city || 'N/A'}</span>
+                    </td>
+                    <td className="px-4 py-3 bg-yellow-50">
+                      <span className="text-xs text-gray-700">{user.state || 'N/A'}</span>
+                    </td>
+                    {activeTab === 'owners' && (
+                      <td className="px-4 py-3 bg-yellow-50">
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-bold text-xs">
+                          {user.venueCount || 0}
+                        </span>
+                      </td>
+                    )}
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                         user.isActive 
                           ? 'bg-green-100 text-green-700' 
                           : 'bg-red-100 text-red-700'
@@ -383,18 +411,35 @@ export default function AdminUsers() {
                         {user.isActive ? 'Active' : 'Inactive'}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <p className="text-sm text-gray-700 flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-gray-400" />
+                    <td className="px-4 py-3 bg-yellow-50">
+                      <code className="text-xs font-mono text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded">
+                        {user.referralCode || 'N/A'}
+                      </code>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-xs text-gray-700 flex items-center gap-1">
+                        <Calendar className="w-3 h-3 text-gray-400" />
                         {new Date(user.createdAt).toLocaleDateString()}
                       </p>
                     </td>
-                    <td className="px-6 py-4">
+                    {activeTab === 'customers' && (
+                      <td className="px-4 py-3 bg-yellow-50">
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-bold text-xs">
+                          {user.bookingCount || 0}
+                        </span>
+                      </td>
+                    )}
+                    <td className="px-4 py-3 bg-yellow-50">
+                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-purple-100 text-purple-700 font-bold text-xs">
+                        {user.referralCount || 0}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
                       <button
                         onClick={() => openModal(user)}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm font-semibold transition-colors"
+                        className="flex items-center gap-1 px-3 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-xs font-semibold transition-colors"
                       >
-                        <Eye className="w-4 h-4" />
+                        <Eye className="w-3 h-3" />
                         View
                       </button>
                     </td>

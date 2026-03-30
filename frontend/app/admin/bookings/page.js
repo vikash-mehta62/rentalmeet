@@ -269,67 +269,69 @@ export default function AdminBookings() {
     }
 
     try {
-      // CSV Headers
       const headers = [
-        'S.No',
-        'Booking Number',
-        'Booking Date',
-        'Time Slot',
-        'Venue Name',
-        'Venue Location',
-        'Customer Name',
-        'Customer Email',
-        'Customer Phone',
-        'Event Type',
-        'Guest Count',
-        'Amount',
-        'Amenities Total',
-        'Total Amount',
-        'Booking Status',
-        'Payment Status',
-        'Created Date'
+        'S.No', 'Booking Number', 'Venue Name', 'Venue Location',
+        'Customer Name', 'Customer Email', 'Customer Phone',
+        'Booked On', 'Booking Date', 'Time Slot', 'Event Type', 'Guest Count',
+        'Venue Rental', 'GST', 'Amenities & Services', 'GST',
+        'Platform Fee', 'GST', 'Grand Total',
+        'Booking Status', 'Payment Status'
       ];
 
-      // CSV Rows
-      const rows = bookings.map((booking, index) => [
-        index + 1,
-        booking.bookingNumber || `#${booking._id.slice(-8).toUpperCase()}`,
-        new Date(booking.bookingDate).toLocaleDateString('en-IN'),
-        `${booking.startTime} - ${booking.endTime}`,
-        booking.venue?.businessName || 'N/A',
-        `${booking.venue?.location?.city || ''}, ${booking.venue?.location?.area || ''}`,
-        booking.customer?.name || 'N/A',
-        booking.customer?.email || 'N/A',
-        booking.customerDetails?.phone || booking.customer?.phone || 'N/A',
-        booking.customerDetails?.eventType || 'N/A',
-        booking.customerDetails?.guestCount || 'N/A',
-        booking.amount - (booking.amenitiesTotal || 0),
-        booking.amenitiesTotal || 0,
-        booking.amount,
-        booking.status,
-        booking.paymentStatus,
-        new Date(booking.createdAt).toLocaleDateString('en-IN')
-      ]);
+      const rows = bookings.map((booking, index) => {
+        const pb = booking.priceBreakdown || {};
+        const basePrice   = pb.basePrice || 0;
+        const amenities   = pb.amenitiesTotal || booking.amenitiesTotal || 0;
+        const subtotal    = pb.subtotal || (basePrice + amenities);
+        const totalGST    = pb.gst || 0;
+        const gstRate     = pb.gstRate || 0;
+        // Split GST proportionally between venue rental and amenities
+        const venueGST    = subtotal > 0 ? Math.round((basePrice / subtotal) * totalGST) : totalGST;
+        const amenGST     = subtotal > 0 ? Math.round((amenities / subtotal) * totalGST) : 0;
+        const platformFee = pb.platformFee || 0;
+        const platformGST = 0; // platform fee GST not separately tracked
+        const grandTotal  = pb.total || booking.amount || 0;
 
-      // Create CSV content
+        return [
+          index + 1,
+          booking.bookingNumber || `#${booking._id.slice(-8).toUpperCase()}`,
+          booking.venue?.businessName || 'N/A',
+          `${booking.venue?.location?.city || ''} ${booking.venue?.location?.area || ''}`.trim() || 'N/A',
+          booking.customer?.name || 'N/A',
+          booking.customer?.email || 'N/A',
+          booking.customerDetails?.phone || booking.customer?.phone || 'N/A',
+          new Date(booking.createdAt).toLocaleDateString('en-IN'),
+          new Date(booking.bookingDate).toLocaleDateString('en-IN'),
+          `${booking.startTime} - ${booking.endTime}`,
+          booking.customerDetails?.eventType || 'N/A',
+          booking.customerDetails?.guestCount || 'N/A',
+          basePrice,
+          venueGST,
+          amenities,
+          amenGST,
+          platformFee,
+          platformGST,
+          grandTotal,
+          booking.status,
+          booking.paymentStatus
+        ];
+      });
+
       const csvContent = [
         headers.join(','),
         ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
       ].join('\n');
 
-      // Create blob and download
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
-      
       link.setAttribute('href', url);
       link.setAttribute('download', `bookings_${new Date().toISOString().split('T')[0]}.csv`);
       link.style.visibility = 'hidden';
-      
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       toast.success(`${bookings.length} bookings exported successfully`);
     } catch (error) {
       console.error('Export error:', error);
@@ -758,82 +760,128 @@ export default function AdminBookings() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">S.No</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Booking ID</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Venue</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Customer</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Booking Date</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Created At</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Amount</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Owner Side Status</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Payment</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Actions</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">S.No</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Booking #</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Venue</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Customer</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Booked On</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Booking Date</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Time Slot</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Event</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Guests</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Venue Rental</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">GST</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Amenities</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">GST</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Platform Fee</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">GST</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-green-100">Grand Total</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Payment</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {bookings.length === 0 ? (
                 <tr>
-                  <td colSpan="10" className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan="19" className="px-6 py-8 text-center text-gray-500">
                     No bookings found
                   </td>
                 </tr>
               ) : (
-                bookings.map((booking, index) => (
+                bookings.map((booking, index) => {
+                  const pb = booking.priceBreakdown || {};
+                  const basePrice   = pb.basePrice || 0;
+                  const amenities   = pb.amenitiesTotal || booking.amenitiesTotal || 0;
+                  const subtotal    = pb.subtotal || (basePrice + amenities);
+                  const totalGST    = pb.gst || 0;
+                  const venueGST    = subtotal > 0 ? Math.round((basePrice / subtotal) * totalGST) : totalGST;
+                  const amenGST     = subtotal > 0 ? Math.round((amenities / subtotal) * totalGST) : 0;
+                  const platformFee = pb.platformFee || 0;
+                  const grandTotal  = pb.total || booking.amount || 0;
+
+                  return (
                   <tr key={booking._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-3 whitespace-nowrap">
-                      <span className="font-semibold text-gray-700">{index + 1}</span>
+                    <td className="px-4 py-3">
+                      <span className="text-xs font-semibold text-gray-700">{index + 1}</span>
                     </td>
-                    <td className="px-6 py-3 whitespace-nowrap">
-                      <p className="font-mono text-sm font-semibold text-dark-800">
+                    <td className="px-4 py-3">
+                      <p className="font-mono text-xs font-semibold text-dark-800">
                         {booking.bookingNumber || `#${booking._id.slice(-8).toUpperCase()}`}
                       </p>
                     </td>
-                    <td className="px-6 py-3 whitespace-nowrap">
-                      <p className="font-semibold text-dark-800 text-sm">{booking.venue?.businessName}</p>
-                      <p className="text-xs text-gray-500">{booking.venue?.location?.city}</p>
+                    <td className="px-4 py-3">
+                      <p className="text-xs font-semibold text-dark-800">{booking.venue?.businessName}</p>
+                      <p className="text-xs text-gray-500">{booking.venue?.location?.city}, {booking.venue?.location?.area}</p>
                     </td>
-                    <td className="px-6 py-3 whitespace-nowrap">
-                      <p className="font-medium text-dark-800 text-sm">{booking.customer?.name}</p>
+                    <td className="px-4 py-3">
+                      <p className="text-xs font-medium text-dark-800">{booking.customer?.name}</p>
                       <p className="text-xs text-gray-500">{booking.customer?.email}</p>
+                      <p className="text-xs text-gray-500">{booking.customerDetails?.phone || booking.customer?.phone}</p>
                     </td>
-                    <td className="px-6 py-3 whitespace-nowrap">
-                      <p className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                    <td className="px-4 py-3 bg-yellow-50">
+                      <p className="text-xs text-gray-700">{new Date(booking.createdAt).toLocaleDateString('en-IN')}</p>
+                      <p className="text-xs text-gray-500">{new Date(booking.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
+                    </td>
+                    <td className="px-4 py-3 bg-yellow-50">
+                      <p className="text-xs text-gray-700 flex items-center gap-1">
+                        <Calendar className="w-3 h-3 text-gray-400" />
                         {new Date(booking.bookingDate).toLocaleDateString('en-IN')}
                       </p>
-                      <p className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5">
-                        <Clock className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                    </td>
+                    <td className="px-4 py-3 bg-yellow-50">
+                      <p className="text-xs text-gray-700 flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-gray-400" />
                         {booking.startTime} - {booking.endTime}
                       </p>
                     </td>
-                    <td className="px-6 py-3 whitespace-nowrap">
-                      <p className="text-sm font-medium text-gray-700">
-                        {new Date(booking.createdAt).toLocaleDateString('en-IN')}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {new Date(booking.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                      </p>
+                    <td className="px-4 py-3 bg-yellow-50">
+                      <p className="text-xs text-gray-700">{booking.customerDetails?.eventType || 'N/A'}</p>
                     </td>
-                    <td className="px-6 py-3 whitespace-nowrap">
-                      <p className="font-bold text-primary-600">₹{booking.amount?.toLocaleString()}</p>
+                    <td className="px-4 py-3 bg-yellow-50">
+                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-bold text-xs">
+                        {booking.customerDetails?.guestCount || '-'}
+                      </span>
                     </td>
-                    <td className="px-6 py-3 whitespace-nowrap">
+                    <td className="px-4 py-3 bg-yellow-50">
+                      <p className="text-xs font-semibold text-gray-800">₹{basePrice.toLocaleString('en-IN')}</p>
+                    </td>
+                    <td className="px-4 py-3 bg-yellow-50">
+                      <p className="text-xs text-orange-600 font-medium">₹{venueGST.toLocaleString('en-IN')}</p>
+                    </td>
+                    <td className="px-4 py-3 bg-yellow-50">
+                      <p className="text-xs font-semibold text-gray-800">₹{amenities.toLocaleString('en-IN')}</p>
+                    </td>
+                    <td className="px-4 py-3 bg-yellow-50">
+                      <p className="text-xs text-orange-600 font-medium">₹{amenGST.toLocaleString('en-IN')}</p>
+                    </td>
+                    <td className="px-4 py-3 bg-yellow-50">
+                      <p className="text-xs font-semibold text-gray-800">₹{platformFee.toLocaleString('en-IN')}</p>
+                    </td>
+                    <td className="px-4 py-3 bg-yellow-50">
+                      <p className="text-xs text-orange-600 font-medium">₹0</p>
+                    </td>
+                    <td className="px-4 py-3 bg-green-50">
+                      <p className="text-xs font-bold text-green-700">₹{grandTotal.toLocaleString('en-IN')}</p>
+                    </td>
+                    <td className="px-4 py-3">
                       {getStatusBadge(booking.status)}
                     </td>
-                    <td className="px-6 py-3 whitespace-nowrap">
+                    <td className="px-4 py-3">
                       {getPaymentStatusBadge(booking.paymentStatus)}
                     </td>
-                    <td className="px-6 py-3 whitespace-nowrap">
+                    <td className="px-4 py-3">
                       <button
                         onClick={() => openModal(booking)}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm font-semibold transition-colors"
+                        className="flex items-center gap-1 px-3 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-xs font-semibold transition-colors"
                       >
-                        <Eye className="w-4 h-4" />
+                        <Eye className="w-3 h-3" />
                         View
                       </button>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

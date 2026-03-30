@@ -345,7 +345,8 @@ export default function AdminVenues() {
               try {
                 const headers = [
                   'S.No', 'Venue Name', 'SKU', 'Owner Name', 'Owner Email', 'Owner Phone',
-                  'City', 'Area', 'Capacity', 'Status', 'Created Date'
+                  'Address', 'City', 'Area', 'Capacity', 'State', 'Venue ID',
+                  'Total Bookings', 'Rating', 'Total Revenue', 'Status'
                 ];
                 
                 const rows = filteredVenues.map((venue, index) => [
@@ -355,17 +356,22 @@ export default function AdminVenues() {
                   venue.owner?.name || 'N/A',
                   venue.owner?.email || 'N/A',
                   venue.owner?.phone || 'N/A',
+                  venue.location?.address || 'N/A',
                   venue.location?.city || 'N/A',
                   venue.location?.area || 'N/A',
                   venue.capacity || 'N/A',
-                  venue.status || 'N/A',
-                  new Date(venue.createdAt).toLocaleDateString('en-IN')
+                  venue.location?.state || 'N/A',
+                  venue._id || 'N/A',
+                  venue.totalBookings || 0,
+                  venue.rating ? `${venue.rating}/5` : 'N/A',
+                  venue.totalRevenue ? `₹${venue.totalRevenue}` : '₹0',
+                  venue.status || 'N/A'
                 ]);
 
                 const csvContent = [
                   headers.join(','),
                   ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-                ].join('\\n');
+                ].join('\n');
 
                 const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                 const link = document.createElement('a');
@@ -399,60 +405,82 @@ export default function AdminVenues() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">S.No</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Venue</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Owner</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Location</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Capacity</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Actions</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">S.No</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Venue</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Owner</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Location</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Capacity</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">City</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Total Bookings</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Rating</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Total Revenue</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {filteredVenues.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan="11" className="px-6 py-8 text-center text-gray-500">
                     No venues found
                   </td>
                 </tr>
               ) : (
                 filteredVenues.map((venue, index) => (
                   <tr key={venue._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <span className="font-semibold text-gray-700">{index + 1}</span>
+                    <td className="px-4 py-3">
+                      <span className="text-xs font-semibold text-gray-700">{index + 1}</span>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
                         {venue.images?.[0]?.url ? (
                           <img
                             src={venue.images[0].url}
                             alt={venue.businessName}
-                            className="w-12 h-12 rounded-lg object-cover"
+                            className="w-9 h-9 rounded-lg object-cover flex-shrink-0"
                           />
                         ) : (
-                          <div className="w-12 h-12 rounded-lg bg-gray-200 flex items-center justify-center">
-                            <Building2 className="w-6 h-6 text-gray-400" />
+                          <div className="w-9 h-9 rounded-lg bg-gray-200 flex items-center justify-center flex-shrink-0">
+                            <Building2 className="w-4 h-4 text-gray-400" />
                           </div>
                         )}
                         <div>
-                          <p className="font-semibold text-dark-800">{venue.businessName}</p>
+                          <p className="text-xs font-semibold text-dark-800">{venue.businessName}</p>
                           <p className="text-xs text-gray-500">{venue.sku}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <p className="font-medium text-dark-800">{venue.owner?.name}</p>
+                    <td className="px-4 py-3">
+                      <p className="text-xs font-medium text-dark-800">{venue.owner?.name}</p>
                       <p className="text-xs text-gray-500">{venue.owner?.email}</p>
                     </td>
-                    <td className="px-6 py-4">
-                      <p className="text-sm text-gray-700">{venue.location?.city}</p>
+                    <td className="px-4 py-3">
+                      <p className="text-xs text-gray-700">{venue.location?.city}</p>
                       <p className="text-xs text-gray-500">{venue.location?.area}</p>
                     </td>
-                    <td className="px-6 py-4">
-                      <p className="text-sm font-medium text-gray-700">{venue.capacity} guests</p>
+                    <td className="px-4 py-3">
+                      <p className="text-xs font-medium text-gray-700">{venue.capacity} guests</p>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                    <td className="px-4 py-3 bg-yellow-50">
+                      <span className="text-xs text-gray-700">{venue.location?.city || 'N/A'}</span>
+                    </td>
+                    <td className="px-4 py-3 bg-yellow-50">
+                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-bold text-xs">
+                        {venue.totalBookings || 0}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 bg-yellow-50">
+                      <span className="text-xs font-semibold text-amber-600">
+                        {venue.rating ? `${venue.rating}/5` : 'N/A'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 bg-yellow-50">
+                      <span className="text-xs font-semibold text-green-700">
+                        ₹{(venue.totalRevenue || 0).toLocaleString('en-IN')}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                         venue.status === 'approved' ? 'bg-green-100 text-green-700' :
                         venue.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
                         venue.status === 'rejected' ? 'bg-red-100 text-red-700' :
@@ -461,12 +489,12 @@ export default function AdminVenues() {
                         {venue.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-3">
                       <button
                         onClick={() => openModal(venue)}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm font-semibold transition-colors"
+                        className="flex items-center gap-1 px-3 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-xs font-semibold transition-colors"
                       >
-                        <Eye className="w-4 h-4" />
+                        <Eye className="w-3 h-3" />
                         View
                       </button>
                     </td>
