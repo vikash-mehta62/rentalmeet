@@ -9,7 +9,6 @@ import { uploadDocument } from '@/lib/cloudinary';
 
 const businessProofTypes = [
   'Business Regd. Certificate',
-  'GST Certificate',
   'Trade License',
   'Certificate of Incorporation',
   'Partnership Deed',
@@ -360,27 +359,64 @@ export default function Step6OwnerDocs() {
               </div>
               
               {watch('hasGST') && (
-                <div className="mt-3">
-                  <label className="block text-sm font-semibold text-dark-700 mb-2">
-                    GST Number *
-                  </label>
-                  <input
-                    type="text"
-                    {...register('gstNumber', { 
-                      required: watch('hasGST') ? 'GST number is required' : false,
-                      pattern: {
-                        value: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/,
-                        message: 'Enter valid GST number (e.g., 22AAAAA0000A1Z5)'
-                      }
-                    })}
-                    className="input-field"
-                    placeholder="22AAAAA0000A1Z5"
-                    maxLength={15}
-                    style={{ textTransform: 'uppercase' }}
-                  />
-                  {errors.gstNumber && (
-                    <p className="text-error text-sm mt-1">{errors.gstNumber.message}</p>
-                  )}
+                <div className="mt-3 grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-dark-700 mb-2">
+                      GST Number *
+                    </label>
+                    <input
+                      type="text"
+                      {...register('gstNumber', { 
+                        required: watch('hasGST') ? 'GST number is required' : false,
+                        pattern: {
+                          value: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/,
+                          message: 'Enter valid GST number (e.g., 22AAAAA0000A1Z5)'
+                        }
+                      })}
+                      className="input-field"
+                      placeholder="22AAAAA0000A1Z5"
+                      maxLength={15}
+                      style={{ textTransform: 'uppercase' }}
+                    />
+                    {errors.gstNumber && (
+                      <p className="text-error text-sm mt-1">{errors.gstNumber.message}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-dark-700 mb-2">
+                      Upload GST Certificate *
+                    </label>
+                    <label className={`btn-secondary cursor-pointer flex items-center justify-center w-full ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                      {idProofFiles.gstDoc ? (
+                        <>
+                          <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+                          {idProofFiles.gstDoc.name}
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-4 h-4 mr-2" />
+                          Choose File
+                        </>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        onChange={(e) => handleFileUpload(e, 'gstDoc')}
+                        className="hidden"
+                        disabled={uploading}
+                      />
+                    </label>
+                    {idProofFiles.gstDoc && (
+                      <div className="mt-2">
+                        <p className="text-xs text-green-600 mb-1">✓ Uploaded</p>
+                        {idProofFiles.gstDoc.format === 'pdf' ? (
+                          <a href={idProofFiles.gstDoc.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary-500 underline">View PDF</a>
+                        ) : (
+                          <img src={idProofFiles.gstDoc.url} alt="GST Certificate" className="w-24 h-16 object-cover rounded border" />
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

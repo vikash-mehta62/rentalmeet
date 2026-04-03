@@ -165,7 +165,7 @@ export default function Step5Photos() {
 
             {/* Image Grid for this category */}
             {images.filter(img => img.category === category.value).length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+              <div className="grid grid-cols-2 gap-3 mt-3">
                 {images
                   .filter(img => img.category === category.value)
                   .map((image) => (
@@ -173,20 +173,20 @@ export default function Step5Photos() {
                       <img
                         src={image.url}
                         alt={image.name}
-                        className="w-full h-32 object-cover rounded-lg border-2 border-gray-200"
+                        className="w-full h-24 object-cover rounded-lg border-2 border-gray-200"
                       />
                       <button
                         type="button"
                         onClick={() => removeImage(image.id, image.publicId)}
                         className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                       >
-                        <X className="w-4 h-4" />
+                        <X className="w-3 h-3" />
                       </button>
                       <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1 rounded-b-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                        {(image.size / 1024).toFixed(0)} KB • {image.format}
+                        {(image.size / 1024).toFixed(0)} KB
                       </div>
-                      <div className="absolute top-1 left-1 bg-green-500 text-white text-xs px-2 py-0.5 rounded">
-                        ✓ Uploaded
+                      <div className="absolute top-1 left-1 bg-green-500 text-white text-xs px-1.5 py-0.5 rounded">
+                        ✓
                       </div>
                     </div>
                   ))}

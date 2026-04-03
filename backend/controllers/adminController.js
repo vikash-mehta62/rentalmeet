@@ -466,19 +466,35 @@ exports.getDashboardStats = async (req, res) => {
     const totalVenues = await Venue.countDocuments();
     const pendingVenues = await Venue.countDocuments({ status: 'pending' });
     const approvedVenues = await Venue.countDocuments({ status: 'approved' });
+    const totalUsers = await User.countDocuments();
     const totalOwners = await User.countDocuments({ role: 'owner' });
     const totalCustomers = await User.countDocuments({ role: 'customer' });
     const totalBookings = await Booking.countDocuments();
-    
+    const pendingBookings = await Booking.countDocuments({ status: 'pending' });
+    const confirmedBookings = await Booking.countDocuments({ status: 'confirmed' });
+    const completedBookings = await Booking.countDocuments({ status: 'completed' });
+
+    // Total revenue from completed/paid bookings
+    const revenueData = await Booking.aggregate([
+      { $match: { status: { $in: ['completed', 'confirmed'] } } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const totalRevenue = revenueData.length > 0 ? revenueData[0].total : 0;
+
     res.json({
       success: true,
       stats: {
         totalVenues,
         pendingVenues,
         approvedVenues,
+        totalUsers,
         totalOwners,
         totalCustomers,
-        totalBookings
+        totalBookings,
+        pendingBookings,
+        confirmedBookings,
+        completedBookings,
+        totalRevenue
       }
     });
   } catch (error) {

@@ -361,7 +361,7 @@ export default function AdminVenues() {
                   venue.location?.area || 'N/A',
                   venue.capacity || 'N/A',
                   venue.location?.state || 'N/A',
-                  venue._id || 'N/A',
+                  venue.sku || 'N/A',
                   venue.totalBookings || 0,
                   venue.rating ? `${venue.rating}/5` : 'N/A',
                   venue.totalRevenue ? `₹${venue.totalRevenue}` : '₹0',
@@ -410,7 +410,6 @@ export default function AdminVenues() {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Owner</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Location</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Capacity</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">City</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Total Bookings</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Rating</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Total Revenue</th>
@@ -421,7 +420,7 @@ export default function AdminVenues() {
             <tbody className="divide-y divide-gray-200">
               {filteredVenues.length === 0 ? (
                 <tr>
-                  <td colSpan="11" className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan="10" className="px-6 py-8 text-center text-gray-500">
                     No venues found
                   </td>
                 </tr>
@@ -433,20 +432,8 @@ export default function AdminVenues() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        {venue.images?.[0]?.url ? (
-                          <img
-                            src={venue.images[0].url}
-                            alt={venue.businessName}
-                            className="w-9 h-9 rounded-lg object-cover flex-shrink-0"
-                          />
-                        ) : (
-                          <div className="w-9 h-9 rounded-lg bg-gray-200 flex items-center justify-center flex-shrink-0">
-                            <Building2 className="w-4 h-4 text-gray-400" />
-                          </div>
-                        )}
                         <div>
                           <p className="text-xs font-semibold text-dark-800">{venue.businessName}</p>
-                          <p className="text-xs text-gray-500">{venue.sku}</p>
                         </div>
                       </div>
                     </td>
@@ -460,9 +447,6 @@ export default function AdminVenues() {
                     </td>
                     <td className="px-4 py-3">
                       <p className="text-xs font-medium text-gray-700">{venue.capacity} guests</p>
-                    </td>
-                    <td className="px-4 py-3 bg-yellow-50">
-                      <span className="text-xs text-gray-700">{venue.location?.city || 'N/A'}</span>
                     </td>
                     <td className="px-4 py-3 bg-yellow-50">
                       <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-bold text-xs">

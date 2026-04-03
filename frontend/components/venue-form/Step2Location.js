@@ -254,10 +254,10 @@ export default function Step2Location() {
             type="text"
             {...register('nearestBusAuto')}
             className="input-field"
-            placeholder="MP Nagar Bus Stand - 500m"
+            placeholder="MP Nagar Bus Stand - 0.5 KM"
           />
           <p className="text-xs text-dark-500 mt-1">
-            Include distance (e.g., "Bus Stand - 500m")
+            Include distance (e.g., "Bus Stand - 0.5 KM")
           </p>
         </div>
 
@@ -270,10 +270,10 @@ export default function Step2Location() {
             type="text"
             {...register('nearestMetroTrain')}
             className="input-field"
-            placeholder="MP Nagar Metro - 1.2km"
+            placeholder="MP Nagar Metro - 1.2 KM"
           />
           <p className="text-xs text-dark-500 mt-1">
-            Include distance (e.g., "Metro Station - 1.2km")
+            Include distance (e.g., "Metro Station - 1.2 KM")
           </p>
         </div>
       </div>

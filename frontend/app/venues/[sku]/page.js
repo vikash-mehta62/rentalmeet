@@ -32,9 +32,9 @@ export default function VenueDetail() {
   
   // Quick booking form state
   const [quickBooking, setQuickBooking] = useState({
-    date: null, // Changed to null for DatePicker
+    date: null,
     startTime: '',
-    duration: '2' // Default 2 hours
+    duration: ''
   });
 
   // Selected amenities state
@@ -69,6 +69,14 @@ export default function VenueDetail() {
           )]
         }));
       }
+    }
+
+    // Auto-select first enabled duration
+    if (venue?.pricing?.enabledOptions) {
+      const opts = venue.pricing.enabledOptions;
+      if (opts.perHour) setQuickBooking(prev => ({ ...prev, duration: '1' }));
+      else if (opts.halfDay) setQuickBooking(prev => ({ ...prev, duration: '4' }));
+      else if (opts.fullDay) setQuickBooking(prev => ({ ...prev, duration: '8' }));
     }
   }, [venue]);
 
@@ -295,7 +303,8 @@ export default function VenueDetail() {
     
     // Lunch Thalis
     selectedAmenities.lunchThalis.forEach(thali => {
-      const qty = quantities[`thali_${thali.type}`] || 0;
+      const key = `thali_${thali.thaliType}_${thali.category}`;
+      const qty = quantities[key] || 0;
       amenitiesTotal += (thali.ratePerPlate || 0) * qty;
     });
     
@@ -342,7 +351,7 @@ export default function VenueDetail() {
   const imagesByCategory = getImagesByCategory();
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-950">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-950" style={{ fontFamily: 'Georgia, serif' }}>
       {/* Navbar */}
       <Navbar />
 
@@ -468,6 +477,32 @@ export default function VenueDetail() {
                   </span>
                 )}
               </div>
+
+              {/* Availability Info */}
+              {(venue.availability?.openingTime || venue.availability?.availableDays?.length > 0) && (
+                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-slate-700 flex flex-wrap gap-4 text-sm text-gray-600 dark:text-slate-300">
+                  {venue.availability?.openingTime && (
+                    <span className="flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-primary-500" />
+                      {(() => {
+                        const to12 = (t) => {
+                          const [h, m] = t.split(':').map(Number);
+                          const period = h < 12 ? 'AM' : 'PM';
+                          const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+                          return `${String(h12).padStart(2,'0')}:${String(m).padStart(2,'0')} ${period}`;
+                        };
+                        return `${to12(venue.availability.openingTime)} - ${to12(venue.availability.closingTime)}`;
+                      })()}
+                    </span>
+                  )}
+                  {venue.availability?.availableDays?.length > 0 && (
+                    <span className="flex items-center gap-1.5">
+                      <Calendar className="w-4 h-4 text-primary-500" />
+                      {venue.availability.availableDays.join(', ')}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
             {/* Venue Types - Attractive Pills */}
             {venue.venueType?.length > 0 && (
@@ -1002,11 +1037,25 @@ export default function VenueDetail() {
                 
                 {/* Price Range */}
                 <div className="mb-3 pb-3 border-b border-gray-200 dark:border-slate-700">
-                  <p className="text-gray-600 dark:text-slate-400 text-xs mb-0.5">Starting from</p>
-                  <p className="text-2xl font-bold text-primary-600">
-                    ₹{venue.pricing?.perHour?.weekday?.toLocaleString()}
-                    <span className="text-xs text-gray-600 dark:text-slate-400">/hour</span>
-                  </p>
+                  {(() => {
+                    const p = venue.pricing;
+                    const opts = p?.enabledOptions || {};
+                    // Find the lowest enabled price
+                    const prices = [];
+                    if (opts.perHour && p?.perHour?.weekday) prices.push({ label: '/hour', val: p.perHour.weekday });
+                    if (opts.halfDay && p?.halfDay?.weekday) prices.push({ label: '/half day', val: p.halfDay.weekday });
+                    if (opts.fullDay && p?.fullDay?.weekday) prices.push({ label: '/full day', val: p.fullDay.weekday });
+                    const min = prices.length > 0 ? prices.reduce((a, b) => a.val < b.val ? a : b) : null;
+                    return min ? (
+                      <>
+                        <p className="text-gray-600 dark:text-slate-400 text-xs mb-0.5">Starting from</p>
+                        <p className="text-2xl font-bold text-primary-600">
+                          ₹{min.val.toLocaleString()}
+                          <span className="text-xs text-gray-600 dark:text-slate-400">{min.label}</span>
+                        </p>
+                      </>
+                    ) : null;
+                  })()}
                 </div>
 
                 {/* Booking Form */}
@@ -1017,7 +1066,7 @@ export default function VenueDetail() {
                     <DatePicker
                       selected={quickBooking.date}
                       onChange={(date) => setQuickBooking(prev => ({ ...prev, date }))}
-                      minDate={new Date()}
+                      minDate={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d; })()}
                       dateFormat="dd/MM/yyyy"
                       placeholderText="Pick a date"
                       className="w-full px-2.5 py-1.5 border border-gray-300 dark:border-slate-700 rounded-lg text-xs focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
@@ -1025,7 +1074,7 @@ export default function VenueDetail() {
                     />
                   </div>
                   
-                  {/* Time Dropdown */}
+                  {/* Time Dropdown - dynamic based on venue opening/closing time */}
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200 mb-1">Start Time</label>
                     <select
@@ -1034,33 +1083,25 @@ export default function VenueDetail() {
                       onChange={(e) => setQuickBooking(prev => ({ ...prev, startTime: e.target.value }))}
                     >
                       <option value="">Select start time</option>
-                      <option value="09:00">09:00 AM</option>
-                      <option value="09:30">09:30 AM</option>
-                      <option value="10:00">10:00 AM</option>
-                      <option value="10:30">10:30 AM</option>
-                      <option value="11:00">11:00 AM</option>
-                      <option value="11:30">11:30 AM</option>
-                      <option value="12:00">12:00 PM</option>
-                      <option value="12:30">12:30 PM</option>
-                      <option value="13:00">01:00 PM</option>
-                      <option value="13:30">01:30 PM</option>
-                      <option value="14:00">02:00 PM</option>
-                      <option value="14:30">02:30 PM</option>
-                      <option value="15:00">03:00 PM</option>
-                      <option value="15:30">03:30 PM</option>
-                      <option value="16:00">04:00 PM</option>
-                      <option value="16:30">04:30 PM</option>
-                      <option value="17:00">05:00 PM</option>
-                      <option value="17:30">05:30 PM</option>
-                      <option value="18:00">06:00 PM</option>
-                      <option value="18:30">06:30 PM</option>
-                      <option value="19:00">07:00 PM</option>
-                      <option value="19:30">07:30 PM</option>
-                      <option value="20:00">08:00 PM</option>
-                      <option value="20:30">08:30 PM</option>
-                      <option value="21:00">09:00 PM</option>
-                      <option value="21:30">09:30 PM</option>
-                      <option value="22:00">10:00 PM</option>
+                      {(() => {
+                        const opening = venue.availability?.openingTime || '00:00';
+                        const closing = venue.availability?.closingTime || '23:30';
+                        const [openH, openM] = opening.split(':').map(Number);
+                        const [closeH, closeM] = closing.split(':').map(Number);
+                        const openMins = openH * 60 + openM;
+                        const closeMins = closeH * 60 + closeM;
+                        const slots = [];
+                        for (let m = openMins; m < closeMins; m += 30) {
+                          const h = Math.floor(m / 60);
+                          const min = m % 60;
+                          const val = `${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
+                          const period = h < 12 ? 'AM' : 'PM';
+                          const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+                          const label = `${String(h12).padStart(2,'0')}:${String(min).padStart(2,'0')} ${period}`;
+                          slots.push(<option key={val} value={val}>{label}</option>);
+                        }
+                        return slots;
+                      })()}
                     </select>
                   </div>
 
@@ -1157,22 +1198,6 @@ export default function VenueDetail() {
                   >
                     Reserve Now
                   </button>
-                </div>
-
-                {/* Venue Info */}
-                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 space-y-1.5 text-xs text-gray-600 dark:text-slate-300">
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-primary-500 flex-shrink-0" />
-                    <span className="text-xs">{venue.availability?.openingTime} - {venue.availability?.closingTime}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-primary-500 flex-shrink-0" />
-                    <span className="line-clamp-1 text-xs">{venue.availability?.availableDays?.join(', ')}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5 text-primary-500 flex-shrink-0" />
-                    <span className="text-xs">Capacity: {venue.capacity} guests</span>
-                  </div>
                 </div>
               </div>
 

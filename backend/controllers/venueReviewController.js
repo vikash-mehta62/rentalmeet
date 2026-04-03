@@ -27,7 +27,7 @@ exports.getVenueReviews = async (req, res) => {
 
     // Calculate rating distribution
     const ratingDistribution = await VenueReview.aggregate([
-      { $match: { venue: mongoose.Types.ObjectId(venueId), status: 'approved' } },
+      { $match: { venue: new mongoose.Types.ObjectId(venueId), status: 'approved' } },
       { $group: { _id: '$rating', count: { $sum: 1 } } },
       { $sort: { _id: -1 } }
     ]);

@@ -341,17 +341,15 @@ export default function AdminBookings() {
 
   const getStatusBadge = (status) => {
     const badges = {
-      pending: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: Clock },
-      confirmed: { bg: 'bg-blue-100', text: 'text-blue-700', icon: CheckCircle },
-      completed: { bg: 'bg-green-100', text: 'text-green-700', icon: CheckCircle },
-      cancelled: { bg: 'bg-red-100', text: 'text-red-700', icon: XCircle },
-      rejected: { bg: 'bg-gray-100', text: 'text-gray-700', icon: XCircle }
+      pending: { bg: 'bg-yellow-100', text: 'text-yellow-700' },
+      confirmed: { bg: 'bg-blue-100', text: 'text-blue-700' },
+      completed: { bg: 'bg-green-100', text: 'text-green-700' },
+      cancelled: { bg: 'bg-red-100', text: 'text-red-700' },
+      rejected: { bg: 'bg-gray-100', text: 'text-gray-700' }
     };
     const badge = badges[status] || badges.pending;
-    const Icon = badge.icon;
     return (
-      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${badge.bg} ${badge.text} flex items-center gap-1 w-fit`}>
-        <Icon className="w-3 h-3" />
+      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${badge.bg} ${badge.text}`}>
         {status}
       </span>
     );
@@ -366,7 +364,7 @@ export default function AdminBookings() {
     };
     const badge = badges[status] || badges.pending;
     return (
-      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${badge.bg} ${badge.text}`}>
+      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${badge.bg} ${badge.text}`}>
         {status}
       </span>
     );

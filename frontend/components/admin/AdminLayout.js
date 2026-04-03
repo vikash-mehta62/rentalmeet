@@ -81,17 +81,19 @@ export default function AdminLayout({ children, title, subtitle }) {
         {/* Top: Logo */}
         <div className="h-20 flex items-center justify-between px-4 border-b border-slate-800/50">
           <div className="flex items-center justify-center flex-1">
-            <div className={`relative rounded-xl overflow-hidden shadow-lg transition-all duration-300 ${
-              sidebarCollapsed ? 'w-12 h-12' : 'w-40 h-14'
-            }`}>
-              <Image 
-                src="/logo.jpeg" 
-                alt="VenueHub Logo" 
-                fill
-                className="object-contain"
-                priority
+            {!sidebarCollapsed ? (
+              <img 
+                src="/logo-new.jpeg" 
+                alt="RentalMeet Logo" 
+                className="h-12 w-auto object-contain"
               />
-            </div>
+            ) : (
+              <img 
+                src="/logo-new.jpeg" 
+                alt="RentalMeet Logo" 
+                className="h-10 w-10 object-contain"
+              />
+            )}
           </div>
           
           {/* Desktop Collapse Button */}

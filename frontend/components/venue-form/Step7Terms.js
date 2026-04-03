@@ -12,6 +12,9 @@ export default function Step7Terms() {
   const { token } = useAuthStore();
   const [accepted, setAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmationHours, setConfirmationHours] = useState(
+    formData.pricing?.confirmationHours || 3
+  );
 
   const handleSubmit = async () => {
     if (!accepted) {
@@ -90,7 +93,8 @@ export default function Step7Terms() {
           closingTime: formData.pricing?.closingTime || '18:00',
           availableDays: formData.pricing?.availableDays || [],
           advanceBookingRule: formData.pricing?.advanceBookingRule || 'Same day allowed',
-          blackoutDates: []
+          blackoutDates: [],
+          confirmationHours: confirmationHours
         },
         
         // Step 5: Photos (with Cloudinary URLs)
@@ -132,7 +136,8 @@ export default function Step7Terms() {
         
         // Step 7: Terms
         termsAccepted: true,
-        termsAcceptedDate: new Date()
+        termsAcceptedDate: new Date(),
+        confirmationHours: confirmationHours
       };
 
       console.log('=== VENUE SUBMISSION DEBUG ===');
@@ -224,6 +229,35 @@ export default function Step7Terms() {
             </p>
           </div>
         </div>
+      </div>
+
+      {/* Confirmation Time */}
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
+        <h4 className="font-semibold text-dark-800 mb-1 flex items-center gap-2">
+          ⏱ Booking Confirmation Time
+        </h4>
+        <p className="text-sm text-gray-600 mb-3">
+          Maximum time you will take to confirm a booking request (max 3 hours)
+        </p>
+        <div className="flex items-center gap-4">
+          {[1, 2, 3].map(h => (
+            <button
+              key={h}
+              type="button"
+              onClick={() => setConfirmationHours(h)}
+              className={`px-5 py-2 rounded-lg font-semibold text-sm border-2 transition-all ${
+                confirmationHours === h
+                  ? 'bg-primary-500 border-primary-500 text-white shadow'
+                  : 'bg-white border-gray-300 text-gray-700 hover:border-primary-400'
+              }`}
+            >
+              {h} Hr{h > 1 ? 's' : ''}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-amber-700 mt-2">
+          Default: 3 hours. Customers will see this on your venue page.
+        </p>
       </div>
 
       <div className="bg-white border border-dark-200 rounded-xl p-6 max-h-96 overflow-y-auto">

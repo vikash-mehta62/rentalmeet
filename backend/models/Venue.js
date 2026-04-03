@@ -242,7 +242,13 @@ const venueSchema = new mongoose.Schema({
     blackoutDates: [{
       date: Date,
       reason: String
-    }]
+    }],
+    confirmationHours: {
+      type: Number,
+      default: 3,
+      min: 1,
+      max: 3
+    }
   },
   
   // STEP 5: Photos

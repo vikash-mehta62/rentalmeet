@@ -52,6 +52,8 @@ export default function Login() {
         router.push('/admin/dashboard');
       } else if (user.role === 'customer') {
         router.push('/customer/dashboard');
+      } else if (user.role === 'employee') {
+        router.push('/employee/dashboard');
       } else {
         router.push('/');
       }
@@ -112,6 +114,8 @@ export default function Login() {
           router.push('/admin/dashboard');
         } else if (data.user.role === 'customer') {
           router.push('/customer/dashboard');
+        } else if (data.user.role === 'employee') {
+          router.push('/employee/dashboard');
         } else {
           router.push('/');
         }

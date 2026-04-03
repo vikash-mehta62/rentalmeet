@@ -91,7 +91,8 @@ export default function EditVenue() {
           openingTime: venue.availability?.openingTime || '09:00',
           closingTime: venue.availability?.closingTime || '18:00',
           availableDays: venue.availability?.availableDays || [],
-          advanceBookingRule: venue.availability?.advanceBookingRule || 'Same day allowed'
+          advanceBookingRule: venue.availability?.advanceBookingRule || 'Same day allowed',
+          confirmationHours: venue.availability?.confirmationHours || 3
         },
         
         // Step 5: Images

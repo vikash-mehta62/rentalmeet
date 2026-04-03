@@ -178,8 +178,8 @@ export default function BrowseVenues() {
       {/* Header Section */}
       <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 pt-24 pb-6">
         <div className="max-w-7xl mx-auto px-6">
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Browse Venues</h1>
-          <p className="text-slate-600 dark:text-slate-300 mt-2">Find the perfect venue for your next meeting, conference, or corporate event.</p>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100" style={{ fontFamily: 'Georgia, serif' }}>Browse Venues</h1>
+          <p className="text-slate-600 dark:text-slate-300 mt-2" style={{ fontFamily: 'Georgia, serif' }}>Find the perfect venue for your next meeting, conference, or corporate event.</p>
         </div>
       </div>
 
@@ -394,7 +394,7 @@ export default function BrowseVenues() {
                     {/* Info Section */}
                     <div className="flex-1 p-5 flex flex-col">
                       <div className="flex-1">
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1">{venue.businessName}</h3>
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1" style={{ fontFamily: 'Georgia, serif' }}>{venue.businessName}</h3>
                         <p className="text-sm text-slate-500 dark:text-slate-300 flex items-center gap-1 mb-3">
                           <MapPin className="w-3.5 h-3.5 text-primary-500" /> 
                           {venue.location?.area}, {venue.location?.city}

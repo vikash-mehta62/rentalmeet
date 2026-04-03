@@ -168,15 +168,15 @@ export default function AdminSettings() {
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Address
                 </label>
-                <input
-                  type="text"
+                <textarea
                   value={contactSettings.address}
                   onChange={(e) => setContactSettings({
                     ...contactSettings,
                     address: e.target.value
                   })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                  placeholder="G-137, Gautam Nagar, Near Chokak Bridge, Bhopal"
+                  rows={3}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 resize-none"
+                  placeholder={"Line 1: Street / Building\nLine 2: Area, City\nLine 3: State - Pincode"}
                 />
               </div>
 
