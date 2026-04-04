@@ -129,6 +129,14 @@ router.put('/venues/:id', async (req, res) => {
     delete req.body.status;
     delete req.body.owner;
 
+    // Encrypt bank account number only if it's a plain (unencrypted) value
+    // Encrypted values start with 'U2FsdGVk' (base64 CryptoJS prefix)
+    if (req.body.bankDetails?.accountNumber &&
+        !req.body.bankDetails.accountNumber.startsWith('U2FsdGVk')) {
+      const { encrypt } = require('../utils/encryption');
+      req.body.bankDetails.accountNumber = encrypt(req.body.bankDetails.accountNumber);
+    }
+
     venue = await Venue.findByIdAndUpdate(
       req.params.id,
       req.body,

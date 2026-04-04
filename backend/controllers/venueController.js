@@ -377,8 +377,9 @@ exports.updateVenue = async (req, res) => {
       });
     }
     
-    // Encrypt bank details if updated
-    if (req.body.bankDetails && req.body.bankDetails.accountNumber) {
+    // Encrypt bank details if updated (only if not already encrypted)
+    if (req.body.bankDetails && req.body.bankDetails.accountNumber &&
+        !req.body.bankDetails.accountNumber.startsWith('U2FsdGVk')) {
       req.body.bankDetails.accountNumber = encrypt(req.body.bankDetails.accountNumber);
     }
     
@@ -466,11 +467,15 @@ exports.getPublicPlatformSettings = async (req, res) => {
     res.json({
       success: true,
       settings: {
-        gstRate: settings.gstRate,
+        gstRate: settings.gstRate || 18,
         platformFee: {
-          feeType: settings.platformFeeType,
-          feeValue: settings.platformFeeValue
+          feeType: settings.platformFeeType || 'percentage',
+          feeValue: settings.platformFeeValue || settings.platformFeePercentage || 5
         },
+        venueCGST: settings.venueCGST || 9,
+        venueSGST: settings.venueSGST || 9,
+        platformCGST: settings.platformCGST || 9,
+        platformSGST: settings.platformSGST || 9,
         commissionRate: 0
       }
     });

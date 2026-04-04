@@ -96,7 +96,7 @@ export default function Step1BasicInfo() {
               <option value="">Select venue type</option>
               {venueTypes.map((type) => (
                 <option key={type._id} value={type.name}>
-                  {type.icon} {type.name}
+                 {type.name}
                 </option>
               ))}
             </select>

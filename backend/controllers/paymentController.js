@@ -15,7 +15,7 @@ exports.createOrder = async (req, res) => {
 
     // Create order options
     const options = {
-      amount: amount * 100, // Amount in paise
+      amount: Math.round(amount * 100), // Amount in paise (must be integer)
       currency: 'INR',
       receipt: `BK${Date.now().toString().slice(-10)}`, // Max 40 chars
       notes: {

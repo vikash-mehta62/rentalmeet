@@ -4,7 +4,8 @@ const {
   getBookings,
   getBooking,
   updateBookingStatus,
-  cancelBooking
+  cancelBooking,
+  approveSoon
 } = require('../controllers/bookingController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -19,5 +20,6 @@ router.route('/')
 router.get('/:id', getBooking);
 router.put('/:id/status', authorize('owner', 'admin'), updateBookingStatus);
 router.put('/:id/cancel', cancelBooking);
+router.put('/:id/approve-soon', authorize('owner', 'admin'), approveSoon);
 
 module.exports = router;

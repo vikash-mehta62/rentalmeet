@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
+import { useRouter } from 'next/navigation';
 import {
   Camera, Save, Lock, Eye, EyeOff, User, Copy, Users, Gift
 } from 'lucide-react';
@@ -654,6 +655,71 @@ export default function CustomerProfile() {
           )}
         </div>
       </div>
+
+      {/* Danger Zone - Delete Account */}
+      <DeleteAccountSection token={token} />
+
     </CustomerLayout>
+  );
+}
+
+function DeleteAccountSection({ token }) {
+  const { logout } = useAuthStore();
+  const router = useRouter();
+  const [confirm, setConfirm] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleDelete = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/delete-account`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        logout();
+        router.push('/');
+      } else {
+        alert(data.message || 'Could not delete account');
+      }
+    } catch {
+      alert('Something went wrong');
+    } finally {
+      setLoading(false);
+      setConfirm(false);
+    }
+  };
+
+  return (
+    <div className="mt-6 bg-red-50 border border-red-200 rounded-2xl p-6">
+      <h3 className="text-base font-bold text-red-700 mb-1">Danger Zone</h3>
+      <p className="text-sm text-red-600 mb-4">Deleting your account is permanent. Active bookings must be cancelled first.</p>
+      {!confirm ? (
+        <button
+          onClick={() => setConfirm(true)}
+          className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold transition-colors"
+        >
+          Delete Account
+        </button>
+      ) : (
+        <div className="flex items-center gap-3">
+          <p className="text-sm font-semibold text-red-700">Are you sure?</p>
+          <button
+            onClick={handleDelete}
+            disabled={loading}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50"
+          >
+            {loading ? 'Deleting...' : 'Yes, Delete'}
+          </button>
+          <button
+            onClick={() => setConfirm(false)}
+            className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-semibold"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

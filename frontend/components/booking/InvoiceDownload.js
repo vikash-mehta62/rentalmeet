@@ -9,7 +9,7 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
   React.useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/platform-settings`);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues/platform-settings/public`);
         const data = await response.json();
         if (data.success) {
           setPlatformSettings(data.settings);
@@ -22,16 +22,32 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
   }, []);
 
   const computeParts = () => {
-    const subtotal = booking?.priceBreakdown?.subtotal ?? booking?.ownerEarnings ?? 0;
-    const gst = booking?.priceBreakdown?.gst ?? 0;
-    const total = booking?.amount ?? (subtotal + gst);
-    const platformFee = Math.max(0, total - subtotal - gst);
-    const gstRate = subtotal > 0 && gst > 0 ? Math.round((gst / subtotal) * 100) : 18;
-    return { subtotal, gst, gstRate, total, platformFee };
+    const pb = booking?.priceBreakdown || {};
+    const subtotal      = pb.subtotal ?? booking?.ownerEarnings ?? 0;
+    const gst           = pb.gst ?? 0;
+    const venueCGST     = pb.venueCGST ?? (gst / 2);
+    const venueSGST     = pb.venueSGST ?? (gst / 2);
+    const venueCGSTRate = pb.venueCGSTRate ?? 9;
+    const venueSGSTRate = pb.venueSGSTRate ?? 9;
+    const platformFee   = pb.platformFee ?? 0;
+    const platformFeeRate = pb.platformFeeRate ?? 5;
+    const platformFeeCGST = pb.platformFeeCGST ?? (pb.platformFeeGST ? pb.platformFeeGST / 2 : 0);
+    const platformFeeSGST = pb.platformFeeSGST ?? (pb.platformFeeGST ? pb.platformFeeGST / 2 : 0);
+    const platformFeeCGSTRate = pb.platformFeeCGSTRate ?? 9;
+    const platformFeeSGSTRate = pb.platformFeeSGSTRate ?? 9;
+    const platformFeeGST  = pb.platformFeeGST ?? (platformFeeCGST + platformFeeSGST);
+    const platformFeeTotal = pb.platformFeeTotal ?? (platformFee + platformFeeGST);
+    const total = pb.total ?? booking?.amount ?? 0;
+    return {
+      subtotal, gst, venueCGST, venueSGST, venueCGSTRate, venueSGSTRate,
+      platformFee, platformFeeRate,
+      platformFeeCGST, platformFeeSGST, platformFeeCGSTRate, platformFeeSGSTRate,
+      platformFeeGST, platformFeeTotal, total
+    };
   };
 
   const buildVenueInvoiceHTML = () => {
-    const { subtotal, gst, gstRate } = computeParts();
+    const { subtotal, gst, venueCGST, venueSGST, venueCGSTRate, venueSGSTRate } = computeParts();
     const grand = subtotal + gst;
     // Create invoice HTML (Venue GST)
     const invoiceHTML = `
@@ -217,7 +233,7 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
             </tr>
             ${booking.selectedAmenities.lunchThalis.map(thali => `
               <tr>
-                <td style="padding-left: 24px;">${thali.type}</td>
+                <td style="padding-left: 24px;">${thali.thaliType || thali.type || 'Thali'} - ${thali.category || ''}</td>
                 <td>${thali.quantity || 1} plates</td>
                 <td>₹${(thali.ratePerPlate || 0).toLocaleString()}/plate</td>
                 <td style="text-align: right; font-weight: 600;">₹${(thali.total || 0).toLocaleString()}</td>
@@ -240,12 +256,25 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
     <!-- Total Section (with GST) -->
     <div class="total-section">
       <div class="total-row">
-        <span>Taxable Value (Venue Subtotal):</span>
+        <span>Venue Rental:</span>
+        <span>₹${(booking.priceBreakdown?.basePrice || 0).toLocaleString()}</span>
+      </div>
+      ${(booking.priceBreakdown?.amenitiesTotal > 0) ? `
+      <div class="total-row">
+        <span>Amenities & Services:</span>
+        <span>₹${(booking.priceBreakdown.amenitiesTotal).toLocaleString()}</span>
+      </div>` : ''}
+      <div class="total-row" style="border-top: 1px solid #F59F0A; padding-top: 8px; margin-top: 4px;">
+        <span>Taxable Value (Subtotal):</span>
         <span>₹${(subtotal || 0).toLocaleString()}</span>
       </div>
       <div class="total-row">
-        <span>GST @ ${gstRate}%:</span>
-        <span>₹${(gst || 0).toLocaleString()}</span>
+        <span>CGST @ ${venueCGSTRate}%:</span>
+        <span>₹${(venueCGST || 0).toLocaleString()}</span>
+      </div>
+      <div class="total-row">
+        <span>SGST @ ${venueSGSTRate}%:</span>
+        <span>₹${(venueSGST || 0).toLocaleString()}</span>
       </div>
       <div class="total-row grand">
         <span>VENUE INVOICE TOTAL:</span>
@@ -322,7 +351,7 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
   };
 
   const buildPlatformInvoiceHTML = () => {
-    const { platformFee } = computeParts();
+    const { platformFee, platformFeeRate, platformFeeCGST, platformFeeSGST, platformFeeCGSTRate, platformFeeSGSTRate, platformFeeTotal, subtotal } = computeParts();
     // Create invoice HTML (Platform Service)
     const invoiceHTML = `
 <!DOCTYPE html>
@@ -401,16 +430,24 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
 
     <div class="total-section">
       <div class="total-row">
-        <span>Platform Service Fee:</span>
+        <span>Base Amount (Rental + Amenities):</span>
+        <span>₹${(subtotal || 0).toLocaleString()}</span>
+      </div>
+      <div class="total-row">
+        <span>Platform Service Fee (${platformFeeRate}% of base):</span>
         <span>₹${(platformFee || 0).toLocaleString()}</span>
       </div>
       <div class="total-row">
-        <span>GST on Platform Fee:</span>
-        <span>₹0</span>
+        <span>CGST @ ${platformFeeCGSTRate}%:</span>
+        <span>₹${(platformFeeCGST || 0).toLocaleString()}</span>
+      </div>
+      <div class="total-row">
+        <span>SGST @ ${platformFeeSGSTRate}%:</span>
+        <span>₹${(platformFeeSGST || 0).toLocaleString()}</span>
       </div>
       <div class="total-row grand">
         <span>PLATFORM INVOICE TOTAL:</span>
-        <span>₹${(platformFee || 0).toLocaleString()}</span>
+        <span>₹${(platformFeeTotal || platformFee || 0).toLocaleString()}</span>
       </div>
     </div>
 

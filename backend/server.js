@@ -12,6 +12,10 @@ const app = express();
 // Connect to MongoDB
 connectDB();
 
+// Start cron jobs
+const { startAutoCancelCron } = require('./utils/cronJobs');
+startAutoCancelCron();
+
 // Security middleware
 app.use(helmet({
   // Relax CSP so Swagger UI assets load correctly

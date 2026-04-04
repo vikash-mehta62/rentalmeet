@@ -90,13 +90,7 @@ Featured Venues at RentalMeet
                   <div className="absolute top-3 left-3 bg-white dark:bg-slate-900 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-md">
                     <Users className="w-3.5 h-3.5 text-gray-800" />
                     <span className="text-xs font-bold text-gray-900 dark:text-slate-100">
-                      {venue.capacity <= 20 ? '11-20' : 
-                       venue.capacity <= 40 ? '31-40' : 
-                       venue.capacity <= 50 ? '41-50' : 
-                       venue.capacity <= 100 ? '50-100' : 
-                       venue.capacity <= 200 ? '100-200' : 
-                       venue.capacity <= 500 ? '200-500' : 
-                       '500-600'} persons
+                      {venue.capacity} persons
                     </span>
                   </div>
 

@@ -29,6 +29,16 @@ export default function VenueDetail() {
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [currentMainImage, setCurrentMainImage] = useState(0);
   const [bookingFormOpen, setBookingFormOpen] = useState(false);
+  const [loginModalOpen, setLoginModalOpen] = useState(false);
+
+  // Auto-slideshow
+  useEffect(() => {
+    if (!venue?.images?.length || venue.images.length <= 1) return;
+    const timer = setInterval(() => {
+      setCurrentMainImage(prev => (prev + 1) % venue.images.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [venue?.images?.length]);
   
   // Quick booking form state
   const [quickBooking, setQuickBooking] = useState({
@@ -1105,64 +1115,80 @@ export default function VenueDetail() {
                     </select>
                   </div>
 
-                  {/* Duration Buttons */}
+                  {/* Duration Cards */}
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200 mb-1">Duration</label>
-                    <div className="grid grid-cols-4 gap-1.5">
-                      {venue.pricing?.enabledOptions?.perHour && (
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200 mb-1">Select Duration</label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {venue.pricing?.enabledOptions?.perHour && venue.pricing?.perHour?.weekday && (
                         <>
-                          <button
-                            type="button"
-                            onClick={() => setQuickBooking(prev => ({ ...prev, duration: '1' }))}
-                            className={`px-1.5 py-1 rounded-md text-xs font-semibold transition-all ${
-                              quickBooking.duration === '1'
-                                ? 'bg-primary-500 text-white shadow-md'
-                                : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-700'
-                            }`}
-                          >
-                            1H
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setQuickBooking(prev => ({ ...prev, duration: '2' }))}
-                            className={`px-1.5 py-1 rounded-md text-xs font-semibold transition-all ${
-                              quickBooking.duration === '2'
-                                ? 'bg-primary-500 text-white shadow-md'
-                                : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-700'
-                            }`}
-                          >
-                            2H
-                          </button>
+                          {[{ dur: '1', label: '1h', price: venue.pricing.perHour.weekday }, { dur: '2', label: '2h', price: venue.pricing.perHour.weekday * 2 }].map(({ dur, label, price }) => (
+                            <button
+                              key={dur}
+                              type="button"
+                              onClick={() => setQuickBooking(prev => ({ ...prev, duration: dur }))}
+                              className={`flex flex-col items-center py-2 px-1 rounded-lg border-2 transition-all ${
+                                quickBooking.duration === dur
+                                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                                  : 'border-gray-200 dark:border-slate-700 hover:border-primary-300'
+                              }`}
+                            >
+                              <Clock className={`w-4 h-4 mb-0.5 ${quickBooking.duration === dur ? 'text-primary-500' : 'text-gray-400'}`} />
+                              <span className="text-xs font-bold text-gray-900 dark:text-slate-100">{label}</span>
+                              <span className={`text-xs font-semibold ${quickBooking.duration === dur ? 'text-primary-600' : 'text-gray-600 dark:text-slate-300'}`}>₹{price.toLocaleString('en-IN')}</span>
+                            </button>
+                          ))}
                         </>
                       )}
-                      {venue.pricing?.enabledOptions?.halfDay && (
+                      {venue.pricing?.enabledOptions?.halfDay && venue.pricing?.halfDay?.weekday && (
                         <button
                           type="button"
                           onClick={() => setQuickBooking(prev => ({ ...prev, duration: '4' }))}
-                          className={`px-1.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                          className={`flex flex-col items-center py-2 px-1 rounded-lg border-2 transition-all ${
                             quickBooking.duration === '4'
-                              ? 'bg-primary-500 text-white shadow-md'
-                              : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-700'
+                              ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                              : 'border-gray-200 dark:border-slate-700 hover:border-primary-300'
                           }`}
                         >
-                          4H
+                          <Clock className={`w-4 h-4 mb-0.5 ${quickBooking.duration === '4' ? 'text-primary-500' : 'text-gray-400'}`} />
+                          <span className="text-xs font-bold text-gray-900 dark:text-slate-100">4h</span>
+                          <span className={`text-xs font-semibold ${quickBooking.duration === '4' ? 'text-primary-600' : 'text-gray-600 dark:text-slate-300'}`}>₹{venue.pricing.halfDay.weekday.toLocaleString('en-IN')}</span>
                         </button>
                       )}
-                      {venue.pricing?.enabledOptions?.fullDay && (
+                      {venue.pricing?.enabledOptions?.fullDay && venue.pricing?.fullDay?.weekday && (
                         <button
                           type="button"
                           onClick={() => setQuickBooking(prev => ({ ...prev, duration: '8' }))}
-                          className={`px-1.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                          className={`flex flex-col items-center py-2 px-1 rounded-lg border-2 transition-all ${
                             quickBooking.duration === '8'
-                              ? 'bg-primary-500 text-white shadow-md'
-                              : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-700'
+                              ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                              : 'border-gray-200 dark:border-slate-700 hover:border-primary-300'
                           }`}
                         >
-                          Full Day
+                          <Clock className={`w-4 h-4 mb-0.5 ${quickBooking.duration === '8' ? 'text-primary-500' : 'text-gray-400'}`} />
+                          <span className="text-xs font-bold text-gray-900 dark:text-slate-100">Full Day</span>
+                          <span className={`text-xs font-semibold ${quickBooking.duration === '8' ? 'text-primary-600' : 'text-gray-600 dark:text-slate-300'}`}>₹{venue.pricing.fullDay.weekday.toLocaleString('en-IN')}</span>
                         </button>
                       )}
                     </div>
                   </div>
+
+                  {/* End Time (auto-calculated) */}
+                  {quickBooking.startTime && quickBooking.duration && (
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200 mb-1">End Time</label>
+                      <div className="w-full px-2.5 py-1.5 border border-gray-200 dark:border-slate-700 rounded-lg text-xs bg-gray-50 dark:bg-slate-800 text-gray-500 dark:text-slate-400">
+                        {(() => {
+                          const [h, m] = quickBooking.startTime.split(':').map(Number);
+                          const totalMins = h * 60 + m + parseInt(quickBooking.duration) * 60;
+                          const endH = Math.floor(totalMins / 60) % 24;
+                          const endM = totalMins % 60;
+                          const period = endH < 12 ? 'AM' : 'PM';
+                          const h12 = endH === 0 ? 12 : endH > 12 ? endH - 12 : endH;
+                          return `${String(h12).padStart(2,'0')}:${String(endM).padStart(2,'0')} ${period}`;
+                        })()}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Estimated Total */}
                   {estimate.total > 0 && (
@@ -1188,8 +1214,7 @@ export default function VenueDetail() {
                   <button
                     onClick={() => {
                       if (!token) {
-                        toast.error('Please login to book a venue');
-                        router.push(`/login?redirect=/venues/${venue.sku}`);
+                        setLoginModalOpen(true);
                         return;
                       }
                       setBookingFormOpen(true);
@@ -1210,6 +1235,42 @@ export default function VenueDetail() {
           </div>
         </div>
       </div>
+
+      {/* Login Modal */}
+      {loginModalOpen && (
+        <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-slate-100 mb-2">Login Required</h3>
+            <p className="text-sm text-gray-600 dark:text-slate-400 mb-6">Please login or register to book this venue.</p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => {
+                  setLoginModalOpen(false);
+                  router.push(`/login?redirect=/venues/${venue.sku}`);
+                }}
+                className="w-full bg-primary-500 hover:bg-primary-600 text-white py-2.5 rounded-lg font-semibold transition-colors"
+              >
+                Login
+              </button>
+              <button
+                onClick={() => {
+                  setLoginModalOpen(false);
+                  router.push(`/register?redirect=/venues/${venue.sku}`);
+                }}
+                className="w-full border-2 border-primary-500 text-primary-500 hover:bg-primary-50 py-2.5 rounded-lg font-semibold transition-colors"
+              >
+                Register
+              </button>
+              <button
+                onClick={() => setLoginModalOpen(false)}
+                className="w-full text-gray-500 hover:text-gray-700 py-2 text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Booking Form Modal */}
       {bookingFormOpen && (

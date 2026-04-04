@@ -156,6 +156,8 @@ exports.createBooking = async (req, res) => {
       commission: 0,
       ownerEarnings,
       commissionRate: 0,
+      // Set confirmation deadline based on venue's confirmationHours
+      confirmationDeadline: new Date(Date.now() + (venueDetails.availability?.confirmationHours || 3) * 60 * 60 * 1000),
       selectedAmenities: selectedAmenities || {
         basic: [],
         beverages: [],
@@ -305,6 +307,46 @@ exports.updateBookingStatus = async (req, res) => {
       success: false,
       message: error.message
     });
+  }
+};
+
+// @desc    Approve Soon - extend confirmation deadline by 1 hour (one-time only)
+// @route   PUT /api/bookings/:id/approve-soon
+exports.approveSoon = async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id).populate('venue', 'owner');
+
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    if (booking.venue?.owner?.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    if (booking.status !== 'pending') {
+      return res.status(400).json({ success: false, message: 'Only pending bookings can be extended' });
+    }
+
+    if (booking.approveSoonUsed) {
+      return res.status(400).json({ success: false, message: 'Approve Soon can only be used once per booking' });
+    }
+
+    // Extend by 1 hour from current deadline (or now if already expired)
+    const base = booking.confirmationDeadline && booking.confirmationDeadline > new Date()
+      ? booking.confirmationDeadline
+      : new Date();
+    booking.confirmationDeadline = new Date(base.getTime() + 60 * 60 * 1000);
+    booking.approveSoonUsed = true;
+    await booking.save();
+
+    res.json({
+      success: true,
+      message: 'Confirmation deadline extended by 1 hour',
+      confirmationDeadline: booking.confirmationDeadline
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 

@@ -240,7 +240,7 @@ export default function AdminVenues() {
                   </>
                 ) : (
                   <>
-                    <span className="text-lg">{venueTypes.find(t => t.name === venueTypeFilter)?.icon}</span>
+                    
                     <span>{venueTypeFilter}</span>
                   </>
                 )}
@@ -274,7 +274,6 @@ export default function AdminVenues() {
                       venueTypeFilter === type.name ? 'bg-primary-50 text-primary-700 font-semibold' : 'text-gray-700'
                     }`}
                   >
-                    <span className="text-xl">{type.icon}</span>
                     <span>{type.name}</span>
                   </button>
                 ))}

@@ -370,3 +370,37 @@ exports.changePassword = async (req, res) => {
     });
   }
 };
+
+// @desc    Delete account
+// @route   DELETE /api/auth/delete-account
+exports.deleteAccount = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const Booking = require('../models/Booking');
+
+    // Check for active bookings (pending or confirmed)
+    const activeBookings = await Booking.countDocuments({
+      customer: userId,
+      status: { $in: ['pending', 'confirmed'] }
+    });
+
+    if (activeBookings > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `You have ${activeBookings} active booking(s). Please cancel or complete them before deleting your account.`
+      });
+    }
+
+    // Soft delete — mark as inactive instead of hard delete
+    await User.findByIdAndUpdate(userId, {
+      isDeleted: true,
+      deletedAt: new Date(),
+      email: `deleted_${Date.now()}_${req.user.email}` // free up email
+    });
+
+    res.json({ success: true, message: 'Account deleted successfully.' });
+  } catch (error) {
+    console.error('Delete account error:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete account' });
+  }
+};

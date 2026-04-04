@@ -25,6 +25,10 @@ export default function Step4Pricing() {
     fullDay: formData.pricing?.enabledOptions?.fullDay ?? false
   });
   
+  const [confirmationHours, setConfirmationHours] = useState(
+    formData.pricing?.confirmationHours || 3
+  );
+  
   // Prepare default values from existing pricing data
   const prepareDefaultValues = () => {
     return {
@@ -64,6 +68,9 @@ export default function Step4Pricing() {
       if (formData.pricing.enabledOptions) {
         setEnabledOptions(formData.pricing.enabledOptions);
       }
+      if (formData.pricing.confirmationHours) {
+        setConfirmationHours(formData.pricing.confirmationHours);
+      }
     }
   }, [formData.pricing]);
 
@@ -99,7 +106,8 @@ export default function Step4Pricing() {
     setFormData({ 
       pricing: {
         ...data,
-        enabledOptions
+        enabledOptions,
+        confirmationHours
       }
     });
     setStep(5);
@@ -351,6 +359,32 @@ export default function Step4Pricing() {
               {errors.advanceBookingRule && (
                 <p className="text-error text-sm mt-1">{errors.advanceBookingRule.message}</p>
               )}
+            </div>
+
+            {/* Confirmation Hours */}
+            <div className="mt-4">
+              <label className="block text-sm font-semibold text-dark-700 mb-2">
+                Maximum time to confirm a booking request (max 3 hours)
+              </label>
+              <div className="flex gap-3">
+                {[1, 2, 3].map((h) => (
+                  <button
+                    key={h}
+                    type="button"
+                    onClick={() => setConfirmationHours(h)}
+                    className={`px-5 py-2 rounded-lg border-2 font-semibold text-sm transition-all ${
+                      confirmationHours === h
+                        ? 'bg-primary-500 border-primary-500 text-white'
+                        : 'bg-white border-gray-300 text-gray-700 hover:border-primary-400'
+                    }`}
+                  >
+                    {h} Hr{h > 1 ? 's' : ''}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-orange-500 mt-1">
+                Default: 3 hours. Customers will see this on your venue page.
+              </p>
             </div>
           </div>
         </div>

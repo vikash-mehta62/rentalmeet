@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import VenueReviews from '@/components/venue/VenueReviews';
 import {
   X, Building2, MapPin, IndianRupee, Calendar, Clock, Users, FileText,
   Image as ImageIcon, Utensils, CheckCircle, XCircle, Ban,
@@ -31,6 +32,7 @@ export default function VenueDetailsModal({
     { id: 'images', label: 'Photos', icon: ImageIcon },
     { id: 'owner', label: 'Owner Info', icon: User },
     { id: 'documents', label: 'Documents', icon: FileCheck },
+    { id: 'reviews', label: 'Reviews', icon: FileText },
   ];
 
   if (showActions && (venue.status === 'approved' || venue.status === 'suspended')) {
@@ -826,6 +828,13 @@ export default function VenueDetailsModal({
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Reviews Tab */}
+          {activeTab === 'reviews' && (
+            <div className="space-y-4">
+              <VenueReviews venueId={venue._id} />
             </div>
           )}
 

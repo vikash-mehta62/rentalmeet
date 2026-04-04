@@ -87,10 +87,25 @@ const bookingSchema = new mongoose.Schema({
     basePrice: Number,
     amenitiesTotal: Number,
     subtotal: Number,
-    gst: Number,
-    gstRate: Number,
+    // Venue GST
+    venueCGST: Number,
+    venueCGSTRate: Number,
+    venueSGST: Number,
+    venueSGSTRate: Number,
+    gst: Number,          // venueCGST + venueSGST (combined, for backward compat)
+    gstRate: Number,      // combined rate
+    // Platform Fee
     platformFee: Number,
+    platformFeeRate: Number,
+    platformFeeCGST: Number,
+    platformFeeCGSTRate: Number,
+    platformFeeSGST: Number,
+    platformFeeSGSTRate: Number,
+    platformFeeGST: Number,   // platformFeeCGST + platformFeeSGST
+    platformFeeTotal: Number, // platformFee + platformFeeGST
+    // Discount & Total
     discount: Number,
+    couponCode: String,
     total: Number
   },
   // Coupon applied
@@ -170,6 +185,23 @@ const bookingSchema = new mongoose.Schema({
   cancelledBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
+  },
+  // Auto-cancel deadline: set at booking creation based on venue's confirmationHours
+  confirmationDeadline: {
+    type: Date
+  },
+  // Track if owner already used "Approve Soon" (one-time only)
+  approveSoonUsed: {
+    type: Boolean,
+    default: false
+  },
+  // Refund tracking
+  refundDetails: {
+    refundId: String,
+    refundAmount: Number,
+    refundStatus: { type: String, enum: ['pending', 'processed', 'failed'] },
+    refundedAt: Date,
+    refundReason: String
   }
 }, {
   timestamps: true

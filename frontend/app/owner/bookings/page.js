@@ -87,6 +87,28 @@ export default function OwnerBookings() {
     }
   };
 
+  const handleApproveSoon = async (bookingId) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bookings/${bookingId}/approve-soon`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        fetchBookings();
+        const deadline = new Date(data.confirmationDeadline).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+        alert(`Deadline extended! New deadline: ${deadline}`);
+      } else {
+        alert(data.message || 'Failed to extend deadline');
+      }
+    } catch (error) {
+      console.error('Error extending deadline:', error);
+    }
+  };
+
   const stats = {
     total: bookings.length,
     pending: bookings.filter(b => b.status === 'pending').length,
@@ -246,6 +268,19 @@ export default function OwnerBookings() {
                             Accept
                           </button>
                           <button
+                            onClick={() => handleApproveSoon(booking._id)}
+                            disabled={booking.approveSoonUsed}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 ${
+                              booking.approveSoonUsed
+                                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                : 'bg-orange-400 hover:bg-orange-500 text-white'
+                            }`}
+                            title={booking.approveSoonUsed ? 'Already used once' : 'Extend confirmation deadline by 1 hour (one-time)'}
+                          >
+                            <Clock className="w-3.5 h-3.5" />
+                            {booking.approveSoonUsed ? 'Soon Used' : 'Approve Soon'}
+                          </button>
+                          <button
                             onClick={() => handleUpdateStatus(booking._id, 'cancelled')}
                             className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1"
                           >
@@ -307,6 +342,23 @@ export default function OwnerBookings() {
                       </p>
                     </div>
                   </div>
+
+                  {/* Confirmation Deadline Warning for Pending Bookings */}
+                  {booking.status === 'pending' && booking.confirmationDeadline && (
+                    <div className={`rounded-lg p-3 mb-4 flex items-center gap-2 text-sm ${
+                      new Date(booking.confirmationDeadline) < new Date()
+                        ? 'bg-red-50 text-red-700 border border-red-200'
+                        : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+                    }`}>
+                      <Clock className="w-4 h-4 flex-shrink-0" />
+                      <span>
+                        {new Date(booking.confirmationDeadline) < new Date()
+                          ? 'Confirmation deadline passed — will be auto-cancelled shortly'
+                          : `Confirm by: ${new Date(booking.confirmationDeadline).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`
+                        }
+                      </span>
+                    </div>
+                  )}
 
                   {/* Customer Contact & Event Details */}
                   <div className="bg-blue-50 rounded-lg p-3 mb-4">

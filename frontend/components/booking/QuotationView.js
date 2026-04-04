@@ -21,10 +21,19 @@ export default function QuotationView({
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/platform-settings`);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues/platform-settings/public`);
         const data = await response.json();
         if (data.success) {
-          setPlatformSettings(data.settings);
+          // Normalize to match admin settings shape
+          setPlatformSettings({
+            ...data.settings,
+            platformFeePercentage: parseFloat(data.settings.platformFee?.feeValue) || 5,
+            platformFeeType: data.settings.platformFee?.feeType || 'percentage',
+            venueCGST: data.settings.venueCGST || 9,
+            venueSGST: data.settings.venueSGST || 9,
+            platformCGST: data.settings.platformCGST || 9,
+            platformSGST: data.settings.platformSGST || 9,
+          });
         }
       } catch (error) {
         console.error('Error fetching platform settings:', error);
@@ -35,41 +44,56 @@ export default function QuotationView({
 
   const calculateVenueInvoice = () => {
     const baseAmount = calculatedPrice.basePrice + calculatedPrice.amenitiesTotal;
-    const venueCGST = platformSettings ? (baseAmount * (platformSettings.venueCGST || 0)) / 100 : 0;
-    const venueSGST = platformSettings ? (baseAmount * (platformSettings.venueSGST || 0)) / 100 : 0;
+    // Only apply GST if owner has GST
+    const hasGST = venue.ownerInfo?.hasGST;
+    const cgstRate = hasGST ? (platformSettings?.venueCGST || 0) : 0;
+    const sgstRate = hasGST ? (platformSettings?.venueSGST || 0) : 0;
+    const venueCGST = (baseAmount * cgstRate) / 100;
+    const venueSGST = (baseAmount * sgstRate) / 100;
     const total = baseAmount + venueCGST + venueSGST;
     
     return {
       baseAmount,
       cgst: venueCGST,
       sgst: venueSGST,
-      cgstRate: platformSettings?.venueCGST || 0,
-      sgstRate: platformSettings?.venueSGST || 0,
+      cgstRate,
+      sgstRate,
       total
     };
   };
 
   const calculatePlatformInvoice = () => {
     const baseAmount = calculatedPrice.basePrice + calculatedPrice.amenitiesTotal;
-    const platformFee = platformSettings ? (baseAmount * (platformSettings.platformFeePercentage || 0)) / 100 : 0;
-    const platformCGST = platformSettings ? (platformFee * (platformSettings.platformCGST || 0)) / 100 : 0;
-    const platformSGST = platformSettings ? (platformFee * (platformSettings.platformSGST || 0)) / 100 : 0;
+    // Use venue custom platform fee if enabled, else platform default
+    let feePercentage = 0;
+    if (venue.customPlatformFee?.enabled) {
+      feePercentage = parseFloat(venue.customPlatformFee.percentage) || 0;
+    } else {
+      feePercentage = parseFloat(platformSettings?.platformFeePercentage) || 0;
+    }
+    const platformFee = (baseAmount * feePercentage) / 100;
+    const cgstRate = platformSettings?.platformCGST || 0;
+    const sgstRate = platformSettings?.platformSGST || 0;
+    const platformCGST = (platformFee * cgstRate) / 100;
+    const platformSGST = (platformFee * sgstRate) / 100;
     const total = platformFee + platformCGST + platformSGST;
     
     return {
       platformFee,
       cgst: platformCGST,
       sgst: platformSGST,
-      cgstRate: platformSettings?.platformCGST || 0,
-      sgstRate: platformSettings?.platformSGST || 0,
-      feePercentage: platformSettings?.platformFeePercentage || 0,
+      cgstRate,
+      sgstRate,
+      feePercentage,
       total
     };
   };
 
   const venueInvoice = calculateVenueInvoice();
   const platformInvoice = calculatePlatformInvoice();
-  const grandTotal = venueInvoice.total + platformInvoice.total;
+  const subtotalBeforeDiscount = venueInvoice.total + platformInvoice.total;
+  const couponDiscount = calculatedPrice.discount || 0;
+  const grandTotal = Math.max(0, subtotalBeforeDiscount - couponDiscount);
 
   const handlePrint = () => {
     window.print();
@@ -155,7 +179,7 @@ export default function QuotationView({
     });
   };
 
-  const quotationNumber = `QT-${Date.now().toString().slice(-8)}`;
+  const [quotationNumber] = useState(() => `QT-${Date.now().toString().slice(-8)}`);
 
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -344,9 +368,9 @@ export default function QuotationView({
                     <p className="text-sm font-semibold text-gray-700 mb-2">Beverages:</p>
                     <div className="space-y-1">
                       {selectedAmenities.beverages.map((beverage, idx) => {
-                        const qty = beverage.quantity || 0;
+                        const qty = quantities[`beverage_${beverage.name}`] || 0;
                         const rate = beverage.ratePerUnit || 0;
-                        const total = beverage.total || (rate * qty);
+                        const total = rate * qty;
                         return (
                           <div key={idx} className="flex justify-between text-sm pl-4">
                             <span className="text-gray-700">
@@ -368,9 +392,9 @@ export default function QuotationView({
                     <p className="text-sm font-semibold text-gray-700 mb-2">Refreshments & Snacks:</p>
                     <div className="space-y-1">
                       {selectedAmenities.refreshmentFood.map((food, idx) => {
-                        const qty = food.quantity || 0;
+                        const qty = quantities[`food_${food.name}`] || 0;
                         const rate = food.ratePerPlate || 0;
-                        const total = food.total || (rate * qty);
+                        const total = rate * qty;
                         return (
                           <div key={idx} className="flex justify-between text-sm pl-4">
                             <span className="text-gray-700">
@@ -392,9 +416,9 @@ export default function QuotationView({
                     <p className="text-sm font-semibold text-gray-700 mb-2">Lunch Thalis:</p>
                     <div className="space-y-1">
                       {selectedAmenities.lunchThalis.map((thali, idx) => {
-                        const qty = thali.quantity || 0;
+                        const qty = quantities[`thali_${thali.thaliType}_${thali.category}`] || 0;
                         const rate = thali.ratePerPlate || 0;
-                        const total = thali.total || (rate * qty);
+                        const total = rate * qty;
                         return (
                           <div key={idx} className="flex justify-between text-sm pl-4">
                             <span className="text-gray-700">
@@ -543,7 +567,23 @@ export default function QuotationView({
           </div>
 
           <div className="mb-8 bg-gradient-to-br from-green-50 to-green-100 border-4 border-green-400 rounded-xl p-6">
-            <div className="flex justify-between items-center">
+            <div className="space-y-3 mb-4">
+              <div className="flex justify-between text-sm text-gray-700">
+                <span>Venue Invoice Total:</span>
+                <span className="font-semibold">₹{venueInvoice.total.toLocaleString('en-IN')}</span>
+              </div>
+              <div className="flex justify-between text-sm text-gray-700">
+                <span>Platform Invoice Total:</span>
+                <span className="font-semibold">₹{platformInvoice.total.toLocaleString('en-IN')}</span>
+              </div>
+              {couponDiscount > 0 && (
+                <div className="flex justify-between text-sm text-green-700 font-semibold">
+                  <span>Coupon Discount ({calculatedPrice.couponCode || ''}):</span>
+                  <span>- ₹{couponDiscount.toLocaleString('en-IN')}</span>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-between items-center border-t-2 border-green-500 pt-4">
               <div>
                 <p className="text-sm text-gray-600 mb-1">Total Amount Payable</p>
                 <p className="text-2xl md:text-3xl font-black text-green-900">GRAND TOTAL</p>
@@ -551,9 +591,6 @@ export default function QuotationView({
               <div className="text-right">
                 <p className="text-4xl md:text-5xl font-black text-green-900">
                   ₹{grandTotal.toLocaleString('en-IN')}
-                </p>
-                <p className="text-xs text-gray-600 mt-2">
-                  (Venue: ₹{venueInvoice.total.toLocaleString('en-IN')} + Platform: ₹{platformInvoice.total.toLocaleString('en-IN')})
                 </p>
               </div>
             </div>

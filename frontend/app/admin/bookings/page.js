@@ -273,24 +273,31 @@ export default function AdminBookings() {
         'S.No', 'Booking Number', 'Venue Name', 'Venue Location',
         'Customer Name', 'Customer Email', 'Customer Phone',
         'Booked On', 'Booking Date', 'Time Slot', 'Event Type', 'Guest Count',
-        'Venue Rental', 'GST', 'Amenities & Services', 'GST',
-        'Platform Fee', 'GST', 'Grand Total',
+        'Venue Rental', 'Amenities & Services',
+        'Venue GST', 'Venue CGST Rate (%)', 'Venue SGST Rate (%)',
+        'Platform Fee', 'Platform Fee Rate (%)',
+        'Platform GST', 'Platform CGST Rate (%)', 'Platform SGST Rate (%)',
+        'Grand Total',
         'Booking Status', 'Payment Status'
       ];
 
       const rows = bookings.map((booking, index) => {
         const pb = booking.priceBreakdown || {};
-        const basePrice   = pb.basePrice || 0;
-        const amenities   = pb.amenitiesTotal || booking.amenitiesTotal || 0;
-        const subtotal    = pb.subtotal || (basePrice + amenities);
-        const totalGST    = pb.gst || 0;
-        const gstRate     = pb.gstRate || 0;
-        // Split GST proportionally between venue rental and amenities
-        const venueGST    = subtotal > 0 ? Math.round((basePrice / subtotal) * totalGST) : totalGST;
-        const amenGST     = subtotal > 0 ? Math.round((amenities / subtotal) * totalGST) : 0;
-        const platformFee = pb.platformFee || 0;
-        const platformGST = 0; // platform fee GST not separately tracked
-        const grandTotal  = pb.total || booking.amount || 0;
+        const basePrice    = pb.basePrice || 0;
+        const amenities    = pb.amenitiesTotal || booking.amenitiesTotal || 0;
+        const subtotal     = pb.subtotal || (basePrice + amenities);
+        const totalGST     = pb.gst || 0;
+        const venueGST     = (pb.venueCGST != null && pb.venueSGST != null)
+          ? (pb.venueCGST + pb.venueSGST)
+          : totalGST;
+        const venueCGSTRate = pb.venueCGSTRate || 9;
+        const venueSGSTRate = pb.venueSGSTRate || 9;
+        const platformFee  = pb.platformFee || 0;
+        const platformFeeRate = pb.platformFeeRate || 5;
+        const platformGST  = pb.platformFeeGST != null ? pb.platformFeeGST : ((pb.platformFeeCGST||0) + (pb.platformFeeSGST||0));
+        const platformCGSTRate = pb.platformFeeCGSTRate || 9;
+        const platformSGSTRate = pb.platformFeeSGSTRate || 9;
+        const grandTotal   = pb.total || booking.amount || 0;
 
         return [
           index + 1,
@@ -306,11 +313,15 @@ export default function AdminBookings() {
           booking.customerDetails?.eventType || 'N/A',
           booking.customerDetails?.guestCount || 'N/A',
           basePrice,
-          venueGST,
           amenities,
-          amenGST,
+          venueGST,
+          venueCGSTRate,
+          venueSGSTRate,
           platformFee,
+          platformFeeRate,
           platformGST,
+          platformCGSTRate,
+          platformSGSTRate,
           grandTotal,
           booking.status,
           booking.paymentStatus
@@ -514,17 +525,9 @@ export default function AdminBookings() {
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        {venue.images?.[0]?.url ? (
-                          <img
-                            src={venue.images[0].url}
-                            alt={venue.businessName}
-                            className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded-lg bg-gray-200 flex items-center justify-center flex-shrink-0">
-                            <Building2 className="w-5 h-5 text-gray-400" />
-                          </div>
-                        )}
+                        <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                          <Building2 className="w-4 h-4 text-gray-400" />
+                        </div>
                         <div className="flex-1 min-w-0">
                           <p className={`text-sm font-semibold truncate ${
                             selectedStatsVenue?._id === venue._id ? 'text-primary-700' : 'text-gray-900'
@@ -672,17 +675,9 @@ export default function AdminBookings() {
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        {venue.images?.[0]?.url ? (
-                          <img
-                            src={venue.images[0].url}
-                            alt={venue.businessName}
-                            className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded-lg bg-gray-200 flex items-center justify-center flex-shrink-0">
-                            <Building2 className="w-5 h-5 text-gray-400" />
-                          </div>
-                        )}
+                        <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                          <Building2 className="w-4 h-4 text-gray-400" />
+                        </div>
                         <div className="flex-1 min-w-0">
                           <p className={`text-sm font-semibold truncate ${
                             selectedVenue?._id === venue._id ? 'text-primary-700' : 'text-gray-900'
@@ -768,11 +763,10 @@ export default function AdminBookings() {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Event</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Guests</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Venue Rental</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">GST</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Amenities</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">GST</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Venue GST</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Platform Fee</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">GST</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Platform GST</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-green-100">Grand Total</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Payment</th>
@@ -782,21 +776,27 @@ export default function AdminBookings() {
             <tbody className="divide-y divide-gray-200">
               {bookings.length === 0 ? (
                 <tr>
-                  <td colSpan="19" className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan="18" className="px-6 py-8 text-center text-gray-500">
                     No bookings found
                   </td>
                 </tr>
               ) : (
                 bookings.map((booking, index) => {
                   const pb = booking.priceBreakdown || {};
-                  const basePrice   = pb.basePrice || 0;
-                  const amenities   = pb.amenitiesTotal || booking.amenitiesTotal || 0;
-                  const subtotal    = pb.subtotal || (basePrice + amenities);
-                  const totalGST    = pb.gst || 0;
-                  const venueGST    = subtotal > 0 ? Math.round((basePrice / subtotal) * totalGST) : totalGST;
-                  const amenGST     = subtotal > 0 ? Math.round((amenities / subtotal) * totalGST) : 0;
-                  const platformFee = pb.platformFee || 0;
-                  const grandTotal  = pb.total || booking.amount || 0;
+                  const basePrice    = pb.basePrice || 0;
+                  const amenities    = pb.amenitiesTotal || booking.amenitiesTotal || 0;
+                  const subtotal     = pb.subtotal || (basePrice + amenities);
+                  const totalGST     = pb.gst || 0;
+                  // Use stored breakdown if available, else split proportionally
+                  const venueGST     = (pb.venueCGST != null && pb.venueSGST != null)
+                    ? (pb.venueCGST + pb.venueSGST)
+                    : (subtotal > 0 ? Math.round((basePrice / subtotal) * totalGST) : totalGST);
+                  const amenGST      = (pb.venueCGST != null && pb.venueSGST != null)
+                    ? 0
+                    : (subtotal > 0 ? Math.round((amenities / subtotal) * totalGST) : 0);
+                  const platformFee  = pb.platformFee || 0;
+                  const platformGST  = pb.platformFeeGST != null ? pb.platformFeeGST : (pb.platformFeeCGST != null ? pb.platformFeeCGST + pb.platformFeeSGST : 0);
+                  const grandTotal   = pb.total || booking.amount || 0;
 
                   return (
                   <tr key={booking._id} className="hover:bg-gray-50">
@@ -845,19 +845,18 @@ export default function AdminBookings() {
                       <p className="text-xs font-semibold text-gray-800">₹{basePrice.toLocaleString('en-IN')}</p>
                     </td>
                     <td className="px-4 py-3 bg-yellow-50">
-                      <p className="text-xs text-orange-600 font-medium">₹{venueGST.toLocaleString('en-IN')}</p>
-                    </td>
-                    <td className="px-4 py-3 bg-yellow-50">
                       <p className="text-xs font-semibold text-gray-800">₹{amenities.toLocaleString('en-IN')}</p>
                     </td>
                     <td className="px-4 py-3 bg-yellow-50">
-                      <p className="text-xs text-orange-600 font-medium">₹{amenGST.toLocaleString('en-IN')}</p>
+                      <p className="text-xs text-orange-600 font-medium">₹{venueGST.toLocaleString('en-IN')}</p>
+                      {pb.venueCGSTRate && <p className="text-[10px] text-gray-400">CGST {pb.venueCGSTRate}% + SGST {pb.venueSGSTRate}%</p>}
                     </td>
                     <td className="px-4 py-3 bg-yellow-50">
                       <p className="text-xs font-semibold text-gray-800">₹{platformFee.toLocaleString('en-IN')}</p>
                     </td>
                     <td className="px-4 py-3 bg-yellow-50">
-                      <p className="text-xs text-orange-600 font-medium">₹0</p>
+                      <p className="text-xs text-orange-600 font-medium">₹{platformGST.toLocaleString('en-IN')}</p>
+                      {pb.platformFeeCGSTRate && <p className="text-[10px] text-gray-400">CGST {pb.platformFeeCGSTRate}% + SGST {pb.platformFeeSGSTRate}%</p>}
                     </td>
                     <td className="px-4 py-3 bg-green-50">
                       <p className="text-xs font-bold text-green-700">₹{grandTotal.toLocaleString('en-IN')}</p>
@@ -1131,7 +1130,9 @@ export default function AdminBookings() {
                           </div>
                           {selectedBooking.priceBreakdown.gst > 0 && (
                             <div className="flex justify-between items-center">
-                              <span className="text-sm text-gray-700">GST ({selectedBooking.priceBreakdown.gstRate || 0}%)</span>
+                              <span className="text-sm text-gray-700">
+                                Venue CGST ({selectedBooking.priceBreakdown.venueCGSTRate || Math.round((selectedBooking.priceBreakdown.gstRate||18)/2)}%) + SGST ({selectedBooking.priceBreakdown.venueSGSTRate || Math.round((selectedBooking.priceBreakdown.gstRate||18)/2)}%)
+                              </span>
                               <span className="font-semibold text-blue-600">
                                 ₹{selectedBooking.priceBreakdown.gst.toLocaleString()}
                               </span>
@@ -1139,9 +1140,20 @@ export default function AdminBookings() {
                           )}
                           {selectedBooking.priceBreakdown.platformFee > 0 && (
                             <div className="flex justify-between items-center">
-                              <span className="text-sm text-gray-700">Platform Fee</span>
+                              <span className="text-sm text-gray-700">Platform Fee ({selectedBooking.priceBreakdown.platformFeeRate || 5}%)</span>
                               <span className="font-semibold text-purple-600">
                                 ₹{selectedBooking.priceBreakdown.platformFee.toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          {(selectedBooking.priceBreakdown.platformFeeGST > 0 || selectedBooking.priceBreakdown.platformFeeCGST > 0) && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-gray-700">
+                                Platform CGST ({selectedBooking.priceBreakdown.platformFeeCGSTRate || 9}%) + SGST ({selectedBooking.priceBreakdown.platformFeeSGSTRate || 9}%)
+                              </span>
+                              <span className="font-semibold text-purple-600">
+                                ₹{(selectedBooking.priceBreakdown.platformFeeGST || 
+                                   ((selectedBooking.priceBreakdown.platformFeeCGST||0) + (selectedBooking.priceBreakdown.platformFeeSGST||0))).toLocaleString()}
                               </span>
                             </div>
                           )}

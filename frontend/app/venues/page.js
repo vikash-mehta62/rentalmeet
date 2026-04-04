@@ -280,7 +280,7 @@ export default function BrowseVenues() {
                         onChange={() => setTypeFilter(typeFilter === type.name ? '' : type.name)}
                         className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-primary-500 focus:ring-primary-500" 
                       />
-                      <span className="text-sm text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100">{type.icon} {type.name}</span>
+                      <span className="text-sm text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100"> {type.name}</span>
                     </label>
                   ))}
                 </div>
@@ -345,7 +345,16 @@ export default function BrowseVenues() {
               </div>
             ) : (
               filteredVenues.map((venue) => {
-                const currentPrice = parseInt(venue.pricing?.perHour?.weekday) || 0;
+                const p = venue.pricing;
+                const allPrices = [
+                  p?.perHour?.weekday,
+                  p?.perHour?.weekend,
+                  p?.halfDay?.weekday,
+                  p?.halfDay?.weekend,
+                  p?.fullDay?.weekday,
+                  p?.fullDay?.weekend,
+                ].map(v => parseInt(v)).filter(v => v > 0);
+                const currentPrice = allPrices.length > 0 ? Math.min(...allPrices) : 0;
                 const originalPrice = venue.pricing?.originalPrice || currentPrice * 1.3;
                 const discount = calculateDiscount(originalPrice, currentPrice);
                 const taxAmount = Math.round(currentPrice * 0.18);
@@ -432,7 +441,10 @@ export default function BrowseVenues() {
                       <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-end justify-between">
                         <div>
                           <div className="flex items-baseline gap-2">
-                            <span className="text-2xl font-bold text-slate-900 dark:text-slate-100">₹{currentPrice}</span>
+                            <span className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                              {currentPrice > 0 ? `₹${currentPrice.toLocaleString('en-IN')}` : 'Price on request'}
+                            </span>
+                            {currentPrice > 0 && <span className="text-xs text-slate-500 dark:text-slate-400">onwards</span>}
                           </div>
                         </div>
                         

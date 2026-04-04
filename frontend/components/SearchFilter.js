@@ -322,7 +322,7 @@ export default function SearchFilter() {
           />
         </div>
 
-        {/* Venue Type Dropdown */}
+        {/* Venue Type - Icon only buttons */}
         <div className="relative">
           <Grid3x3 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#F59F0A] z-10 pointer-events-none" />
           <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 z-10 pointer-events-none" />
@@ -333,7 +333,7 @@ export default function SearchFilter() {
           >
             <option value="">Venue Type</option>
             {venueTypes.map(type => (
-              <option key={type._id} value={type.name}>{type.icon} {type.name}</option>
+              <option key={type._id} value={type.name}>{type.name}</option>
             ))}
           </select>
         </div>
