@@ -74,7 +74,7 @@ export default function AdminLayout({ children, title, subtitle }) {
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 z-50 h-full bg-[#0F172A] text-slate-300 transform transition-all duration-300 ease-in-out lg:translate-x-0 ${
+        className={`fixed top-[30px] left-0 z-50 bottom-0 bg-[#0F172A] text-slate-300 transform transition-all duration-300 ease-in-out lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } ${sidebarCollapsed ? 'lg:w-20' : 'lg:w-64'} w-64 border-r border-slate-800 flex flex-col`}
       >
@@ -194,7 +194,7 @@ export default function AdminLayout({ children, title, subtitle }) {
       {/* Content Wrapper */}
       <div className={`flex flex-col min-h-screen transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
         {/* Header */}
-        <header className="sticky top-0 z-30 bg-white/70 backdrop-blur-lg border-b border-slate-200">
+        <header className="sticky top-[30px] z-30 bg-white/70 backdrop-blur-lg border-b border-slate-200">
           <div className="flex items-center justify-between px-6 py-4">
             <div className="flex items-center gap-4">
               <button

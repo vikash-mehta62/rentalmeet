@@ -191,7 +191,7 @@ export default function OtherServicesPage() {
     <div className="min-h-screen bg-[#FDFDFD] dark:bg-slate-950">
       <Navbar />
 
-      <main className="pt-24 pb-16">
+      <main className="pt-32 pb-16">
         {/* Hero Section */}
         <section className="relative py-16 bg-gradient-to-br from-primary-50 via-white to-primary-50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 text-center">

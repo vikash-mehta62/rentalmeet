@@ -33,7 +33,7 @@ export default function EmployeeLayout({ children, activePage = 'dashboard' }) {
   return (
     <div className="min-h-screen bg-[#f8fafc] flex font-sans">
       {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-50 bg-[#0f172a] text-white transition-all duration-300 ease-in-out border-r border-slate-800
+      <aside className={`fixed top-[30px] bottom-0 left-0 z-50 bg-[#0f172a] text-white transition-all duration-300 ease-in-out border-r border-slate-800
         ${isCollapsed ? 'w-20' : 'w-72'}
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="flex flex-col h-full relative">
@@ -112,7 +112,7 @@ export default function EmployeeLayout({ children, activePage = 'dashboard' }) {
 
       {/* Main */}
       <div className={`flex-1 transition-all duration-300 ${isCollapsed ? 'lg:ml-20' : 'lg:ml-72'}`}>
-        <header className="bg-white/80 backdrop-blur-lg sticky top-0 z-40 border-b border-slate-200 shadow-sm">
+        <header className="bg-white/80 backdrop-blur-lg sticky top-[30px] z-40 border-b border-slate-200 shadow-sm">
           <div className="px-4 sm:px-8 py-4">
             <div className="flex items-center justify-between max-w-7xl mx-auto">
               <div className="flex items-center gap-4">

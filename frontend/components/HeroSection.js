@@ -67,7 +67,7 @@ export default function HeroSection() {
 
   if (loading) {
     return (
-      <section className="relative h-[80vh] md:h-[90vh] w-full overflow-hidden mt-20 bg-gray-900">
+      <section className="relative h-[80vh] md:h-[90vh] w-full overflow-hidden mt-[102px] bg-gray-900">
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
         </div>
@@ -78,7 +78,7 @@ export default function HeroSection() {
   const slide = slides[currentSlide];
 
   return (
-    <section className="relative h-[80vh] md:h-[90vh] w-full overflow-hidden mt-20">
+    <section className="relative h-[80vh] md:h-[90vh] w-full overflow-hidden mt-[102px]">
       {/* Background Image */}
       <div className="absolute inset-0">
         <Image

@@ -51,7 +51,7 @@ export default function RegisterVenue() {
       {/* Header */}
       <Navbar />
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-[110px]">
         <div className="bg-white rounded-3xl shadow-xl p-8 md:p-12 animate-slide-up border border-gray-100">
           {/* Title */}
           <div className="text-center mb-8">

@@ -176,7 +176,7 @@ export default function BrowseVenues() {
       <Navbar />
 
       {/* Header Section */}
-      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 pt-24 pb-6">
+      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 pt-32 pb-6">
         <div className="max-w-7xl mx-auto px-6">
           <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100" style={{ fontFamily: 'Georgia, serif' }}>Browse Venues</h1>
           <p className="text-slate-600 dark:text-slate-300 mt-2" style={{ fontFamily: 'Georgia, serif' }}>Find the perfect venue for your next meeting, conference, or corporate event.</p>

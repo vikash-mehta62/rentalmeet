@@ -366,7 +366,7 @@ export default function VenueDetail() {
       <Navbar />
 
       {/* Back to all venues link - with top padding for fixed navbar */}
-      <div className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 mt-20">
+      <div className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 mt-[102px]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <Link href="/venues" className="inline-flex items-center gap-2 text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-slate-100 transition-colors">
             <ArrowLeft className="w-4 h-4" />
