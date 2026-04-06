@@ -13,6 +13,7 @@ const {
 } = require('../controllers/venueController');
 const { protect, authorize } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
+const { getVenueCoupons } = require('../controllers/couponController');
 
 const router = express.Router();
 
@@ -30,6 +31,9 @@ router.get('/platform-settings/public', getPublicPlatformSettings);
 
 // SKU route must come before :id route
 router.get('/sku/:sku', getVenueBySKU);
+
+// Public: get valid coupons for a venue
+router.get('/:id/coupons', getVenueCoupons);
 
 router.route('/:id')
   .get(getVenue)

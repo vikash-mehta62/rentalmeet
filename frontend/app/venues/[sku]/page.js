@@ -9,7 +9,7 @@ import {
   Building2, MapPin, Users, Clock, Calendar,
   Wifi, Coffee, Utensils, CheckCircle2, ArrowLeft,
   Star, Phone, Mail, Share2, Image as ImageIcon, X,
-  ChevronLeft, ChevronRight, Sparkles, Award, Shield
+  ChevronLeft, ChevronRight, Sparkles, Award, Shield, PowerOff
 } from 'lucide-react';
 import BookingForm from '@/components/booking/BookingForm';
 import VenueReviews from '@/components/venue/VenueReviews';
@@ -30,6 +30,25 @@ export default function VenueDetail() {
   const [currentMainImage, setCurrentMainImage] = useState(0);
   const [bookingFormOpen, setBookingFormOpen] = useState(false);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
+  const [bookedDates, setBookedDates] = useState([]);
+  const [venueCoupons, setVenueCoupons] = useState([]);
+
+  // Fetch booked dates for this venue
+  useEffect(() => {
+    if (params.sku) fetchBookedDates();
+  }, [params.sku]);
+
+  const fetchBookedDates = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bookings/booked-dates/${params.sku}`);
+      const data = await res.json();
+      if (data.success && data.dates) {
+        setBookedDates(data.dates.map(d => new Date(d)));
+      }
+    } catch (e) {
+      // silently fail
+    }
+  };
 
   // Auto-slideshow
   useEffect(() => {
@@ -139,6 +158,8 @@ export default function VenueDetail() {
       
       if (data.success) {
         setVenue(data.venue);
+        // Fetch coupons for this venue
+        fetchVenueCoupons(data.venue._id);
       } else {
         setError('Venue not found');
       }
@@ -148,6 +169,14 @@ export default function VenueDetail() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchVenueCoupons = async (venueId) => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues/${venueId}/coupons`);
+      const data = await res.json();
+      if (data.success) setVenueCoupons(data.coupons);
+    } catch (e) { /* silently fail */ }
   };
 
   // Get unique categories from images
@@ -360,6 +389,9 @@ export default function VenueDetail() {
   const filteredImages = getFilteredImages();
   const imagesByCategory = getImagesByCategory();
 
+  // Inactive venue — show banner, no booking
+  const isInactive = venue.isActive === false;
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-950" style={{ fontFamily: 'Georgia, serif' }}>
       {/* Navbar */}
@@ -467,9 +499,25 @@ export default function VenueDetail() {
 
             {/* Venue Name & Basic Info */}
             <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-lg p-6 border border-transparent dark:border-slate-800">
-              <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-slate-100 mb-4">
-                {venue.businessName}
-              </h1>
+              {isInactive && (
+                <div className="flex items-center gap-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 mb-4">
+                  <PowerOff className="w-5 h-5 text-red-500 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-bold text-red-700 dark:text-red-400">This venue is currently inactive</p>
+                    <p className="text-xs text-red-500 dark:text-red-500">Bookings are not available at this time. Please check back later.</p>
+                  </div>
+                </div>
+              )}
+              <div className="flex flex-wrap items-center gap-3 mb-4">
+                <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-slate-100">
+                  {venue.businessName}
+                </h1>
+                {venue.venueType?.length > 0 && (
+                  <span className="px-3 py-1 bg-primary-50 dark:bg-slate-800 text-primary-600 dark:text-primary-400 text-xs font-bold rounded-full border border-primary-200 dark:border-slate-600">
+                    {venue.venueType[0]}
+                  </span>
+                )}
+              </div>
               <div className="flex flex-wrap items-center gap-3 text-gray-600 dark:text-slate-300">
                 <span className="flex items-center gap-2">
                   <MapPin className="w-5 h-5 text-primary-500" />
@@ -514,23 +562,6 @@ export default function VenueDetail() {
                 </div>
               )}
             </div>
-            {/* Venue Types - Attractive Pills */}
-            {venue.venueType?.length > 0 && (
-            <div className="bg-gradient-to-r from-primary-50 to-blue-50 dark:from-slate-800 dark:to-slate-800 rounded-2xl shadow-soft border border-primary-100 dark:border-slate-700 p-6">
-                <h3 className="text-sm font-semibold text-gray-600 dark:text-slate-300 mb-3 uppercase tracking-wide">Venue Types</h3>
-                <div className="flex flex-wrap gap-3">
-                  {venue.venueType.map((type, idx) => (
-                    <span
-                      key={idx}
-                      className="px-5 py-2.5 bg-white dark:bg-slate-900 text-primary-700 text-sm font-bold rounded-full shadow-md hover:shadow-lg transition-all hover:scale-105 border border-primary-200 dark:border-slate-700"
-                    >
-                      {type}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Description */}
             <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-soft border border-gray-100 dark:border-slate-800 p-6 md:p-8">
               <h2 className="text-2xl font-bold text-dark-800 dark:text-slate-100 mb-4 flex items-center gap-2">
@@ -548,16 +579,22 @@ export default function VenueDetail() {
               
               {/* Basic Amenities */}
               {venue.amenities?.basic?.length > 0 && (
-                <div className="mb-5">
-                  <h3 className="text-base font-semibold text-dark-700 mb-2 flex items-center gap-2">
-                    <Wifi className="w-4 h-4 text-primary-500" />
-                    Basic Amenities
-                  </h3>
+                <div className="mb-6">
+                  <div className="flex items-center gap-3 mb-4 pb-3 border-b-2 border-slate-100 dark:border-slate-700">
+                    <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                      <Wifi className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <h3 className="text-xl font-black text-slate-800 dark:text-slate-100">Basic Amenities</h3>
+                  </div>
                   
-                  {/* Included (Free) Amenities - Display only, no selection */}
+                  {/* Included (Free) Amenities */}
                   {venue.amenities.basic.filter(a => a.available && (a.type === 'Free' || a.type === 'Included')).length > 0 && (
                     <>
-                      <p className="text-xs font-semibold text-green-700 mb-2 bg-green-50 px-2 py-1 rounded inline-block">Included</p>
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="flex items-center gap-1.5 text-sm font-bold text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400 px-4 py-1.5 rounded-full border border-green-200 dark:border-green-800">
+                          <CheckCircle2 className="w-4 h-4" /> Included Free
+                        </span>
+                      </div>
                       <div className="grid grid-cols-2 gap-2 mb-4">
                         {venue.amenities.basic.filter(a => a.available && (a.type === 'Free' || a.type === 'Included')).map((amenity, idx) => (
                           <div
@@ -578,7 +615,11 @@ export default function VenueDetail() {
                   {/* Paid Amenities - Selectable */}
                   {venue.amenities.basic.filter(a => a.available && a.type === 'Paid').length > 0 && (
                     <>
-                      <p className="text-xs font-semibold text-orange-700 mb-2 bg-orange-50 px-2 py-1 rounded inline-block">Paid</p>
+                      <div className="flex items-center gap-2 mb-3 mt-5">
+                        <span className="flex items-center gap-1.5 text-sm font-bold text-orange-700 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400 px-4 py-1.5 rounded-full border border-orange-200 dark:border-orange-800">
+                          ₹ Paid Add-ons
+                        </span>
+                      </div>
                       <div className="grid grid-cols-2 gap-2">
                         {venue.amenities.basic.filter(a => a.available && a.type === 'Paid').map((amenity, idx) => {
                           const key = `basic_${amenity.name}`;
@@ -652,11 +693,13 @@ export default function VenueDetail() {
 
               {/* Beverages */}
               {venue.amenities?.beverages?.length > 0 && (
-                <div className="mb-5">
-                  <h3 className="text-base font-semibold text-dark-700 mb-2 flex items-center gap-2">
-                    <Coffee className="w-4 h-4 text-primary-500" />
-                    Beverages
-                  </h3>
+                <div className="mb-6">
+                  <div className="flex items-center gap-2 mb-4 pb-2 border-b-2 border-slate-100 dark:border-slate-700">
+                    <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                      <Coffee className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 tracking-wide">Beverages</h3>
+                  </div>
                   <div className="grid grid-cols-2 gap-2">
                     {venue.amenities.beverages.filter(b => b.available && b.name).map((beverage, idx) => {
                       const key = `beverage_${beverage.name}`;
@@ -725,11 +768,13 @@ export default function VenueDetail() {
 
               {/* Refreshment Food */}
               {venue.amenities?.refreshmentFood?.length > 0 && (
-                <div className="mb-5">
-                  <h3 className="text-base font-semibold text-dark-700 mb-2 flex items-center gap-2">
-                    <Utensils className="w-4 h-4 text-primary-500" />
-                    Refreshments & Snacks
-                  </h3>
+                <div className="mb-6">
+                  <div className="flex items-center gap-2 mb-4 pb-2 border-b-2 border-slate-100 dark:border-slate-700">
+                    <div className="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center">
+                      <Utensils className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                    </div>
+                    <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 tracking-wide">Refreshments & Snacks</h3>
+                  </div>
                   <div className="grid grid-cols-2 gap-2">
                     {venue.amenities.refreshmentFood.filter(f => f.available).map((food, idx) => {
                       const key = `food_${food.name}`;
@@ -791,11 +836,13 @@ export default function VenueDetail() {
 
               {/* Lunch Thalis - New Structure */}
               {venue.amenities?.lunchThalis?.length > 0 && (
-                <div className="mb-5">
-                  <h3 className="text-base font-semibold text-dark-700 mb-3 flex items-center gap-2">
-                    <Utensils className="w-4 h-4 text-primary-500" />
-                    Lunch Thalis
-                  </h3>
+                <div className="mb-6">
+                  <div className="flex items-center gap-2 mb-4 pb-2 border-b-2 border-slate-100 dark:border-slate-700">
+                    <div className="w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                      <Utensils className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                    </div>
+                    <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 tracking-wide">Lunch Thalis</h3>
+                  </div>
                   <div className="space-y-3">
                     {venue.amenities.lunchThalis.map((thali, thaliIdx) => (
                       <div key={thaliIdx} className="bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-slate-800 dark:to-slate-800 border-2 border-orange-200 dark:border-slate-700 rounded-xl p-3">
@@ -951,10 +998,10 @@ export default function VenueDetail() {
                 <p><strong>Pincode:</strong> {venue.location?.pincode}</p>
                 <p><strong>Parking:</strong> {venue.location?.parkingAvailability}</p>
                 {venue.location?.nearestBusAuto && (
-                  <p><strong>Nearest Bus/Auto:</strong> {venue.location?.nearestBusAuto}</p>
+                  <p><strong>Nearest Bus/Auto:</strong> {venue.location?.nearestBusAuto} km</p>
                 )}
                 {venue.location?.nearestMetroTrain && (
-                  <p><strong>Nearest Metro/Train:</strong> {venue.location?.nearestMetroTrain}</p>
+                  <p><strong>Nearest Metro/Train:</strong> {venue.location?.nearestMetroTrain} km</p>
                 )}
                 {venue.location?.googleMapLink && (
                   <a
@@ -1043,6 +1090,16 @@ export default function VenueDetail() {
             <div className="lg:sticky lg:top-[100px] space-y-3">
               {/* Booking Card - Extra Compact */}
               <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-gray-200 dark:border-slate-800 p-3">
+                {isInactive ? (
+                  <div className="text-center py-6">
+                    <div className="w-14 h-14 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <PowerOff className="w-7 h-7 text-red-500" />
+                    </div>
+                    <h3 className="text-base font-black text-slate-800 dark:text-slate-100 mb-1">Venue Inactive</h3>
+                    <p className="text-xs text-gray-500 dark:text-slate-400">This venue is temporarily unavailable. Bookings are disabled.</p>
+                  </div>
+                ) : (
+                <>
                 <h2 className="text-lg font-bold text-gray-900 dark:text-slate-100 mb-2">Book This Venue</h2>
                 
                 {/* Price Range */}
@@ -1077,6 +1134,19 @@ export default function VenueDetail() {
                       selected={quickBooking.date}
                       onChange={(date) => setQuickBooking(prev => ({ ...prev, date }))}
                       minDate={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d; })()}
+                      filterDate={(date) => {
+                        // Only allow venue's available days
+                        const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+                        const dayName = dayNames[date.getDay()];
+                        const availableDays = venue?.availability?.availableDays || [];
+                        if (availableDays.length > 0 && !availableDays.includes(dayName)) return false;
+                        // Disable already booked dates
+                        return !bookedDates.some(bd =>
+                          bd.getFullYear() === date.getFullYear() &&
+                          bd.getMonth() === date.getMonth() &&
+                          bd.getDate() === date.getDate()
+                        );
+                      }}
                       dateFormat="dd/MM/yyyy"
                       placeholderText="Pick a date"
                       className="w-full px-2.5 py-1.5 border border-gray-300 dark:border-slate-700 rounded-lg text-xs focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
@@ -1223,14 +1293,44 @@ export default function VenueDetail() {
                   >
                     Reserve Now
                   </button>
-                </div>
               </div>
+              </>
+              )}
+            </div>
 
               {/* Share Button */}
               <button className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white dark:bg-slate-900 border-2 border-primary-500 text-primary-500 rounded-lg text-xs font-semibold hover:bg-primary-50 dark:hover:bg-slate-800 transition-colors shadow-md">
                 <Share2 className="w-3.5 h-3.5" />
                 Share Venue
               </button>
+
+              {/* Available Coupons */}
+              {venueCoupons.length > 0 && (
+                <div className="bg-white dark:bg-slate-900 rounded-xl border border-dashed border-primary-300 dark:border-slate-700 p-3">
+                  <p className="text-xs font-bold text-primary-600 mb-2 flex items-center gap-1">🏷️ Available Coupons</p>
+                  <div className="space-y-2">
+                    {venueCoupons.map((c) => (
+                      <div key={c._id} className="flex items-center justify-between bg-primary-50 dark:bg-slate-800 rounded-lg px-3 py-2">
+                        <div>
+                          <span className="text-xs font-black text-primary-600 tracking-wider">{c.code}</span>
+                          <p className="text-[10px] text-gray-500 mt-0.5">
+                            {c.discountType === 'percentage'
+                              ? `${c.discountValue}% off${c.maxDiscount ? ` (max ₹${c.maxDiscount})` : ''}`
+                              : `₹${c.discountValue} off`}
+                            {c.minBookingAmount > 0 ? ` · min ₹${c.minBookingAmount}` : ''}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => { navigator.clipboard.writeText(c.code); toast.success(`Copied: ${c.code}`); }}
+                          className="text-[10px] text-primary-500 font-bold hover:underline"
+                        >
+                          Copy
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

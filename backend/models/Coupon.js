@@ -51,6 +51,14 @@ const couponSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  activatedAt: {
+    type: Date,
+    default: Date.now // set when created (active by default)
+  },
+  deactivatedAt: {
+    type: Date,
+    default: null
+  },
   usages: [
     {
       user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

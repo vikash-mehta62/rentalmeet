@@ -156,25 +156,21 @@ exports.createBooking = async (req, res) => {
       commission: 0,
       ownerEarnings,
       commissionRate: 0,
-      // Set confirmation deadline based on venue's confirmationHours
       confirmationDeadline: new Date(Date.now() + (venueDetails.availability?.confirmationHours || 3) * 60 * 60 * 1000),
-      selectedAmenities: selectedAmenities || {
-        basic: [],
-        beverages: [],
-        refreshmentFood: [],
-        lunchThalis: [],
-        additional: []
-      },
+      selectedAmenities: selectedAmenities || { basic: [], beverages: [], refreshmentFood: [], lunchThalis: [], additional: [] },
       amenitiesTotal: amenitiesTotal || 0,
-      priceBreakdown: { ...(priceBreakdown || {}), discount: discountAmount, total: finalAmount },
+      priceBreakdown: { ...(priceBreakdown || {}), discount: discountAmount, couponCode: appliedCoupon ? appliedCoupon.code : null, total: finalAmount },
       customerDetails,
-      ...(appliedCoupon && {
-        coupon: {
-          couponId: appliedCoupon._id,
-          code: appliedCoupon.code,
-          discountAmount
-        }
-      })
+      ...(appliedCoupon && { coupon: { couponId: appliedCoupon._id, code: appliedCoupon.code, discountAmount } }),
+      // Seed payment ledger
+      paymentLedger: {
+        totalDue: finalAmount,
+        totalPaid: 0,
+        amountDue: finalAmount,
+        refundDue: 0,
+        transactions: [],
+        adjustments: []
+      }
     });
 
     // Record coupon usage
@@ -283,6 +279,25 @@ exports.updateBookingStatus = async (req, res) => {
         message: 'Booking not found'
       });
     }
+
+    // For 'completed' status: validate that booking end time has passed
+    if (status === 'completed') {
+      const bookingDate = new Date(booking.bookingDate);
+      const endTime = booking.endTime; // e.g. "19:30"
+      
+      if (endTime) {
+        const [endH, endM] = endTime.split(':').map(Number);
+        const bookingEnd = new Date(bookingDate);
+        bookingEnd.setHours(endH, endM, 0, 0);
+        
+        if (new Date() < bookingEnd) {
+          return res.status(400).json({
+            success: false,
+            message: `Booking can only be marked complete after ${endTime} on ${bookingDate.toDateString()}`
+          });
+        }
+      }
+    }
     
     booking.status = status;
     await booking.save();
@@ -346,6 +361,100 @@ exports.approveSoon = async (req, res) => {
       confirmationDeadline: booking.confirmationDeadline
     });
   } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Modify booking (date/time/amenities) - recalculates price
+// @route   PUT /api/bookings/:id/modify
+exports.modifyBooking = async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id).populate('venue');
+
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    // Only customer who made the booking can modify it
+    if (booking.customer.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Not authorized to modify this booking' });
+    }
+
+    // Only pending bookings can be modified
+    if (booking.status !== 'pending') {
+      return res.status(400).json({ success: false, message: 'Only pending bookings can be modified' });
+    }
+
+    const {
+      bookingDate,
+      startTime,
+      endTime,
+      bookingType,
+      selectedAmenities,
+      amenitiesTotal,
+      priceBreakdown,
+      amount,
+      customerDetails
+    } = req.body;
+
+    // Update fields if provided
+    if (bookingDate) booking.bookingDate = bookingDate;
+    if (startTime) booking.startTime = startTime;
+    if (endTime) booking.endTime = endTime;
+    if (bookingType) booking.bookingType = bookingType;
+    if (selectedAmenities) booking.selectedAmenities = selectedAmenities;
+    if (amenitiesTotal !== undefined) booking.amenitiesTotal = amenitiesTotal;
+    if (priceBreakdown) booking.priceBreakdown = priceBreakdown;
+    if (amount !== undefined) booking.amount = amount;
+    if (customerDetails) booking.customerDetails = { ...booking.customerDetails, ...customerDetails };
+
+    // Recalculate ownerEarnings from new subtotal
+    if (priceBreakdown?.subtotal) {
+      booking.ownerEarnings = priceBreakdown.subtotal;
+    }
+
+    // ── Record price adjustment in ledger ──────────────────────────────────
+    const oldAmount = booking.amount;
+    if (amount !== undefined && amount !== oldAmount) {
+      if (!booking.paymentLedger) booking.paymentLedger = { transactions: [], adjustments: [] };
+      if (!booking.paymentLedger.adjustments) booking.paymentLedger.adjustments = [];
+      if (!booking.paymentLedger.transactions) booking.paymentLedger.transactions = [];
+
+      const diff = amount - oldAmount;
+      booking.paymentLedger.adjustments.push({
+        oldAmount,
+        newAmount: amount,
+        difference: diff,
+        reason: 'modification',
+        performedBy: req.user.id,
+        date: new Date()
+      });
+
+      // Also log as an 'adjustment' transaction for the timeline
+      booking.paymentLedger.transactions.push({
+        type: 'adjustment',
+        amount: diff,
+        status: 'completed',
+        note: diff > 0
+          ? `Booking modified — ₹${diff} additional amount due`
+          : `Booking modified — ₹${Math.abs(diff)} refund due to customer`,
+        performedBy: req.user.id,
+        date: new Date()
+      });
+    }
+
+    await booking.save();
+
+    await booking.populate('venue', 'businessName location sku images');
+    await booking.populate('customer', 'name email phone');
+
+    res.json({
+      success: true,
+      message: 'Booking modified successfully',
+      booking
+    });
+  } catch (error) {
+    console.error('Booking modify error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

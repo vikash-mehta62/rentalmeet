@@ -51,58 +51,58 @@ exports.verifyPayment = async (req, res) => {
       razorpay_order_id,
       razorpay_payment_id,
       razorpay_signature,
-      bookingId
+      bookingId,
+      paidAmount  // actual amount paid in this transaction
     } = req.body;
 
-    // Create signature
     const sign = razorpay_order_id + '|' + razorpay_payment_id;
     const expectedSign = crypto
       .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
       .update(sign.toString())
       .digest('hex');
 
-    // Verify signature
     if (razorpay_signature === expectedSign) {
-      // Payment is verified
-      // Update booking with payment details
-      const booking = await Booking.findByIdAndUpdate(
-        bookingId,
-        {
-          paymentStatus: 'paid',
-          paymentDetails: {
-            razorpay_order_id,
-            razorpay_payment_id,
-            razorpay_signature,
-            paidAt: new Date()
-          }
-        },
-        { new: true }
-      );
-
+      const booking = await Booking.findById(bookingId);
       if (!booking) {
-        return res.status(404).json({
-          success: false,
-          message: 'Booking not found'
-        });
+        return res.status(404).json({ success: false, message: 'Booking not found' });
       }
 
-      res.json({
-        success: true,
-        message: 'Payment verified successfully',
-        booking
+      // Record in ledger with actual paid amount
+      if (!booking.paymentLedger) booking.paymentLedger = { transactions: [], adjustments: [] };
+      if (!booking.paymentLedger.transactions) booking.paymentLedger.transactions = [];
+
+      const txnAmount = paidAmount || booking.amount;
+      booking.paymentLedger.transactions.push({
+        txnId: razorpay_payment_id,
+        type: 'payment',
+        amount: txnAmount,
+        status: 'completed',
+        note: `Razorpay payment — Order: ${razorpay_order_id}`,
+        date: new Date()
       });
+
+      // Calculate total paid after this transaction
+      const totalPaid = booking.paymentLedger.transactions
+        .filter(t => ['payment', 'manual_payment'].includes(t.type) && t.status === 'completed')
+        .reduce((s, t) => s + (t.amount || 0), 0);
+      const totalRefunded = booking.paymentLedger.transactions
+        .filter(t => ['refund', 'manual_refund'].includes(t.type) && t.status === 'completed')
+        .reduce((s, t) => s + (t.amount || 0), 0);
+      const netPaid = totalPaid - totalRefunded;
+
+      // Mark as paid only if fully settled
+      if (netPaid >= booking.amount) {
+        booking.paymentStatus = 'paid';
+      }
+      booking.paymentDetails = { razorpay_order_id, razorpay_payment_id, razorpay_signature, paidAt: new Date() };
+
+      await booking.save();
+      res.json({ success: true, message: 'Payment verified successfully', booking });
     } else {
-      res.status(400).json({
-        success: false,
-        message: 'Invalid payment signature'
-      });
+      res.status(400).json({ success: false, message: 'Invalid payment signature' });
     }
   } catch (error) {
     console.error('Verify payment error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Payment verification failed',
-      error: error.message
-    });
+    res.status(500).json({ success: false, message: 'Payment verification failed', error: error.message });
   }
 };

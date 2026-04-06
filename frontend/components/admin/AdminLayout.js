@@ -8,7 +8,7 @@ import Image from 'next/image';
 import {
   LayoutDashboard, Building2, Users, BookOpen, Settings,
   LogOut, Menu, X, IndianRupee, Shield, BarChart3, 
-  Grid3x3, MessageSquare, Image as ImageIcon, ChevronLeft, ChevronRight
+  Grid3x3, MessageSquare, Image as ImageIcon, ChevronLeft, ChevronRight, Tag
 } from 'lucide-react';
 
 export default function AdminLayout({ children, title, subtitle }) {
@@ -44,6 +44,7 @@ export default function AdminLayout({ children, title, subtitle }) {
     { name: 'SubAdmins', href: '/admin/subadmins', icon: Shield, permission: 'subadmins' },
     { name: 'Bookings', href: '/admin/bookings', icon: BookOpen, permission: 'bookings' },
     { name: 'Payments', href: '/admin/payments', icon: IndianRupee, permission: 'payments' },
+    { name: 'Coupons', href: '/admin/coupons', icon: Tag, permission: 'bookings' },
     { name: 'Reports', href: '/admin/reports', icon: BarChart3, permission: 'reports' },
     { name: 'Reviews', href: '/admin/reviews', icon: MessageSquare, permission: 'reviews' },
     { name: 'GST / Platform Fee Settings', href: '/admin/platform-settings', icon: Settings, permission: 'platformSettings' },

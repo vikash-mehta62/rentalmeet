@@ -72,6 +72,14 @@ exports.updateCoupon = async (req, res) => {
       if (req.body[field] !== undefined) coupon[field] = req.body[field];
     });
 
+    // Track activate/deactivate timestamps
+    if (req.body.isActive === true) {
+      coupon.activatedAt = new Date();
+      coupon.deactivatedAt = null;
+    } else if (req.body.isActive === false) {
+      coupon.deactivatedAt = new Date();
+    }
+
     await coupon.save();
     res.json({ success: true, coupon });
   } catch (err) {
@@ -141,6 +149,26 @@ exports.validateCoupon = async (req, res) => {
       },
       discountAmount: Math.round(discountAmount)
     });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ─── Public: Get active valid coupons for a venue ───────────────────────────
+exports.getVenueCoupons = async (req, res) => {
+  try {
+    const venueId = req.params.venueId || req.params.id;
+    const now = new Date();
+    const coupons = await Coupon.find({
+      venue: venueId,
+      isActive: true,
+      $or: [{ expiryDate: null }, { expiryDate: { $gt: now } }]
+    }).select('code discountType discountValue maxDiscount minBookingAmount maxUses usedCount expiryDate');
+
+    // Filter out limit-reached coupons
+    const valid = coupons.filter(c => c.maxUses === null || c.usedCount < c.maxUses);
+
+    res.json({ success: true, coupons: valid });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

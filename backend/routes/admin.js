@@ -98,6 +98,83 @@ router.get('/bookings/:id', protect, authorize('admin'), checkPermission('bookin
 router.get('/payments', protect, authorize('admin'), checkPermission('payments'), getAllPayments);
 router.get('/payments/:id', protect, authorize('admin'), checkPermission('payments'), getPayment);
 
+// ── Payment Ledger endpoints ──────────────────────────────────────────────
+// Admin: record a manual payment (cash/cheque/bank transfer)
+router.post('/bookings/:id/ledger/payment', protect, authorize('admin'), async (req, res) => {
+  try {
+    const Booking = require('../models/Booking');
+    const { amount, note, txnId } = req.body;
+    if (!amount || amount <= 0) return res.status(400).json({ success: false, message: 'Valid amount required' });
+
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+
+    if (!booking.paymentLedger) booking.paymentLedger = { transactions: [], adjustments: [] };
+    if (!booking.paymentLedger.transactions) booking.paymentLedger.transactions = [];
+
+    booking.paymentLedger.transactions.push({
+      txnId: txnId || `MANUAL-${Date.now()}`,
+      type: 'manual_payment',
+      amount: Number(amount),
+      status: 'completed',
+      note: note || 'Manual payment recorded by admin',
+      performedBy: req.user.id,
+      date: new Date()
+    });
+
+    // Update paymentStatus if fully paid
+    const totalPaid = booking.paymentLedger.transactions
+      .filter(t => ['payment', 'manual_payment'].includes(t.type) && t.status === 'completed')
+      .reduce((s, t) => s + t.amount, 0);
+    if (totalPaid >= booking.amount) booking.paymentStatus = 'paid';
+
+    await booking.save();
+    res.json({ success: true, message: 'Payment recorded', booking });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// Admin: record a manual refund
+router.post('/bookings/:id/ledger/refund', protect, authorize('admin'), async (req, res) => {
+  try {
+    const Booking = require('../models/Booking');
+    const { amount, note, txnId } = req.body;
+    if (!amount || amount <= 0) return res.status(400).json({ success: false, message: 'Valid amount required' });
+
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+
+    if (!booking.paymentLedger) booking.paymentLedger = { transactions: [], adjustments: [] };
+    if (!booking.paymentLedger.transactions) booking.paymentLedger.transactions = [];
+
+    booking.paymentLedger.transactions.push({
+      txnId: txnId || `REFUND-${Date.now()}`,
+      type: 'manual_refund',
+      amount: Number(amount),
+      status: 'completed',
+      note: note || 'Refund processed by admin',
+      performedBy: req.user.id,
+      date: new Date()
+    });
+
+    booking.paymentStatus = 'refunded';
+    // Also update legacy refundDetails
+    booking.refundDetails = {
+      refundId: txnId || `REFUND-${Date.now()}`,
+      refundAmount: Number(amount),
+      refundStatus: 'processed',
+      refundedAt: new Date(),
+      refundReason: note || 'Refund processed by admin'
+    };
+
+    await booking.save();
+    res.json({ success: true, message: 'Refund recorded', booking });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
 // Commission routes (removed - no longer used)
 
 // Platform Settings routes (GST & Platform Fee)
@@ -123,5 +200,21 @@ router.route('/terms')
 router.get('/reports', protect, authorize('admin'), checkPermission('reports'), getReports);
 router.get('/earnings', protect, authorize('admin'), checkPermission('reports'), getEarningsReport);
 router.get('/stats', protect, authorize('admin'), checkPermission('dashboard'), getDashboardStats);
+
+// Admin: Get all coupons (with optional venue filter)
+router.get('/coupons', protect, authorize('admin'), async (req, res) => {
+  try {
+    const Coupon = require('../models/Coupon');
+    const filter = {};
+    if (req.query.venueId) filter.venue = req.query.venueId;
+    const coupons = await Coupon.find(filter)
+      .populate('venue', 'businessName location sku')
+      .populate('owner', 'name email')
+      .sort('-createdAt');
+    res.json({ success: true, coupons });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
 
 module.exports = router;

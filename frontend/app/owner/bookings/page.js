@@ -5,7 +5,7 @@ import { useAuthStore } from '@/lib/store';
 import Link from 'next/link';
 import {
   Building2, Calendar, IndianRupee, Clock, MapPin, User,
-  Phone, Mail, CheckCircle2, XCircle, Eye, Search, Download, Users
+  Phone, Mail, CheckCircle2, XCircle, Eye, Search, Download, Users, ChevronDown
 } from 'lucide-react';
 import OwnerLayout from '@/components/owner/OwnerLayout';
 import InvoiceDownload from '@/components/booking/InvoiceDownload';
@@ -17,6 +17,8 @@ export default function OwnerBookings() {
   const [filteredBookings, setFilteredBookings] = useState([]);
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedAmenities, setExpandedAmenities] = useState({});
+  const [selectedBooking, setSelectedBooking] = useState(null);
 
   useEffect(() => {
     if (token) {
@@ -289,15 +291,27 @@ export default function OwnerBookings() {
                           </button>
                         </div>
                       )}
-                      {booking.status === 'confirmed' && (
-                        <button
-                          onClick={() => handleUpdateStatus(booking._id, 'completed')}
-                          className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          Mark Completed
-                        </button>
-                      )}
+                      {booking.status === 'confirmed' && (() => {
+                        // Show Mark Completed only after booking end time has passed
+                        const bookingDate = new Date(booking.bookingDate);
+                        const endTime = booking.endTime; // "19:30"
+                        let canComplete = false;
+                        if (endTime) {
+                          const [endH, endM] = endTime.split(':').map(Number);
+                          const bookingEnd = new Date(bookingDate);
+                          bookingEnd.setHours(endH, endM, 0, 0);
+                          canComplete = new Date() >= bookingEnd;
+                        }
+                        return canComplete ? (
+                          <button
+                            onClick={() => handleUpdateStatus(booking._id, 'completed')}
+                            className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            Mark Completed
+                          </button>
+                        ) : null;
+                      })()}
                     </div>
                   </div>
 
@@ -445,48 +459,110 @@ export default function OwnerBookings() {
                     </div>
                   )}
 
-                  {/* Selected Amenities */}
+                  {/* Selected Amenities - Collapsible */}
                   {booking.selectedAmenities && (
                     (booking.selectedAmenities.basic?.length > 0 || 
                      booking.selectedAmenities.beverages?.length > 0 || 
                      booking.selectedAmenities.refreshmentFood?.length > 0 || 
                      booking.selectedAmenities.lunchThalis?.length > 0) && (
-                    <div className="bg-purple-50 rounded-lg p-3 mb-4 border border-purple-200">
-                      <p className="text-xs text-purple-600 font-semibold mb-2">Selected Amenities & Services</p>
-                      <div className="space-y-2">
-                        {booking.selectedAmenities.basic?.map((amenity, idx) => (
-                          <div key={idx} className="flex justify-between items-center text-xs bg-white p-2 rounded">
-                            <span className="text-gray-700">{amenity.name} {amenity.rateType === 'Per Use' && `(x${amenity.quantity})`}</span>
-                            <span className="font-semibold text-purple-600">₹{amenity.total?.toLocaleString()}</span>
-                          </div>
-                        ))}
-                        {booking.selectedAmenities.beverages?.map((bev, idx) => (
-                          <div key={idx} className="flex justify-between items-center text-xs bg-white p-2 rounded">
-                            <span className="text-gray-700">{bev.name} - {bev.brand} (x{bev.quantity})</span>
-                            <span className="font-semibold text-purple-600">₹{bev.total?.toLocaleString()}</span>
-                          </div>
-                        ))}
-                        {booking.selectedAmenities.refreshmentFood?.map((food, idx) => (
-                          <div key={idx} className="flex justify-between items-center text-xs bg-white p-2 rounded">
-                            <span className="text-gray-700">{food.name} (x{food.quantity} plates)</span>
-                            <span className="font-semibold text-purple-600">₹{food.total?.toLocaleString()}</span>
-                          </div>
-                        ))}
-                        {booking.selectedAmenities.lunchThalis?.map((thali, idx) => (
-                          <div key={idx} className="flex justify-between items-center text-xs bg-white p-2 rounded">
-                            <span className="text-gray-700">
-                              {thali.thaliType} - {thali.category} (x{thali.quantity} plates)
-                            </span>
-                            <span className="font-semibold text-purple-600">₹{thali.total?.toLocaleString()}</span>
-                          </div>
-                        ))}
-                        {booking.amenitiesTotal > 0 && (
-                          <div className="flex justify-between items-center text-xs font-bold bg-purple-100 p-2 rounded border-t border-purple-300 mt-2">
-                            <span className="text-purple-700">Amenities Total:</span>
-                            <span className="text-purple-700">₹{booking.amenitiesTotal?.toLocaleString()}</span>
-                          </div>
-                        )}
-                      </div>
+                    <div className="mb-4 border border-purple-200 rounded-lg overflow-hidden">
+                      <button
+                        onClick={() => setExpandedAmenities(prev => ({ ...prev, [booking._id]: !prev[booking._id] }))}
+                        className="w-full flex items-center justify-between bg-purple-50 px-3 py-2 text-xs font-semibold text-purple-700 hover:bg-purple-100 transition-colors"
+                      >
+                        <span>Selected Amenities & Services</span>
+                        <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${expandedAmenities[booking._id] ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {expandedAmenities[booking._id] && (
+                        <div className="bg-purple-50 px-3 pb-3 space-y-1.5">
+
+                          {/* Free amenities */}
+                          {booking.selectedAmenities.basic?.filter(a => a.type === 'Free' || a.type === 'Included').length > 0 && (
+                            <div className="border border-green-200 rounded-lg overflow-hidden mt-2">
+                              <button
+                                onClick={() => setExpandedAmenities(prev => ({ ...prev, [`free_${booking._id}`]: !prev[`free_${booking._id}`] }))}
+                                className="w-full flex items-center justify-between bg-green-50 px-2 py-1.5 text-[10px] font-bold text-green-700 hover:bg-green-100 transition-colors uppercase tracking-wider"
+                              >
+                                <span>Included Free ({booking.selectedAmenities.basic.filter(a => a.type === 'Free' || a.type === 'Included').length} items)</span>
+                                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${expandedAmenities[`free_${booking._id}`] ? 'rotate-180' : ''}`} />
+                              </button>
+                              {expandedAmenities[`free_${booking._id}`] && (
+                                <div className="bg-green-50 px-2 pb-2 space-y-1">
+                                  {booking.selectedAmenities.basic.filter(a => a.type === 'Free' || a.type === 'Included').map((amenity, idx) => (
+                                    <div key={idx} className="flex justify-between items-center text-xs bg-white border border-green-100 px-2 py-1.5 rounded">
+                                      <span className="text-gray-700">{amenity.name}</span>
+                                      <span className="text-green-600 font-semibold">Free × 0 = ₹0</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Paid basic amenities */}
+                          {booking.selectedAmenities.basic?.filter(a => a.type === 'Paid').length > 0 && (
+                            <>
+                              <p className="text-[10px] font-bold text-orange-600 uppercase tracking-wider mt-2 mb-1">Paid Add-ons</p>
+                              {booking.selectedAmenities.basic.filter(a => a.type === 'Paid').map((amenity, idx) => (
+                                <div key={idx} className="flex justify-between items-center text-xs bg-white border border-orange-100 px-2 py-1.5 rounded">
+                                  <span className="text-gray-700">
+                                    {amenity.name}{amenity.rateType === 'Per Use' && amenity.quantity > 1 ? ` × ${amenity.quantity}` : ''}
+                                  </span>
+                                  <span className="font-semibold text-orange-600">₹{(amenity.total || 0).toLocaleString()}</span>
+                                </div>
+                              ))}
+                            </>
+                          )}
+
+                          {/* Beverages */}
+                          {booking.selectedAmenities.beverages?.length > 0 && (
+                            <>
+                              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mt-2 mb-1">Beverages</p>
+                              {booking.selectedAmenities.beverages.map((bev, idx) => (
+                                <div key={idx} className="flex justify-between items-center text-xs bg-white border border-blue-100 px-2 py-1.5 rounded">
+                                  <span className="text-gray-700">{bev.name}{bev.brand ? ` - ${bev.brand}` : ''} × {bev.quantity}</span>
+                                  <span className="font-semibold text-blue-600">₹{(bev.total || 0).toLocaleString()}</span>
+                                </div>
+                              ))}
+                            </>
+                          )}
+
+                          {/* Refreshment Food */}
+                          {booking.selectedAmenities.refreshmentFood?.length > 0 && (
+                            <>
+                              <p className="text-[10px] font-bold text-rose-600 uppercase tracking-wider mt-2 mb-1">Refreshments</p>
+                              {booking.selectedAmenities.refreshmentFood.map((food, idx) => (
+                                <div key={idx} className="flex justify-between items-center text-xs bg-white border border-rose-100 px-2 py-1.5 rounded">
+                                  <span className="text-gray-700">{food.name} × {food.quantity} plates</span>
+                                  <span className="font-semibold text-rose-600">₹{(food.total || 0).toLocaleString()}</span>
+                                </div>
+                              ))}
+                            </>
+                          )}
+
+                          {/* Lunch Thalis */}
+                          {booking.selectedAmenities.lunchThalis?.length > 0 && (
+                            <>
+                              <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mt-2 mb-1">Lunch Thalis</p>
+                              {booking.selectedAmenities.lunchThalis.map((thali, idx) => (
+                                <div key={idx} className="flex justify-between items-center text-xs bg-white border border-amber-100 px-2 py-1.5 rounded">
+                                  <span className="text-gray-700">{thali.thaliType} - {thali.category} × {thali.quantity} plates</span>
+                                  <span className="font-semibold text-amber-600">₹{(thali.total || 0).toLocaleString()}</span>
+                                </div>
+                              ))}
+                            </>
+                          )}
+
+                          {/* Amenities Total */}
+                          {booking.amenitiesTotal > 0 && (
+                            <div className="flex justify-between items-center text-xs font-bold bg-purple-100 px-2 py-2 rounded border-t border-purple-300 mt-2">
+                              <span className="text-purple-700">Amenities Total:</span>
+                              <span className="text-purple-700">₹{booking.amenitiesTotal?.toLocaleString()}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
 
@@ -500,14 +576,18 @@ export default function OwnerBookings() {
 
                   {/* Actions */}
                   <div className="flex flex-wrap gap-3">
-                    {booking.paymentStatus === 'paid' && (
-                      <InvoiceDownload booking={booking} userRole="owner" />
-                    )}
-                    <Link
-                      href={`/venues/${booking.venue?.sku}`}
-                      className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-semibold transition-colors flex items-center gap-2"
+                    <button
+                      onClick={() => setSelectedBooking(booking)}
+                      className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-semibold transition-colors flex items-center gap-2 text-sm"
                     >
                       <Eye className="w-4 h-4" />
+                      View Details
+                    </button>
+                    <Link
+                      href={`/venues/${booking.venue?.sku}`}
+                      className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-semibold transition-colors flex items-center gap-2 text-sm"
+                    >
+                      <Building2 className="w-4 h-4" />
                       View Venue
                     </Link>
                   </div>
@@ -515,6 +595,91 @@ export default function OwnerBookings() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Booking Detail Modal */}
+      {selectedBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setSelectedBooking(null)}>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-slate-700">
+              <div>
+                <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">{selectedBooking.venue?.businessName}</h2>
+                <p className="text-xs text-gray-500 mt-0.5">#{selectedBooking.bookingNumber || selectedBooking._id.slice(-8).toUpperCase()}</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                  selectedBooking.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                  selectedBooking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
+                  selectedBooking.status === 'completed' ? 'bg-blue-100 text-blue-700' :
+                  'bg-red-100 text-red-700'
+                }`}>{selectedBooking.status.toUpperCase()}</span>
+                <button onClick={() => setSelectedBooking(null)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800">
+                  <XCircle className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Key Info Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-gray-50 dark:bg-slate-800 rounded-xl p-3">
+                  <p className="text-[10px] text-gray-500 mb-1 flex items-center gap-1"><User className="w-3 h-3"/>Customer</p>
+                  <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{selectedBooking.customer?.name}</p>
+                </div>
+                <div className="bg-gray-50 dark:bg-slate-800 rounded-xl p-3">
+                  <p className="text-[10px] text-gray-500 mb-1 flex items-center gap-1"><Calendar className="w-3 h-3"/>Date</p>
+                  <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{new Date(selectedBooking.bookingDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                </div>
+                <div className="bg-gray-50 dark:bg-slate-800 rounded-xl p-3">
+                  <p className="text-[10px] text-gray-500 mb-1 flex items-center gap-1"><Clock className="w-3 h-3"/>Time Slot</p>
+                  <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{selectedBooking.startTime} - {selectedBooking.endTime}</p>
+                </div>
+                <div className="bg-green-50 dark:bg-slate-800 rounded-xl p-3">
+                  <p className="text-[10px] text-gray-500 mb-1 flex items-center gap-1"><IndianRupee className="w-3 h-3"/>Amount</p>
+                  <p className="text-sm font-bold text-green-600">₹{selectedBooking.amount?.toLocaleString()}</p>
+                </div>
+              </div>
+
+              {/* Customer Contact */}
+              <div className="bg-blue-50 dark:bg-slate-800 rounded-xl p-4">
+                <p className="text-xs font-bold text-blue-700 dark:text-blue-400 mb-2">Customer Details</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                  <p className="flex items-center gap-2 text-gray-700 dark:text-slate-300"><Mail className="w-3.5 h-3.5 text-blue-500"/>{selectedBooking.customer?.email}</p>
+                  <p className="flex items-center gap-2 text-gray-700 dark:text-slate-300"><Phone className="w-3.5 h-3.5 text-blue-500"/>{selectedBooking.customerDetails?.phone || selectedBooking.customer?.phone}</p>
+                  {selectedBooking.customerDetails?.eventType && <p className="text-gray-700 dark:text-slate-300"><span className="font-semibold">Event:</span> {selectedBooking.customerDetails.eventType}</p>}
+                  {selectedBooking.customerDetails?.guestCount && <p className="text-gray-700 dark:text-slate-300"><span className="font-semibold">Guests:</span> {selectedBooking.customerDetails.guestCount}</p>}
+                </div>
+              </div>
+
+              {/* Price Breakdown */}
+              <div className="bg-gray-50 dark:bg-slate-800 rounded-xl p-4">
+                <p className="text-xs font-bold text-gray-700 dark:text-slate-300 mb-2">Price Breakdown</p>
+                <div className="space-y-1.5 text-sm">
+                  <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">Base Price</span><span className="font-semibold">₹{(selectedBooking.priceBreakdown?.basePrice || 0).toLocaleString()}</span></div>
+                  {selectedBooking.amenitiesTotal > 0 && <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">Amenities</span><span className="font-semibold">₹{selectedBooking.amenitiesTotal?.toLocaleString()}</span></div>}
+                  {selectedBooking.priceBreakdown?.gst > 0 && <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">GST</span><span className="font-semibold">₹{selectedBooking.priceBreakdown.gst?.toLocaleString()}</span></div>}
+                  {selectedBooking.priceBreakdown?.platformFee > 0 && <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">Platform Fee</span><span className="font-semibold">₹{selectedBooking.priceBreakdown.platformFee?.toLocaleString()}</span></div>}
+                  {selectedBooking.priceBreakdown?.discount > 0 && (
+                    <div className="flex justify-between text-green-600">
+                      <span>Coupon Discount {selectedBooking.priceBreakdown.couponCode ? `(${selectedBooking.priceBreakdown.couponCode})` : ''}</span>
+                      <span className="font-semibold">- ₹{selectedBooking.priceBreakdown.discount?.toLocaleString()}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between border-t border-gray-200 dark:border-slate-700 pt-1.5 font-bold text-base"><span>Total</span><span className="text-primary-600">₹{selectedBooking.amount?.toLocaleString()}</span></div>
+                </div>
+              </div>
+
+              {/* Invoice Download — only for confirmed/completed */}
+              {(selectedBooking.status === 'confirmed' || selectedBooking.status === 'completed') && (
+                <div>
+                  <p className="text-xs font-bold text-gray-700 dark:text-slate-300 mb-2">Download Invoice</p>
+                  <InvoiceDownload booking={selectedBooking} userRole="owner" />
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </OwnerLayout>

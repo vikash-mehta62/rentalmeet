@@ -446,6 +446,15 @@ export default function BrowseVenues() {
                             </span>
                             {currentPrice > 0 && <span className="text-xs text-slate-500 dark:text-slate-400">onwards</span>}
                           </div>
+                          {venue.activeCoupons?.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              {venue.activeCoupons.map((c, i) => (
+                                <span key={i} className="inline-flex items-center gap-1 bg-green-50 border border-green-200 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                  🏷️ {c.code} · {c.discountType === 'percentage' ? `${c.discountValue}%${c.maxDiscount ? ` (max ₹${c.maxDiscount})` : ''}` : `₹${c.discountValue}`} off
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         
                         <div className="flex gap-2">

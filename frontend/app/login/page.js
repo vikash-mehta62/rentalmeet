@@ -51,7 +51,7 @@ export default function Login() {
       } else if (user.role === 'admin' || user.role === 'subadmin') {
         router.push('/admin/dashboard');
       } else if (user.role === 'customer') {
-        router.push('/customer/dashboard');
+        router.push('/');
       } else if (user.role === 'employee') {
         router.push('/employee/dashboard');
       } else {
@@ -113,7 +113,7 @@ export default function Login() {
         } else if (data.user.role === 'admin' || data.user.role === 'subadmin') {
           router.push('/admin/dashboard');
         } else if (data.user.role === 'customer') {
-          router.push('/customer/dashboard');
+          router.push('/');
         } else if (data.user.role === 'employee') {
           router.push('/employee/dashboard');
         } else {

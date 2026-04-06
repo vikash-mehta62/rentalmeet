@@ -6,7 +6,7 @@ import OwnerLayout from '@/components/owner/OwnerLayout';
 import toast from 'react-hot-toast';
 import {
   Tag, Plus, Trash2, Eye, ToggleLeft, ToggleRight,
-  Calendar, Users, Percent, IndianRupee, Copy, ChevronDown, ChevronUp, X
+  Calendar, Users, Percent, IndianRupee, Copy, ChevronDown, ChevronUp, X, Pencil
 } from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
@@ -19,6 +19,8 @@ export default function OwnerCoupons() {
   const [showForm, setShowForm] = useState(false);
   const [expandedCoupon, setExpandedCoupon] = useState(null);
   const [usageData, setUsageData] = useState({});
+  const [editModal, setEditModal] = useState(null); // coupon being edited
+  const [editForm, setEditForm] = useState({ maxUses: '', expiryDate: '' });
 
   const [form, setForm] = useState({
     venueId: '',
@@ -105,6 +107,33 @@ on();
     });
     const data = await res.json();
     if (data.success) { toast.success('Deleted'); fetchCoupons(); }
+  };
+
+  const openEdit = (coupon) => {
+    setEditModal(coupon);
+    setEditForm({
+      maxUses: coupon.maxUses ?? '',
+      expiryDate: coupon.expiryDate ? new Date(coupon.expiryDate).toISOString().split('T')[0] : ''
+    });
+  };
+
+  const handleEditSave = async () => {
+    const res = await fetch(`${API}/owner/coupons/${editModal._id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        maxUses: editForm.maxUses !== '' ? Number(editForm.maxUses) : null,
+        expiryDate: editForm.expiryDate || null
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      toast.success('Coupon updated!');
+      setEditModal(null);
+      fetchCoupons();
+    } else {
+      toast.error(data.message || 'Failed to update');
+    }
   };
 
   const loadUsage = async (couponId) => {
@@ -311,14 +340,32 @@ on();
                           <span>{coupon.usedCount}{coupon.maxUses ? `/${coupon.maxUses}` : ''} uses</span>
                         </div>
 
+                        {/* Activated date */}
+                        {coupon.activatedAt && (
+                          <div className="flex items-center gap-1 text-xs text-green-600" title="Activated on">
+                            <span>✅ {new Date(coupon.activatedAt).toLocaleDateString('en-IN')}</span>
+                          </div>
+                        )}
+
+                        {/* Deactivated date */}
+                        {coupon.deactivatedAt && (
+                          <div className="flex items-center gap-1 text-xs text-red-500" title="Deactivated on">
+                            <span>🚫 {new Date(coupon.deactivatedAt).toLocaleDateString('en-IN')}</span>
+                          </div>
+                        )}
+
+                        {/* Valid till (expiry) */}
                         {coupon.expiryDate && (
-                          <div className="flex items-center gap-1 text-xs text-slate-500">
+                          <div className="flex items-center gap-1 text-xs text-slate-500" title="Valid till">
                             <Calendar size={12} />
                             <span>{new Date(coupon.expiryDate).toLocaleDateString('en-IN')}</span>
                           </div>
                         )}
 
                         {/* Actions */}
+                        <button onClick={() => openEdit(coupon)} className="text-slate-400 hover:text-blue-500 transition-colors" title="Edit expiry & count">
+                          <Pencil size={15} />
+                        </button>
                         <button onClick={() => toggleActive(coupon)} className="text-slate-400 hover:text-primary-600 transition-colors" title={coupon.isActive ? 'Deactivate' : 'Activate'}>
                           {coupon.isActive ? <ToggleRight size={20} className="text-green-500" /> : <ToggleLeft size={20} />}
                         </button>
@@ -367,6 +414,51 @@ on();
           </div>
         )}
       </div>
+
+      {/* Edit Modal */}
+      {editModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setEditModal(null)}>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-slate-700">
+              <div>
+                <h2 className="text-base font-black text-slate-900 dark:text-slate-100">Edit Coupon</h2>
+                <p className="text-xs text-gray-500 mt-0.5">{editModal.code}</p>
+              </div>
+              <button onClick={() => setEditModal(null)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800">
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1">Max Uses (leave empty for unlimited)</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={editForm.maxUses}
+                  onChange={e => setEditForm(p => ({ ...p, maxUses: e.target.value }))}
+                  placeholder="e.g. 100"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1">Expiry Date (leave empty for no expiry)</label>
+                <input
+                  type="date"
+                  value={editForm.expiryDate}
+                  onChange={e => setEditForm(p => ({ ...p, expiryDate: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                />
+              </div>
+              <button
+                onClick={handleEditSave}
+                className="w-full py-2.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-semibold text-sm transition-colors"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </OwnerLayout>
   );
 }

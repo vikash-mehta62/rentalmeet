@@ -337,6 +337,18 @@ const venueSchema = new mongoose.Schema({
     siteVisit: Date,
     listingActivation: Date
   },
+
+  // Owner-controlled active/inactive toggle
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+
+  // Manually blocked dates (owner blocks specific dates)
+  blockedDates: [{
+    date: { type: Date, required: true },
+    reason: { type: String, default: 'Blocked by owner' }
+  }],
   
   // Stats
   totalBookings: {

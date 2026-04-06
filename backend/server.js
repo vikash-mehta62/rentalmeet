@@ -39,7 +39,7 @@ const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100
 });
-app.use('/api/', limiter);
+// app.use('/api/', limiter);
 
 //Swagger API Documentation only for developement not for Production
 if (process.env.NODE_ENV !== 'production') {

@@ -204,6 +204,9 @@ exports.getVenues = async (req, res) => {
     } else if (!status) {
       query.status = 'approved';
     }
+
+    // Always hide inactive venues from public (regardless of status param)
+    query.isActive = { $ne: false };
     
     // Pagination
     const pageNum = parseInt(page);
@@ -240,6 +243,32 @@ exports.getVenues = async (req, res) => {
       obj.totalBookings = s ? s.totalBookings : 0;
       obj.totalRevenue = s ? s.totalRevenue : 0;
       return obj;
+    });
+
+    // Attach active coupon count + codes per venue
+    const Coupon = require('../models/Coupon');
+    const now = new Date();
+    const venueCoupons = await Coupon.find({
+      venue: { $in: venueIds },
+      isActive: true,
+      $or: [{ expiryDate: null }, { expiryDate: { $gt: now } }]
+    }).select('venue code discountType discountValue maxDiscount maxUses usedCount');
+
+    const couponMap = {};
+    venueCoupons.forEach(c => {
+      if (c.maxUses !== null && c.usedCount >= c.maxUses) return; // skip limit-reached
+      const key = c.venue.toString();
+      if (!couponMap[key]) couponMap[key] = [];
+      couponMap[key].push({
+        code: c.code,
+        discountType: c.discountType,
+        discountValue: c.discountValue,
+        maxDiscount: c.maxDiscount
+      });
+    });
+    venuesWithStats.forEach(v => {
+      v.activeCoupons = couponMap[v._id.toString()] || [];
+      v.activeCouponCount = v.activeCoupons.length;
     });
     
     console.log(`Found ${venues.length} venues (page ${pageNum}) with query:`, query);

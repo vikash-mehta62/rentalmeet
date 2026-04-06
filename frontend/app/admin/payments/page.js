@@ -7,7 +7,7 @@ import PermissionGuard from '@/components/admin/PermissionGuard';
 import {
   CreditCard, Search, Filter, Eye, X, Calendar, IndianRupee,
   CheckCircle, XCircle, Clock, AlertCircle, User, Building2,
-  TrendingUp, Download
+  TrendingUp, Download, Plus, RefreshCw, History
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import InvoiceDownload from '@/components/booking/InvoiceDownload';
@@ -21,6 +21,9 @@ export default function AdminPayments() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [ledgerAction, setLedgerAction] = useState(null); // 'payment' | 'refund'
+  const [ledgerForm, setLedgerForm] = useState({ amount: '', note: '', txnId: '' });
+  const [ledgerSubmitting, setLedgerSubmitting] = useState(false);
 
   useEffect(() => {
     if (token) {
@@ -80,6 +83,37 @@ export default function AdminPayments() {
   const closeModal = () => {
     setSelectedPayment(null);
     setModalOpen(false);
+    setLedgerAction(null);
+    setLedgerForm({ amount: '', note: '', txnId: '' });
+  };
+
+  const handleLedgerSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedPayment || !ledgerAction) return;
+    const amt = parseFloat(ledgerForm.amount);
+    if (!amt || amt <= 0) return toast.error('Enter a valid amount');
+    setLedgerSubmitting(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/bookings/${selectedPayment._id}/ledger/${ledgerAction}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ amount: amt, note: ledgerForm.note, txnId: ledgerForm.txnId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(ledgerAction === 'payment' ? 'Payment recorded' : 'Refund recorded');
+        setSelectedPayment(data.booking);
+        setLedgerAction(null);
+        setLedgerForm({ amount: '', note: '', txnId: '' });
+        fetchPayments();
+      } else {
+        toast.error(data.message || 'Failed');
+      }
+    } catch (err) {
+      toast.error('Something went wrong');
+    } finally {
+      setLedgerSubmitting(false);
+    }
   };
 
   const getPaymentStatusBadge = (status) => {
@@ -481,6 +515,132 @@ export default function AdminPayments() {
                   </div>
                 </div>
               </div>
+
+              {/* ── Payment Ledger (Admin) ── */}
+              {(() => {
+                const ledger = selectedPayment.paymentLedger;
+                const amountDue = ledger?.amountDue ?? selectedPayment.amount;
+                const totalPaid = ledger?.totalPaid ?? 0;
+                const refundDue = ledger?.refundDue ?? 0;
+                const txns = ledger?.transactions || [];
+                const adjustments = ledger?.adjustments || [];
+                return (
+                  <div className="border-2 border-gray-200 rounded-xl overflow-hidden">
+                    {/* Header */}
+                    <div className="bg-gray-50 px-5 py-3 flex items-center justify-between border-b border-gray-200">
+                      <h3 className="font-bold text-gray-800 flex items-center gap-2"><History className="w-4 h-4" />Payment Ledger</h3>
+                      <div className="flex gap-2">
+                        <button onClick={() => setLedgerAction('payment')} className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs font-semibold flex items-center gap-1">
+                          <Plus className="w-3.5 h-3.5" /> Record Payment
+                        </button>
+                        <button onClick={() => setLedgerAction('refund')} className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-semibold flex items-center gap-1">
+                          <RefreshCw className="w-3.5 h-3.5" /> Record Refund
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Balance Summary */}
+                    <div className="grid grid-cols-3 divide-x divide-gray-200 bg-white">
+                      <div className="p-4 text-center">
+                        <p className="text-xs text-gray-500 mb-1">Total Due</p>
+                        <p className="text-xl font-black text-gray-900">₹{selectedPayment.amount?.toLocaleString()}</p>
+                      </div>
+                      <div className="p-4 text-center bg-green-50">
+                        <p className="text-xs text-gray-500 mb-1">Total Paid</p>
+                        <p className="text-xl font-black text-green-600">₹{totalPaid.toLocaleString()}</p>
+                      </div>
+                      <div className={`p-4 text-center ${refundDue > 0 ? 'bg-blue-50' : amountDue > 0 ? 'bg-red-50' : 'bg-green-50'}`}>
+                        <p className="text-xs text-gray-500 mb-1">{refundDue > 0 ? '🔵 Refund Due' : amountDue > 0 ? '🔴 Balance Due' : '✅ Settled'}</p>
+                        <p className={`text-xl font-black ${refundDue > 0 ? 'text-blue-600' : amountDue > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          {refundDue > 0 ? `₹${refundDue.toLocaleString()}` : amountDue > 0 ? `₹${amountDue.toLocaleString()}` : 'Clear'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Record Payment/Refund Form */}
+                    {ledgerAction && (
+                      <form onSubmit={handleLedgerSubmit} className="border-t border-gray-200 p-4 bg-white">
+                        <p className="text-sm font-bold text-gray-800 mb-3">
+                          {ledgerAction === 'payment' ? '💵 Record Manual Payment (Cash/Cheque/Bank Transfer)' : '↩️ Record Refund'}
+                        </p>
+                        <div className="grid grid-cols-3 gap-3 mb-3">
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-1">Amount (₹) *</label>
+                            <input type="number" required min="1" value={ledgerForm.amount} onChange={e => setLedgerForm({...ledgerForm, amount: e.target.value})}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+                              placeholder={ledgerAction === 'payment' ? `Due: ₹${amountDue}` : `Refund: ₹${refundDue}`} />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-1">Txn Ref / UTR</label>
+                            <input type="text" value={ledgerForm.txnId} onChange={e => setLedgerForm({...ledgerForm, txnId: e.target.value})}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+                              placeholder="UTR / Cheque No." />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-1">Note</label>
+                            <input type="text" value={ledgerForm.note} onChange={e => setLedgerForm({...ledgerForm, note: e.target.value})}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+                              placeholder="Cash / NEFT / UPI..." />
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button type="submit" disabled={ledgerSubmitting}
+                            className={`px-4 py-2 text-white rounded-lg text-sm font-semibold disabled:opacity-60 ${ledgerAction === 'payment' ? 'bg-green-500 hover:bg-green-600' : 'bg-blue-500 hover:bg-blue-600'}`}>
+                            {ledgerSubmitting ? 'Saving...' : ledgerAction === 'payment' ? 'Save Payment' : 'Save Refund'}
+                          </button>
+                          <button type="button" onClick={() => setLedgerAction(null)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-50">Cancel</button>
+                        </div>
+                      </form>
+                    )}
+
+                    {/* Transaction History */}
+                    <div className="border-t border-gray-200 p-4 bg-white">
+                      <p className="text-xs font-bold text-gray-600 mb-3">Transaction History</p>
+                      {txns.length === 0 && adjustments.length === 0 ? (
+                        <p className="text-xs text-gray-400 text-center py-3">No transactions recorded yet</p>
+                      ) : (
+                        <div className="space-y-3">
+                          {adjustments.map((adj, i) => (
+                            <div key={`adj-${i}`} className="flex items-start gap-3 text-xs p-3 bg-orange-50 rounded-lg border border-orange-100">
+                              <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-sm ${adj.difference > 0 ? 'bg-orange-200 text-orange-700' : 'bg-blue-200 text-blue-700'}`}>
+                                {adj.difference > 0 ? '▲' : '▼'}
+                              </div>
+                              <div className="flex-1">
+                                <p className="font-bold text-gray-800">Booking Modified</p>
+                                <p className="text-gray-600">{adj.difference > 0 ? `+₹${adj.difference.toLocaleString()} additional due` : `₹${Math.abs(adj.difference).toLocaleString()} refund due`}</p>
+                                <p className="text-gray-400 mt-0.5">{new Date(adj.date).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                              </div>
+                              <div className="text-right text-gray-500">
+                                <p>₹{adj.oldAmount?.toLocaleString()}</p>
+                                <p className="text-gray-400">→</p>
+                                <p className="font-bold text-gray-800">₹{adj.newAmount?.toLocaleString()}</p>
+                              </div>
+                            </div>
+                          ))}
+                          {txns.filter(t => t.type !== 'adjustment').map((txn, i) => (
+                            <div key={`txn-${i}`} className={`flex items-start gap-3 text-xs p-3 rounded-lg border ${['payment','manual_payment'].includes(txn.type) ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
+                              <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${['payment','manual_payment'].includes(txn.type) ? 'bg-green-200' : 'bg-red-200'}`}>
+                                {['payment','manual_payment'].includes(txn.type) ? <CheckCircle className="w-4 h-4 text-green-700" /> : <XCircle className="w-4 h-4 text-red-700" />}
+                              </div>
+                              <div className="flex-1">
+                                <p className="font-bold text-gray-800">
+                                  {txn.type === 'payment' ? 'Online Payment (Razorpay)' : txn.type === 'manual_payment' ? 'Manual Payment' : 'Refund Processed'}
+                                </p>
+                                {txn.txnId && <p className="text-gray-500 font-mono">{txn.txnId}</p>}
+                                {txn.note && <p className="text-gray-600">{txn.note}</p>}
+                                <p className="text-gray-400 mt-0.5">{new Date(txn.date).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                              </div>
+                              <p className={`font-black text-base ${['payment','manual_payment'].includes(txn.type) ? 'text-green-600' : 'text-red-600'}`}>
+                                {['payment','manual_payment'].includes(txn.type) ? '+' : '-'}₹{txn.amount?.toLocaleString()}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>

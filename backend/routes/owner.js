@@ -196,4 +196,65 @@ router.get('/coupons/:id', getCouponUsage);
 router.put('/coupons/:id', updateCoupon);
 router.delete('/coupons/:id', deleteCoupon);
 
+// @route   PUT /api/owner/venues/:id/toggle-active
+// @desc    Toggle venue isActive (enable/disable listing)
+router.put('/venues/:id/toggle-active', async (req, res) => {
+  try {
+    const venue = await Venue.findOne({ _id: req.params.id, owner: req.user._id });
+    if (!venue) return res.status(404).json({ success: false, message: 'Venue not found' });
+
+    // Use client-sent currentIsActive if provided, else derive from DB
+    const currentlyActive = req.body.currentIsActive !== undefined
+      ? req.body.currentIsActive
+      : venue.isActive !== false;
+
+    venue.isActive = !currentlyActive;
+    await venue.save();
+
+    res.json({ success: true, isActive: venue.isActive, message: `Venue ${venue.isActive ? 'enabled' : 'disabled'} successfully` });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// @route   POST /api/owner/venues/:id/blocked-dates
+// @desc    Add a blocked date
+router.post('/venues/:id/blocked-dates', async (req, res) => {
+  try {
+    const venue = await Venue.findOne({ _id: req.params.id, owner: req.user._id });
+    if (!venue) return res.status(404).json({ success: false, message: 'Venue not found' });
+
+    const { date, reason } = req.body;
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+
+    // Avoid duplicates
+    const exists = venue.blockedDates.some(b => new Date(b.date).toDateString() === d.toDateString());
+    if (exists) return res.status(400).json({ success: false, message: 'Date already blocked' });
+
+    venue.blockedDates.push({ date: d, reason: reason || 'Blocked by owner' });
+    await venue.save();
+
+    res.json({ success: true, blockedDates: venue.blockedDates });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// @route   DELETE /api/owner/venues/:id/blocked-dates/:dateId
+// @desc    Remove a blocked date
+router.delete('/venues/:id/blocked-dates/:dateId', async (req, res) => {
+  try {
+    const venue = await Venue.findOne({ _id: req.params.id, owner: req.user._id });
+    if (!venue) return res.status(404).json({ success: false, message: 'Venue not found' });
+
+    venue.blockedDates = venue.blockedDates.filter(b => b._id.toString() !== req.params.dateId);
+    await venue.save();
+
+    res.json({ success: true, blockedDates: venue.blockedDates });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
 module.exports = router;

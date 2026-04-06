@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import { 
   Clock, IndianRupee, X, CheckCircle
 } from 'lucide-react';
@@ -15,6 +17,7 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
   const [submitting, setSubmitting] = useState(false);
   const [showQuotation, setShowQuotation] = useState(false);
   const [terms, setTerms] = useState(null);
+  const [bookedDates, setBookedDates] = useState([]);
   const [platformSettings, setPlatformSettings] = useState({
     gstRate: 18,
     venueCGST: 9,
@@ -29,7 +32,18 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
   useEffect(() => {
     fetchTerms();
     fetchPlatformSettings();
+    if (venue?.sku) fetchBookedDates();
   }, []);
+
+  const fetchBookedDates = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bookings/booked-dates/${venue.sku}`);
+      const data = await res.json();
+      if (data.success && data.dates) {
+        setBookedDates(data.dates.map(d => new Date(d)));
+      }
+    } catch (e) { /* silently fail */ }
+  };
 
   const fetchTerms = async () => {
     try {
@@ -698,12 +712,27 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-semibold text-dark-700 dark:text-slate-200 mb-2">Booking Date *</label>
-              <input
-                type="date"
-                name="bookingDate"
-                value={formData.bookingDate}
-                onChange={handleDateChange}
-                min={new Date().toISOString().split('T')[0]}
+              <DatePicker
+                selected={formData.bookingDate ? new Date(formData.bookingDate) : null}
+                onChange={(date) => {
+                  if (!date) return;
+                  const iso = date.toISOString().split('T')[0];
+                  handleDateChange({ target: { value: iso } });
+                }}
+                minDate={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d; })()}
+                filterDate={(date) => {
+                  const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+                  const dayName = dayNames[date.getDay()];
+                  const availableDays = venue?.availability?.availableDays || [];
+                  if (availableDays.length > 0 && !availableDays.includes(dayName)) return false;
+                  return !bookedDates.some(bd =>
+                    bd.getFullYear() === date.getFullYear() &&
+                    bd.getMonth() === date.getMonth() &&
+                    bd.getDate() === date.getDate()
+                  );
+                }}
+                dateFormat="dd/MM/yyyy"
+                placeholderText="Pick a date"
                 className="w-full px-4 py-3 text-sm border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                 required
               />

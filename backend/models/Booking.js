@@ -202,6 +202,37 @@ const bookingSchema = new mongoose.Schema({
     refundStatus: { type: String, enum: ['pending', 'processed', 'failed'] },
     refundedAt: Date,
     refundReason: String
+  },
+
+  // ── Payment Ledger ────────────────────────────────────────────────────────
+  // Tracks every rupee: what was due, what was paid, what is pending/refundable
+  paymentLedger: {
+    // Running totals (auto-updated)
+    totalDue:     { type: Number, default: 0 },  // Current booking amount
+    totalPaid:    { type: Number, default: 0 },  // Sum of all successful payments
+    amountDue:    { type: Number, default: 0 },  // totalDue - totalPaid  (>0 = customer owes)
+    refundDue:    { type: Number, default: 0 },  // totalPaid - totalDue  (>0 = we owe customer)
+
+    // Full transaction history
+    transactions: [{
+      txnId:      { type: String },              // Razorpay / manual ref
+      type:       { type: String, enum: ['payment', 'refund', 'adjustment', 'manual_payment', 'manual_refund'] },
+      amount:     { type: Number },              // +ve for payment, -ve for refund
+      status:     { type: String, enum: ['pending', 'completed', 'failed'], default: 'completed' },
+      note:       { type: String },              // reason / description
+      performedBy:{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // who did it
+      date:       { type: Date, default: Date.now }
+    }],
+
+    // Price change history (every time booking amount changes)
+    adjustments: [{
+      oldAmount:  { type: Number },
+      newAmount:  { type: Number },
+      difference: { type: Number },              // newAmount - oldAmount (+ve = more due, -ve = refund due)
+      reason:     { type: String },              // 'modification', 'coupon', 'admin_adjustment'
+      performedBy:{ type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      date:       { type: Date, default: Date.now }
+    }]
   }
 }, {
   timestamps: true
@@ -214,13 +245,32 @@ bookingSchema.pre('save', function(next) {
     this.ownerEarnings = this.amount - this.commission;
   } else {
     this.commission = 0;
-    // Prefer subtotal from priceBreakdown when available
     if (this.priceBreakdown && typeof this.priceBreakdown.subtotal === 'number') {
       this.ownerEarnings = this.priceBreakdown.subtotal;
     } else if (typeof this.ownerEarnings !== 'number' || isNaN(this.ownerEarnings)) {
       this.ownerEarnings = this.amount;
     }
   }
+
+  // ── Sync paymentLedger totals ──────────────────────────────────────────
+  if (!this.paymentLedger) this.paymentLedger = {};
+  this.paymentLedger.totalDue = this.amount || 0;
+
+  // Sum all completed payment/manual_payment transactions
+  const paid = (this.paymentLedger.transactions || [])
+    .filter(t => ['payment', 'manual_payment'].includes(t.type) && t.status === 'completed')
+    .reduce((s, t) => s + (t.amount || 0), 0);
+
+  // Sum all completed refund transactions
+  const refunded = (this.paymentLedger.transactions || [])
+    .filter(t => ['refund', 'manual_refund'].includes(t.type) && t.status === 'completed')
+    .reduce((s, t) => s + (t.amount || 0), 0);
+
+  this.paymentLedger.totalPaid = paid - refunded;
+  const balance = this.paymentLedger.totalDue - this.paymentLedger.totalPaid;
+  this.paymentLedger.amountDue  = balance > 0 ? balance : 0;
+  this.paymentLedger.refundDue  = balance < 0 ? Math.abs(balance) : 0;
+
   next();
 });
 
