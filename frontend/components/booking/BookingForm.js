@@ -652,6 +652,7 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
         calculatedPrice={calculatedPrice}
         onClose={() => setShowQuotation(false)}
         onConfirm={handleSubmit}
+        token={token}
       />
     );
   }

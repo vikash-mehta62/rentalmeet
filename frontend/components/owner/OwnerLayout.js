@@ -6,7 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
   Building2, Calendar, User, LogOut, Menu, X, 
-  Home, Plus, ChevronLeft, ChevronRight, Bell, Tag
+  Home, Plus, ChevronLeft, ChevronRight, Bell, Tag, FileText
 } from 'lucide-react';
 
 export default function OwnerLayout({ children, title, subtitle }) {
@@ -38,6 +38,7 @@ export default function OwnerLayout({ children, title, subtitle }) {
     { href: '/owner/dashboard', icon: Home, label: 'Dashboard' },
     { href: '/owner/venues', icon: Building2, label: 'My Venues' },
     { href: '/owner/bookings', icon: Calendar, label: 'Bookings' },
+    { href: '/owner/quotation-downloads', icon: FileText, label: 'Quotation Downloads' },
     { href: '/owner/coupons', icon: Tag, label: 'Coupons' },
     { href: '/register-venue', icon: Plus, label: 'Add New Venue' },
     { href: '/owner/profile', icon: User, label: 'Profile' },
@@ -46,7 +47,7 @@ export default function OwnerLayout({ children, title, subtitle }) {
   if (!hydrated) return null;
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex font-sans">
+    <div className="min-h-screen bg-[#f8fafc] flex font-sans overflow-x-hidden">
       
       {/* --- SIDEBAR --- */}
       <aside 
@@ -54,7 +55,7 @@ export default function OwnerLayout({ children, title, subtitle }) {
           ${isCollapsed ? 'w-20' : 'w-72'} 
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
-        <div className="flex flex-col h-full relative">
+        <div className="flex flex-col h-full relative overflow-hidden">
           
           {/* Desktop Collapse Toggle */}
           <button 
@@ -85,7 +86,7 @@ export default function OwnerLayout({ children, title, subtitle }) {
 </div>
 
           {/* Navigation Items */}
-          <nav className="flex-1 px-4 space-y-1.5 mt-4">
+          <nav className="flex-1 px-4 space-y-1.5 mt-4 overflow-y-auto">
             {navItems.map((item) => {
               const active = pathname === item.href;
               return (

@@ -32,6 +32,20 @@ router.get('/platform-settings/public', getPublicPlatformSettings);
 // SKU route must come before :id route
 router.get('/sku/:sku', getVenueBySKU);
 
+// Public: Generate a new sequential quotation number (must be before /:id)
+router.get('/generate-quotation-number', async (req, res) => {
+  try {
+    const Counter = require('../models/Counter');
+    const year = new Date().getFullYear();
+    const counterId = `quotation_${year}`;
+    const seq = await Counter.getNextSequence(counterId);
+    const quotationNumber = `QT-${year}-${seq.toString().padStart(6, '0')}`;
+    res.json({ success: true, quotationNumber });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // Public: get valid coupons for a venue
 router.get('/:id/coupons', getVenueCoupons);
 
@@ -46,5 +60,32 @@ router.post('/:id/images',
   upload.array('images', 20), 
   uploadImages
 );
+
+// Public: Record quotation download (customer downloads quotation PDF)
+router.post('/:venueId/quotation-download', async (req, res) => {
+  try {
+    const QuotationDownload = require('../models/QuotationDownload');
+    const {
+      quotationNumber, action, totalAmount,
+      venueSnapshot, customerSnapshot, bookingSnapshot, priceSnapshot
+    } = req.body;
+
+    const record = await QuotationDownload.create({
+      venue: req.params.venueId,
+      customer: req.user?._id || null,
+      quotationNumber,
+      action: action || 'download',
+      totalAmount,
+      venueSnapshot,
+      customerSnapshot,
+      bookingSnapshot,
+      priceSnapshot
+    });
+
+    res.status(201).json({ success: true, record });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 module.exports = router;

@@ -217,4 +217,27 @@ router.get('/coupons', protect, authorize('admin'), async (req, res) => {
   }
 });
 
+// Admin: Get all download history (venue-wise)
+const { getAdminDownloads, recordDownload } = require('../controllers/couponController');
+router.get('/coupon-downloads', protect, authorize('admin'), getAdminDownloads);
+router.post('/coupons/:id/download', protect, authorize('admin'), recordDownload);
+
+// Admin: Get all quotation downloads
+router.get('/quotation-downloads', protect, authorize('admin'), async (req, res) => {
+  try {
+    const QuotationDownload = require('../models/QuotationDownload');
+    const filter = {};
+    if (req.query.venueId) filter.venue = req.query.venueId;
+
+    const records = await QuotationDownload.find(filter)
+      .populate('venue', 'businessName sku location')
+      .populate('customer', 'name email phone')
+      .sort('-downloadedAt');
+
+    res.json({ success: true, total: records.length, records });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;

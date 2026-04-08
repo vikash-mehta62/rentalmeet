@@ -38,7 +38,7 @@ export default function CustomerLayout({ children, activePage = 'dashboard' }) {
   if (!hydrated) return null;
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex font-sans">
+    <div className="min-h-screen bg-[#f8fafc] flex font-sans overflow-x-hidden">
       
       {/* --- SIDEBAR (OWNER PANEL DESIGN) --- */}
       <aside 
@@ -46,7 +46,7 @@ export default function CustomerLayout({ children, activePage = 'dashboard' }) {
           ${isCollapsed ? 'w-20' : 'w-72'} 
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
-        <div className="flex flex-col h-full relative">
+        <div className="flex flex-col h-full relative overflow-hidden">
           
           {/* Desktop Collapse Toggle */}
           <button 
@@ -73,7 +73,7 @@ export default function CustomerLayout({ children, activePage = 'dashboard' }) {
           </div>
 
           {/* Navigation Items (Links from your customer layout) */}
-          <nav className="flex-1 px-4 space-y-1.5 mt-4 font-medium">
+          <nav className="flex-1 px-4 space-y-1.5 mt-4 font-medium overflow-y-auto">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activePage === item.id || pathname === item.href;

@@ -7,13 +7,21 @@ import html2canvas from 'html2canvas';
 
 export default function QuotationView({ 
   venue, 
-  formData, 
-  selectedAmenities, 
+  formData,        // from BookingForm component
+  bookingData,     // from booking/[sku]/page.js (merged customer + booking data)
+  selectedAmenities,
   quantities, 
-  calculatedPrice, 
+  calculatedPrice,
+  pricing,         // alias for calculatedPrice from booking/[sku]/page.js
   onClose, 
-  onConfirm 
+  onConfirm,
+  token
 }) {
+  // Normalize: support both prop shapes
+  const fd = formData || bookingData || {};
+  const cp = calculatedPrice || pricing || {};
+  const sa = selectedAmenities || {};
+  const qty = quantities || {};
   
   const quotationRef = useRef(null);
   const [platformSettings, setPlatformSettings] = useState(null);
@@ -43,28 +51,18 @@ export default function QuotationView({
   }, []);
 
   const calculateVenueInvoice = () => {
-    const baseAmount = calculatedPrice.basePrice + calculatedPrice.amenitiesTotal;
-    // Only apply GST if owner has GST
+    const baseAmount = (cp.basePrice || 0) + (cp.amenitiesTotal || 0);
     const hasGST = venue.ownerInfo?.hasGST;
     const cgstRate = hasGST ? (platformSettings?.venueCGST || 0) : 0;
     const sgstRate = hasGST ? (platformSettings?.venueSGST || 0) : 0;
     const venueCGST = (baseAmount * cgstRate) / 100;
     const venueSGST = (baseAmount * sgstRate) / 100;
     const total = baseAmount + venueCGST + venueSGST;
-    
-    return {
-      baseAmount,
-      cgst: venueCGST,
-      sgst: venueSGST,
-      cgstRate,
-      sgstRate,
-      total
-    };
+    return { baseAmount, cgst: venueCGST, sgst: venueSGST, cgstRate, sgstRate, total };
   };
 
   const calculatePlatformInvoice = () => {
-    const baseAmount = calculatedPrice.basePrice + calculatedPrice.amenitiesTotal;
-    // Use venue custom platform fee if enabled, else platform default
+    const baseAmount = (cp.basePrice || 0) + (cp.amenitiesTotal || 0);
     let feePercentage = 0;
     if (venue.customPlatformFee?.enabled) {
       feePercentage = parseFloat(venue.customPlatformFee.percentage) || 0;
@@ -77,25 +75,70 @@ export default function QuotationView({
     const platformCGST = (platformFee * cgstRate) / 100;
     const platformSGST = (platformFee * sgstRate) / 100;
     const total = platformFee + platformCGST + platformSGST;
-    
-    return {
-      platformFee,
-      cgst: platformCGST,
-      sgst: platformSGST,
-      cgstRate,
-      sgstRate,
-      feePercentage,
-      total
-    };
+    return { platformFee, cgst: platformCGST, sgst: platformSGST, cgstRate, sgstRate, feePercentage, total };
   };
 
   const venueInvoice = calculateVenueInvoice();
   const platformInvoice = calculatePlatformInvoice();
   const subtotalBeforeDiscount = venueInvoice.total + platformInvoice.total;
-  const couponDiscount = calculatedPrice.discount || 0;
+  const couponDiscount = cp.discount || 0;
   const grandTotal = Math.max(0, subtotalBeforeDiscount - couponDiscount);
 
-  const handlePrint = () => {
+  // ── Common: record download/print to backend ────────────────────────────────
+  const recordToBackend = async (action = 'download') => {
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues/${venue._id}/quotation-download`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          quotationNumber,
+          action,                          // 'download' or 'print'
+          totalAmount: grandTotal,
+          venueSnapshot: {
+            businessName: venue.businessName,
+            sku: venue.sku,
+            city: venue.location?.city,
+            state: venue.location?.state,
+            address: venue.location?.address,
+            capacity: venue.capacity
+          },
+          customerSnapshot: {
+            name: fd.customerName,
+            email: fd.customerEmail,
+            phone: fd.customerPhone,
+            eventType: fd.eventType,
+            guestCount: fd.guestCount ? Number(fd.guestCount) : undefined,
+            specialRequirements: fd.specialRequirements
+          },
+          bookingSnapshot: {
+            date: fd.bookingDate || fd.date,
+            startTime: fd.startTime,
+            endTime: fd.endTime,
+            bookingType: fd.bookingType,
+            duration: fd.duration
+          },
+          priceSnapshot: {
+            basePrice: cp.basePrice || 0,
+            amenitiesTotal: cp.amenitiesTotal || 0,
+            subtotal: cp.subtotal || (cp.basePrice || 0) + (cp.amenitiesTotal || 0),
+            gst: cp.gst || 0,
+            platformFee: cp.platformFee || 0,
+            platformFeeGST: cp.platformFeeGST || 0,
+            discount: cp.discount || 0,
+            grandTotal
+          }
+        })
+      });
+    } catch (e) {
+      // silently fail — don't block user
+    }
+  };
+
+  const handlePrint = async () => {
+    await recordToBackend('print');
     window.print();
   };
 
@@ -150,12 +193,13 @@ export default function QuotationView({
         heightLeft -= pdfHeight;
       }
       
-      const quotationNumber = `QT-${Date.now().toString().slice(-8)}`;
       const filename = `RentalMeet_Quotation_${quotationNumber}.pdf`;
-      
       pdf.save(filename);
 
       document.body.removeChild(loadingToast);
+
+      // ── Record download in backend ──────────────────────────────────────────
+      await recordToBackend('download');
 
       const successToast = document.createElement('div');
       successToast.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-[200]';
@@ -179,7 +223,22 @@ export default function QuotationView({
     });
   };
 
-  const [quotationNumber] = useState(() => `QT-${Date.now().toString().slice(-8)}`);
+  const [quotationNumber, setQuotationNumber] = useState('');
+
+  // Fetch sequential quotation number from backend on mount
+  useEffect(() => {
+    const fetchQuotationNumber = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues/generate-quotation-number`);
+        const data = await res.json();
+        if (data.success) setQuotationNumber(data.quotationNumber);
+      } catch {
+        // fallback — should not happen in normal flow
+        setQuotationNumber(`QT-${new Date().getFullYear()}-DRAFT`);
+      }
+    };
+    fetchQuotationNumber();
+  }, []);
 
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -276,23 +335,23 @@ export default function QuotationView({
               <div className="space-y-2 text-sm">
                 <div>
                   <span className="font-semibold text-gray-700">Name:</span>
-                  <p className="text-gray-900">{formData.customerName}</p>
+                  <p className="text-gray-900">{fd.customerName}</p>
                 </div>
                 <div>
                   <span className="font-semibold text-gray-700">Email:</span>
-                  <p className="text-gray-900">{formData.customerEmail}</p>
+                  <p className="text-gray-900">{fd.customerEmail}</p>
                 </div>
                 <div>
                   <span className="font-semibold text-gray-700">Phone:</span>
-                  <p className="text-gray-900">{formData.customerPhone}</p>
+                  <p className="text-gray-900">{fd.customerPhone}</p>
                 </div>
                 <div>
                   <span className="font-semibold text-gray-700">Event Type:</span>
-                  <p className="text-gray-900">{formData.eventType}</p>
+                  <p className="text-gray-900">{fd.eventType}</p>
                 </div>
                 <div>
                   <span className="font-semibold text-gray-700">Guest Count:</span>
-                  <p className="text-gray-900">{formData.guestCount} persons</p>
+                  <p className="text-gray-900">{fd.guestCount} persons</p>
                 </div>
               </div>
             </div>
@@ -306,19 +365,19 @@ export default function QuotationView({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
                 <span className="font-semibold text-gray-700 block">Date:</span>
-                <p className="text-gray-900">{formatDate(formData.bookingDate)}</p>
+                <p className="text-gray-900">{formatDate(fd.bookingDate || fd.date)}</p>
               </div>
               <div>
                 <span className="font-semibold text-gray-700 block">Time:</span>
-                <p className="text-gray-900">{formData.startTime} - {formData.endTime}</p>
+                <p className="text-gray-900">{fd.startTime} - {fd.endTime}</p>
               </div>
               <div>
                 <span className="font-semibold text-gray-700 block">Type:</span>
-                <p className="text-gray-900 capitalize">{formData.bookingType}</p>
+                <p className="text-gray-900 capitalize">{fd.bookingType}</p>
               </div>
               <div>
                 <span className="font-semibold text-gray-700 block">Day Type:</span>
-                <p className="text-gray-900">{formData.isWeekend ? 'Weekend' : 'Weekday'}</p>
+                <p className="text-gray-900">{fd.isWeekend ? 'Weekend' : 'Weekday'}</p>
               </div>
             </div>
           </div>
@@ -339,22 +398,22 @@ export default function QuotationView({
                 <div>
                   <p className="font-bold text-gray-900">Venue Rental Charges</p>
                   <p className="text-xs text-gray-500">
-                    {formData.bookingType === 'hourly' ? 'Per Hour' : 
-                     formData.bookingType === 'halfday' ? 'Half Day (4 hours)' : 
-                     'Full Day (8 hours)'} • {formData.isWeekend ? 'Weekend Rate' : 'Weekday Rate'}
+                    {fd.bookingType === 'hourly' ? 'Per Hour' : 
+                     fd.bookingType === 'halfday' ? 'Half Day (4 hours)' : 
+                     'Full Day (8 hours)'} • {fd.isWeekend ? 'Weekend Rate' : 'Weekday Rate'}
                   </p>
                 </div>
                 <p className="text-xl font-black text-gray-900">
-                  ₹{calculatedPrice.basePrice.toLocaleString('en-IN')}
+                  ₹{(cp.basePrice || 0).toLocaleString('en-IN')}
                 </p>
               </div>
             </div>
 
-            {(calculatedPrice.amenitiesTotal > 0 || selectedAmenities.basic.length > 0) && (
+            {((cp.amenitiesTotal > 0) || (sa.basic?.length > 0)) && (
               <div className="bg-white border-2 border-blue-200 rounded-lg p-4 mb-4">
                 <h4 className="font-bold text-gray-900 mb-3 text-base">Amenities & Services</h4>
                 
-                {selectedAmenities.basic.length > 0 && (
+                {sa.basic?.length > 0 && (
                   <div className="mb-3">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-700 font-semibold">Basic Amenities (Included):</span>
@@ -363,19 +422,19 @@ export default function QuotationView({
                   </div>
                 )}
 
-                {selectedAmenities.beverages.length > 0 && (
+                {sa.beverages?.length > 0 && (
                   <div className="mb-3">
                     <p className="text-sm font-semibold text-gray-700 mb-2">Beverages:</p>
                     <div className="space-y-1">
-                      {selectedAmenities.beverages.map((beverage, idx) => {
-                        const qty = quantities[`beverage_${beverage.name}`] || 0;
+                      {sa.beverages.map((beverage, idx) => {
+                        const q = qty[`beverage_${beverage.name}`] || qty[`beverages_${beverage.name}`] || 0;
                         const rate = beverage.ratePerUnit || 0;
-                        const total = rate * qty;
+                        const total = rate * q;
                         return (
                           <div key={idx} className="flex justify-between text-sm pl-4">
                             <span className="text-gray-700">
                               • {beverage.name}
-                              {rate > 0 && <span className="text-xs text-gray-500"> (₹{rate} × {qty} persons)</span>}
+                              {rate > 0 && <span className="text-xs text-gray-500"> (₹{rate} × {q} persons)</span>}
                             </span>
                             <span className="font-semibold text-gray-900">
                               {rate > 0 ? `₹${total.toLocaleString('en-IN')}` : '₹0'}
@@ -387,19 +446,19 @@ export default function QuotationView({
                   </div>
                 )}
 
-                {selectedAmenities.refreshmentFood.length > 0 && (
+                {sa.refreshmentFood?.length > 0 && (
                   <div className="mb-3">
                     <p className="text-sm font-semibold text-gray-700 mb-2">Refreshments & Snacks:</p>
                     <div className="space-y-1">
-                      {selectedAmenities.refreshmentFood.map((food, idx) => {
-                        const qty = quantities[`food_${food.name}`] || 0;
+                      {sa.refreshmentFood.map((food, idx) => {
+                        const q = qty[`food_${food.name}`] || qty[`refreshmentFood_${food.name}`] || 0;
                         const rate = food.ratePerPlate || 0;
-                        const total = rate * qty;
+                        const total = rate * q;
                         return (
                           <div key={idx} className="flex justify-between text-sm pl-4">
                             <span className="text-gray-700">
                               • {food.name}
-                              {rate > 0 && <span className="text-xs text-gray-500"> (₹{rate} × {qty} plates)</span>}
+                              {rate > 0 && <span className="text-xs text-gray-500"> (₹{rate} × {q} plates)</span>}
                             </span>
                             <span className="font-semibold text-gray-900">
                               {rate > 0 ? `₹${total.toLocaleString('en-IN')}` : '₹0'}
@@ -411,19 +470,19 @@ export default function QuotationView({
                   </div>
                 )}
 
-                {selectedAmenities.lunchThalis.length > 0 && (
+                {sa.lunchThalis?.length > 0 && (
                   <div className="mb-3">
                     <p className="text-sm font-semibold text-gray-700 mb-2">Lunch Thalis:</p>
                     <div className="space-y-1">
-                      {selectedAmenities.lunchThalis.map((thali, idx) => {
-                        const qty = quantities[`thali_${thali.thaliType}_${thali.category}`] || 0;
+                      {sa.lunchThalis.map((thali, idx) => {
+                        const q = qty[`thali_${thali.thaliType}_${thali.category}`] || qty[`lunchThalis_${thali.thaliType}_${thali.category}`] || 0;
                         const rate = thali.ratePerPlate || 0;
-                        const total = rate * qty;
+                        const total = rate * q;
                         return (
                           <div key={idx} className="flex justify-between text-sm pl-4">
                             <span className="text-gray-700">
                               • {thali.thaliType} - {thali.category}
-                              {rate > 0 && <span className="text-xs text-gray-500"> (₹{rate} × {qty} plates)</span>}
+                              {rate > 0 && <span className="text-xs text-gray-500"> (₹{rate} × {q} plates)</span>}
                             </span>
                             <span className="font-semibold text-gray-900">
                               {rate > 0 ? `₹${total.toLocaleString('en-IN')}` : '₹0'}
@@ -435,7 +494,7 @@ export default function QuotationView({
                   </div>
                 )}
 
-                {selectedAmenities.additional.length > 0 && (
+                {sa.additional?.length > 0 && (
                   <div className="mb-3">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-700 font-semibold">Additional Facilities (Included):</span>
@@ -444,11 +503,11 @@ export default function QuotationView({
                   </div>
                 )}
 
-                {calculatedPrice.amenitiesTotal > 0 && (
+                {cp.amenitiesTotal > 0 && (
                   <div className="flex justify-between pt-3 mt-3 border-t-2 border-gray-300">
                     <span className="font-bold text-gray-900">Amenities Subtotal:</span>
                     <span className="font-black text-gray-900 text-lg">
-                      ₹{calculatedPrice.amenitiesTotal.toLocaleString('en-IN')}
+                      ₹{cp.amenitiesTotal.toLocaleString('en-IN')}
                     </span>
                   </div>
                 )}
@@ -578,7 +637,7 @@ export default function QuotationView({
               </div>
               {couponDiscount > 0 && (
                 <div className="flex justify-between text-sm text-green-700 font-semibold">
-                  <span>Coupon Discount ({calculatedPrice.couponCode || ''}):</span>
+                  <span>Coupon Discount ({cp.couponCode || ''}):</span>
                   <span>- ₹{couponDiscount.toLocaleString('en-IN')}</span>
                 </div>
               )}
@@ -596,10 +655,10 @@ export default function QuotationView({
             </div>
           </div>
 
-          {formData.specialRequirements && (
+          {fd.specialRequirements && (
             <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded-lg mb-8">
               <h4 className="font-bold text-gray-900 mb-2">Special Requirements:</h4>
-              <p className="text-sm text-gray-700">{formData.specialRequirements}</p>
+              <p className="text-sm text-gray-700">{fd.specialRequirements}</p>
             </div>
           )}
 

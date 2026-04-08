@@ -1,5 +1,14 @@
 const Coupon = require('../models/Coupon');
 const Venue = require('../models/Venue');
+const Counter = require('../models/Counter');
+
+// Generate quotation number: QT-YYYY-XXXXXX
+const generateQuotationNumber = async () => {
+  const year = new Date().getFullYear();
+  const counterId = `quotation_${year}`;
+  const seq = await Counter.getNextSequence(counterId);
+  return `QT-${year}-${seq.toString().padStart(6, '0')}`;
+};
 
 // ─── Owner: Create coupon ────────────────────────────────────────────────────
 exports.createCoupon = async (req, res) => {
@@ -10,6 +19,8 @@ exports.createCoupon = async (req, res) => {
     const venue = await Venue.findOne({ _id: venueId, owner: req.user._id });
     if (!venue) return res.status(404).json({ success: false, message: 'Venue not found or not yours' });
 
+    const quotationNumber = await generateQuotationNumber();
+
     const coupon = await Coupon.create({
       code: code.toUpperCase().trim(),
       venue: venueId,
@@ -19,7 +30,8 @@ exports.createCoupon = async (req, res) => {
       maxDiscount: maxDiscount || null,
       minBookingAmount: minBookingAmount || 0,
       maxUses: maxUses || null,
-      expiryDate: expiryDate || null
+      expiryDate: expiryDate || null,
+      quotationNumber
     });
 
     res.status(201).json({ success: true, coupon });
@@ -169,6 +181,112 @@ exports.getVenueCoupons = async (req, res) => {
     const valid = coupons.filter(c => c.maxUses === null || c.usedCount < c.maxUses);
 
     res.json({ success: true, coupons: valid });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ─── Record a coupon/quotation download ─────────────────────────────────────
+exports.recordDownload = async (req, res) => {
+  try {
+    const coupon = await Coupon.findById(req.params.id).populate('venue', 'businessName sku location');
+
+    // Owner can only access their own coupons; admin can access all
+    if (req.user.role !== 'admin' && coupon?.owner?.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    if (!coupon) return res.status(404).json({ success: false, message: 'Coupon not found' });
+
+    coupon.downloads.push({
+      downloadedBy: req.user._id,
+      role: req.user.role,
+      venueSnapshot: {
+        businessName: coupon.venue?.businessName,
+        sku: coupon.venue?.sku,
+        city: coupon.venue?.location?.city,
+        state: coupon.venue?.location?.state
+      }
+    });
+
+    await coupon.save();
+    res.json({ success: true, message: 'Download recorded', quotationNumber: coupon.quotationNumber });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ─── Admin: Get all download history (venue-wise) ────────────────────────────
+exports.getAdminDownloads = async (req, res) => {
+  try {
+    const filter = {};
+    if (req.query.venueId) filter.venue = req.query.venueId;
+
+    const coupons = await Coupon.find({ ...filter, 'downloads.0': { $exists: true } })
+      .populate('venue', 'businessName sku location')
+      .populate('owner', 'name email')
+      .populate('downloads.downloadedBy', 'name email role')
+      .select('code quotationNumber venue owner downloads')
+      .sort('-updatedAt');
+
+    // Flatten into per-download records
+    const records = [];
+    coupons.forEach(c => {
+      c.downloads.forEach(d => {
+        records.push({
+          couponId: c._id,
+          couponCode: c.code,
+          quotationNumber: c.quotationNumber,
+          venue: c.venue,
+          owner: c.owner,
+          downloadedBy: d.downloadedBy,
+          role: d.role,
+          downloadedAt: d.downloadedAt,
+          venueSnapshot: d.venueSnapshot
+        });
+      });
+    });
+
+    // Sort by most recent download
+    records.sort((a, b) => new Date(b.downloadedAt) - new Date(a.downloadedAt));
+
+    res.json({ success: true, total: records.length, records });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ─── Owner: Get download history for their coupons ───────────────────────────
+exports.getOwnerDownloads = async (req, res) => {
+  try {
+    const filter = { owner: req.user._id, 'downloads.0': { $exists: true } };
+    if (req.query.venueId) filter.venue = req.query.venueId;
+
+    const coupons = await Coupon.find(filter)
+      .populate('venue', 'businessName sku location')
+      .populate('downloads.downloadedBy', 'name email')
+      .select('code quotationNumber venue downloads')
+      .sort('-updatedAt');
+
+    const records = [];
+    coupons.forEach(c => {
+      c.downloads.forEach(d => {
+        records.push({
+          couponId: c._id,
+          couponCode: c.code,
+          quotationNumber: c.quotationNumber,
+          venue: c.venue,
+          downloadedBy: d.downloadedBy,
+          role: d.role,
+          downloadedAt: d.downloadedAt,
+          venueSnapshot: d.venueSnapshot
+        });
+      });
+    });
+
+    records.sort((a, b) => new Date(b.downloadedAt) - new Date(a.downloadedAt));
+
+    res.json({ success: true, total: records.length, records });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

@@ -66,6 +66,28 @@ const couponSchema = new mongoose.Schema({
       discountAmount: { type: Number },
       usedAt: { type: Date, default: Date.now }
     }
+  ],
+
+  // Auto-generated quotation number (e.g. QT-2026-000001)
+  quotationNumber: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+
+  // Download history with venue details snapshot
+  downloads: [
+    {
+      downloadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      downloadedAt: { type: Date, default: Date.now },
+      role: { type: String, enum: ['owner', 'admin', 'customer'] },
+      venueSnapshot: {
+        businessName: String,
+        sku: String,
+        city: String,
+        state: String
+      }
+    }
   ]
 }, { timestamps: true });
 

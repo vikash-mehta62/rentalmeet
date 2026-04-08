@@ -8,7 +8,9 @@ const {
   getOwnerCoupons,
   getCouponUsage,
   updateCoupon,
-  deleteCoupon
+  deleteCoupon,
+  recordDownload,
+  getOwnerDownloads
 } = require('../controllers/couponController');
 
 // All routes require authentication and owner role
@@ -195,6 +197,30 @@ router.get('/coupons', getOwnerCoupons);
 router.get('/coupons/:id', getCouponUsage);
 router.put('/coupons/:id', updateCoupon);
 router.delete('/coupons/:id', deleteCoupon);
+router.post('/coupons/:id/download', recordDownload);
+router.get('/coupon-downloads', getOwnerDownloads);
+
+// Owner: Get quotation downloads for their venues
+router.get('/quotation-downloads', async (req, res) => {
+  try {
+    const QuotationDownload = require('../models/QuotationDownload');
+    // Get all venues owned by this owner
+    const ownerVenues = await Venue.find({ owner: req.user._id }).select('_id');
+    const venueIds = ownerVenues.map(v => v._id);
+
+    const filter = { venue: { $in: venueIds } };
+    if (req.query.venueId) filter.venue = req.query.venueId;
+
+    const records = await QuotationDownload.find(filter)
+      .populate('venue', 'businessName sku location')
+      .populate('customer', 'name email phone')
+      .sort('-downloadedAt');
+
+    res.json({ success: true, total: records.length, records });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 // @route   PUT /api/owner/venues/:id/toggle-active
 // @desc    Toggle venue isActive (enable/disable listing)

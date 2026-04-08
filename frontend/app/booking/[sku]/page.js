@@ -665,7 +665,10 @@ export default function BookingPage() {
             specialRequirements: formData.specialRequirements
           }}
           pricing={pricing}
+          selectedAmenities={selectedAmenities}
+          quantities={quantities}
           onClose={() => setShowQuotation(false)}
+          token={token}
         />
       )}
     </div>

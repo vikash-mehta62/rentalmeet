@@ -6,7 +6,7 @@ import OwnerLayout from '@/components/owner/OwnerLayout';
 import toast from 'react-hot-toast';
 import {
   Tag, Plus, Trash2, Eye, ToggleLeft, ToggleRight,
-  Calendar, Users, Percent, IndianRupee, Copy, ChevronDown, ChevronUp, X, Pencil
+  Calendar, Users, Percent, IndianRupee, Copy, ChevronDown, ChevronUp, X, Pencil, Download, FileText
 } from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
@@ -21,6 +21,9 @@ export default function OwnerCoupons() {
   const [usageData, setUsageData] = useState({});
   const [editModal, setEditModal] = useState(null); // coupon being edited
   const [editForm, setEditForm] = useState({ maxUses: '', expiryDate: '' });
+  const [activeTab, setActiveTab] = useState('coupons'); // 'coupons' | 'downloads'
+  const [downloads, setDownloads] = useState([]);
+  const [downloadsLoading, setDownloadsLoading] = useState(false);
 
   const [form, setForm] = useState({
     venueId: '',
@@ -151,6 +154,60 @@ on();
     toast.success('Code copied!');
   };
 
+  const handleDownload = async (coupon) => {
+    try {
+      const res = await fetch(`${API}/owner/coupons/${coupon._id}/download`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!data.success) { toast.error('Failed to record download'); return; }
+
+      // Build simple text content for download
+      const venue = coupon.venue;
+      const content = [
+        `QUOTATION`,
+        `Quotation No: ${data.quotationNumber}`,
+        `Date: ${new Date().toLocaleDateString('en-IN')}`,
+        ``,
+        `Venue: ${venue?.businessName}`,
+        `SKU: ${venue?.sku}`,
+        ``,
+        `Coupon Code: ${coupon.code}`,
+        `Discount: ${coupon.discountType === 'percentage' ? `${coupon.discountValue}%${coupon.maxDiscount ? ` (max ₹${coupon.maxDiscount})` : ''}` : `₹${coupon.discountValue}`}`,
+        coupon.minBookingAmount > 0 ? `Min Booking: ₹${coupon.minBookingAmount}` : '',
+        coupon.maxUses ? `Max Uses: ${coupon.maxUses}` : 'Max Uses: Unlimited',
+        coupon.expiryDate ? `Valid Till: ${new Date(coupon.expiryDate).toLocaleDateString('en-IN')}` : 'No Expiry',
+      ].filter(Boolean).join('\n');
+
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${data.quotationNumber}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Downloaded: ${data.quotationNumber}`);
+    } catch {
+      toast.error('Download failed');
+    }
+  };
+
+  const fetchDownloads = async () => {
+    setDownloadsLoading(true);
+    try {
+      const res = await fetch(`${API}/owner/coupon-downloads`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (data.success) setDownloads(data.records);
+    } catch {}
+    setDownloadsLoading(false);
+  };
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    if (tab === 'downloads' && downloads.length === 0) fetchDownloads();
+  };
+
   const isExpired = (date) => date && new Date() > new Date(date);
 
   return (
@@ -159,20 +216,33 @@ on();
 
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div>
-            <p className="text-slate-500 text-sm">{coupons.length} coupon{coupons.length !== 1 ? 's' : ''} total</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleTabChange('coupons')}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${activeTab === 'coupons' ? 'bg-primary-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+            >
+              <Tag size={14} className="inline mr-1.5" />Coupons ({coupons.length})
+            </button>
+            <button
+              onClick={() => handleTabChange('downloads')}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${activeTab === 'downloads' ? 'bg-primary-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+            >
+              <Download size={14} className="inline mr-1.5" />Downloads
+            </button>
           </div>
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition-colors"
-          >
-            {showForm ? <X size={16} /> : <Plus size={16} />}
-            {showForm ? 'Cancel' : 'New Coupon'}
-          </button>
+          {activeTab === 'coupons' && (
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition-colors"
+            >
+              {showForm ? <X size={16} /> : <Plus size={16} />}
+              {showForm ? 'Cancel' : 'New Coupon'}
+            </button>
+          )}
         </div>
 
         {/* Create Form */}
-        {showForm && (
+        {activeTab === 'coupons' && showForm && (
           <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
             <h3 className="font-bold text-slate-800 mb-5 text-lg">Create Coupon</h3>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -278,7 +348,7 @@ on();
         )}
 
         {/* Coupons List */}
-        {loading ? (
+        {activeTab === 'coupons' && (loading ? (
           <div className="text-center py-16 text-slate-400">Loading...</div>
         ) : coupons.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
@@ -372,16 +442,26 @@ on();
                         <button onClick={() => loadUsage(coupon._id)} className="text-slate-400 hover:text-blue-600 transition-colors" title="View usage">
                           {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                         </button>
+                        <button onClick={() => handleDownload(coupon)} className="text-slate-400 hover:text-indigo-600 transition-colors" title="Download quotation">
+                          <Download size={16} />
+                        </button>
                         <button onClick={() => deleteCoupon(coupon._id)} className="text-slate-400 hover:text-red-500 transition-colors" title="Delete">
                           <Trash2 size={16} />
                         </button>
                       </div>
                     </div>
 
-                    {/* Min amount info */}
-                    {coupon.minBookingAmount > 0 && (
-                      <p className="text-xs text-slate-400 mt-2">Min booking: ₹{coupon.minBookingAmount.toLocaleString()}</p>
-                    )}
+                    {/* Quotation number + Min amount info */}
+                    <div className="flex items-center gap-4 mt-2 flex-wrap">
+                      {coupon.quotationNumber && (
+                        <span className="text-xs text-indigo-600 font-mono bg-indigo-50 px-2 py-0.5 rounded">
+                          <FileText size={10} className="inline mr-1" />{coupon.quotationNumber}
+                        </span>
+                      )}
+                      {coupon.minBookingAmount > 0 && (
+                        <p className="text-xs text-slate-400">Min booking: ₹{coupon.minBookingAmount.toLocaleString()}</p>
+                      )}
+                    </div>
                   </div>
 
                   {/* Usage Details */}
@@ -412,6 +492,49 @@ on();
               );
             })}
           </div>
+        ))}
+
+        {/* Downloads Tab */}
+        {activeTab === 'downloads' && (
+          downloadsLoading ? (
+            <div className="text-center py-16 text-slate-400">Loading...</div>
+          ) : downloads.length === 0 ? (
+            <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
+              <Download className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-slate-500 font-medium">No downloads yet</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Quotation No</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Coupon</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Venue</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Downloaded By</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {downloads.map((d, i) => (
+                    <tr key={i} className="hover:bg-slate-50">
+                      <td className="px-4 py-3 font-mono text-indigo-600 text-xs">{d.quotationNumber}</td>
+                      <td className="px-4 py-3 font-semibold text-slate-700">{d.couponCode}</td>
+                      <td className="px-4 py-3">
+                        <p className="text-slate-700">{d.venueSnapshot?.businessName || d.venue?.businessName}</p>
+                        <p className="text-xs text-slate-400">{d.venueSnapshot?.city}, {d.venueSnapshot?.state}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="text-slate-700">{d.downloadedBy?.name || 'You'}</p>
+                        <span className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">{d.role}</span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 text-xs">{new Date(d.downloadedAt).toLocaleString('en-IN')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
         )}
       </div>
 
