@@ -84,6 +84,9 @@ const { getActiveHeroSlides, getPublicContactSettings } = require('./controllers
 app.get('/api/hero-slides', getActiveHeroSlides);
 app.get('/api/contact-settings', getPublicContactSettings);
 
+// FAQ routes
+app.use('/api/faqs', require('./routes/faqs'));
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date() });

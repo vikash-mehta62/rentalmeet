@@ -578,6 +578,22 @@
         "security": []
       }
     },
+    "/api/venues/generate-quotation-number": {
+      "get": {
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "tags": [
+          "Venues"
+        ]
+      }
+    },
     "/api/venues/{id}/coupons": {
       "get": {
         "description": "",
@@ -813,16 +829,25 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "quotationNumber": {
+                    "example": "any"
+                  },
+                  "action": {
+                    "example": "any"
+                  },
+                  "totalAmount": {
+                    "example": "any"
+                  },
+                  "venueSnapshot": {
+                    "example": "any"
+                  },
                   "customerSnapshot": {
                     "example": "any"
                   },
                   "bookingSnapshot": {
                     "example": "any"
                   },
-                  "totalAmount": {
-                    "example": "any"
-                  },
-                  "quotationNumber": {
+                  "priceSnapshot": {
                     "example": "any"
                   }
                 }
