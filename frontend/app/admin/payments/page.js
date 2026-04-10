@@ -11,42 +11,67 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import InvoiceDownload from '@/components/booking/InvoiceDownload';
+import PaymentHistoryModal from '@/components/admin/PaymentHistoryModal';
 
 export default function AdminPayments() {
   const { token } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [payments, setPayments] = useState([]);
   const [filteredPayments, setFilteredPayments] = useState([]);
+  const [stats, setStats] = useState({ total: 0, paid: 0, pending: 0, failed: 0, refunded: 0, totalRevenue: 0, ownerEarnings: 0 });
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [ledgerAction, setLedgerAction] = useState(null); // 'payment' | 'refund'
+  const [ledgerAction, setLedgerAction] = useState(null);
   const [ledgerForm, setLedgerForm] = useState({ amount: '', note: '', txnId: '' });
   const [ledgerSubmitting, setLedgerSubmitting] = useState(false);
+  const [historyBooking, setHistoryBooking] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
+  const [analyticsPeriod, setAnalyticsPeriod] = useState('all');
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [dateFilter, setDateFilter] = useState('all');
+  const [yearFilter, setYearFilter] = useState('');
+  const [fyFilter, setFyFilter] = useState('');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
 
-  useEffect(() => {
-    if (token) {
-      fetchPayments();
-    }
-  }, [token]);
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+  // FY options: e.g. "2024-25"
+  const fyOptions = Array.from({ length: 5 }, (_, i) => {
+    const y = currentYear - i;
+    return `${y}-${String(y + 1).slice(-2)}`;
+  });
 
+  useEffect(() => { if (token) fetchPayments(); }, [token]);
+  useEffect(() => { if (token && showAnalytics) fetchAnalytics(); }, [token, analyticsPeriod, showAnalytics]);
   useEffect(() => {
-    filterPayments();
-  }, [payments, statusFilter, searchQuery]);
+    if (token) fetchPayments();
+  }, [statusFilter, dateFilter, yearFilter, fyFilter, customFrom, customTo, searchQuery]);
 
   const fetchPayments = async () => {
+    setLoading(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/payments`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const params = new URLSearchParams();
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+      if (dateFilter !== 'all') params.set('dateFilter', dateFilter);
+      if (dateFilter === 'year' && yearFilter) params.set('year', yearFilter);
+      if (dateFilter === 'fy' && fyFilter) params.set('fyYear', fyFilter.split('-')[0]);
+      if (dateFilter === 'custom' && customFrom) params.set('from', customFrom);
+      if (dateFilter === 'custom' && customTo) params.set('to', customTo);
+      if (searchQuery) params.set('search', searchQuery);
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/payments?${params.toString()}`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
       const data = await response.json();
-      
       if (data.success) {
         setPayments(data.payments);
         setFilteredPayments(data.payments);
+        if (data.stats) setStats(data.stats);
       }
     } catch (error) {
       console.error('Error fetching payments:', error);
@@ -56,23 +81,84 @@ export default function AdminPayments() {
     }
   };
 
-  const filterPayments = () => {
-    let filtered = [...payments];
-
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(p => p.paymentStatus === statusFilter);
-    }
-
-    if (searchQuery) {
-      filtered = filtered.filter(p =>
-        p.paymentDetails?.paymentId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.paymentDetails?.orderId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.customer?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.venue?.businessName?.toLowerCase().includes(searchQuery.toLowerCase())
+  const fetchAnalytics = async () => {
+    setAnalyticsLoading(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/payments/venue-analytics?period=${analyticsPeriod}`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
       );
+      const data = await res.json();
+      if (data.success) setAnalytics(data);
+    } catch (e) {
+      console.error('Analytics fetch error:', e);
+    } finally {
+      setAnalyticsLoading(false);
     }
+  };
 
-    setFilteredPayments(filtered);
+  // filterPayments removed — backend handles all filtering
+
+  // CSV Export — exports currently filtered data
+  const exportCSV = () => {
+    if (filteredPayments.length === 0) { toast.error('No data to export'); return; }
+
+    // Build filename with active filter info
+    let filterLabel = 'all';
+    if (dateFilter === 'today') filterLabel = 'today';
+    else if (dateFilter === 'week') filterLabel = 'this_week';
+    else if (dateFilter === 'month') filterLabel = 'this_month';
+    else if (dateFilter === 'year' && yearFilter) filterLabel = `year_${yearFilter}`;
+    else if (dateFilter === 'fy' && fyFilter) filterLabel = `FY_${fyFilter}`;
+    else if (dateFilter === 'custom' && customFrom && customTo) filterLabel = `${customFrom}_to_${customTo}`;
+    if (statusFilter !== 'all') filterLabel += `_${statusFilter}`;
+
+    const headers = [
+      'S.No', 'Booking No', 'Payment ID', 'Order ID',
+      'Customer', 'Email', 'Phone',
+      'Venue', 'City',
+      'Booking Date', 'Booking Type',
+      'Base Price', 'GST', 'Platform Fee', 'Discount', 'Total Amount',
+      'Owner Earnings', 'Payment Status', 'Booking Status',
+      'Paid At', 'Created At'
+    ];
+
+    const rows = filteredPayments.map((p, i) => {
+      const pb = p.priceBreakdown || {};
+      return [
+        i + 1,
+        p.bookingNumber || 'N/A',
+        p.paymentDetails?.razorpay_payment_id || 'N/A',
+        p.paymentDetails?.razorpay_order_id || 'N/A',
+        p.customer?.name || '',
+        p.customer?.email || '',
+        p.customerDetails?.phone || p.customer?.phone || '',
+        p.venue?.businessName || '',
+        p.venue?.location?.city || '',
+        p.bookingDate ? new Date(p.bookingDate).toLocaleDateString('en-IN') : '',
+        p.bookingType || '',
+        pb.basePrice || 0,
+        pb.gst || 0,
+        pb.platformFee || 0,
+        pb.discount || 0,
+        p.amount || 0,
+        p.ownerEarnings || 0,
+        p.paymentStatus || '',
+        p.status || '',
+        p.paymentDetails?.paidAt ? new Date(p.paymentDetails.paidAt).toLocaleDateString('en-IN') : '',
+        new Date(p.createdAt).toLocaleDateString('en-IN')
+      ];
+    });
+
+    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `payments_${filterLabel}_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${filteredPayments.length} records exported!`);
   };
 
   const openModal = (payment) => {
@@ -133,18 +219,7 @@ export default function AdminPayments() {
     );
   };
 
-  const stats = {
-    total: payments.length,
-    paid: payments.filter(p => p.paymentStatus === 'paid').length,
-    pending: payments.filter(p => p.paymentStatus === 'pending').length,
-    failed: payments.filter(p => p.paymentStatus === 'failed').length,
-    totalRevenue: payments
-      .filter(p => p.paymentStatus === 'paid')
-      .reduce((sum, p) => sum + (p.amount || 0), 0),
-    ownerEarnings: payments
-      .filter(p => p.paymentStatus === 'paid')
-      .reduce((sum, p) => sum + (p.ownerEarnings || 0), 0)
-  };
+  // stats come from backend — no frontend computation needed
 
   if (loading) {
     return (
@@ -157,66 +232,243 @@ export default function AdminPayments() {
   }
 
   return (
-    <AdminLayout title="Payments Management" subtitle={`Track all ${payments.length} transactions`}>
+    <AdminLayout title="Payments Management" subtitle={`Showing ${filteredPayments.length} transactions`}>
       <PermissionGuard permission="payments">
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
-        <div className="bg-white rounded-lg shadow-soft border border-gray-100 p-4">
-          <p className="text-xs text-gray-600 mb-1">Total</p>
-          <p className="text-2xl font-bold text-dark-800">{stats.total}</p>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+          <div className="bg-white rounded-lg shadow-soft border border-gray-100 p-3 min-w-0">
+            <p className="text-xs text-gray-500 mb-1">Total</p>
+            <p className="text-2xl font-bold text-dark-800">{stats.total}</p>
+          </div>
+          <div className="bg-green-50 rounded-lg shadow-soft border border-green-200 p-3 min-w-0">
+            <p className="text-xs text-green-600 mb-1">Paid</p>
+            <p className="text-2xl font-bold text-green-700">{stats.paid}</p>
+          </div>
+          <div className="bg-yellow-50 rounded-lg shadow-soft border border-yellow-200 p-3 min-w-0">
+            <p className="text-xs text-yellow-600 mb-1">Pending</p>
+            <p className="text-2xl font-bold text-yellow-700">{stats.pending}</p>
+          </div>
+          <div className="bg-red-50 rounded-lg shadow-soft border border-red-200 p-3 min-w-0">
+            <p className="text-xs text-red-600 mb-1">Failed</p>
+            <p className="text-2xl font-bold text-red-700">{stats.failed}</p>
+          </div>
+          <div className="bg-blue-50 rounded-lg shadow-soft border border-blue-200 p-3 min-w-0">
+            <p className="text-xs text-blue-600 mb-1">Paid Amount</p>
+            <p className="text-base font-bold text-blue-700 truncate">₹{stats.totalRevenue.toLocaleString('en-IN')}</p>
+          </div>
+          <div className="bg-teal-50 rounded-lg shadow-soft border border-teal-200 p-3 min-w-0">
+            <p className="text-xs text-teal-600 mb-1">Owner Earnings</p>
+            <p className="text-base font-bold text-teal-700 truncate">₹{stats.ownerEarnings.toLocaleString('en-IN')}</p>
+          </div>
         </div>
-        <div className="bg-green-50 rounded-lg shadow-soft border border-green-200 p-4">
-          <p className="text-xs text-green-600 mb-1">Paid</p>
-          <p className="text-2xl font-bold text-green-700">{stats.paid}</p>
+
+      {/* ── Top Venues Analytics — collapsible tab ── */}
+      <div className="mb-6">
+        <button
+          onClick={() => setShowAnalytics(p => !p)}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors border ${
+            showAnalytics
+              ? 'bg-primary-600 text-white border-primary-600'
+              : 'bg-white text-gray-700 border-gray-200 hover:border-primary-400 hover:text-primary-600'
+          }`}
+        >
+          <TrendingUp className="w-4 h-4" />
+          Top Venues Performance
+          {analytics?.summary && showAnalytics && (
+            <span className="ml-1 text-xs opacity-80">· {analytics.summary.uniqueVenueCount} venues</span>
+          )}
+          <span className="ml-1 text-xs opacity-70">{showAnalytics ? '▲' : '▼'}</span>
+        </button>
+
+        {showAnalytics && (
+      <div className="bg-white rounded-xl shadow-soft border border-gray-100 p-5 mt-3">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-bold text-gray-900">Top Venues Performance</h2>
+            {analytics?.summary && (
+              <span className="text-xs text-gray-500 ml-1">
+                · {analytics.summary.uniqueVenueCount} venues · {analytics.summary.totalBookings} bookings
+              </span>
+            )}
+          </div>
+          <div className="flex gap-1.5">
+            {[
+              { val: 'all',   label: 'All Time' },
+              { val: 'month', label: 'This Month' },
+              { val: 'week',  label: 'This Week' },
+              { val: 'year',  label: 'This Year' },
+            ].map(opt => (
+              <button key={opt.val} onClick={() => setAnalyticsPeriod(opt.val)}
+                className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                  analyticsPeriod === opt.val
+                    ? 'bg-primary-500 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}>
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="bg-yellow-50 rounded-lg shadow-soft border border-yellow-200 p-4">
-          <p className="text-xs text-yellow-600 mb-1">Pending</p>
-          <p className="text-2xl font-bold text-yellow-700">{stats.pending}</p>
-        </div>
-        <div className="bg-red-50 rounded-lg shadow-soft border border-red-200 p-4">
-          <p className="text-xs text-red-600 mb-1">Failed</p>
-          <p className="text-2xl font-bold text-red-700">{stats.failed}</p>
-        </div>
-        <div className="bg-blue-50 rounded-lg shadow-soft border border-blue-200 p-4">
-          <p className="text-xs text-blue-600 mb-1">Paid Amount</p>
-          <p className="text-xl font-bold text-blue-700">₹{stats.totalRevenue.toLocaleString()}</p>
-        </div>
-        <div className="bg-teal-50 rounded-lg shadow-soft border border-teal-200 p-4">
-          <p className="text-xs text-teal-600 mb-1">Owner Earnings</p>
-          <p className="text-xl font-bold text-teal-700">₹{stats.ownerEarnings.toLocaleString()}</p>
-        </div>
+
+        {analyticsLoading ? (
+          <div className="flex items-center justify-center py-10">
+            <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : analytics && analytics.topVenues && analytics.topVenues.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 text-xs text-gray-500 uppercase">
+                  <th className="px-4 py-2.5 text-left">#</th>
+                  <th className="px-4 py-2.5 text-left">Venue</th>
+                  <th className="px-4 py-2.5 text-center">Bookings</th>
+                  <th className="px-4 py-2.5 text-center">Confirmed</th>
+                  <th className="px-4 py-2.5 text-center">Completed</th>
+                  <th className="px-4 py-2.5 text-center">Cancelled</th>
+                  <th className="px-4 py-2.5 text-right">Total Revenue</th>
+                  <th className="px-4 py-2.5 text-right">Paid Revenue</th>
+                  <th className="px-4 py-2.5 text-right">Avg Booking</th>
+                  <th className="px-4 py-2.5 text-right">Owner Earnings</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {analytics.topVenues.map((v, i) => {
+                  const total = v.totalBookings || 1;
+                  const successRate = Math.round(((v.confirmedCount + v.completedCount) / total) * 100);
+                  return (
+                    <tr key={v._id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3">
+                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                          i === 0 ? 'bg-yellow-100 text-yellow-700' :
+                          i === 1 ? 'bg-gray-200 text-gray-600' :
+                          i === 2 ? 'bg-orange-100 text-orange-600' :
+                          'bg-gray-100 text-gray-500'
+                        }`}>{i + 1}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {v.venue?.images?.[0]?.url
+                              ? <img src={v.venue.images[0].url} alt="" className="w-full h-full object-cover" />
+                              : <Building2 className="w-4 h-4 text-gray-400" />}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-800 text-xs">{v.venue?.businessName || 'Unknown'}</p>
+                            <p className="text-xs text-gray-400">{v.venue?.location?.city}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="font-bold text-gray-800">{v.totalBookings}</span>
+                        <div className="w-full bg-gray-200 rounded-full h-1 mt-1">
+                          <div className="bg-primary-500 h-1 rounded-full" style={{ width: `${successRate}%` }} />
+                        </div>
+                        <p className="text-[10px] text-gray-400 mt-0.5">{successRate}% success</p>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">{v.confirmedCount}</span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-semibold">{v.completedCount}</span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-semibold">{v.cancelledCount}</span>
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-gray-800">₹{(v.totalRevenue || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right font-bold text-green-600">₹{(v.paidRevenue || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right text-gray-600">₹{Math.round(v.avgBookingValue || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right font-bold text-primary-600">₹{(v.ownerEarnings || 0).toLocaleString()}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-10 text-gray-400">
+            <Building2 className="w-10 h-10 mx-auto mb-2 opacity-40" />
+            <p className="text-sm">No data available</p>
+          </div>
+        )}
+      </div>
+        )}
       </div>
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow-soft border border-gray-100 p-4 mb-6">
-        <div className="flex flex-col md:flex-row gap-4">
-          {/* Search */}
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search by payment ID, order ID, customer, or venue..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-            />
-          </div>
-
-          {/* Status Filter */}
-          <div className="flex items-center gap-2">
-            <Filter className="w-5 h-5 text-gray-600" />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white"
-            >
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col md:flex-row gap-3">
+            {/* Search */}
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by payment ID, customer, or venue..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+            {/* Status Filter */}
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white">
               <option value="all">All Status</option>
               <option value="paid">Paid</option>
               <option value="pending">Pending</option>
               <option value="failed">Failed</option>
               <option value="refunded">Refunded</option>
             </select>
+            {/* CSV Export */}
+            <button onClick={exportCSV}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold text-sm transition-colors">
+              <Download className="w-4 h-4" /> Export CSV
+            </button>
           </div>
+
+          {/* Date Filters Row */}
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Filter by:</span>
+            {[
+              { val: 'all', label: 'All Time' },
+              { val: 'today', label: 'Today' },
+              { val: 'week', label: 'This Week' },
+              { val: 'month', label: 'This Month' },
+              { val: 'year', label: 'Year' },
+              { val: 'fy', label: 'Financial Year' },
+              { val: 'custom', label: 'Custom Range' },
+            ].map(opt => (
+              <button key={opt.val} onClick={() => setDateFilter(opt.val)}
+                className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                  dateFilter === opt.val ? 'bg-primary-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}>
+                {opt.label}
+              </button>
+            ))}
+            {dateFilter === 'year' && (
+              <select value={yearFilter} onChange={e => setYearFilter(e.target.value)}
+                className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
+                <option value="">Select Year</option>
+                {years.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            )}
+            {dateFilter === 'fy' && (
+              <select value={fyFilter} onChange={e => setFyFilter(e.target.value)}
+                className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
+                <option value="">Select FY</option>
+                {fyOptions.map(fy => <option key={fy} value={fy}>FY {fy}</option>)}
+              </select>
+            )}
+            {dateFilter === 'custom' && (
+              <div className="flex items-center gap-2">
+                <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
+                  className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500" />
+                <span className="text-gray-400 text-xs">to</span>
+                <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
+                  className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500" />
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-gray-500">Showing {filteredPayments.length} payments</p>
         </div>
       </div>
 
@@ -252,10 +504,10 @@ export default function AdminPayments() {
                     </td>
                     <td className="px-6 py-4">
                       <p className="font-mono text-xs font-semibold text-dark-800">
-                        {payment.paymentDetails?.paymentId?.slice(0, 20) || 'N/A'}...
+                        {payment.paymentDetails?.razorpay_payment_id?.slice(0, 20) || 'N/A'}...
                       </p>
                       <p className="font-mono text-xs text-gray-500">
-                        {payment.paymentDetails?.orderId?.slice(0, 20) || 'N/A'}...
+                        {payment.paymentDetails?.razorpay_order_id?.slice(0, 20) || 'N/A'}...
                       </p>
                     </td>
                     <td className="px-6 py-4">
@@ -305,6 +557,13 @@ export default function AdminPayments() {
                       >
                         <Eye className="w-4 h-4" />
                         View
+                      </button>
+                      <button
+                        onClick={() => setHistoryBooking(payment)}
+                        className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold transition-colors"
+                        title="Payment History"
+                      >
+                        <History className="w-4 h-4" />
                       </button>
                     </td>
                   </tr>
@@ -360,13 +619,13 @@ export default function AdminPayments() {
                   <div className="bg-white rounded-lg p-3">
                     <p className="text-gray-600 mb-1">Payment ID</p>
                     <p className="font-mono text-xs font-semibold text-gray-900 break-all">
-                      {selectedPayment.paymentDetails?.paymentId || 'N/A'}
+                      {selectedPayment.paymentDetails?.razorpay_payment_id || 'N/A'}
                     </p>
                   </div>
                   <div className="bg-white rounded-lg p-3">
                     <p className="text-gray-600 mb-1">Order ID</p>
                     <p className="font-mono text-xs font-semibold text-gray-900 break-all">
-                      {selectedPayment.paymentDetails?.orderId || 'N/A'}
+                      {selectedPayment.paymentDetails?.razorpay_order_id || 'N/A'}
                     </p>
                   </div>
                   {selectedPayment.paymentDetails?.paidAt && (
@@ -644,6 +903,18 @@ export default function AdminPayments() {
             </div>
           </div>
         </div>
+      )}
+      {/* Payment History Modal */}
+      {historyBooking && (
+        <PaymentHistoryModal
+          booking={historyBooking}
+          token={token}
+          onClose={() => setHistoryBooking(null)}
+          onUpdate={(updated) => {
+            setHistoryBooking(updated);
+            setPayments(prev => prev.map(p => p._id === updated._id ? updated : p));
+          }}
+        />
       )}
       </PermissionGuard>
     </AdminLayout>

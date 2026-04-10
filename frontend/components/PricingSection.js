@@ -58,10 +58,9 @@ export default function PricingSection() {
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="text-center mb-12">
-            <p className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-2">PRICING</p>
+            <p className="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-4">Pricing</p>
         <h2 
-className="text-[52px] md:text-[64px] font-semibold leading-[1.1] text-gray-900 dark:text-slate-100"
-style={{ fontFamily: 'Playfair Display, serif' }}
+className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-slate-100"
 >              Exclusive Packages
             </h2>
             <p className="text-base md:text-lg text-gray-600 dark:text-slate-300 max-w-2xl mx-auto">
@@ -97,7 +96,7 @@ style={{ fontFamily: 'Playfair Display, serif' }}
                 </div>
 
                 {/* Duration */}
-                <h3 className="text-xl font-bold text-gray-900 dark:text-slate-100 text-center mb-3">
+                <h3 className="font-serif text-xl font-bold text-gray-900 dark:text-slate-100 text-center mb-3">
                   {plan.duration}
                 </h3>
 
@@ -133,10 +132,9 @@ style={{ fontFamily: 'Playfair Display, serif' }}
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="text-center mb-12">
-            <p className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-2">WHY CHOOSE US</p>
+            <p className="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-4">Why Choose Us</p>
         <h2 
-className="text-[52px] md:text-[64px] font-semibold leading-[1.1] text-gray-900 dark:text-slate-100"
-style={{ fontFamily: 'Playfair Display, serif' }}
+className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-slate-100"
 >              Trusted by Professionals
             </h2>
           </div>
@@ -158,7 +156,7 @@ style={{ fontFamily: 'Playfair Display, serif' }}
                   </div>
 
                   {/* Title */}
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-slate-100 mb-3">
+                  <h3 className="font-serif text-xl font-semibold text-gray-900 dark:text-slate-100 mb-3">
                     {feature.title}
                   </h3>
 

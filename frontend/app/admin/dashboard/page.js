@@ -6,7 +6,7 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import PermissionGuard from '@/components/admin/PermissionGuard';
 import {
   Building2, Users, BookOpen, IndianRupee,
-  Calendar, CheckCircle, Clock, UserCheck, UserCog
+  Calendar, CheckCircle, Clock, UserCheck, UserCog, FileDown
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -16,7 +16,7 @@ export default function AdminDashboard() {
     totalVenues: 0, pendingVenues: 0, approvedVenues: 0,
     totalUsers: 0, totalOwners: 0, totalCustomers: 0,
     totalBookings: 0, pendingBookings: 0, confirmedBookings: 0, completedBookings: 0,
-    totalRevenue: 0
+    totalRevenue: 0, totalQuotationDownloads: 0
   });
 
   useEffect(() => {
@@ -71,14 +71,6 @@ export default function AdminDashboard() {
       light: 'bg-teal-50 text-teal-600'
     },
     {
-      title: 'Total Revenue',
-      value: `₹${(stats.totalRevenue || 0).toLocaleString('en-IN')}`,
-      sub: 'From confirmed & completed',
-      icon: IndianRupee,
-      gradient: 'from-amber-500 to-orange-600',
-      light: 'bg-amber-50 text-amber-600'
-    },
-    {
       title: 'Owners',
       value: stats.totalOwners,
       sub: 'Registered venue owners',
@@ -101,6 +93,14 @@ export default function AdminDashboard() {
       icon: Clock,
       gradient: 'from-yellow-500 to-yellow-600',
       light: 'bg-yellow-50 text-yellow-600'
+    },
+    {
+      title: 'Quotation Downloads',
+      value: stats.totalQuotationDownloads,
+      sub: 'Total quotations downloaded',
+      icon: FileDown,
+      gradient: 'from-indigo-500 to-indigo-700',
+      light: 'bg-indigo-50 text-indigo-600'
     },
   ];
 

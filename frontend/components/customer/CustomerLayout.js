@@ -42,7 +42,7 @@ export default function CustomerLayout({ children, activePage = 'dashboard' }) {
       
       {/* --- SIDEBAR (OWNER PANEL DESIGN) --- */}
       <aside 
-        className={`fixed top-[30px] bottom-0 left-0 z-50 bg-[#0f172a] text-white transition-all duration-300 ease-in-out border-r border-slate-800
+        className={`fixed top-[30px] bottom-0 left-0 z-50 bg-[#F1F5F9] text-slate-700 transition-all duration-300 ease-in-out border-r border-slate-200
           ${isCollapsed ? 'w-20' : 'w-72'} 
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
@@ -51,23 +51,19 @@ export default function CustomerLayout({ children, activePage = 'dashboard' }) {
           {/* Desktop Collapse Toggle */}
           <button 
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="hidden lg:flex absolute -right-3 top-10 w-6 h-6 bg-primary-600 rounded-full items-center justify-center border-2 border-[#0f172a] hover:bg-primary-500 transition-colors z-50 shadow-lg"
+            className="hidden lg:flex absolute -right-3 top-10 w-6 h-6 bg-primary-600 rounded-full items-center justify-center border-2 border-[#F1F5F9] hover:bg-primary-500 transition-colors z-50 shadow-lg"
           >
             {isCollapsed ? <ChevronRight size={14} className="text-white" /> : <ChevronLeft size={14} className="text-white" />}
           </button>
 
-          {/* Logo Section (Premium White Box) */}
+          {/* Logo Section */}
           <div className={`pt-10 pb-6 flex items-center justify-center transition-all duration-300`}>
             <Link href="/" className="block group">
               <div className={`
-                relative bg-white p-2 rounded-2xl shadow-2xl shadow-black/40 overflow-hidden transition-all duration-500
+                relative bg-white p-2 rounded-2xl shadow-md overflow-hidden transition-all duration-500
                 ${isCollapsed ? 'w-12 h-12 rounded-lg' : 'w-48 h-20'}
               `}>
-                <img 
-                  src="/logo-new.jpeg" 
-                  alt="Logo" 
-                  className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105" 
-                />
+                <img src="/logo.png" alt="Logo" className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105" />
               </div>
             </Link>
           </div>
@@ -84,11 +80,11 @@ export default function CustomerLayout({ children, activePage = 'dashboard' }) {
                   href={item.href}
                   className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all group relative ${
                     isActive
-                      ? 'bg-primary-600/10 text-primary-400 border border-primary-500/20 shadow-inner'
-                      : 'text-slate-400 hover:bg-slate-800/60 hover:text-white border border-transparent'
+                      ? 'bg-primary-500 text-white border border-primary-400 shadow-md'
+                      : 'text-slate-600 hover:bg-slate-200 hover:text-slate-900 border border-transparent'
                   }`}
                 >
-                  <Icon className={`w-5 h-5 flex-shrink-0 transition-transform duration-300 group-hover:scale-110 ${isActive ? 'text-primary-400' : 'text-slate-400 group-hover:text-primary-400'}`} />
+                  <Icon className={`w-5 h-5 flex-shrink-0 transition-transform duration-300 group-hover:scale-110 ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-primary-600'}`} />
                   {!isCollapsed && <span className="text-sm font-bold whitespace-nowrap">{item.label}</span>}
                   
                   {isCollapsed && (
@@ -101,23 +97,20 @@ export default function CustomerLayout({ children, activePage = 'dashboard' }) {
             })}
           </nav>
 
-          {/* Sidebar Footer (User Card & Logout) */}
-          <div className="mt-auto p-4 border-t border-slate-800/50 bg-[#0d1321]">
+          <div className="mt-auto p-4 border-t border-slate-200 bg-slate-100">
             {!isCollapsed && (
-              <div className="mb-4 relative group p-4 rounded-2xl bg-gradient-to-br from-slate-800/40 to-slate-900/60 border border-slate-700/50 transition-all hover:border-primary-500/30">
+              <div className="mb-4 relative group p-4 rounded-2xl bg-white border border-slate-200 transition-all hover:border-primary-500/30">
                 <div className="flex items-center gap-3 relative z-10">
                   <div className="relative">
                     <img 
                       src={user?.profilePicture || `https://ui-avatars.com/api/?name=${user?.name}&background=0EA5E9&color=fff&bold=true`} 
-                      className="w-10 h-10 rounded-xl border-2 border-slate-700 shadow-lg transition-all"
+                      className="w-10 h-10 rounded-xl border-2 border-slate-200 shadow-lg transition-all"
                       alt="avatar"
                     />
-                    <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-[#0d1321] rounded-full"></div>
+                    <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-slate-100 rounded-full"></div>
                   </div>
                   <div className="flex flex-col min-w-0">
-                    <span className="text-sm font-black text-white truncate leading-tight tracking-tight italic">
-                      {user?.name || 'Customer'}
-                    </span>
+                    <span className="text-sm font-black text-slate-800 truncate leading-tight">{user?.name || 'Customer'}</span>
                     <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">Premium Member</span>
                   </div>
                 </div>

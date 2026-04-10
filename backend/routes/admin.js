@@ -15,10 +15,12 @@ const {
   getAllUsers,
   getUser,
   updateUserStatus,
+  resetUserPassword,
   getAllBookings,
   getBooking,
   getAllPayments,
   getPayment,
+  getVenueAnalytics,
   getReports,
   getTermsConditions,
   updateTermsConditions,
@@ -78,6 +80,22 @@ router.route('/subadmins/:id')
 router.put('/subadmins/:id/status', protect, authorize('admin'), toggleSubAdminStatus);
 
 // Venue routes
+// Admin: Get ALL venues (all statuses) — protected
+router.get('/venues', protect, authorize('admin', 'subadmin'), checkPermission('venues'), async (req, res) => {
+  try {
+    const Venue = require('../models/Venue');
+    const { status, limit = 1000 } = req.query;
+    const query = {};
+    if (status && status !== 'all') query.status = status;
+    const venues = await Venue.find(query)
+      .populate('owner', 'name email phone')
+      .sort('-createdAt')
+      .limit(parseInt(limit));
+    res.json({ success: true, count: venues.length, venues });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
 router.get('/venues/pending', protect, authorize('admin'), checkPermission('venues'), getPendingVenues);
 router.put('/venues/:id/approve', protect, authorize('admin'), checkPermission('venues'), approveVenue);
 router.put('/venues/:id/reject', protect, authorize('admin'), checkPermission('venues'), rejectVenue);
@@ -89,12 +107,14 @@ router.put('/venues/:id/settings', protect, authorize('admin'), checkPermission(
 router.get('/users', protect, authorize('admin'), checkPermission('users'), getAllUsers);
 router.get('/users/:id', protect, authorize('admin'), checkPermission('users'), getUser);
 router.put('/users/:id/status', protect, authorize('admin'), checkPermission('users'), updateUserStatus);
+router.put('/users/:id/reset-password', protect, authorize('admin'), checkPermission('users'), resetUserPassword);
 
 // Booking routes
 router.get('/bookings', protect, authorize('admin'), checkPermission('bookings'), getAllBookings);
 router.get('/bookings/:id', protect, authorize('admin'), checkPermission('bookings'), getBooking);
 
 // Payment routes
+router.get('/payments/venue-analytics', protect, authorize('admin'), checkPermission('payments'), getVenueAnalytics);
 router.get('/payments', protect, authorize('admin'), checkPermission('payments'), getAllPayments);
 router.get('/payments/:id', protect, authorize('admin'), checkPermission('payments'), getPayment);
 
@@ -201,13 +221,11 @@ router.get('/reports', protect, authorize('admin'), checkPermission('reports'), 
 router.get('/earnings', protect, authorize('admin'), checkPermission('reports'), getEarningsReport);
 router.get('/stats', protect, authorize('admin'), checkPermission('dashboard'), getDashboardStats);
 
-// Admin: Get all coupons (with optional venue filter)
+// Admin: Get all coupons (global + venue-specific)
 router.get('/coupons', protect, authorize('admin'), async (req, res) => {
   try {
     const Coupon = require('../models/Coupon');
-    const filter = {};
-    if (req.query.venueId) filter.venue = req.query.venueId;
-    const coupons = await Coupon.find(filter)
+    const coupons = await Coupon.find({})
       .populate('venue', 'businessName location sku')
       .populate('owner', 'name email')
       .sort('-createdAt');
@@ -217,10 +235,60 @@ router.get('/coupons', protect, authorize('admin'), async (req, res) => {
   }
 });
 
-// Admin: Get all download history (venue-wise)
-const { getAdminDownloads, recordDownload } = require('../controllers/couponController');
-router.get('/coupon-downloads', protect, authorize('admin'), getAdminDownloads);
-router.post('/coupons/:id/download', protect, authorize('admin'), recordDownload);
+// Admin: Create global coupon
+router.post('/coupons', protect, authorize('admin'), async (req, res) => {
+  try {
+    const Coupon = require('../models/Coupon');
+    const { code, discountType, discountValue, maxDiscount, minBookingAmount, maxUses, expiryDate } = req.body;
+    if (!code || !discountType || !discountValue) {
+      return res.status(400).json({ success: false, message: 'code, discountType and discountValue are required' });
+    }
+    const existing = await Coupon.findOne({ code: code.toUpperCase().trim() });
+    if (existing) return res.status(400).json({ success: false, message: 'Coupon code already exists' });
+
+    const coupon = await Coupon.create({
+      code: code.toUpperCase().trim(),
+      venue: null,
+      owner: null,
+      discountType,
+      discountValue: Number(discountValue),
+      maxDiscount: maxDiscount ? Number(maxDiscount) : null,
+      minBookingAmount: minBookingAmount ? Number(minBookingAmount) : 0,
+      maxUses: maxUses ? Number(maxUses) : null,
+      expiryDate: expiryDate || null,
+      isActive: true
+    });
+    res.json({ success: true, coupon });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// Admin: Toggle coupon active/inactive
+router.put('/coupons/:id/toggle', protect, authorize('admin'), async (req, res) => {
+  try {
+    const Coupon = require('../models/Coupon');
+    const coupon = await Coupon.findById(req.params.id);
+    if (!coupon) return res.status(404).json({ success: false, message: 'Not found' });
+    coupon.isActive = !coupon.isActive;
+    coupon.deactivatedAt = coupon.isActive ? null : new Date();
+    await coupon.save();
+    res.json({ success: true, coupon });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// Admin: Delete coupon
+router.delete('/coupons/:id', protect, authorize('admin'), async (req, res) => {
+  try {
+    const Coupon = require('../models/Coupon');
+    await Coupon.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Deleted' });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
 
 // Admin: Get all quotation downloads
 router.get('/quotation-downloads', protect, authorize('admin'), async (req, res) => {

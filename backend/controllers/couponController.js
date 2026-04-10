@@ -115,11 +115,19 @@ exports.validateCoupon = async (req, res) => {
   try {
     const { code, venueId, bookingAmount } = req.body;
 
-    const coupon = await Coupon.findOne({
+    // Try venue-specific first, then global (venue: null)
+    let coupon = await Coupon.findOne({
       code: code.toUpperCase().trim(),
       venue: venueId,
       isActive: true
     });
+    if (!coupon) {
+      coupon = await Coupon.findOne({
+        code: code.toUpperCase().trim(),
+        venue: null,
+        isActive: true
+      });
+    }
 
     if (!coupon) return res.status(404).json({ success: false, message: 'Invalid coupon code' });
 
@@ -166,20 +174,18 @@ exports.validateCoupon = async (req, res) => {
   }
 };
 
-// ─── Public: Get active valid coupons for a venue ───────────────────────────
+// ─── Public: Get active valid coupons for a venue (venue-specific + global) ──
 exports.getVenueCoupons = async (req, res) => {
   try {
     const venueId = req.params.venueId || req.params.id;
     const now = new Date();
     const coupons = await Coupon.find({
-      venue: venueId,
+      $or: [{ venue: venueId }, { venue: null }],
       isActive: true,
       $or: [{ expiryDate: null }, { expiryDate: { $gt: now } }]
     }).select('code discountType discountValue maxDiscount minBookingAmount maxUses usedCount expiryDate');
 
-    // Filter out limit-reached coupons
     const valid = coupons.filter(c => c.maxUses === null || c.usedCount < c.maxUses);
-
     res.json({ success: true, coupons: valid });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

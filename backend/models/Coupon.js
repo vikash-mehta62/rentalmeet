@@ -10,12 +10,14 @@ const couponSchema = new mongoose.Schema({
   venue: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Venue',
-    required: true
+    required: false,  // null = global coupon (applies to all venues)
+    default: null
   },
   owner: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: false,
+    default: null
   },
   discountType: {
     type: String,
@@ -91,7 +93,7 @@ const couponSchema = new mongoose.Schema({
   ]
 }, { timestamps: true });
 
-// Compound unique: same code can't be used twice for same venue
-couponSchema.index({ code: 1, venue: 1 }, { unique: true });
+// Global coupons: unique by code. Venue-specific: unique by code+venue
+couponSchema.index({ code: 1 }, { unique: true, sparse: false });
 
 module.exports = mongoose.model('Coupon', couponSchema);

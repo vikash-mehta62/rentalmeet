@@ -6,7 +6,7 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import PermissionGuard from '@/components/admin/PermissionGuard';
 import {
   Users, Search, Filter, Eye, X, Mail, Phone, Calendar,
-  CheckCircle, XCircle, Shield, User, Building2, Download
+  CheckCircle, XCircle, Shield, User, Building2, Download, Lock, Eye as EyeIcon, EyeOff
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -22,6 +22,9 @@ export default function AdminUsers() {
   const [modalOpen, setModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [newPassword, setNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [pwdLoading, setPwdLoading] = useState(false);
 
   useEffect(() => {
     if (token) {
@@ -175,6 +178,24 @@ export default function AdminUsers() {
   const closeModal = () => {
     setSelectedUser(null);
     setModalOpen(false);
+    setNewPassword('');
+    setShowNewPassword(false);
+  };
+
+  const handleResetPassword = async () => {
+    if (!newPassword || newPassword.length < 6) return toast.error('Min 6 characters required');
+    setPwdLoading(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${selectedUser._id}/reset-password`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ newPassword })
+      });
+      const data = await res.json();
+      if (data.success) { toast.success('Password updated!'); setNewPassword(''); }
+      else toast.error(data.message || 'Failed');
+    } catch { toast.error('Something went wrong'); }
+    finally { setPwdLoading(false); }
   };
 
   const getRoleBadge = (role) => {
@@ -658,6 +679,165 @@ export default function AdminUsers() {
                   )}
                 </div>
               </div>
+
+              {/* KYC Documents — Customers */}
+              {selectedUser.role === 'customer' && (
+                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                  <h3 className="text-lg font-semibold mb-3 text-blue-900 flex items-center gap-2">
+                    <Shield className="w-5 h-5" />
+                    KYC Documents
+                    {selectedUser.kyc?.idProof && selectedUser.kyc?.selfie ? (
+                      <span className="ml-auto px-2.5 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-bold flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" /> Verified
+                      </span>
+                    ) : (
+                      <span className="ml-auto px-2.5 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-bold">
+                        Incomplete
+                      </span>
+                    )}
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* ID Proof */}
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 mb-2">
+                        ID Proof {selectedUser.kyc?.idProofType ? `(${selectedUser.kyc.idProofType})` : ''}
+                      </p>
+                      {selectedUser.kyc?.idProof ? (
+                        <div>
+                          <img src={selectedUser.kyc.idProof} alt="ID Proof"
+                            className="w-full h-36 object-contain bg-white rounded-lg border border-gray-300 p-2" />
+                          <a href={selectedUser.kyc.idProof} target="_blank" rel="noopener noreferrer"
+                            className="text-primary-600 hover:text-primary-700 text-xs mt-1.5 inline-flex items-center gap-1 font-medium">
+                            <Eye className="w-3 h-3" /> View / Download
+                          </a>
+                        </div>
+                      ) : (
+                        <div className="h-36 bg-gray-100 rounded-lg border border-dashed border-gray-300 flex items-center justify-center">
+                          <p className="text-xs text-gray-400">Not uploaded</p>
+                        </div>
+                      )}
+                    </div>
+                    {/* Selfie */}
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 mb-2">Real-time Selfie</p>
+                      {selectedUser.kyc?.selfie ? (
+                        <div>
+                          <img src={selectedUser.kyc.selfie} alt="Selfie"
+                            className="w-full h-36 object-cover rounded-lg border border-gray-300" />
+                          <a href={selectedUser.kyc.selfie} target="_blank" rel="noopener noreferrer"
+                            className="text-primary-600 hover:text-primary-700 text-xs mt-1.5 inline-flex items-center gap-1 font-medium">
+                            <Eye className="w-3 h-3" /> View / Download
+                          </a>
+                        </div>
+                      ) : (
+                        <div className="h-36 bg-gray-100 rounded-lg border border-dashed border-gray-300 flex items-center justify-center">
+                          <p className="text-xs text-gray-400">Not uploaded</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Owner Documents */}
+              {selectedUser.role === 'owner' && (
+                <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                  <h3 className="text-lg font-semibold mb-3 text-green-900 flex items-center gap-2">
+                    <Shield className="w-5 h-5" />
+                    Owner Documents
+                  </h3>
+                  {selectedUser.documents ? (
+                    <div className="space-y-4">
+                      {/* Aadhaar */}
+                      {selectedUser.documents.aadhaarNumber && (
+                        <div>
+                          <p className="text-xs font-semibold text-gray-500 mb-1">Aadhaar Number</p>
+                          <p className="text-sm font-mono bg-white px-2.5 py-1.5 rounded border border-green-300 inline-block">
+                            {selectedUser.documents.aadhaarNumber}
+                          </p>
+                          <div className="grid grid-cols-2 gap-3 mt-2">
+                            {selectedUser.documents.aadhaarFront && (
+                              <div>
+                                <p className="text-xs text-gray-500 mb-1">Front</p>
+                                <img src={selectedUser.documents.aadhaarFront} alt="Aadhaar Front"
+                                  className="w-full h-28 object-contain bg-white rounded border border-gray-300 p-1" />
+                                <a href={selectedUser.documents.aadhaarFront} target="_blank" rel="noopener noreferrer"
+                                  className="text-primary-600 text-xs mt-1 inline-flex items-center gap-1">
+                                  <Eye className="w-3 h-3" /> View
+                                </a>
+                              </div>
+                            )}
+                            {selectedUser.documents.aadhaarBack && (
+                              <div>
+                                <p className="text-xs text-gray-500 mb-1">Back</p>
+                                <img src={selectedUser.documents.aadhaarBack} alt="Aadhaar Back"
+                                  className="w-full h-28 object-contain bg-white rounded border border-gray-300 p-1" />
+                                <a href={selectedUser.documents.aadhaarBack} target="_blank" rel="noopener noreferrer"
+                                  className="text-primary-600 text-xs mt-1 inline-flex items-center gap-1">
+                                  <Eye className="w-3 h-3" /> View
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {/* PAN */}
+                      {selectedUser.documents.panNumber && (
+                        <div>
+                          <p className="text-xs font-semibold text-gray-500 mb-1">PAN Number</p>
+                          <p className="text-sm font-mono bg-white px-2.5 py-1.5 rounded border border-green-300 inline-block">
+                            {selectedUser.documents.panNumber}
+                          </p>
+                          {selectedUser.documents.panCard && (
+                            <div className="mt-2">
+                              <img src={selectedUser.documents.panCard} alt="PAN Card"
+                                className="w-full max-w-xs h-28 object-contain bg-white rounded border border-gray-300 p-1" />
+                              <a href={selectedUser.documents.panCard} target="_blank" rel="noopener noreferrer"
+                                className="text-primary-600 text-xs mt-1 inline-flex items-center gap-1">
+                                <Eye className="w-3 h-3" /> View
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {!selectedUser.documents.aadhaarNumber && !selectedUser.documents.panNumber && (
+                        <p className="text-sm text-gray-500 text-center py-4">No documents uploaded</p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 text-center py-4">No documents uploaded</p>
+                  )}
+                </div>
+              )}
+
+              {/* Reset Password */}
+              {selectedUser.role !== 'admin' && (
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-gray-600" />
+                    Reset Password
+                  </h3>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type={showNewPassword ? 'text' : 'password'}
+                        value={newPassword}
+                        onChange={e => setNewPassword(e.target.value)}
+                        placeholder="Enter new password (min 6 chars)"
+                        className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+                      />
+                      <button type="button" onClick={() => setShowNewPassword(p => !p)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                        {showNewPassword ? <EyeOff className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <button onClick={handleResetPassword} disabled={pwdLoading || !newPassword}
+                      className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50 transition-colors whitespace-nowrap">
+                      {pwdLoading ? 'Saving...' : 'Update'}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Action Buttons */}
               {selectedUser.role !== 'admin' && (

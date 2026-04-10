@@ -198,12 +198,9 @@ exports.getVenues = async (req, res) => {
       if (maxPrice) query['pricing.perHour.weekday'].$lte = Number(maxPrice);
     }
     
-    // Status filter
-    if (status && status !== 'all') {
-      query.status = status;
-    } else if (!status) {
-      query.status = 'approved';
-    }
+    // Status filter — public API always shows only approved venues
+    // Admin can pass status=all to see all venues (handled in admin routes)
+    query.status = 'approved';
 
     // Always hide inactive venues from public (regardless of status param)
     query.isActive = { $ne: false };

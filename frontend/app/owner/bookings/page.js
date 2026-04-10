@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import OwnerLayout from '@/components/owner/OwnerLayout';
 import InvoiceDownload from '@/components/booking/InvoiceDownload';
+import PaymentHistoryModal from '@/components/admin/PaymentHistoryModal';
 
 export default function OwnerBookings() {
   const { token } = useAuthStore();
@@ -19,6 +20,7 @@ export default function OwnerBookings() {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedAmenities, setExpandedAmenities] = useState({});
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [historyBooking, setHistoryBooking] = useState(null);
 
   useEffect(() => {
     if (token) {
@@ -583,6 +585,12 @@ export default function OwnerBookings() {
                       <Eye className="w-4 h-4" />
                       View Details
                     </button>
+                    <button
+                      onClick={() => setHistoryBooking(booking)}
+                      className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-semibold transition-colors flex items-center gap-2 text-sm"
+                    >
+                      💳 Payment History
+                    </button>
                     <Link
                       href={`/venues/${booking.venue?.sku}`}
                       className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-semibold transition-colors flex items-center gap-2 text-sm"
@@ -678,9 +686,28 @@ export default function OwnerBookings() {
                   <InvoiceDownload booking={selectedBooking} userRole="owner" />
                 </div>
               )}
+              <div>
+                <button
+                  onClick={() => { setHistoryBooking(selectedBooking); setSelectedBooking(null); }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold text-sm transition-colors"
+                >
+                  💳 View Payment History
+                </button>
+              </div>
             </div>
           </div>
         </div>
+      )}
+      {historyBooking && (
+        <PaymentHistoryModal
+          booking={historyBooking}
+          token={token}
+          onClose={() => setHistoryBooking(null)}
+          onUpdate={(updated) => {
+            setHistoryBooking(updated);
+            setBookings(prev => prev.map(b => b._id === updated._id ? updated : b));
+          }}
+        />
       )}
     </OwnerLayout>
   );

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import {
@@ -107,14 +108,8 @@ function VendorProfileModal({ vendor, onClose, onBook }) {
               <p className="text-2xl font-black text-gray-900">₹{vendor.startingPrice.toLocaleString()} <span className="text-sm font-normal text-gray-400">{vendor.priceUnit}</span></p>
             </div>
             <div className="flex gap-2">
-              <a href="tel:+919425796767" className="flex items-center gap-1.5 px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:border-primary-500 hover:text-primary-500 transition-all">
-                <Phone className="w-4 h-4" />Call
-              </a>
-              <a href="mailto:booking@rentalmeet.in" className="flex items-center gap-1.5 px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:border-primary-500 hover:text-primary-500 transition-all">
-                <Mail className="w-4 h-4" />Email
-              </a>
-              <button onClick={() => { onClose(); onBook(); }} className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 transition-all">
-                <Calendar className="w-4 h-4" />Book Now
+              <button onClick={() => { onClose(); onBook(); }} className="flex items-center gap-1.5 px-5 py-2.5 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 transition-all">
+                <Calendar className="w-4 h-4" />Get Quotation
               </button>
             </div>
           </div>
@@ -389,12 +384,11 @@ function VendorBookingModal({ vendor, onClose }) {
 function VendorCard({ vendor, isFavorite, onToggleFavorite }) {
   const cat = serviceCategories.find(c => c.id === vendor.category);
   const Icon = cat?.icon ?? Package;
-  const [profileOpen, setProfileOpen] = useState(false);
   const [bookingOpen, setBookingOpen] = useState(false);
+  const router = useRouter();
 
   return (
     <>
-      {profileOpen && <VendorProfileModal vendor={vendor} onClose={() => setProfileOpen(false)} onBook={() => setBookingOpen(true)} />}
       {bookingOpen && <VendorBookingModal vendor={vendor} onClose={() => setBookingOpen(false)} />}
 
       <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col md:flex-row">
@@ -439,13 +433,15 @@ function VendorCard({ vendor, isFavorite, onToggleFavorite }) {
               <p className="text-[10px] text-gray-400 mt-0.5">Direct booking available</p>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => setProfileOpen(true)}
+              {/* View Profile → new page */}
+              <button onClick={() => router.push(`/vendor/${vendor.id}`)}
                 className="flex items-center gap-1.5 px-4 py-2.5 border-2 border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:border-primary-500 hover:text-primary-500 transition-all">
                 <User className="w-4 h-4" />View Profile
               </button>
-              <button onClick={() => setBookingOpen(true)}
-                className="flex items-center gap-1.5 px-5 py-2.5 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 transition-all shadow-lg">
-                <Calendar className="w-4 h-4" />Book Now
+              {/* Get Quotation → new page */}
+              <button onClick={() => router.push(`/vendor/${vendor.id}`)}
+                className="flex items-center gap-1.5 px-5 py-2.5 bg-primary-500 text-white rounded-xl text-sm font-bold hover:bg-primary-600 transition-all shadow-lg">
+                <FileText className="w-4 h-4" />Get Quotation
               </button>
             </div>
           </div>

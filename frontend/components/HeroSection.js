@@ -95,7 +95,7 @@ export default function HeroSection() {
       {/* Content */}
       <div className="relative h-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center text-center">
         {/* Main Heading */}
-        <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight max-w-4xl animate-fade-in" style={{ fontFamily: 'Georgia, serif' }}>
+        <h1 className="font-serif text-4xl sm:text-5xl lg:text-7xl font-bold text-white mb-6 leading-tight">
           {slide.title}
           {slide.subtitle && (
             <>

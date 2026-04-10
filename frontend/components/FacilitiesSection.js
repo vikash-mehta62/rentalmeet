@@ -79,13 +79,11 @@ export default function FacilitiesSection() {
         {/* Header */}
         <div className="text-center mb-12">
 
-          <p className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-2">
-            FACILITIES
+          <p className="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-4">Facilities
           </p>
 
            <h2 
-className="text-[52px] md:text-[64px] font-semibold leading-[1.1] text-gray-900 dark:text-slate-100"
-style={{ fontFamily: 'Playfair Display, serif' }}
+className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-slate-100"
 >
             Unparalleled Amenities
           </h2>
@@ -114,7 +112,7 @@ style={{ fontFamily: 'Playfair Display, serif' }}
                 </div>
 
                 {/* Title */}
-                <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100 mb-2">
+                <h3 className="font-semibold text-base text-gray-900 dark:text-slate-100 mb-2">
                   {facility.title}
                 </h3>
 

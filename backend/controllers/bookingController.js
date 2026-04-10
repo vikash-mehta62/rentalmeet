@@ -57,6 +57,19 @@ exports.createBooking = async (req, res) => {
       });
     }
 
+    // KYC validation — customers must have ID proof + selfie uploaded
+    if (req.user.role === 'customer') {
+      const User = require('../models/User');
+      const customer = await User.findById(req.user.id).select('kyc');
+      if (!customer?.kyc?.idProof || !customer?.kyc?.selfie) {
+        return res.status(403).json({
+          success: false,
+          message: 'Profile incomplete. Please upload your ID proof and selfie to book a venue.',
+          kycRequired: true
+        });
+      }
+    }
+
     const { 
       venue, 
       bookingDate, 
@@ -117,11 +130,19 @@ exports.createBooking = async (req, res) => {
     let finalAmount = amount;
 
     if (couponCode) {
-      const coupon = await Coupon.findOne({
+      // Try venue-specific coupon first, then global (venue: null)
+      let coupon = await Coupon.findOne({
         code: couponCode.toUpperCase().trim(),
         venue,
         isActive: true
       });
+      if (!coupon) {
+        coupon = await Coupon.findOne({
+          code: couponCode.toUpperCase().trim(),
+          venue: null,
+          isActive: true
+        });
+      }
 
       if (coupon) {
         const now = new Date();
@@ -162,13 +183,20 @@ exports.createBooking = async (req, res) => {
       priceBreakdown: { ...(priceBreakdown || {}), discount: discountAmount, couponCode: appliedCoupon ? appliedCoupon.code : null, total: finalAmount },
       customerDetails,
       ...(appliedCoupon && { coupon: { couponId: appliedCoupon._id, code: appliedCoupon.code, discountAmount } }),
-      // Seed payment ledger
+      // Seed payment ledger with initial pending transaction
       paymentLedger: {
         totalDue: finalAmount,
         totalPaid: 0,
         amountDue: finalAmount,
         refundDue: 0,
-        transactions: [],
+        transactions: [{
+          txnId: `BOOKING-${Date.now()}`,
+          type: 'payment',
+          amount: finalAmount,
+          status: 'pending',
+          note: `Booking created — ₹${finalAmount.toLocaleString()} due`,
+          date: new Date()
+        }],
         adjustments: []
       }
     });

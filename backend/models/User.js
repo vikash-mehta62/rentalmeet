@@ -56,6 +56,35 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  // Account deletion (soft delete with 30-day recovery)
+  isDeleted: {
+    type: Boolean,
+    default: false
+  },
+  deletedAt: {
+    type: Date,
+    default: null
+  },
+  // KYC Documents (mandatory for customers to book)
+  kyc: {
+    idProof: {
+      type: String,   // Cloudinary URL
+      default: null
+    },
+    idProofType: {
+      type: String,
+      enum: ['Aadhaar', 'PAN', 'Passport', 'Voter ID', 'Driving License'],
+      default: null
+    },
+    selfie: {
+      type: String,   // Cloudinary URL (real-time selfie)
+      default: null
+    },
+    verifiedAt: {
+      type: Date,
+      default: null
+    }
+  },
   // SubAdmin Permissions (only for subadmin role)
   permissions: {
     dashboard: { type: Boolean, default: false },

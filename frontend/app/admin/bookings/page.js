@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import InvoiceDownload from '@/components/booking/InvoiceDownload';
+import PaymentHistoryModal from '@/components/admin/PaymentHistoryModal';
 
 export default function AdminBookings() {
   const { token } = useAuthStore();
@@ -27,6 +28,7 @@ export default function AdminBookings() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [historyBooking, setHistoryBooking] = useState(null);
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -868,13 +870,22 @@ export default function AdminBookings() {
                       {getPaymentStatusBadge(booking.paymentStatus)}
                     </td>
                     <td className="px-4 py-3">
-                      <button
-                        onClick={() => openModal(booking)}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-xs font-semibold transition-colors"
-                      >
-                        <Eye className="w-3 h-3" />
-                        View
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => openModal(booking)}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-xs font-semibold transition-colors"
+                        >
+                          <Eye className="w-3 h-3" />
+                          View
+                        </button>
+                        <button
+                          onClick={() => setHistoryBooking(booking)}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold transition-colors"
+                          title="Payment History"
+                        >
+                          💳
+                        </button>
+                      </div>
                     </td>
                   </tr>
                   );
@@ -972,6 +983,12 @@ export default function AdminBookings() {
               </div>
               <div className="flex items-center gap-2">
                 <InvoiceDownload booking={selectedBooking} userRole="admin" />
+                <button
+                  onClick={() => setHistoryBooking(selectedBooking)}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold transition-colors"
+                >
+                  💳 Payment History
+                </button>
                 <button
                   onClick={closeModal}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -1346,6 +1363,17 @@ export default function AdminBookings() {
             </div>
           </div>
         </div>
+      )}
+      {historyBooking && (
+        <PaymentHistoryModal
+          booking={historyBooking}
+          token={token}
+          onClose={() => setHistoryBooking(null)}
+          onUpdate={(updated) => {
+            setHistoryBooking(updated);
+            setBookings(prev => prev.map(b => b._id === updated._id ? updated : b));
+          }}
+        />
       )}
       </PermissionGuard>
     </AdminLayout>

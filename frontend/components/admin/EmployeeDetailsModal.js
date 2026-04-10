@@ -9,6 +9,28 @@ import {
 export default function EmployeeDetailsModal({ employee, onClose }) {
   const [activeTab, setActiveTab] = useState('basic');
 
+  // Helper: renders image preview or PDF link
+  const DocPreview = ({ url, label }) => {
+    const isPdf = url?.toLowerCase().includes('.pdf') || url?.toLowerCase().includes('application/pdf');
+    return (
+      <div>
+        {isPdf ? (
+          <div className="flex items-center gap-2 bg-white rounded-lg border border-gray-300 p-3">
+            <FileText className="w-8 h-8 text-red-500 flex-shrink-0" />
+            <span className="text-xs text-gray-600 truncate">{label}</span>
+          </div>
+        ) : (
+          <img src={url} alt={label} className="w-full h-36 object-contain bg-white rounded-lg border border-gray-300 p-2" />
+        )}
+        <a href={url} target="_blank" rel="noopener noreferrer"
+          className="text-primary-600 hover:text-primary-700 text-xs mt-1.5 inline-flex items-center gap-1 font-medium">
+          <Download className="w-3 h-3" />
+          View / Download
+        </a>
+      </div>
+    );
+  };
+
   const tabs = [
     { id: 'basic', label: 'Basic Info', icon: User },
     { id: 'contact', label: 'Contact & Address', icon: MapPin },
@@ -442,39 +464,13 @@ export default function EmployeeDetailsModal({ employee, onClose }) {
                       {employee.employeeDetails.documents.aadhaarFront && (
                         <div>
                           <label className="text-xs font-semibold text-gray-500 block mb-1.5">Front Side</label>
-                          <img
-                            src={employee.employeeDetails.documents.aadhaarFront}
-                            alt="Aadhaar Front"
-                            className="w-full h-40 object-contain bg-white rounded-lg border border-gray-300 p-2"
-                          />
-                          <a
-                            href={employee.employeeDetails.documents.aadhaarFront}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary-600 hover:text-primary-700 text-xs mt-1.5 inline-flex items-center gap-1 font-medium"
-                          >
-                            <Download className="w-3 h-3" />
-                            Download
-                          </a>
+                          <DocPreview url={employee.employeeDetails.documents.aadhaarFront} label="Aadhaar Front" />
                         </div>
                       )}
                       {employee.employeeDetails.documents.aadhaarBack && (
                         <div>
                           <label className="text-xs font-semibold text-gray-500 block mb-1.5">Back Side</label>
-                          <img
-                            src={employee.employeeDetails.documents.aadhaarBack}
-                            alt="Aadhaar Back"
-                            className="w-full h-40 object-contain bg-white rounded-lg border border-gray-300 p-2"
-                          />
-                          <a
-                            href={employee.employeeDetails.documents.aadhaarBack}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary-600 hover:text-primary-700 text-xs mt-1.5 inline-flex items-center gap-1 font-medium"
-                          >
-                            <Download className="w-3 h-3" />
-                            Download
-                          </a>
+                          <DocPreview url={employee.employeeDetails.documents.aadhaarBack} label="Aadhaar Back" />
                         </div>
                       )}
                     </div>
@@ -499,20 +495,46 @@ export default function EmployeeDetailsModal({ employee, onClose }) {
                     {employee.employeeDetails.documents.panCard && (
                       <div>
                         <label className="text-xs font-semibold text-gray-500 block mb-1.5">PAN Card Image</label>
-                        <img
-                          src={employee.employeeDetails.documents.panCard}
-                          alt="PAN Card"
-                          className="w-full max-w-md h-48 object-contain bg-white rounded-lg border border-gray-300 p-2"
-                        />
-                        <a
-                          href={employee.employeeDetails.documents.panCard}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary-600 hover:text-primary-700 text-xs mt-2 inline-flex items-center gap-1 font-medium"
-                        >
-                          <Download className="w-3 h-3" />
-                          Download
-                        </a>
+                        <DocPreview url={employee.employeeDetails.documents.panCard} label="PAN Card" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Qualification Certificates */}
+              {(employee.employeeDetails?.qualification?.tenth?.certificate ||
+                employee.employeeDetails?.qualification?.twelfth?.certificate ||
+                employee.employeeDetails?.qualification?.graduation?.certificate ||
+                employee.employeeDetails?.qualification?.postGraduation?.certificate) && (
+                <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                  <h3 className="text-sm font-semibold mb-3 text-purple-900 flex items-center gap-1.5">
+                    <FileText className="w-4 h-4" />
+                    Qualification Certificates
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {employee.employeeDetails.qualification?.tenth?.certificate && (
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500 block mb-1.5">10th Certificate</label>
+                        <DocPreview url={employee.employeeDetails.qualification.tenth.certificate} label="10th Certificate" />
+                      </div>
+                    )}
+                    {employee.employeeDetails.qualification?.twelfth?.certificate && (
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500 block mb-1.5">12th Certificate</label>
+                        <DocPreview url={employee.employeeDetails.qualification.twelfth.certificate} label="12th Certificate" />
+                      </div>
+                    )}
+                    {employee.employeeDetails.qualification?.graduation?.certificate && (
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500 block mb-1.5">Graduation Certificate</label>
+                        <DocPreview url={employee.employeeDetails.qualification.graduation.certificate} label="Graduation Certificate" />
+                      </div>
+                    )}
+                    {employee.employeeDetails.qualification?.postGraduation?.certificate && (
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500 block mb-1.5">Post Graduation Certificate</label>
+                        <DocPreview url={employee.employeeDetails.qualification.postGraduation.certificate} label="Post Graduation Certificate" />
                       </div>
                     )}
                   </div>
@@ -520,7 +542,11 @@ export default function EmployeeDetailsModal({ employee, onClose }) {
               )}
 
               {!employee.employeeDetails?.documents?.aadhaarNumber && 
-               !employee.employeeDetails?.documents?.panNumber && (
+               !employee.employeeDetails?.documents?.panNumber &&
+               !employee.employeeDetails?.qualification?.tenth?.certificate &&
+               !employee.employeeDetails?.qualification?.twelfth?.certificate &&
+               !employee.employeeDetails?.qualification?.graduation?.certificate &&
+               !employee.employeeDetails?.qualification?.postGraduation?.certificate && (
                 <div className="text-center py-8">
                   <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-gray-500 text-sm">No documents uploaded</p>

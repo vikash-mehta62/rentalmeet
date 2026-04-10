@@ -55,7 +55,7 @@ export default function AdminVenues() {
 
   const fetchVenues = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues?status=all&limit=1000`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/venues?status=all&limit=1000`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -128,29 +128,31 @@ export default function AdminVenues() {
     setFilteredVenues(filtered);
   };
 
-  const handleStatusUpdate = async (venueId, action) => {
+  const [rejectModal, setRejectModal] = useState({ open: false, venueId: null, reason: '' });
+
+  const handleStatusUpdate = async (venueId, action, reason = '') => {
     try {
+      const body = action === 'reject' ? { reason } : {};
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/venues/${venueId}/${action}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
       });
-
       const data = await response.json();
-      
       if (data.success) {
         toast.success(`Venue ${action}d successfully!`);
         fetchVenues();
         setModalOpen(false);
+        setRejectModal({ open: false, venueId: null, reason: '' });
       } else {
         toast.error(data.message || `Failed to ${action} venue`);
       }
     } catch (error) {
-      console.error(`Error ${action}ing venue:`, error);
       toast.error(`Failed to ${action} venue`);
     }
   };
+
+  const openRejectModal = (venueId) => setRejectModal({ open: true, venueId, reason: '' });
 
   const openModal = (venue) => {
     setSelectedVenue(venue);
@@ -494,12 +496,46 @@ export default function AdminVenues() {
         <VenueDetailsModal
           venue={selectedVenue}
           onClose={closeModal}
-          onStatusUpdate={handleStatusUpdate}
+          onStatusUpdate={(id, action) => action === 'reject' ? openRejectModal(id) : handleStatusUpdate(id, action)}
           showActions={true}
           platformSettings={platformSettings}
           customSettings={customSettings}
           onUpdateSettings={handleUpdateSettings}
         />
+      )}
+
+      {/* Reject Reason Modal */}
+      {rejectModal.open && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Reject Venue</h3>
+            <p className="text-sm text-gray-500 mb-4">Please provide a reason for rejection. The owner will be notified.</p>
+            <textarea
+              value={rejectModal.reason}
+              onChange={e => setRejectModal(prev => ({ ...prev, reason: e.target.value }))}
+              rows={4}
+              placeholder="e.g. Documents incomplete, Images not clear, Address verification failed..."
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 text-sm resize-none mb-4"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => setRejectModal({ open: false, venueId: null, reason: '' })}
+                className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (!rejectModal.reason.trim()) { toast.error('Rejection reason is required'); return; }
+                  handleStatusUpdate(rejectModal.venueId, 'reject', rejectModal.reason);
+                }}
+                className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold text-sm transition-colors"
+              >
+                Confirm Reject
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       </PermissionGuard>
     </AdminLayout>

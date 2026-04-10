@@ -1,9 +1,27 @@
-import { Inter } from 'next/font/google'
+import { Inter, Playfair_Display, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import { Toaster } from 'react-hot-toast'
 import ThemeInitializer from '@/components/ThemeInitializer'
+import WhatsAppButton from '@/components/WhatsAppButton'
+import ChatbotWidget from '@/components/ChatbotWidget'
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+})
+
+const playfair = Playfair_Display({
+  subsets: ['latin'],
+  variable: '--font-playfair',
+  display: 'swap',
+})
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-jetbrains',
+  display: 'swap',
+})
 
 export const metadata = {
   title: 'RentalMeet - Book Your Premium Meeting Venues',
@@ -24,13 +42,14 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="en" className={`${inter.variable} ${playfair.variable} ${jetbrainsMono.variable}`}>
+      <body className="font-sans antialiased">
         <ThemeInitializer />
         {children}
+        <ChatbotWidget />
+        <WhatsAppButton />
         <Toaster position="top-right" />
       </body>
     </html>
   )
 }
-

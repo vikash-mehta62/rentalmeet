@@ -1,18 +1,27 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useAuthStore } from '@/lib/store';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  Camera, Save, Lock, Eye, EyeOff, User, Copy, Users, Gift
+  Camera, Save, Lock, Eye, EyeOff, User, Copy, Users, Gift,
+  Upload, CheckCircle2, AlertCircle, ShieldCheck
 } from 'lucide-react';
 import CustomerLayout from '@/components/customer/CustomerLayout';
+import toast from 'react-hot-toast';
 
-export default function CustomerProfile() {
+function CustomerProfileInner() {
   const { user, token, updateUser } = useAuthStore();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('profile');
   const [message, setMessage] = useState({ type: '', text: '' });
+
+  // Open KYC tab if ?tab=kyc in URL
+  useEffect(() => {
+    if (searchParams?.get('tab') === 'kyc') setActiveTab('kyc');
+  }, [searchParams]);
 
   // Profile Form
   const [profileData, setProfileData] = useState({
@@ -241,36 +250,25 @@ export default function CustomerProfile() {
         <div className="lg:col-span-2">
           {/* Tabs */}
           <div className="bg-white rounded-2xl shadow-soft border border-gray-100 mb-6">
-            <div className="flex border-b border-gray-200">
-              <button
-                onClick={() => setActiveTab('profile')}
-                className={`flex-1 px-6 py-4 font-semibold transition-colors ${
-                  activeTab === 'profile'
-                    ? 'text-primary-500 border-b-2 border-primary-500'
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
-              >
-                Profile Information
+            <div className="flex border-b border-gray-200 overflow-x-auto">
+              <button onClick={() => setActiveTab('profile')}
+                className={`flex-shrink-0 px-5 py-4 font-semibold text-sm transition-colors ${activeTab === 'profile' ? 'text-primary-500 border-b-2 border-primary-500' : 'text-gray-600 hover:text-gray-800'}`}>
+                Profile
               </button>
-              <button
-                onClick={() => setActiveTab('referral')}
-                className={`flex-1 px-6 py-4 font-semibold transition-colors ${
-                  activeTab === 'referral'
-                    ? 'text-primary-500 border-b-2 border-primary-500'
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
-              >
-                Referral Code
+              <button onClick={() => setActiveTab('kyc')}
+                className={`flex-shrink-0 px-5 py-4 font-semibold text-sm transition-colors flex items-center gap-1.5 ${activeTab === 'kyc' ? 'text-primary-500 border-b-2 border-primary-500' : 'text-gray-600 hover:text-gray-800'}`}>
+                KYC / ID Verify
+                {(!user?.kyc?.idProof || !user?.kyc?.selfie) && (
+                  <span className="w-2 h-2 bg-red-500 rounded-full inline-block" />
+                )}
               </button>
-              <button
-                onClick={() => setActiveTab('password')}
-                className={`flex-1 px-6 py-4 font-semibold transition-colors ${
-                  activeTab === 'password'
-                    ? 'text-primary-500 border-b-2 border-primary-500'
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
-              >
-                Change Password
+              <button onClick={() => setActiveTab('referral')}
+                className={`flex-shrink-0 px-5 py-4 font-semibold text-sm transition-colors ${activeTab === 'referral' ? 'text-primary-500 border-b-2 border-primary-500' : 'text-gray-600 hover:text-gray-800'}`}>
+                Referral
+              </button>
+              <button onClick={() => setActiveTab('password')}
+                className={`flex-shrink-0 px-5 py-4 font-semibold text-sm transition-colors ${activeTab === 'password' ? 'text-primary-500 border-b-2 border-primary-500' : 'text-gray-600 hover:text-gray-800'}`}>
+                Password
               </button>
             </div>
           </div>
@@ -653,6 +651,11 @@ export default function CustomerProfile() {
               </form>
             </div>
           )}
+
+          {/* KYC Tab */}
+          {activeTab === 'kyc' && (
+            <KYCSection token={token} user={user} updateUser={updateUser} />
+          )}
         </div>
       </div>
 
@@ -663,11 +666,203 @@ export default function CustomerProfile() {
   );
 }
 
+function KYCSection({ token, user, updateUser }) {
+  const [loading, setLoading] = useState(false);
+  const [idProofType, setIdProofType] = useState(user?.kyc?.idProofType || 'Aadhaar');
+  const [idProofFile, setIdProofFile] = useState(null);
+  const [idProofPreview, setIdProofPreview] = useState(user?.kyc?.idProof || null);
+  const [selfieFile, setSelfieFile] = useState(null);
+  const [selfiePreview, setSelfiePreview] = useState(user?.kyc?.selfie || null);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+
+  const idDone = !!(user?.kyc?.idProof);
+  const selfieDone = !!(user?.kyc?.selfie);
+  const kycComplete = idDone && selfieDone;
+
+  const openCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+      streamRef.current = stream;
+      setCameraOpen(true);
+      setTimeout(() => { if (videoRef.current) videoRef.current.srcObject = stream; }, 100);
+    } catch { toast.error('Camera access denied. Please upload a selfie instead.'); }
+  };
+
+  const captureSelfie = () => {
+    if (!videoRef.current) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    canvas.getContext('2d').drawImage(videoRef.current, 0, 0);
+    canvas.toBlob(blob => {
+      const file = new File([blob], 'selfie.jpg', { type: 'image/jpeg' });
+      setSelfieFile(file);
+      setSelfiePreview(URL.createObjectURL(blob));
+      closeCamera();
+    }, 'image/jpeg', 0.9);
+  };
+
+  const closeCamera = () => {
+    if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+    setCameraOpen(false);
+  };
+
+  useEffect(() => () => closeCamera(), []);
+
+  const handleUpload = async () => {
+    if (!idProofFile && !selfieDone) { toast.error('Please upload your ID proof'); return; }
+    if (!selfieFile && !selfieDone) { toast.error('Please take or upload a selfie'); return; }
+    if (!idProofFile && !selfieFile) { toast.error('No new files to upload'); return; }
+
+    setLoading(true);
+    try {
+      const fd = new FormData();
+      if (idProofFile) { fd.append('idProof', idProofFile); fd.append('idProofType', idProofType); }
+      if (selfieFile) fd.append('selfie', selfieFile);
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/kyc-upload`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: fd
+      });
+      const data = await res.json();
+      if (data.success) {
+        updateUser(data.user);
+        toast.success('KYC documents uploaded successfully!');
+      } else {
+        toast.error(data.message || 'Upload failed');
+      }
+    } catch { toast.error('Upload failed'); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div className="bg-white rounded-2xl shadow-soft border border-gray-100 p-6">
+      <div className="flex items-center gap-3 mb-6">
+        <ShieldCheck className={`w-6 h-6 ${kycComplete ? 'text-green-500' : 'text-amber-500'}`} />
+        <div>
+          <h3 className="font-bold text-gray-900">KYC Verification</h3>
+          <p className="text-xs text-gray-500">Required to book venues on RentalMeet</p>
+        </div>
+        {kycComplete && (
+          <span className="ml-auto px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold flex items-center gap-1">
+            <CheckCircle2 className="w-3.5 h-3.5" /> Verified
+          </span>
+        )}
+      </div>
+
+      {!kycComplete && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-5 flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-700">Complete KYC to unlock venue booking. Upload your ID proof and take a real-time selfie.</p>
+        </div>
+      )}
+
+      <div className="space-y-6">
+        {/* ID Proof */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            ID Proof Type
+            {idDone && <span className="ml-2 text-green-600 text-xs font-normal">✓ Uploaded ({user?.kyc?.idProofType})</span>}
+          </label>
+          <select value={idProofType} onChange={e => setIdProofType(e.target.value)}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 mb-3">
+            {['Aadhaar', 'PAN', 'Passport', 'Voter ID', 'Driving License'].map(t => <option key={t}>{t}</option>)}
+          </select>
+
+          {idProofPreview && !idProofFile ? (
+            <div className="relative">
+              <img src={idProofPreview} alt="ID Proof" className="w-full h-36 object-cover rounded-xl border-2 border-green-400" />
+              <div className="absolute bottom-2 left-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" /> Uploaded
+              </div>
+              <button onClick={() => setIdProofPreview(null)}
+                className="absolute top-2 right-2 w-7 h-7 bg-white/90 text-gray-600 rounded-full flex items-center justify-center text-xs font-bold hover:bg-red-50 hover:text-red-500">
+                ✕
+              </button>
+            </div>
+          ) : idProofFile ? (
+            <div className="relative">
+              <img src={URL.createObjectURL(idProofFile)} alt="ID Proof" className="w-full h-36 object-cover rounded-xl border-2 border-primary-400" />
+              <button onClick={() => setIdProofFile(null)}
+                className="absolute top-2 right-2 w-7 h-7 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold">✕</button>
+            </div>
+          ) : (
+            <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-primary-400 hover:bg-primary-50 transition-all">
+              <Upload className="w-7 h-7 text-gray-400 mb-1.5" />
+              <span className="text-sm text-gray-500">Upload {idProofType}</span>
+              <span className="text-xs text-gray-400 mt-0.5">JPG, PNG (max 5MB)</span>
+              <input type="file" accept="image/*,.pdf" className="hidden"
+                onChange={e => { const f = e.target.files[0]; if (f) setIdProofFile(f); }} />
+            </label>
+          )}
+        </div>
+
+        {/* Selfie */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Real-time Selfie
+            {selfieDone && <span className="ml-2 text-green-600 text-xs font-normal">✓ Uploaded</span>}
+          </label>
+
+          {cameraOpen ? (
+            <div className="space-y-3">
+              <video ref={videoRef} autoPlay playsInline className="w-full rounded-xl border-2 border-primary-400" style={{ maxHeight: 220 }} />
+              <div className="flex gap-2">
+                <button onClick={captureSelfie} className="flex-1 py-2.5 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2">
+                  <Camera className="w-4 h-4" /> Capture
+                </button>
+                <button onClick={closeCamera} className="px-4 py-2.5 border border-gray-300 text-gray-600 rounded-xl text-sm font-semibold">Cancel</button>
+              </div>
+            </div>
+          ) : selfiePreview && !selfieFile ? (
+            <div className="relative">
+              <img src={selfiePreview} alt="Selfie" className="w-full h-36 object-cover rounded-xl border-2 border-green-400" />
+              <div className="absolute bottom-2 left-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" /> Uploaded
+              </div>
+              <button onClick={() => setSelfiePreview(null)}
+                className="absolute top-2 right-2 w-7 h-7 bg-white/90 text-gray-600 rounded-full flex items-center justify-center text-xs font-bold hover:bg-red-50 hover:text-red-500">✕</button>
+            </div>
+          ) : selfieFile ? (
+            <div className="relative">
+              <img src={URL.createObjectURL(selfieFile)} alt="Selfie" className="w-full h-36 object-cover rounded-xl border-2 border-primary-400" />
+              <button onClick={() => setSelfieFile(null)}
+                className="absolute top-2 right-2 w-7 h-7 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold">✕</button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <button onClick={openCamera} className="flex-1 flex items-center justify-center gap-2 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-semibold text-sm">
+                <Camera className="w-4 h-4" /> Open Camera
+              </button>
+              <label className="flex-1 flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-primary-400 text-sm text-gray-500 font-semibold">
+                <Upload className="w-4 h-4" /> Upload Photo
+                <input type="file" accept="image/*" className="hidden"
+                  onChange={e => { const f = e.target.files[0]; if (f) setSelfieFile(f); }} />
+              </label>
+            </div>
+          )}
+        </div>
+
+        {(idProofFile || selfieFile) && (
+          <button onClick={handleUpload} disabled={loading}
+            className="w-full flex items-center justify-center gap-2 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-sm transition-colors disabled:opacity-50">
+            {loading ? 'Uploading...' : <><CheckCircle2 className="w-4 h-4" /> Save KYC Documents</>}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function DeleteAccountSection({ token }) {
-  const { logout } = useAuthStore();
+  const { logout, user, updateUser } = useAuthStore();
   const router = useRouter();
   const [confirm, setConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [deactivateLoading, setDeactivateLoading] = useState(false);
 
   const handleDelete = async () => {
     setLoading(true);
@@ -691,35 +886,79 @@ function DeleteAccountSection({ token }) {
     }
   };
 
+  const handleDeactivate = async () => {
+    if (!window.confirm('Temporarily deactivate your account? You can reactivate by logging in again.')) return;
+    setDeactivateLoading(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/deactivate-account`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        logout();
+        router.push('/');
+      } else {
+        alert(data.message || 'Could not deactivate account');
+      }
+    } catch {
+      alert('Something went wrong');
+    } finally {
+      setDeactivateLoading(false);
+    }
+  };
+
   return (
-    <div className="mt-6 bg-red-50 border border-red-200 rounded-2xl p-6">
-      <h3 className="text-base font-bold text-red-700 mb-1">Danger Zone</h3>
-      <p className="text-sm text-red-600 mb-4">Deleting your account is permanent. Active bookings must be cancelled first.</p>
-      {!confirm ? (
+    <div className="mt-6 space-y-4">
+      {/* Temporary Deactivate */}
+      <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-6">
+        <h3 className="text-base font-bold text-yellow-700 mb-1">Temporarily Deactivate Account</h3>
+        <p className="text-sm text-yellow-600 mb-4">
+          Your account will be hidden. You can reactivate it anytime by logging in again.
+        </p>
         <button
-          onClick={() => setConfirm(true)}
-          className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold transition-colors"
+          onClick={handleDeactivate}
+          disabled={deactivateLoading}
+          className="px-5 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
         >
-          Delete Account
+          {deactivateLoading ? 'Processing...' : 'Deactivate Account'}
         </button>
-      ) : (
-        <div className="flex items-center gap-3">
-          <p className="text-sm font-semibold text-red-700">Are you sure?</p>
-          <button
-            onClick={handleDelete}
-            disabled={loading}
-            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50"
-          >
-            {loading ? 'Deleting...' : 'Yes, Delete'}
+      </div>
+
+      {/* Permanent Delete */}
+      <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
+        <h3 className="text-base font-bold text-red-700 mb-1">Delete Account Permanently</h3>
+        <p className="text-sm text-red-600 mb-1">
+          Your account will be scheduled for deletion. You have <strong>1 month</strong> to recover it by contacting support.
+        </p>
+        <p className="text-xs text-red-500 mb-4">After 1 month, all data will be permanently deleted and cannot be recovered.</p>
+        {!confirm ? (
+          <button onClick={() => setConfirm(true)}
+            className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold transition-colors">
+            Delete Account
           </button>
-          <button
-            onClick={() => setConfirm(false)}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-semibold"
-          >
-            Cancel
-          </button>
-        </div>
-      )}
+        ) : (
+          <div className="flex items-center gap-3 flex-wrap">
+            <p className="text-sm font-semibold text-red-700">Are you absolutely sure?</p>
+            <button onClick={handleDelete} disabled={loading}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50">
+              {loading ? 'Deleting...' : 'Yes, Delete My Account'}
+            </button>
+            <button onClick={() => setConfirm(false)}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-semibold">
+              Cancel
+            </button>
+          </div>
+        )}
+      </div>
     </div>
+  );
+}
+
+export default function CustomerProfile() {
+  return (
+    <Suspense fallback={null}>
+      <CustomerProfileInner />
+    </Suspense>
   );
 }

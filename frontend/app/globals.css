@@ -2,9 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap');
+/* Fonts loaded via Next.js font optimization in layout.js */
 
 :root {
+  /* Font variables */
+  --font-sans: var(--font-inter, 'Inter'), sans-serif;
+  --font-serif: var(--font-playfair, 'Playfair Display'), Georgia, serif;
+  --font-mono: var(--font-jetbrains, 'JetBrains Mono'), monospace;
   --primary: #F59F0A;
   --primary-hover: #D97706;
   --dark: #2B2B2B;
@@ -18,11 +22,39 @@
 body {
   color: #2B2B2B;
   background: #FFFFFF;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-sans);
+  overflow-x: hidden;
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-serif);
+}
+
+/* Section heading pattern from prototype */
+.section-badge {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #6b7280;
+  margin-bottom: 0.75rem;
+}
+
+.section-title {
+  font-family: var(--font-serif);
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 700;
+  line-height: 1.15;
+  color: #111827;
+}
+
+.dark .section-title {
+  color: #f1f5f9;
+}
+
+code, pre, kbd, samp {
+  font-family: var(--font-mono);
 }
 
 @layer components {
@@ -307,7 +339,7 @@ input[type="radio"]:focus {
 }
 
 .react-datepicker {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-sans);
   border: 1px solid #E5E7EB;
   border-radius: 0.75rem;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
@@ -390,4 +422,24 @@ input[type="radio"]:focus {
 .react-datepicker__day--today {
   font-weight: 600;
   border: 2px solid #F59F0A;
+}
+
+/* Watermark utility */
+.watermark-logo {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  user-select: none;
+  z-index: 5;
+}
+.watermark-logo img {
+  opacity: 0.22;
+  mix-blend-mode: screen;
+  filter: brightness(10) grayscale(1);
+  width: 45%;
+  max-width: 200px;
+  object-fit: contain;
 }

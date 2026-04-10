@@ -84,18 +84,31 @@ export default function MyVenues() {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/owner/venues/${venueId}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-
       const data = await response.json();
-      
-      if (data.success) {
-        fetchVenues();
-      }
+      if (data.success) fetchVenues();
     } catch (error) {
       console.error('Error deleting venue:', error);
+    }
+  };
+
+  const handleResubmit = async (venueId) => {
+    if (!confirm('Re-submit this venue for admin review?')) return;
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/owner/venues/${venueId}/resubmit`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Venue re-submitted for review!');
+        fetchVenues();
+      } else {
+        alert(data.message || 'Failed to re-submit');
+      }
+    } catch {
+      alert('Something went wrong');
     }
   };
 
@@ -390,6 +403,23 @@ export default function MyVenues() {
                     </button>
                   )}
                 </div>
+
+                {/* Rejected venue — show reason + resubmit */}
+                {venue.status === 'rejected' && (
+                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl">
+                    {venue.rejectionReason && (
+                      <p className="text-xs text-red-700 mb-2">
+                        <strong>Reason:</strong> {venue.rejectionReason}
+                      </p>
+                    )}
+                    <button
+                      onClick={() => handleResubmit(venue._id)}
+                      className="w-full px-3 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-xs font-bold transition-colors"
+                    >
+                      ↩ Re-submit for Review
+                    </button>
+                  </div>
+                )}
 
                 {/* Approved venue extra controls */}
                 {venue.status === 'approved' && (

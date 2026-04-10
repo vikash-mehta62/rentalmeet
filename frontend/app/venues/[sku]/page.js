@@ -9,13 +9,75 @@ import {
   Building2, MapPin, Users, Clock, Calendar,
   Wifi, Coffee, Utensils, CheckCircle2, ArrowLeft,
   Star, Phone, Mail, Share2, Image as ImageIcon, X,
-  ChevronLeft, ChevronRight, Sparkles, Award, Shield, PowerOff
+  ChevronLeft, ChevronRight, Sparkles, Award, Shield, PowerOff,
+  Projector, Car, Tv, Wind, Zap, Music, Camera, Printer,
+  Monitor, Mic, Volume2, Thermometer, Droplets, Flame,
+  Package, Dumbbell, Baby, Accessibility, ParkingCircle,
+  UtensilsCrossed, CupSoda, Sandwich, ChefHat, Refrigerator,
+  Sofa, Bed, Bath, Shirt, Scissors, FlowerIcon
 } from 'lucide-react';
 import BookingForm from '@/components/booking/BookingForm';
 import VenueReviews from '@/components/venue/VenueReviews';
 import Navbar from '@/components/Navbar';
 import { useAuthStore } from '@/lib/store';
 import toast from 'react-hot-toast';
+
+// ── Amenity icon map ─────────────────────────────────────────────────────
+const AMENITY_ICONS = {
+  // Connectivity
+  'wifi': Wifi, 'wi-fi': Wifi, 'internet': Wifi, 'broadband': Wifi,
+  // AV / Projection
+  'projector': Projector, 'projection': Projector, 'screen': Monitor,
+  'tv': Tv, 'television': Tv, 'display': Monitor, 'monitor': Monitor,
+  'led': Tv, 'led screen': Tv,
+  // Audio
+  'mic': Mic, 'microphone': Mic, 'speaker': Volume2, 'sound system': Volume2,
+  'pa system': Volume2, 'audio': Volume2, 'music system': Music,
+  // Climate
+  'ac': Wind, 'air conditioning': Wind, 'air conditioner': Wind,
+  'heater': Thermometer, 'heating': Thermometer, 'fan': Wind,
+  // Power
+  'power backup': Zap, 'generator': Zap, 'ups': Zap, 'electricity': Zap,
+  // Parking
+  'parking': ParkingCircle, 'car parking': ParkingCircle, 'valet': Car,
+  // Food & Beverage
+  'catering': ChefHat, 'kitchen': UtensilsCrossed, 'dining': Utensils,
+  'coffee': Coffee, 'tea': Coffee, 'beverages': CupSoda, 'water': Droplets,
+  'snacks': Sandwich, 'food': Utensils, 'lunch': Utensils, 'dinner': Utensils,
+  'refrigerator': Refrigerator, 'fridge': Refrigerator,
+  // Security
+  'security': Shield, 'cctv': Camera, 'guard': Shield, 'fire safety': Flame,
+  'fire extinguisher': Flame, 'first aid': Award,
+  // Comfort
+  'sofa': Sofa, 'lounge': Sofa, 'waiting area': Sofa,
+  'washroom': Bath, 'restroom': Bath, 'toilet': Bath, 'bathroom': Bath,
+  // Photography
+  'photography': Camera, 'videography': Camera,
+  // Printing
+  'printer': Printer, 'whiteboard': Monitor, 'flip chart': Monitor,
+  // Accessibility
+  'wheelchair': Accessibility, 'lift': Accessibility, 'elevator': Accessibility,
+  // Laundry
+  'laundry': Shirt, 'ironing': Shirt,
+  // Gym
+  'gym': Dumbbell, 'fitness': Dumbbell,
+  // Kids
+  'kids area': Baby, 'play area': Baby,
+  // Decor
+  'decoration': Sparkles, 'flowers': Sparkles,
+};
+
+function getAmenityIcon(name) {
+  if (!name) return Package;
+  const lower = name.toLowerCase().trim();
+  // Exact match
+  if (AMENITY_ICONS[lower]) return AMENITY_ICONS[lower];
+  // Partial match
+  for (const [key, Icon] of Object.entries(AMENITY_ICONS)) {
+    if (lower.includes(key) || key.includes(lower)) return Icon;
+  }
+  return Package;
+}
 
 export default function VenueDetail() {
   const params = useParams();
@@ -427,6 +489,11 @@ export default function VenueDetail() {
                     <Building2 className="w-24 h-24 text-white/30" />
                   </div>
                 )}
+
+                {/* Watermark */}
+                <div className="watermark-logo">
+                  <img src="/logo.png" alt="" draggable={false} />
+                </div>
                 
                 {/* Navigation Arrows */}
                 {venue.images?.length > 1 && (
@@ -592,22 +659,25 @@ export default function VenueDetail() {
                     <>
                       <div className="flex items-center gap-2 mb-3">
                         <span className="flex items-center gap-1.5 text-sm font-bold text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400 px-4 py-1.5 rounded-full border border-green-200 dark:border-green-800">
-                          <CheckCircle2 className="w-4 h-4" /> Included Free
+                          <CheckCircle2 className="w-4 h-4" /> Included Facilities (Free)
                         </span>
                       </div>
                       <div className="grid grid-cols-2 gap-2 mb-4">
-                        {venue.amenities.basic.filter(a => a.available && (a.type === 'Free' || a.type === 'Included')).map((amenity, idx) => (
-                          <div
-                            key={idx}
-                            className="flex items-center justify-between p-2 border-2 border-green-200 bg-green-50 rounded-lg"
-                          >
-                            <div className="flex items-center gap-2">
-                              <CheckCircle2 className="w-4 h-4 text-green-600" />
-                              <span className="font-medium text-xs text-green-800">{amenity.name}</span>
+                        {venue.amenities.basic.filter(a => a.available && (a.type === 'Free' || a.type === 'Included')).map((amenity, idx) => {
+                          const AIcon = getAmenityIcon(amenity.name);
+                          return (
+                            <div
+                              key={idx}
+                              className="flex items-center justify-between p-2 border-2 border-green-200 bg-green-50 rounded-lg"
+                            >
+                              <div className="flex items-center gap-2">
+                                <AIcon className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                <span className="font-medium text-xs text-green-800">{amenity.name}</span>
+                              </div>
+                              <span className="text-xs font-semibold text-green-600 bg-green-100 px-2 py-0.5 rounded">Free</span>
                             </div>
-                            <span className="text-xs font-semibold text-green-600 bg-green-100 px-2 py-0.5 rounded">Free</span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </>
                   )}
@@ -617,7 +687,7 @@ export default function VenueDetail() {
                     <>
                       <div className="flex items-center gap-2 mb-3 mt-5">
                         <span className="flex items-center gap-1.5 text-sm font-bold text-orange-700 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400 px-4 py-1.5 rounded-full border border-orange-200 dark:border-orange-800">
-                          ₹ Paid Add-ons
+                          ₹ Paid Facilities (Optional)
                         </span>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
@@ -642,6 +712,7 @@ export default function VenueDetail() {
                                     onChange={() => toggleAmenity('basic', amenity)}
                                     className="w-4 h-4 rounded border-2 border-gray-300 text-primary-500 focus:ring-2 focus:ring-primary-500 cursor-pointer"
                                   />
+                                  {(() => { const PIcon = getAmenityIcon(amenity.name); return <PIcon className="w-3.5 h-3.5 text-primary-500 flex-shrink-0" />; })()}
                                   <span className="font-medium text-xs">{amenity.name}</span>
                                 </div>
                                 <span className="text-xs font-semibold text-primary-600">₹{amenity.rate}</span>
@@ -721,6 +792,7 @@ export default function VenueDetail() {
                                 onChange={() => toggleAmenity('beverages', beverage)}
                                 className="w-4 h-4 rounded border-2 border-gray-300 text-primary-500 focus:ring-2 focus:ring-primary-500 cursor-pointer"
                               />
+                              {(() => { const BIcon = getAmenityIcon(beverage.name); return <BIcon className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />; })()}
                               <span className="font-medium text-xs">{beverage.name}</span>
                             </div>
                             <span className="text-xs font-semibold text-primary-600">₹{beverage.ratePerUnit}/person</span>
@@ -796,6 +868,7 @@ export default function VenueDetail() {
                                 onChange={() => toggleAmenity('refreshmentFood', food)}
                                 className="w-4 h-4 rounded border-2 border-gray-300 text-primary-500 focus:ring-2 focus:ring-primary-500 cursor-pointer"
                               />
+                              {(() => { const FIcon = getAmenityIcon(food.name); return <FIcon className="w-3.5 h-3.5 text-rose-500 flex-shrink-0" />; })()}
                               <span className="font-medium text-xs">{food.name}</span>
                             </div>
                             <span className="text-xs font-semibold text-primary-600">₹{food.ratePerPlate}/plate</span>
@@ -1035,7 +1108,7 @@ export default function VenueDetail() {
                       <div className="text-center">
                         <Clock className="w-8 h-8 mx-auto mb-2 text-primary-500" />
                         <h3 className="font-bold text-lg mb-1 text-gray-900 dark:text-slate-100">1 Hour</h3>
-                        <p className="text-2xl font-bold text-primary-600">₹{venue.pricing.perHour.weekday?.toLocaleString()}</p>
+                        <p className="text-2xl font-bold text-primary-600">{venue.pricing.perHour.weekday?.toLocaleString()}</p>
                       </div>
                     </div>
                   )}
@@ -1054,7 +1127,7 @@ export default function VenueDetail() {
                         <Clock className="w-8 h-8 mx-auto mb-2 text-primary-500" />
                         <h3 className="font-bold text-lg mb-1 text-gray-900 dark:text-slate-100">4 Hours</h3>
                         <p className="text-sm text-gray-500 dark:text-slate-400 mb-1">Half Day</p>
-                        <p className="text-2xl font-bold text-primary-600">₹{venue.pricing.halfDay.weekday?.toLocaleString()}</p>
+                        <p className="text-2xl font-bold text-primary-600">{venue.pricing.halfDay.weekday?.toLocaleString()}</p>
                       </div>
                     </div>
                   )}
@@ -1073,7 +1146,7 @@ export default function VenueDetail() {
                         <Calendar className="w-8 h-8 mx-auto mb-2 text-primary-500" />
                         <h3 className="font-bold text-lg mb-1 text-gray-900 dark:text-slate-100">Full Day</h3>
                         <p className="text-sm text-gray-500 dark:text-slate-400 mb-1">8 hours</p>
-                        <p className="text-2xl font-bold text-primary-600">₹{venue.pricing.fullDay.weekday?.toLocaleString()}</p>
+                        <p className="text-2xl font-bold text-primary-600">{venue.pricing.fullDay.weekday?.toLocaleString()}</p>
                       </div>
                     </div>
                   )}
@@ -1285,6 +1358,12 @@ export default function VenueDetail() {
                     onClick={() => {
                       if (!token) {
                         setLoginModalOpen(true);
+                        return;
+                      }
+                      // KYC check — customer must have ID proof + selfie
+                      if (user?.role === 'customer' && (!user?.kyc?.idProof || !user?.kyc?.selfie)) {
+                        router.push('/customer/profile?tab=kyc');
+                        toast.error('Please complete your KYC (ID proof + selfie) to book a venue.');
                         return;
                       }
                       setBookingFormOpen(true);

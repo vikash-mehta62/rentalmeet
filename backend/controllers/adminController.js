@@ -463,6 +463,7 @@ exports.getEarningsReport = async (req, res) => {
 // @route   GET /api/admin/stats
 exports.getDashboardStats = async (req, res) => {
   try {
+    const QuotationDownload = require('../models/QuotationDownload');
     const totalVenues = await Venue.countDocuments();
     const pendingVenues = await Venue.countDocuments({ status: 'pending' });
     const approvedVenues = await Venue.countDocuments({ status: 'approved' });
@@ -473,6 +474,7 @@ exports.getDashboardStats = async (req, res) => {
     const pendingBookings = await Booking.countDocuments({ status: 'pending' });
     const confirmedBookings = await Booking.countDocuments({ status: 'confirmed' });
     const completedBookings = await Booking.countDocuments({ status: 'completed' });
+    const totalQuotationDownloads = await QuotationDownload.countDocuments();
 
     // Total revenue from completed/paid bookings
     const revenueData = await Booking.aggregate([
@@ -494,7 +496,8 @@ exports.getDashboardStats = async (req, res) => {
         pendingBookings,
         confirmedBookings,
         completedBookings,
-        totalRevenue
+        totalRevenue,
+        totalQuotationDownloads
       }
     });
   } catch (error) {
@@ -620,6 +623,25 @@ exports.updateUserStatus = async (req, res) => {
       success: false,
       message: error.message
     });
+  }
+};
+
+// @desc    Admin reset user password
+// @route   PUT /api/admin/users/:id/reset-password
+exports.resetUserPassword = async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    }
+    const user = await User.findById(req.params.id).select('+password');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    if (user.role === 'admin') return res.status(403).json({ success: false, message: 'Cannot reset admin password' });
+    user.password = newPassword; // pre-save hook will hash it
+    await user.save();
+    res.json({ success: true, message: 'Password updated successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -782,32 +804,116 @@ exports.getBooking = async (req, res) => {
   }
 };
 
-// @desc    Get all payments
-// @route   GET /api/admin/payments
+// @desc    Get all payments with server-side filtering & stats
+// @route   GET /api/admin/payments?status=&dateFilter=&from=&to=&fyYear=&year=&search=
 exports.getAllPayments = async (req, res) => {
   try {
-    const payments = await Booking.find({ paymentStatus: { $exists: true } })
-      .populate('venue', 'businessName location owner')
+    const { status, dateFilter, from, to, fyYear, year, search } = req.query;
+
+    // ── Build date range ──────────────────────────────────────────────────────
+    let dateMatch = {};
+    const now = new Date();
+
+    if (dateFilter === 'today') {
+      const start = new Date(now); start.setHours(0, 0, 0, 0);
+      const end   = new Date(now); end.setHours(23, 59, 59, 999);
+      dateMatch = { createdAt: { $gte: start, $lte: end } };
+    } else if (dateFilter === 'week') {
+      const start = new Date(now); start.setDate(now.getDate() - 7); start.setHours(0,0,0,0);
+      dateMatch = { createdAt: { $gte: start } };
+    } else if (dateFilter === 'month') {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      dateMatch = { createdAt: { $gte: start, $lte: end } };
+    } else if (dateFilter === 'year' && year) {
+      const y = parseInt(year);
+      dateMatch = { createdAt: { $gte: new Date(`${y}-01-01T00:00:00`), $lte: new Date(`${y}-12-31T23:59:59`) } };
+    } else if (dateFilter === 'fy' && fyYear) {
+      // fyYear = "2025" means Apr 2025 – Mar 2026
+      const y = parseInt(fyYear);
+      dateMatch = { createdAt: { $gte: new Date(`${y}-04-01T00:00:00`), $lte: new Date(`${y + 1}-03-31T23:59:59`) } };
+    } else if (dateFilter === 'custom' && from && to) {
+      dateMatch = { createdAt: { $gte: new Date(from + 'T00:00:00'), $lte: new Date(to + 'T23:59:59') } };
+    }
+
+    // ── Build filter ──────────────────────────────────────────────────────────
+    const filter = { paymentStatus: { $exists: true }, ...dateMatch };
+    if (status && status !== 'all') filter.paymentStatus = status;
+
+    // ── Fetch ─────────────────────────────────────────────────────────────────
+    let payments = await Booking.find(filter)
+      .populate('venue', 'businessName location owner images')
       .populate('customer', 'name email phone')
-      .populate({
-        path: 'venue',
-        populate: {
-          path: 'owner',
-          select: 'name email phone'
-        }
-      })
+      .populate({ path: 'venue', populate: { path: 'owner', select: 'name email phone' } })
       .sort('-createdAt');
-    
-    res.json({
-      success: true,
-      count: payments.length,
-      payments
-    });
+
+    // ── Search filter (in-memory — name/email/paymentId) ─────────────────────
+    if (search) {
+      const q = search.toLowerCase();
+      payments = payments.filter(p =>
+        p.paymentDetails?.razorpay_payment_id?.toLowerCase().includes(q) ||
+        p.paymentDetails?.razorpay_order_id?.toLowerCase().includes(q) ||
+        p.customer?.name?.toLowerCase().includes(q) ||
+        p.customer?.email?.toLowerCase().includes(q) ||
+        p.venue?.businessName?.toLowerCase().includes(q) ||
+        p.bookingNumber?.toLowerCase().includes(q)
+      );
+    }
+
+    // ── Backfill ledger for old paid bookings ─────────────────────────────────
+    const backfillPromises = [];
+    for (const booking of payments) {
+      const txns = booking.paymentLedger?.transactions || [];
+      if (txns.length === 0) {
+        if (!booking.paymentLedger) booking.paymentLedger = { transactions: [], adjustments: [] };
+        if (!booking.paymentLedger.transactions) booking.paymentLedger.transactions = [];
+
+        if ((booking.paymentStatus === 'paid' || booking.paymentStatus === 'refunded') && booking.paymentDetails?.razorpay_payment_id) {
+          booking.paymentLedger.transactions.push({
+            txnId: booking.paymentDetails.razorpay_payment_id,
+            type: 'payment', amount: booking.amount, status: 'completed',
+            note: `Razorpay — Order: ${booking.paymentDetails.razorpay_order_id || 'N/A'}`,
+            date: booking.paymentDetails.paidAt || booking.updatedAt
+          });
+          if (booking.refundDetails?.refundAmount) {
+            booking.paymentLedger.transactions.push({
+              txnId: booking.refundDetails.refundId || `REFUND-${booking._id}`,
+              type: 'refund', amount: booking.refundDetails.refundAmount,
+              status: booking.refundDetails.refundStatus === 'processed' ? 'completed' : 'pending',
+              note: booking.refundDetails.refundReason || 'Refund processed',
+              date: booking.refundDetails.refundedAt || booking.updatedAt
+            });
+          }
+        } else {
+          booking.paymentLedger.transactions.push({
+            txnId: `BOOKING-${booking._id}`, type: 'payment', amount: booking.amount,
+            status: 'pending', note: `Booking created — ₹${(booking.amount || 0).toLocaleString()} due`,
+            date: booking.createdAt
+          });
+        }
+        booking.markModified('paymentLedger');
+        backfillPromises.push(booking.save({ validateBeforeSave: false }));
+      }
+    }
+    if (backfillPromises.length > 0) await Promise.all(backfillPromises);
+
+    // ── Compute stats from filtered set ──────────────────────────────────────
+    const stats = {
+      total:         payments.length,
+      paid:          payments.filter(p => p.paymentStatus === 'paid').length,
+      pending:       payments.filter(p => p.paymentStatus === 'pending').length,
+      failed:        payments.filter(p => p.paymentStatus === 'failed').length,
+      refunded:      payments.filter(p => p.paymentStatus === 'refunded').length,
+      totalRevenue:  payments.filter(p => p.paymentStatus === 'paid').reduce((s, p) => s + (p.amount || 0), 0),
+      ownerEarnings: payments.filter(p => p.paymentStatus === 'paid').reduce((s, p) => s + (p.ownerEarnings || 0), 0),
+    };
+
+    res.set('Cache-Control', 'no-store');
+    res.json({ success: true, count: payments.length, payments, stats });
+
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    console.error('getAllPayments error:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -831,6 +937,24 @@ exports.getPayment = async (req, res) => {
         success: false,
         message: 'Payment not found'
       });
+    }
+
+    // Backfill ledger if needed
+    const txns = payment.paymentLedger?.transactions || [];
+    const hasPaidTxn = txns.some(t => ['payment', 'manual_payment'].includes(t.type) && t.status === 'completed');
+    if (!hasPaidTxn && payment.paymentStatus === 'paid' && payment.paymentDetails?.razorpay_payment_id) {
+      if (!payment.paymentLedger) payment.paymentLedger = { transactions: [], adjustments: [] };
+      if (!payment.paymentLedger.transactions) payment.paymentLedger.transactions = [];
+      payment.paymentLedger.transactions.push({
+        txnId: payment.paymentDetails.razorpay_payment_id,
+        type: 'payment',
+        amount: payment.amount,
+        status: 'completed',
+        note: `Razorpay — Order: ${payment.paymentDetails.razorpay_order_id || 'N/A'}`,
+        date: payment.paymentDetails.paidAt || payment.updatedAt
+      });
+      payment.markModified('paymentLedger');
+      await payment.save({ validateBeforeSave: false });
     }
     
     res.json({
@@ -1469,7 +1593,7 @@ exports.updateEmployee = async (req, res) => {
       };
     }
 
-    await employee.save();
+    await employee.save({ validateBeforeSave: false });
 
     const employeeData = employee.toObject();
     delete employeeData.password;
@@ -1752,5 +1876,110 @@ exports.toggleSubAdminStatus = async (req, res) => {
       success: false,
       message: error.message
     });
+  }
+};
+
+// @desc    Get top venues performance analytics
+// @route   GET /api/admin/payments/venue-analytics
+exports.getVenueAnalytics = async (req, res) => {
+  try {
+    const { period = 'all' } = req.query;
+
+    // Build date filter
+    let dateMatch = {};
+    const now = new Date();
+    if (period === 'today') {
+      const start = new Date(now); start.setHours(0,0,0,0);
+      dateMatch = { createdAt: { $gte: start } };
+    } else if (period === 'week') {
+      const start = new Date(now); start.setDate(now.getDate() - 7);
+      dateMatch = { createdAt: { $gte: start } };
+    } else if (period === 'month') {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      dateMatch = { createdAt: { $gte: start } };
+    } else if (period === 'year') {
+      const start = new Date(now.getFullYear(), 0, 1);
+      dateMatch = { createdAt: { $gte: start } };
+    }
+
+    const topVenues = await Booking.aggregate([
+      { $match: { ...dateMatch } },
+      {
+        $group: {
+          _id: '$venue',
+          totalBookings:  { $sum: 1 },
+          totalRevenue:   { $sum: '$amount' },
+          paidRevenue:    { $sum: { $cond: [{ $eq: ['$paymentStatus', 'paid'] }, '$amount', 0] } },
+          confirmedCount: { $sum: { $cond: [{ $eq: ['$status', 'confirmed'] }, 1, 0] } },
+          completedCount: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
+          cancelledCount: { $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] } },
+          pendingCount:   { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] } },
+          ownerEarnings:  { $sum: '$ownerEarnings' },
+          avgBookingValue:{ $avg: '$amount' },
+        }
+      },
+      { $sort: { totalBookings: -1 } },
+      { $limit: 10 },
+      {
+        $lookup: {
+          from: 'venues',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'venue'
+        }
+      },
+      { $unwind: { path: '$venue', preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          _id: 1,
+          totalBookings: 1,
+          totalRevenue: 1,
+          paidRevenue: 1,
+          confirmedCount: 1,
+          completedCount: 1,
+          cancelledCount: 1,
+          pendingCount: 1,
+          ownerEarnings: 1,
+          avgBookingValue: 1,
+          'venue.businessName': 1,
+          'venue.location.city': 1,
+          'venue.location.area': 1,
+          'venue.images': 1,
+          'venue.status': 1,
+        }
+      }
+    ]);
+
+    // Overall summary
+    const summary = await Booking.aggregate([
+      { $match: { ...dateMatch } },
+      {
+        $group: {
+          _id: null,
+          totalBookings: { $sum: 1 },
+          totalRevenue:  { $sum: '$amount' },
+          paidRevenue:   { $sum: { $cond: [{ $eq: ['$paymentStatus', 'paid'] }, '$amount', 0] } },
+          uniqueVenues:  { $addToSet: '$venue' },
+        }
+      },
+      {
+        $project: {
+          totalBookings: 1,
+          totalRevenue: 1,
+          paidRevenue: 1,
+          uniqueVenueCount: { $size: '$uniqueVenues' }
+        }
+      }
+    ]);
+
+    res.set('Cache-Control', 'no-store');
+    res.json({
+      success: true,
+      topVenues,
+      summary: summary[0] || { totalBookings: 0, totalRevenue: 0, paidRevenue: 0, uniqueVenueCount: 0 }
+    });
+  } catch (error) {
+    console.error('Venue analytics error:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };

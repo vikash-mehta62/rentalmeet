@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  Search, Filter, MapPin, Users, Star
+  Search, Filter, MapPin, Users, Star,
+  Building2, Monitor, Landmark, BedDouble, UtensilsCrossed,
+  School, PartyPopper, GraduationCap, Leaf, Laptop, BookOpen,
+  Home, Flower2, TreePine, Briefcase, Coffee, Projector
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -41,6 +44,28 @@ export default function BrowseVenues() {
     { label: '1000+', min: 1000, max: 100000 }
   ];
 
+  // Icon map for venue types
+  const venueTypeIconMap = {
+    'Meeting Hall':        Building2,
+    'Farm House':          TreePine,
+    'Conference Hall':     Monitor,
+    'Govt. Auditorium':    Landmark,
+    'Hotel':               BedDouble,
+    'Private Auditorium':  Projector,
+    'Restaurant':          UtensilsCrossed,
+    'School Auditorium':   School,
+    'Function Hall':       PartyPopper,
+    'College Auditorium':  GraduationCap,
+    'Open Lawn':           Leaf,
+    'Co-Work Space':       Laptop,
+    'Banquet Hall':        Coffee,
+    'Guest House':         Home,
+    'Training Center':     BookOpen,
+    'Marriage Garden':     Flower2,
+  };
+
+  const getVenueTypeIcon = (name) => venueTypeIconMap[name] || Building2;
+
   useEffect(() => {
     fetchVenues();
     fetchVenueTypes();
@@ -53,9 +78,7 @@ export default function BrowseVenues() {
 
   const fetchVenues = async () => {
     try {
-      // For testing, fetch all venues (including pending)
-      // In production, backend will only return approved venues
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues?status=all`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues`);
       const data = await response.json();
       
       if (data.success) {
@@ -175,15 +198,22 @@ export default function BrowseVenues() {
     <div className="min-h-screen bg-[#F8F9FA] dark:bg-slate-950">
       <Navbar />
 
-      {/* Header Section */}
-      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 pt-32 pb-6">
-        <div className="max-w-7xl mx-auto px-6">
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100" style={{ fontFamily: 'Georgia, serif' }}>Browse Venues</h1>
-          <p className="text-slate-600 dark:text-slate-300 mt-2" style={{ fontFamily: 'Georgia, serif' }}>Find the perfect venue for your next meeting, conference, or corporate event.</p>
+      {/* Header Strip — same as Other Services page */}
+      <div className="min-h-0 pt-28 lg:pt-32 pb-0">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
+          <span className="inline-block border border-gray-300 text-gray-600 text-xs font-semibold px-3 py-1 rounded-full mb-4">
+            Browse Venues
+          </span>
+          <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-900 dark:text-slate-100 mb-3">
+            Browse All Venues
+          </h1>
+          <p className="text-gray-500 dark:text-slate-400 max-w-2xl">
+            Find the perfect venue for your next meeting, conference, or corporate event.
+          </p>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
         <div className="flex flex-col lg:flex-row gap-6">
           
           {/* Mobile Filter Toggle Button */}
@@ -211,10 +241,10 @@ export default function BrowseVenues() {
             ${mobileFiltersOpen ? 'fixed inset-0 z-[115] lg:relative lg:z-auto' : 'hidden lg:block'}
           `}>
             <div className={`
-              bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 space-y-6
+              bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-6
               ${mobileFiltersOpen 
                 ? 'fixed right-0 top-0 bottom-0 w-80 max-w-[85vw] overflow-y-auto z-[120] rounded-none shadow-2xl' 
-                : 'sticky top-24'
+                : 'sticky top-28'
               }
             `}>
               {/* Mobile Close Button */}
@@ -271,18 +301,25 @@ export default function BrowseVenues() {
               {/* Venue Type */}
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">Venue Type</label>
-                <div className="space-y-2">
-                  {venueTypes.map(type => (
-                    <label key={type._id} className="flex items-center gap-2 cursor-pointer group">
-                      <input 
-                        type="checkbox" 
-                        checked={typeFilter === type.name}
-                        onChange={() => setTypeFilter(typeFilter === type.name ? '' : type.name)}
-                        className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-primary-500 focus:ring-primary-500" 
-                      />
-                      <span className="text-sm text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100"> {type.name}</span>
-                    </label>
-                  ))}
+                <div className="space-y-1.5">
+                  {venueTypes.map(type => {
+                    const Icon = getVenueTypeIcon(type.name);
+                    const isActive = typeFilter === type.name;
+                    return (
+                      <button
+                        key={type._id}
+                        onClick={() => setTypeFilter(isActive ? '' : type.name)}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all ${
+                          isActive
+                            ? 'bg-primary-500 text-white font-semibold'
+                            : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4 flex-shrink-0" />
+                        <span className="text-left leading-tight">{type.name}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

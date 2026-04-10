@@ -32,7 +32,7 @@ export default function FeaturedVenues() {
       <section className="py-12 px-4 sm:px-6 bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-10">
-            <p className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-2">OUR VENUES</p>
+            <p className="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-4">Our Venues</p>
             <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-slate-100 leading-10" style={{ fontFamily: 'Georgia, serif' }}>
               Featured Venues at RentalMeet
             </h2>
@@ -55,10 +55,9 @@ export default function FeaturedVenues() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-10">
-          <p className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-2">OUR VENUES</p>
+          <p className="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-4">Our Venues</p>
         <h2 
-className="text-[52px] md:text-[64px] font-semibold leading-[1.1] text-gray-900 dark:text-slate-100"
-style={{ fontFamily: 'Playfair Display, serif' }}
+className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-slate-100"
 >
 Featured Venues at RentalMeet
 </h2>
@@ -85,20 +84,38 @@ Featured Venues at RentalMeet
                     alt={venue.businessName}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                   />
-                  
+
+                  {/* Watermark */}
+                  <div className="watermark-logo">
+                    <img src="/logo.png" alt="" draggable={false} />
+                  </div>
+
                   {/* Capacity Badge */}
                   <div className="absolute top-3 left-3 bg-white dark:bg-slate-900 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-md">
-                    <Users className="w-3.5 h-3.5 text-gray-800" />
+                    <Users className="w-3.5 h-3.5 text-gray-800 dark:text-slate-200" />
                     <span className="text-xs font-bold text-gray-900 dark:text-slate-100">
                       {venue.capacity} persons
                     </span>
                   </div>
 
-                  {/* Featured Badge */}
-                  <div className="absolute top-3 right-3 bg-[#F59F0A] px-3 py-1 rounded-full flex items-center gap-1.5 shadow-md">
-                    <Star className="w-3.5 h-3.5 text-white fill-white" />
-                    <span className="text-xs font-bold text-white">Featured</span>
-                  </div>
+                  {/* Rating Badge */}
+                  {(venue.rating > 0 || venue.averageRating > 0) && (
+                    <div className="absolute top-3 right-3 bg-white dark:bg-slate-900 px-2.5 py-1 rounded-full flex items-center gap-1 shadow-md">
+                      <Star className="w-3.5 h-3.5 text-[#F59F0A] fill-[#F59F0A]" />
+                      <span className="text-xs font-bold text-gray-900 dark:text-slate-100">
+                        {(venue.rating || venue.averageRating)?.toFixed(1)}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Discount Coupon Badge */}
+                  {venue.activeCoupons?.length > 0 && (
+                    <div className="absolute bottom-3 left-3 bg-green-500 text-white px-2.5 py-1 rounded-full text-xs font-bold shadow-md flex items-center gap-1">
+                      🏷️ {venue.activeCoupons[0].discountType === 'percentage'
+                        ? `${venue.activeCoupons[0].discountValue}% OFF`
+                        : `₹${venue.activeCoupons[0].discountValue} OFF`}
+                    </div>
+                  )}
                 </div>
 
                 {/* Content */}
@@ -115,9 +132,24 @@ Featured Venues at RentalMeet
                   </p>
 
                   {/* Venue Name */}
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100 mb-2 line-clamp-1">
+                  <h3 className="font-serif text-lg font-semibold text-gray-900 dark:text-slate-100 mb-2 line-clamp-1 group-hover:text-primary-500 transition-colors">
                     {venue.businessName}
                   </h3>
+
+                  {/* Rating row */}
+                  {(venue.rating > 0 || venue.averageRating > 0) && (
+                    <div className="flex items-center gap-1 mb-2">
+                      {[1,2,3,4,5].map(s => (
+                        <Star key={s}
+                          className={`w-3.5 h-3.5 ${s <= Math.round(venue.rating || venue.averageRating) ? 'fill-[#F59F0A] text-[#F59F0A]' : 'text-gray-200 dark:text-slate-700'}`}
+                        />
+                      ))}
+                      <span className="text-xs text-gray-500 dark:text-slate-400 ml-1">
+                        {(venue.rating || venue.averageRating)?.toFixed(1)}
+                        {venue.reviewCount > 0 && ` (${venue.reviewCount})`}
+                      </span>
+                    </div>
+                  )}
 
                   {/* Amenities Icons */}
                   <div className="flex items-center gap-2 mb-3 text-gray-500 dark:text-slate-400">
@@ -138,7 +170,7 @@ Featured Venues at RentalMeet
                     <div>
                       <p className="text-xs text-gray-500 dark:text-slate-400 mb-0.5">Starting from</p>
                       <p className="text-2xl font-bold text-[#F59F0A]">
-                        Rs.{venue.pricing?.perHour?.weekday?.toLocaleString('en-IN') || 0}
+                        {venue.pricing?.perHour?.weekday?.toLocaleString('en-IN') || 0}
                         <span className="text-xs font-normal text-gray-500 dark:text-slate-400"></span>
                       </p>
                     </div>

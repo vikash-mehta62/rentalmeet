@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const Razorpay = require('razorpay');
 const Booking = require('../models/Booking');
+const User = require('../models/User');
 
 /**
  * Process refund via Razorpay — refund goes back to original payment source
@@ -99,4 +100,28 @@ const startAutoCancelCron = () => {
   console.log('[CRON] Auto-cancel cron started (every minute)');
 };
 
-module.exports = { startAutoCancelCron };
+/**
+ * Runs daily at midnight — permanently delete accounts soft-deleted 30+ days ago
+ */
+const startAutoDeleteCron = () => {
+  cron.schedule('0 0 * * *', async () => {
+    try {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 30);
+
+      const result = await User.deleteMany({
+        isDeleted: true,
+        deletedAt: { $lte: cutoff }
+      });
+
+      if (result.deletedCount > 0) {
+        console.log(`[CRON] Permanently deleted ${result.deletedCount} user account(s) (30-day rule)`);
+      }
+    } catch (err) {
+      console.error('[CRON] Auto-delete cron error:', err.message);
+    }
+  });
+  console.log('[CRON] Auto-delete cron started (daily midnight)');
+};
+
+module.exports = { startAutoCancelCron, startAutoDeleteCron };

@@ -271,6 +271,17 @@ exports.updateProfile = async (req, res) => {
     currentUser.state = state || currentUser.state;
     currentUser.pincode = pincode || currentUser.pincode;
     currentUser.profilePicture = profilePicture || currentUser.profilePicture;
+
+    // Employee-specific editable fields
+    if (currentUser.role === 'employee') {
+      const { alternatePhone, fatherOrHusbandName, dateOfBirth, bloodGroup, emergencyContact } = req.body;
+      if (alternatePhone !== undefined) currentUser.alternatePhone = alternatePhone;
+      if (!currentUser.employeeDetails) currentUser.employeeDetails = {};
+      if (fatherOrHusbandName !== undefined) currentUser.employeeDetails.fatherOrHusbandName = fatherOrHusbandName;
+      if (dateOfBirth !== undefined) currentUser.employeeDetails.dateOfBirth = dateOfBirth;
+      if (bloodGroup !== undefined) currentUser.employeeDetails.bloodGroup = bloodGroup;
+      if (emergencyContact !== undefined) currentUser.employeeDetails.emergencyContact = emergencyContact;
+    }
     
     // Update GST & Business details (root level fields)
     if (gstNumber !== undefined) {
@@ -391,16 +402,137 @@ exports.deleteAccount = async (req, res) => {
       });
     }
 
-    // Soft delete — mark as inactive instead of hard delete
     await User.findByIdAndUpdate(userId, {
       isDeleted: true,
       deletedAt: new Date(),
-      email: `deleted_${Date.now()}_${req.user.email}` // free up email
-    });
+      email: `deleted_${Date.now()}_${req.user.email}`
+    }, { runValidators: false });
 
     res.json({ success: true, message: 'Account deleted successfully.' });
   } catch (error) {
     console.error('Delete account error:', error);
     res.status(500).json({ success: false, message: 'Failed to delete account' });
+  }
+};
+
+// @desc    Temporarily deactivate account
+// @route   PUT /api/auth/deactivate-account
+exports.deactivateAccount = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    await User.findByIdAndUpdate(userId, { isActive: false }, { runValidators: false });
+    res.json({ success: true, message: 'Account deactivated. Login again to reactivate.' });
+  } catch (error) {
+    console.error('Deactivate account error:', error);
+    res.status(500).json({ success: false, message: 'Failed to deactivate account' });
+  }
+};
+
+// @desc    Upload KYC documents (ID proof + selfie)
+// @route   POST /api/auth/kyc-upload
+exports.uploadKYC = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { uploadToCloudinary } = require('../config/cloudinary');
+    const { idProofType } = req.body;
+
+    if (!req.files || (!req.files.idProof && !req.files.selfie)) {
+      return res.status(400).json({ success: false, message: 'Please upload at least one document' });
+    }
+
+    const updates = { 'kyc.verifiedAt': null };
+
+    if (req.files.idProof && req.files.idProof[0]) {
+      const result = await uploadToCloudinary(req.files.idProof[0].buffer, 'kyc/id-proofs');
+      updates['kyc.idProof'] = result.secure_url;
+      if (idProofType) updates['kyc.idProofType'] = idProofType;
+    }
+
+    if (req.files.selfie && req.files.selfie[0]) {
+      const result = await uploadToCloudinary(req.files.selfie[0].buffer, 'kyc/selfies');
+      updates['kyc.selfie'] = result.secure_url;
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $set: updates },
+      { new: true, runValidators: false }
+    ).select('-password');
+    res.json({ success: true, message: 'KYC documents uploaded successfully', user });
+  } catch (error) {
+    console.error('KYC upload error:', error);
+    res.status(500).json({ success: false, message: 'Failed to upload KYC documents' });
+  }
+};
+
+// @desc    Employee self-update (documents, education, bank, personal — NOT salary/position)
+// @route   PUT /api/auth/employee-self-update
+exports.employeeSelfUpdate = async (req, res) => {
+  try {
+    const employee = await User.findById(req.user.id);
+    if (!employee || employee.role !== 'employee') {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    const {
+      name, phone, alternatePhone, address, city, state, pincode,
+      fatherOrHusbandName, dateOfBirth, bloodGroup, maritalStatus,
+      emergencyContact,
+      qualification,
+      documents,
+      bankDetails
+    } = req.body;
+
+    // Basic fields
+    if (name) employee.name = name;
+    if (phone) employee.phone = phone;
+    if (alternatePhone !== undefined) employee.alternatePhone = alternatePhone;
+    if (address !== undefined) employee.address = address;
+    if (city !== undefined) employee.city = city;
+    if (state !== undefined) employee.state = state;
+    if (pincode !== undefined) employee.pincode = pincode;
+
+    if (!employee.employeeDetails) employee.employeeDetails = {};
+
+    // Personal details (NOT salary, position, department, employmentType, joiningDate)
+    if (fatherOrHusbandName !== undefined) employee.employeeDetails.fatherOrHusbandName = fatherOrHusbandName;
+    if (dateOfBirth !== undefined) employee.employeeDetails.dateOfBirth = dateOfBirth;
+    if (bloodGroup !== undefined) employee.employeeDetails.bloodGroup = bloodGroup;
+    if (maritalStatus !== undefined) employee.employeeDetails.maritalStatus = maritalStatus;
+    if (emergencyContact !== undefined) employee.employeeDetails.emergencyContact = emergencyContact;
+
+    // Documents (aadhaar, pan)
+    if (documents !== undefined) {
+      employee.employeeDetails.documents = {
+        ...employee.employeeDetails.documents,
+        ...documents
+      };
+    }
+
+    // Qualification (education + certificates)
+    if (qualification !== undefined) {
+      employee.employeeDetails.qualification = {
+        ...employee.employeeDetails.qualification,
+        ...qualification
+      };
+    }
+
+    // Bank details
+    if (bankDetails !== undefined) {
+      employee.employeeDetails.bankDetails = {
+        ...employee.employeeDetails.bankDetails,
+        ...bankDetails
+      };
+    }
+
+    await employee.save({ validateBeforeSave: false });
+
+    const userData = employee.toObject();
+    delete userData.password;
+
+    res.json({ success: true, message: 'Profile updated successfully', user: userData });
+  } catch (error) {
+    console.error('Employee self-update error:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { X } from 'lucide-react';
@@ -23,6 +23,15 @@ export default function EmployeeForm({ employee, onClose, onSuccess, token }) {
     city: employee?.city || '',
     state: employee?.state || '',
     pincode: employee?.pincode || '',
+    // Employment details
+    position: employee?.employeeDetails?.position || '',
+    department: employee?.employeeDetails?.department || '',
+    employmentType: employee?.employeeDetails?.employmentType || 'Permanent',
+    salary: employee?.employeeDetails?.salary || '',
+    contractPaymentType: employee?.employeeDetails?.contractDetails?.paymentType || 'perLead',
+    contractAmount: employee?.employeeDetails?.contractDetails?.amount || '',
+    joiningDate: employee?.employeeDetails?.joiningDate ? new Date(employee.employeeDetails.joiningDate).toISOString().split('T')[0] : '',
+    previousExperience: employee?.employeeDetails?.previousExperience || 0,
     tenth: {
       board: employee?.employeeDetails?.qualification?.tenth?.board || '',
       year: employee?.employeeDetails?.qualification?.tenth?.year || '',
@@ -64,6 +73,21 @@ export default function EmployeeForm({ employee, onClose, onSuccess, token }) {
     graduationCertificate: null, postGraduationCertificate: null
   });
 
+  // Uploaded URLs — populated instantly on file select
+  const [uploadedUrls, setUploadedUrls] = useState({
+    photo: employee?.employeeDetails?.photo || null,
+    aadhaarFront: employee?.employeeDetails?.documents?.aadhaarFront || null,
+    aadhaarBack: employee?.employeeDetails?.documents?.aadhaarBack || null,
+    panCard: employee?.employeeDetails?.documents?.panCard || null,
+    tenthCertificate: employee?.employeeDetails?.qualification?.tenth?.certificate || null,
+    twelfthCertificate: employee?.employeeDetails?.qualification?.twelfth?.certificate || null,
+    graduationCertificate: employee?.employeeDetails?.qualification?.graduation?.certificate || null,
+    postGraduationCertificate: employee?.employeeDetails?.qualification?.postGraduation?.certificate || null,
+  });
+
+  // Per-field uploading state
+  const [uploading, setUploading] = useState({});
+
   const steps = [
     { id: 1, name: 'Basic Details' },
     { id: 2, name: 'Qualification' },
@@ -80,24 +104,53 @@ export default function EmployeeForm({ employee, onClose, onSuccess, token }) {
     }
   };
 
-  const handleFileChange = (e, fieldName) => {
+  const handleFileChange = async (e, fieldName) => {
     const file = e.target.files[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) { toast.error('File size should be less than 5MB'); return; }
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
     if (!validTypes.includes(file.type)) { toast.error('Only JPG, PNG, and PDF files are allowed'); return; }
+
+    setUploading(prev => ({ ...prev, [fieldName]: true }));
     setFiles(prev => ({ ...prev, [fieldName]: file }));
+
+    const toastId = toast.loading(`Uploading ${fieldName.replace(/([A-Z])/g, ' $1').trim()}...`);
+    try {
+      const url = await uploadFile(file);
+      setUploadedUrls(prev => ({ ...prev, [fieldName]: url }));
+      toast.success('Uploaded successfully!', { id: toastId });
+    } catch (err) {
+      console.error('Upload error:', err);
+      toast.error(`Upload failed: ${err.message}`, { id: toastId });
+      setFiles(prev => ({ ...prev, [fieldName]: null }));
+      // Reset the input
+      e.target.value = '';
+    } finally {
+      setUploading(prev => ({ ...prev, [fieldName]: false }));
+    }
   };
 
   const uploadFile = async (file) => {
     const fd = new FormData();
     fd.append('file', file);
     fd.append('folder', 'employees');
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` },
-      body: fd
-    });
+
+    let res;
+    try {
+      res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: fd
+      });
+    } catch (networkErr) {
+      throw new Error('Network error — check your connection');
+    }
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Server error ${res.status}: ${text.slice(0, 100)}`);
+    }
+
     const data = await res.json();
     if (data.success) return data.url;
     throw new Error(data.message || 'Upload failed');
@@ -106,15 +159,7 @@ export default function EmployeeForm({ employee, onClose, onSuccess, token }) {
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      const uploadedUrls = {};
-      for (const [key, file] of Object.entries(files)) {
-        if (file) {
-          toast.loading(`Uploading ${key}...`);
-          uploadedUrls[key] = await uploadFile(file);
-          toast.dismiss();
-        }
-      }
-
+      // All files already uploaded on select — use uploadedUrls directly
       const employeeData = {
         name: formData.name,
         email: formData.email,
@@ -132,19 +177,29 @@ export default function EmployeeForm({ employee, onClose, onSuccess, token }) {
           gender: formData.gender,
           maritalStatus: formData.maritalStatus,
           bloodGroup: formData.bloodGroup,
-          photo: uploadedUrls.photo || employee?.employeeDetails?.photo,
+          photo: uploadedUrls.photo,
+          position: formData.position,
+          department: formData.department,
+          employmentType: formData.employmentType,
+          salary: formData.employmentType === 'Permanent' ? (formData.salary || undefined) : undefined,
+          contractDetails: formData.employmentType === 'Contract' ? {
+            paymentType: formData.contractPaymentType,
+            amount: formData.contractAmount ? Number(formData.contractAmount) : undefined
+          } : undefined,
+          joiningDate: formData.joiningDate || undefined,
+          previousExperience: formData.previousExperience || 0,
           qualification: {
-            tenth: { ...formData.tenth, certificate: uploadedUrls.tenthCertificate || employee?.employeeDetails?.qualification?.tenth?.certificate },
-            twelfth: { ...formData.twelfth, certificate: uploadedUrls.twelfthCertificate || employee?.employeeDetails?.qualification?.twelfth?.certificate },
-            graduation: { ...formData.graduation, certificate: uploadedUrls.graduationCertificate || employee?.employeeDetails?.qualification?.graduation?.certificate },
-            postGraduation: { ...formData.postGraduation, certificate: uploadedUrls.postGraduationCertificate || employee?.employeeDetails?.qualification?.postGraduation?.certificate }
+            tenth: { ...formData.tenth, certificate: uploadedUrls.tenthCertificate },
+            twelfth: { ...formData.twelfth, certificate: uploadedUrls.twelfthCertificate },
+            graduation: { ...formData.graduation, certificate: uploadedUrls.graduationCertificate },
+            postGraduation: { ...formData.postGraduation, certificate: uploadedUrls.postGraduationCertificate }
           },
           documents: {
             aadhaarNumber: formData.aadhaarNumber,
-            aadhaarFront: uploadedUrls.aadhaarFront || employee?.employeeDetails?.documents?.aadhaarFront,
-            aadhaarBack: uploadedUrls.aadhaarBack || employee?.employeeDetails?.documents?.aadhaarBack,
+            aadhaarFront: uploadedUrls.aadhaarFront,
+            aadhaarBack: uploadedUrls.aadhaarBack,
             panNumber: formData.panNumber,
-            panCard: uploadedUrls.panCard || employee?.employeeDetails?.documents?.panCard
+            panCard: uploadedUrls.panCard
           },
           bankDetails: {
             accountHolderName: formData.accountHolderName,
@@ -309,8 +364,16 @@ export default function EmployeeForm({ employee, onClose, onSuccess, token }) {
 
               <div className="border-t pt-5">
                 <h3 className="text-base font-semibold text-gray-900 mb-4">Photo</h3>
-                <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'photo')} className={inputCls} />
-                {files.photo && <p className="text-sm text-green-600 mt-1">✓ {files.photo.name}</p>}
+                <div className="flex items-center gap-4">
+                  {uploadedUrls.photo && (
+                    <img src={uploadedUrls.photo} alt="Photo" className="w-16 h-16 rounded-full object-cover border-2 border-primary-300" />
+                  )}
+                  <div className="flex-1">
+                    <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'photo')} className={inputCls} />
+                    {uploading.photo && <p className="text-xs text-blue-600 mt-1 flex items-center gap-1"><span className="animate-spin">⏳</span> Uploading...</p>}
+                    {uploadedUrls.photo && !uploading.photo && <p className="text-xs text-green-600 mt-1">✓ Uploaded successfully</p>}
+                  </div>
+                </div>
               </div>
 
               <div className="border-t pt-5">
@@ -319,6 +382,69 @@ export default function EmployeeForm({ employee, onClose, onSuccess, token }) {
                   <div><label className={labelCls}>Name</label><input type="text" name="emergencyName" value={formData.emergencyName} onChange={handleInputChange} className={inputCls} /></div>
                   <div><label className={labelCls}>Relationship</label><input type="text" name="emergencyRelationship" value={formData.emergencyRelationship} onChange={handleInputChange} placeholder="e.g., Father" className={inputCls} /></div>
                   <div><label className={labelCls}>Phone</label><input type="tel" name="emergencyPhone" value={formData.emergencyPhone} onChange={handleInputChange} className={inputCls} /></div>
+                </div>
+              </div>
+
+              {/* Employment Details */}
+              <div className="border-t pt-5">
+                <h3 className="text-base font-semibold text-gray-900 mb-4">Employment Details</h3>
+                <div className="bg-amber-50 rounded-lg p-4 border border-amber-200 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelCls}>Position / Designation</label>
+                      <input type="text" name="position" value={formData.position} onChange={handleInputChange} placeholder="e.g., Sales Executive" className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Department</label>
+                      <input type="text" name="department" value={formData.department} onChange={handleInputChange} placeholder="e.g., Operations" className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Joining Date</label>
+                      <input type="date" name="joiningDate" value={formData.joiningDate} onChange={handleInputChange} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Previous Experience (years)</label>
+                      <input type="number" name="previousExperience" value={formData.previousExperience} onChange={handleInputChange} min="0" className={inputCls} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className={labelCls}>Employment Type</label>
+                    <div className="flex gap-4">
+                      {['Permanent', 'Contract'].map(t => (
+                        <label key={t} className="flex items-center gap-2 cursor-pointer">
+                          <input type="radio" name="employmentType" value={t}
+                            checked={formData.employmentType === t}
+                            onChange={handleInputChange}
+                            className="w-4 h-4 text-primary-500" />
+                          <span className="text-sm font-medium text-gray-700">{t}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {formData.employmentType === 'Permanent' && (
+                    <div>
+                      <label className={labelCls}>Monthly Salary (₹)</label>
+                      <input type="number" name="salary" value={formData.salary} onChange={handleInputChange} min="0" placeholder="e.g., 25000" className={inputCls} />
+                    </div>
+                  )}
+
+                  {formData.employmentType === 'Contract' && (
+                    <div className="space-y-3">
+                      <div>
+                        <label className={labelCls}>Payment Type</label>
+                        <select name="contractPaymentType" value={formData.contractPaymentType} onChange={handleInputChange} className={inputCls}>
+                          <option value="perLead">Per Lead</option>
+                          <option value="overall">Overall Contract</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Amount (₹)</label>
+                        <input type="number" name="contractAmount" value={formData.contractAmount} onChange={handleInputChange} min="0" placeholder="e.g., 5000" className={inputCls} />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -350,7 +476,8 @@ export default function EmployeeForm({ employee, onClose, onSuccess, token }) {
                   <div className="md:col-span-3">
                     <label className={labelCls}>Certificate Upload</label>
                     <input type="file" accept="image/*,.pdf" onChange={(e) => handleFileChange(e, 'tenthCertificate')} className={inputCls} />
-                    {files.tenthCertificate && <p className="text-sm text-green-600 mt-1">✓ {files.tenthCertificate.name}</p>}
+                    {uploading.tenthCertificate && <p className="text-xs text-blue-600 mt-1">⏳ Uploading...</p>}
+                    {uploadedUrls.tenthCertificate && !uploading.tenthCertificate && <p className="text-xs text-green-600 mt-1 flex items-center gap-1">✓ Uploaded — <a href={uploadedUrls.tenthCertificate} target="_blank" rel="noopener noreferrer" className="underline">View</a></p>}
                   </div>
                 </div>
               </div>
@@ -365,7 +492,8 @@ export default function EmployeeForm({ employee, onClose, onSuccess, token }) {
                   <div className="md:col-span-3">
                     <label className={labelCls}>Certificate Upload</label>
                     <input type="file" accept="image/*,.pdf" onChange={(e) => handleFileChange(e, 'twelfthCertificate')} className={inputCls} />
-                    {files.twelfthCertificate && <p className="text-sm text-green-600 mt-1">✓ {files.twelfthCertificate.name}</p>}
+                    {uploading.twelfthCertificate && <p className="text-xs text-blue-600 mt-1">⏳ Uploading...</p>}
+                    {uploadedUrls.twelfthCertificate && !uploading.twelfthCertificate && <p className="text-xs text-green-600 mt-1 flex items-center gap-1">✓ Uploaded — <a href={uploadedUrls.twelfthCertificate} target="_blank" rel="noopener noreferrer" className="underline">View</a></p>}
                   </div>
                 </div>
               </div>
@@ -381,7 +509,8 @@ export default function EmployeeForm({ employee, onClose, onSuccess, token }) {
                   <div className="md:col-span-2">
                     <label className={labelCls}>Certificate Upload</label>
                     <input type="file" accept="image/*,.pdf" onChange={(e) => handleFileChange(e, 'graduationCertificate')} className={inputCls} />
-                    {files.graduationCertificate && <p className="text-sm text-green-600 mt-1">✓ {files.graduationCertificate.name}</p>}
+                    {uploading.graduationCertificate && <p className="text-xs text-blue-600 mt-1">⏳ Uploading...</p>}
+                    {uploadedUrls.graduationCertificate && !uploading.graduationCertificate && <p className="text-xs text-green-600 mt-1 flex items-center gap-1">✓ Uploaded — <a href={uploadedUrls.graduationCertificate} target="_blank" rel="noopener noreferrer" className="underline">View</a></p>}
                   </div>
                 </div>
               </div>
@@ -397,7 +526,8 @@ export default function EmployeeForm({ employee, onClose, onSuccess, token }) {
                   <div className="md:col-span-2">
                     <label className={labelCls}>Certificate Upload</label>
                     <input type="file" accept="image/*,.pdf" onChange={(e) => handleFileChange(e, 'postGraduationCertificate')} className={inputCls} />
-                    {files.postGraduationCertificate && <p className="text-sm text-green-600 mt-1">✓ {files.postGraduationCertificate.name}</p>}
+                    {uploading.postGraduationCertificate && <p className="text-xs text-blue-600 mt-1">⏳ Uploading...</p>}
+                    {uploadedUrls.postGraduationCertificate && !uploading.postGraduationCertificate && <p className="text-xs text-green-600 mt-1 flex items-center gap-1">✓ Uploaded — <a href={uploadedUrls.postGraduationCertificate} target="_blank" rel="noopener noreferrer" className="underline">View</a></p>}
                   </div>
                 </div>
               </div>
@@ -421,12 +551,14 @@ export default function EmployeeForm({ employee, onClose, onSuccess, token }) {
                     <div>
                       <label className={labelCls}>Aadhaar Front</label>
                       <input type="file" accept="image/*,.pdf" onChange={(e) => handleFileChange(e, 'aadhaarFront')} className={inputCls} />
-                      {files.aadhaarFront && <p className="text-sm text-green-600 mt-1">✓ {files.aadhaarFront.name}</p>}
+                      {uploading.aadhaarFront && <p className="text-xs text-blue-600 mt-1">⏳ Uploading...</p>}
+                      {uploadedUrls.aadhaarFront && !uploading.aadhaarFront && <p className="text-xs text-green-600 mt-1">✓ Uploaded — <a href={uploadedUrls.aadhaarFront} target="_blank" rel="noopener noreferrer" className="underline">View</a></p>}
                     </div>
                     <div>
                       <label className={labelCls}>Aadhaar Back</label>
                       <input type="file" accept="image/*,.pdf" onChange={(e) => handleFileChange(e, 'aadhaarBack')} className={inputCls} />
-                      {files.aadhaarBack && <p className="text-sm text-green-600 mt-1">✓ {files.aadhaarBack.name}</p>}
+                      {uploading.aadhaarBack && <p className="text-xs text-blue-600 mt-1">⏳ Uploading...</p>}
+                      {uploadedUrls.aadhaarBack && !uploading.aadhaarBack && <p className="text-xs text-green-600 mt-1">✓ Uploaded — <a href={uploadedUrls.aadhaarBack} target="_blank" rel="noopener noreferrer" className="underline">View</a></p>}
                     </div>
                   </div>
                 </div>
@@ -443,7 +575,8 @@ export default function EmployeeForm({ employee, onClose, onSuccess, token }) {
                   <div>
                     <label className={labelCls}>PAN Card Upload</label>
                     <input type="file" accept="image/*,.pdf" onChange={(e) => handleFileChange(e, 'panCard')} className={inputCls} />
-                    {files.panCard && <p className="text-sm text-green-600 mt-1">✓ {files.panCard.name}</p>}
+                    {uploading.panCard && <p className="text-xs text-blue-600 mt-1">⏳ Uploading...</p>}
+                    {uploadedUrls.panCard && !uploading.panCard && <p className="text-xs text-green-600 mt-1">✓ Uploaded — <a href={uploadedUrls.panCard} target="_blank" rel="noopener noreferrer" className="underline">View</a></p>}
                   </div>
                 </div>
               </div>

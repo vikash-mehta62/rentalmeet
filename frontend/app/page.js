@@ -4,11 +4,16 @@ import Navbar from '@/components/Navbar';
 import HeroSection from '@/components/HeroSection';
 import SearchFilter from '@/components/SearchFilter';
 import FeaturedVenues from '@/components/FeaturedVenues';
+import VenueCategoriesSection from '@/components/VenueCategoriesSection';
+import PremiumServicesSection from '@/components/PremiumServicesSection';
 import FacilitiesSection from '@/components/FacilitiesSection';
 import PricingSection from '@/components/PricingSection';
 import TestimonialsSection from '@/components/TestimonialsSection';
 import CTASection from '@/components/CTASection';
 import Footer from '@/components/Footer';
+
+
+
 
 export default function Home() {
   return (
@@ -31,6 +36,12 @@ export default function Home() {
 
         {/* Featured Venues Section */}
         <FeaturedVenues />
+
+        {/* Venue Categories Section */}
+        <VenueCategoriesSection />
+
+        {/* Premium Services Section */}
+        <PremiumServicesSection />
 
         {/* Facilities Section */}
         <FacilitiesSection />

@@ -38,8 +38,20 @@ module.exports = {
         warning: '#F59E0B',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        heading: ['Poppins', 'Inter', 'sans-serif'],
+        sans:    ['var(--font-inter)', 'Inter', 'system-ui', 'sans-serif'],
+        serif:   ['var(--font-playfair)', 'Playfair Display', 'Georgia', 'serif'],
+        mono:    ['var(--font-jetbrains)', 'JetBrains Mono', 'monospace'],
+        heading: ['var(--font-playfair)', 'Playfair Display', 'Georgia', 'serif'],
+      },
+      fontSize: {
+        // Prototype heading scale
+        'display':  ['4.5rem',  { lineHeight: '1.05', fontWeight: '700' }], // 72px — hero h1 desktop
+        'h1':       ['3.75rem', { lineHeight: '1.1',  fontWeight: '700' }], // 60px
+        'h2':       ['3rem',    { lineHeight: '1.15', fontWeight: '600' }], // 48px — section titles
+        'h3':       ['2rem',    { lineHeight: '1.2',  fontWeight: '600' }], // 32px
+        'h4':       ['1.5rem',  { lineHeight: '1.3',  fontWeight: '600' }], // 24px
+        'h5':       ['1.25rem', { lineHeight: '1.4',  fontWeight: '600' }], // 20px
+        'label':    ['0.6875rem',{ lineHeight: '1',   fontWeight: '600', letterSpacing: '0.1em' }], // 11px badge/label
       },
       boxShadow: {
         'soft': '0 2px 8px rgba(0, 0, 0, 0.04)',

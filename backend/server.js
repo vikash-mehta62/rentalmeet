@@ -13,8 +13,9 @@ const app = express();
 connectDB();
 
 // Start cron jobs
-const { startAutoCancelCron } = require('./utils/cronJobs');
+const { startAutoCancelCron, startAutoDeleteCron } = require('./utils/cronJobs');
 startAutoCancelCron();
+startAutoDeleteCron();
 
 // Security middleware
 app.use(helmet({
@@ -86,6 +87,9 @@ app.get('/api/contact-settings', getPublicContactSettings);
 
 // FAQ routes
 app.use('/api/faqs', require('./routes/faqs'));
+
+// Chatbot routes
+app.use('/api/chatbot', require('./routes/chatbot'));
 
 // Health check
 app.get('/health', (req, res) => {

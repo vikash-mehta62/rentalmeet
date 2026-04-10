@@ -118,10 +118,9 @@ export default function TestimonialsSection() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
-          <p className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-2">TESTIMONIALS</p>
+          <p className="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-4">Testimonials</p>
           <h2 
-            className="text-[52px] md:text-[64px] font-semibold leading-[1.1] text-gray-900 dark:text-slate-100"
-            style={{ fontFamily: 'Playfair Display, serif' }}
+            className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-slate-100"
           >
             What Our Clients Say
           </h2>
@@ -207,7 +206,7 @@ export default function TestimonialsSection() {
                       </div>
                     )}
                     <div>
-                      <h4 className="font-bold text-gray-900 dark:text-slate-100">{review.name}</h4>
+                      <h4 className="font-semibold text-sm text-gray-900 dark:text-slate-100">{review.name}</h4>
                       <p className="text-sm text-gray-600 dark:text-slate-300">{review.role}</p>
                     </div>
                   </div>
