@@ -68,7 +68,220 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/venues', require('./routes/venues'));
 app.use('/api/venue-types', require('./routes/venueTypes'));
 app.use('/api/owner', require('./routes/owner'));
+app.use('/api/vendor', require('./routes/vendor'));
 app.use('/api/admin', require('./routes/admin'));
+
+// Public: get service platform settings (for quotation calculation)
+app.get('/api/service-platform-settings', async (req, res) => {
+  try {
+    const PlatformSettings = require('./models/PlatformSettings');
+    const settings = await PlatformSettings.getSettings();
+    res.json({
+      success: true,
+      settings: {
+        serviceCGST: settings.serviceCGST,
+        serviceSGST: settings.serviceSGST,
+        serviceHSN: settings.serviceHSN,
+        servicePlatformFee: settings.servicePlatformFee,
+        serviceCategoryRates: settings.serviceCategoryRates || [],
+        platformCGST: settings.platformCGST,
+        platformSGST: settings.platformSGST,
+      }
+    });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// Public vendor services (no auth required)
+app.get('/api/vendor-services', async (req, res) => {
+  try {
+    const VendorService = require('./models/VendorService');
+    const { category, city, search, limit = 20, page = 1, maxPrice } = req.query;
+    const filter = { status: 'approved', isActive: true };
+    if (category) filter.category = category;
+    if (city) filter.city = { $regex: city, $options: 'i' };
+    if (maxPrice) filter.startingPrice = { $lte: parseInt(maxPrice) };
+    if (search) filter.$or = [
+      { title: { $regex: search, $options: 'i' } },
+      { description: { $regex: search, $options: 'i' } },
+      { tags: { $in: [new RegExp(search, 'i')] } },
+      { companyName: { $regex: search, $options: 'i' } }
+    ];
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const [services, total] = await Promise.all([
+      VendorService.find(filter)
+        .populate('vendor', 'name companyName vendorCategory city state')
+        .sort('-createdAt').skip(skip).limit(parseInt(limit)),
+      VendorService.countDocuments(filter)
+    ]);
+    res.json({ success: true, services, total, page: parseInt(page), pages: Math.ceil(total / parseInt(limit)) });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+app.get('/api/vendor-services/:id', async (req, res) => {
+  try {
+    const VendorService = require('./models/VendorService');
+    const service = await VendorService.findOne({ _id: req.params.id, status: 'approved' })
+      .populate('vendor', 'name companyName vendorCategory city state phone email');
+    if (!service) return res.status(404).json({ success: false, message: 'Not found' });
+    res.json({ success: true, service });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// POST service booking (public — no auth required, guest allowed)
+app.post('/api/service-bookings', async (req, res) => {
+  try {
+    const ServiceBooking = require('./models/ServiceBooking');
+    const VendorService  = require('./models/VendorService');
+    const Coupon = require('./models/Coupon');
+    const { serviceId, eventDate, customerInfo, items, pricing, couponCode } = req.body;
+
+    const svc = await VendorService.findById(serviceId);
+    if (!svc) return res.status(404).json({ success: false, message: 'Service not found' });
+
+    // Coupon validation
+    let appliedCoupon = null;
+    let discountAmount = 0;
+    let finalTotal = pricing.total;
+
+    if (couponCode) {
+      let coupon = await Coupon.findOne({ code: couponCode.toUpperCase().trim(), service: serviceId, isActive: true });
+      if (!coupon) coupon = await Coupon.findOne({ code: couponCode.toUpperCase().trim(), service: null, venue: null, isActive: true });
+      if (coupon) {
+        const now = new Date();
+        const valid = (!coupon.expiryDate || now <= new Date(coupon.expiryDate)) &&
+          (coupon.maxUses === null || coupon.usedCount < coupon.maxUses) &&
+          (pricing.total >= coupon.minBookingAmount);
+        if (valid) {
+          if (coupon.discountType === 'percentage') {
+            discountAmount = (pricing.total * coupon.discountValue) / 100;
+            if (coupon.maxDiscount) discountAmount = Math.min(discountAmount, coupon.maxDiscount);
+          } else {
+            discountAmount = Math.min(coupon.discountValue, pricing.total);
+          }
+          discountAmount = Math.round(discountAmount);
+          finalTotal = pricing.total - discountAmount;
+          appliedCoupon = coupon;
+        }
+      }
+    }
+
+    const booking = await ServiceBooking.create({
+      service: serviceId,
+      vendor:  svc.vendor,
+      eventDate: new Date(eventDate),
+      customerInfo,
+      serviceSnapshot: { title: svc.title, category: svc.category, companyName: svc.companyName, city: svc.city, state: svc.state },
+      items,
+      pricing: { ...pricing, discount: discountAmount, total: finalTotal },
+      coupon: appliedCoupon ? { couponId: appliedCoupon._id, code: appliedCoupon.code, discountAmount } : undefined,
+    });
+
+    // Bump enquiry count + coupon usage
+    await VendorService.findByIdAndUpdate(serviceId, { $inc: { totalEnquiries: 1 } });
+    if (appliedCoupon) {
+      appliedCoupon.usedCount += 1;
+      appliedCoupon.usages.push({ discountAmount, usedAt: new Date() });
+      await appliedCoupon.save();
+    }
+
+    res.status(201).json({ success: true, booking, quotationNumber: booking.quotationNumber, discountAmount, finalTotal });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// POST validate service coupon (public)
+app.post('/api/service-coupons/validate', async (req, res) => {
+  try {
+    const Coupon = require('./models/Coupon');
+    const { code, serviceId, bookingAmount } = req.body;
+    let coupon = await Coupon.findOne({ code: code.toUpperCase().trim(), service: serviceId, isActive: true });
+    if (!coupon) coupon = await Coupon.findOne({ code: code.toUpperCase().trim(), service: null, venue: null, isActive: true });
+    if (!coupon) return res.status(404).json({ success: false, message: 'Invalid coupon code' });
+    const now = new Date();
+    if (coupon.expiryDate && now > new Date(coupon.expiryDate)) return res.status(400).json({ success: false, message: 'Coupon expired' });
+    if (coupon.maxUses !== null && coupon.usedCount >= coupon.maxUses) return res.status(400).json({ success: false, message: 'Coupon limit reached' });
+    if (bookingAmount < coupon.minBookingAmount) return res.status(400).json({ success: false, message: `Min booking ₹${coupon.minBookingAmount} required` });
+    let discountAmount = coupon.discountType === 'percentage'
+      ? Math.min((bookingAmount * coupon.discountValue) / 100, coupon.maxDiscount || Infinity)
+      : Math.min(coupon.discountValue, bookingAmount);
+    discountAmount = Math.round(discountAmount);
+    res.json({ success: true, coupon: { code: coupon.code, discountType: coupon.discountType, discountValue: coupon.discountValue }, discountAmount });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// GET customer's own service bookings (by email match since guest allowed)
+app.get('/api/customer/service-bookings', async (req, res) => {
+  try {
+    const ServiceBooking = require('./models/ServiceBooking');
+    const { protect } = require('./middleware/auth');
+    // inline auth check
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ success: false, message: 'Not authorized' });
+    const jwt = require('jsonwebtoken');
+    const decoded = jwt.verify(authHeader.split(' ')[1], process.env.JWT_SECRET);
+    const User = require('./models/User');
+    const user = await User.findById(decoded.id).select('email phone');
+    if (!user) return res.status(401).json({ success: false, message: 'Not authorized' });
+
+    const bookings = await ServiceBooking.find({
+      $or: [
+        { customer: user._id },
+        { 'customerInfo.email': user.email }
+      ]
+    }).populate('service', 'title category featuredImage city state')
+      .populate('vendor', 'name companyName')
+      .sort('-createdAt');
+
+    res.json({ success: true, bookings });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+app.patch('/api/service-bookings/:id/downloaded', async (req, res) => {
+  try {
+    const ServiceBooking = require('./models/ServiceBooking');
+    const ServiceQuotationDownload = require('./models/ServiceQuotationDownload');
+    const { action = 'download' } = req.body;
+
+    const booking = await ServiceBooking.findById(req.params.id)
+      .populate('service', 'title category companyName city state')
+      .populate('vendor', 'name');
+
+    if (!booking) return res.status(404).json({ success: false, message: 'Not found' });
+
+    // Update downloadedAt on booking
+    booking.downloadedAt = new Date();
+    await booking.save();
+
+    // Store in ServiceQuotationDownload
+    await ServiceQuotationDownload.create({
+      serviceBooking: booking._id,
+      service:  booking.service?._id,
+      vendor:   booking.vendor?._id,
+      quotationNumber: booking.quotationNumber,
+      action,
+      totalAmount: booking.pricing?.total,
+      serviceSnapshot: booking.serviceSnapshot,
+      customerSnapshot: {
+        name:      booking.customerInfo?.name,
+        email:     booking.customerInfo?.email,
+        phone:     booking.customerInfo?.phone,
+        company:   booking.customerInfo?.company,
+        eventName: booking.customerInfo?.eventName,
+      },
+      eventDate: booking.eventDate,
+      priceSnapshot: {
+        subtotal:      booking.pricing?.subtotal,
+        serviceCGST:   booking.pricing?.serviceCGST,
+        serviceSGST:   booking.pricing?.serviceSGST,
+        platformFee:   booking.pricing?.platformFee,
+        platformFeeGST: booking.pricing?.platformFeeGST,
+        discount:      booking.pricing?.discount || 0,
+        couponCode:    booking.coupon?.code,
+        total:         booking.pricing?.total,
+      },
+    });
+
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
 app.use('/api/bookings', require('./routes/bookings'));
 app.use('/api/upload', require('./routes/upload'));
 app.use('/api/payment', require('./routes/payment'));

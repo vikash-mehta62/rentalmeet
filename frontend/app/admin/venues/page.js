@@ -202,11 +202,12 @@ export default function AdminVenues() {
   };
 
   const stats = {
-    total: filteredVenues.length,
-    approved: filteredVenues.filter(v => v.status === 'approved').length,
-    pending: filteredVenues.filter(v => v.status === 'pending').length,
-    rejected: filteredVenues.filter(v => v.status === 'rejected').length,
-    suspended: filteredVenues.filter(v => v.status === 'suspended').length,
+    total:       filteredVenues.length,
+    approved:    filteredVenues.filter(v => v.status === 'approved').length,
+    pending:     filteredVenues.filter(v => v.status === 'pending').length,
+    rejected:    filteredVenues.filter(v => v.status === 'rejected').length,
+    resubmitted: filteredVenues.filter(v => v.status === 'resubmitted').length,
+    suspended:   filteredVenues.filter(v => v.status === 'suspended').length,
   };
 
   if (loading) {
@@ -303,6 +304,10 @@ export default function AdminVenues() {
           <p className="text-xs text-red-600 mb-1">Rejected</p>
           <p className="text-2xl font-bold text-red-700">{stats.rejected}</p>
         </div>
+        <div className="bg-blue-50 rounded-lg shadow-soft border border-blue-200 p-4 cursor-pointer hover:shadow-md transition-shadow" onClick={() => setStatusFilter('resubmitted')}>
+          <p className="text-xs text-blue-600 mb-1">Resubmitted ↩</p>
+          <p className="text-2xl font-bold text-blue-700">{stats.resubmitted}</p>
+        </div>
         <div className="bg-gray-50 rounded-lg shadow-soft border border-gray-200 p-4">
           <p className="text-xs text-gray-600 mb-1">Suspended</p>
           <p className="text-2xl font-bold text-gray-700">{stats.suspended}</p>
@@ -335,6 +340,7 @@ export default function AdminVenues() {
               <option value="all">All Status</option>
               <option value="approved">Approved</option>
               <option value="pending">Pending</option>
+              <option value="resubmitted">Resubmitted ↩</option>
               <option value="rejected">Rejected</option>
               <option value="suspended">Suspended</option>
             </select>
@@ -435,6 +441,16 @@ export default function AdminVenues() {
                       <div className="flex items-center gap-2">
                         <div>
                           <p className="text-xs font-semibold text-dark-800">{venue.businessName}</p>
+                          {venue.status === 'resubmitted' && venue.rejectionReason && (
+                            <p className="text-[10px] text-blue-600 mt-0.5 max-w-[180px] truncate" title={venue.rejectionReason}>
+                              ↩ Was: {venue.rejectionReason}
+                            </p>
+                          )}
+                          {venue.status === 'rejected' && venue.rejectionReason && (
+                            <p className="text-[10px] text-red-500 mt-0.5 max-w-[180px] truncate" title={venue.rejectionReason}>
+                              ✗ {venue.rejectionReason}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -469,6 +485,7 @@ export default function AdminVenues() {
                         venue.status === 'approved' ? 'bg-green-100 text-green-700' :
                         venue.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
                         venue.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                        venue.status === 'resubmitted' ? 'bg-blue-100 text-blue-700' :
                         'bg-gray-100 text-gray-700'
                       }`}>
                         {venue.status}

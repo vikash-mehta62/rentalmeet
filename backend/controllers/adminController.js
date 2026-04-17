@@ -92,6 +92,7 @@ exports.approveVenue = async (req, res) => {
     
     venue.status = 'approved';
     venue.verificationTimeline.listingActivation = new Date();
+    venue.rejectionReason = undefined; // clear on approval
     
     // Set custom settings if provided
     if (customPlatformFee) {
@@ -140,6 +141,8 @@ exports.rejectVenue = async (req, res) => {
     
     venue.status = 'rejected';
     venue.rejectionReason = reason;
+    if (!venue.rejectionHistory) venue.rejectionHistory = [];
+    venue.rejectionHistory.push({ reason, rejectedAt: new Date(), rejectedBy: req.user?.id });
     await venue.save();
     
     // Send rejection email
@@ -340,89 +343,71 @@ exports.updatePlatformSettings = async (req, res) => {
     const PlatformSettings = require('../models/PlatformSettings');
     const { uploadToCloudinary } = require('../config/cloudinary');
     const { 
-      gstRate, 
-      platformFeeType, 
-      platformFeeValue, 
-      platformFeePercentage, 
-      commissionRate,
-      venueCGST,
-      venueSGST,
-      venueHSN,
-      platformCGST,
-      platformSGST
+      gstRate, platformFeeType, platformFeeValue, platformFeePercentage, commissionRate,
+      venueCGST, venueSGST, venueHSN, platformCGST, platformSGST,
+      // Service fields
+      serviceCGST, serviceSGST, serviceHSN, servicePlatformFee, serviceCategoryRates
     } = req.body;
     
-    // Handle both platformFeeValue and platformFeePercentage (frontend compatibility)
     const feeValue = platformFeeValue !== undefined ? platformFeeValue : platformFeePercentage;
-    
-    // Find existing settings or create new
     let settings = await PlatformSettings.findOne();
     
     if (settings) {
-      // Update existing document
       settings.gstRate = gstRate !== undefined ? gstRate : settings.gstRate;
       settings.platformFeeType = platformFeeType || settings.platformFeeType;
       settings.platformFeeValue = feeValue !== undefined ? feeValue : settings.platformFeeValue;
       settings.platformFeePercentage = feeValue !== undefined ? feeValue : settings.platformFeePercentage;
       settings.commissionRate = commissionRate !== undefined ? commissionRate : settings.commissionRate;
-      
-      // Update GST settings
       settings.venueCGST = venueCGST !== undefined ? venueCGST : settings.venueCGST;
       settings.venueSGST = venueSGST !== undefined ? venueSGST : settings.venueSGST;
       settings.venueHSN = venueHSN !== undefined ? venueHSN : settings.venueHSN;
       settings.platformCGST = platformCGST !== undefined ? platformCGST : settings.platformCGST;
       settings.platformSGST = platformSGST !== undefined ? platformSGST : settings.platformSGST;
+      // Service settings
+      if (serviceCGST !== undefined) settings.serviceCGST = serviceCGST;
+      if (serviceSGST !== undefined) settings.serviceSGST = serviceSGST;
+      if (serviceHSN !== undefined) settings.serviceHSN = serviceHSN;
+      if (servicePlatformFee !== undefined) settings.servicePlatformFee = servicePlatformFee;
+      if (serviceCategoryRates !== undefined) settings.serviceCategoryRates = typeof serviceCategoryRates === 'string' ? JSON.parse(serviceCategoryRates) : serviceCategoryRates;
       
-      // Handle signature uploads
       if (req.files) {
-        if (req.files.gstInvoiceSignature && req.files.gstInvoiceSignature[0]) {
+        if (req.files.gstInvoiceSignature?.[0]) {
           const result = await uploadToCloudinary(req.files.gstInvoiceSignature[0].buffer, 'signatures');
           settings.gstInvoiceSignature = result.secure_url;
         }
-        if (req.files.platformInvoiceSignature && req.files.platformInvoiceSignature[0]) {
+        if (req.files.platformInvoiceSignature?.[0]) {
           const result = await uploadToCloudinary(req.files.platformInvoiceSignature[0].buffer, 'signatures');
           settings.platformInvoiceSignature = result.secure_url;
         }
       }
-      
       settings.updatedBy = req.user.id;
       await settings.save();
     } else {
-      // Create new document
       const newSettings = {
-        gstRate: gstRate || 18,
-        platformFeeType: platformFeeType || 'percentage',
-        platformFeeValue: feeValue || 5,
-        platformFeePercentage: feeValue || 5,
+        gstRate: gstRate || 18, platformFeeType: platformFeeType || 'percentage',
+        platformFeeValue: feeValue || 5, platformFeePercentage: feeValue || 5,
         commissionRate: commissionRate || 0,
-        venueCGST: venueCGST || 9,
-        venueSGST: venueSGST || 9,
-        venueHSN: venueHSN || '',
-        platformCGST: platformCGST || 9,
-        platformSGST: platformSGST || 9,
+        venueCGST: venueCGST || 9, venueSGST: venueSGST || 9, venueHSN: venueHSN || '',
+        platformCGST: platformCGST || 9, platformSGST: platformSGST || 9,
+        serviceCGST: serviceCGST || 9, serviceSGST: serviceSGST || 9,
+        serviceHSN: serviceHSN || '', servicePlatformFee: servicePlatformFee || 5,
+        serviceCategoryRates: serviceCategoryRates ? (typeof serviceCategoryRates === 'string' ? JSON.parse(serviceCategoryRates) : serviceCategoryRates) : [],
         updatedBy: req.user.id
       };
-      
-      // Handle signature uploads for new settings
       if (req.files) {
-        if (req.files.gstInvoiceSignature && req.files.gstInvoiceSignature[0]) {
+        if (req.files.gstInvoiceSignature?.[0]) {
           const result = await uploadToCloudinary(req.files.gstInvoiceSignature[0].buffer, 'signatures');
           newSettings.gstInvoiceSignature = result.secure_url;
         }
-        if (req.files.platformInvoiceSignature && req.files.platformInvoiceSignature[0]) {
+        if (req.files.platformInvoiceSignature?.[0]) {
           const result = await uploadToCloudinary(req.files.platformInvoiceSignature[0].buffer, 'signatures');
           newSettings.platformInvoiceSignature = result.secure_url;
         }
       }
-      
       settings = await PlatformSettings.create(newSettings);
     }
     
-    res.json({
-      success: true,
-      message: 'Platform settings updated successfully',
-      settings
-    });
+    res.json({ success: true, message: 'Platform settings updated successfully', settings });
   } catch (error) {
     console.error('Platform settings update error:', error);
     res.status(500).json({
@@ -464,6 +449,7 @@ exports.getEarningsReport = async (req, res) => {
 exports.getDashboardStats = async (req, res) => {
   try {
     const QuotationDownload = require('../models/QuotationDownload');
+    const ServiceBooking = require('../models/ServiceBooking');
     const totalVenues = await Venue.countDocuments();
     const pendingVenues = await Venue.countDocuments({ status: 'pending' });
     const approvedVenues = await Venue.countDocuments({ status: 'approved' });
@@ -475,8 +461,9 @@ exports.getDashboardStats = async (req, res) => {
     const confirmedBookings = await Booking.countDocuments({ status: 'confirmed' });
     const completedBookings = await Booking.countDocuments({ status: 'completed' });
     const totalQuotationDownloads = await QuotationDownload.countDocuments();
+    const totalServiceBookings = await ServiceBooking.countDocuments();
+    const serviceBookingEnquiries = await ServiceBooking.countDocuments({ status: 'enquiry' });
 
-    // Total revenue from completed/paid bookings
     const revenueData = await Booking.aggregate([
       { $match: { status: { $in: ['completed', 'confirmed'] } } },
       { $group: { _id: null, total: { $sum: '$amount' } } }
@@ -486,25 +473,15 @@ exports.getDashboardStats = async (req, res) => {
     res.json({
       success: true,
       stats: {
-        totalVenues,
-        pendingVenues,
-        approvedVenues,
-        totalUsers,
-        totalOwners,
-        totalCustomers,
-        totalBookings,
-        pendingBookings,
-        confirmedBookings,
-        completedBookings,
-        totalRevenue,
-        totalQuotationDownloads
+        totalVenues, pendingVenues, approvedVenues,
+        totalUsers, totalOwners, totalCustomers,
+        totalBookings, pendingBookings, confirmedBookings, completedBookings,
+        totalRevenue, totalQuotationDownloads,
+        totalServiceBookings, serviceBookingEnquiries
       }
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -974,135 +951,193 @@ exports.getPayment = async (req, res) => {
 exports.getReports = async (req, res) => {
   try {
     const { range, startDate, endDate } = req.query;
-    
-    // Calculate date range
+    const VendorService = require('../models/VendorService');
+    const ServiceBooking = require('../models/ServiceBooking');
+
     let queryStartDate, queryEndDate;
-    
     if (startDate && endDate) {
-      // Custom date range
       queryStartDate = new Date(startDate);
       queryEndDate = new Date(endDate);
     } else {
-      // Predefined range
       queryEndDate = new Date();
       queryStartDate = new Date();
-      
       switch (range) {
-        case 'week':
-          queryStartDate.setDate(queryStartDate.getDate() - 7);
-          break;
-        case 'month':
-          queryStartDate.setMonth(queryStartDate.getMonth() - 1);
-          break;
-        case 'quarter':
-          queryStartDate.setMonth(queryStartDate.getMonth() - 3);
-          break;
-        case 'year':
-          queryStartDate.setFullYear(queryStartDate.getFullYear() - 1);
-          break;
-        default:
-          queryStartDate = new Date(0); // All time
+        case 'week':   queryStartDate.setDate(queryStartDate.getDate() - 7); break;
+        case 'month':  queryStartDate.setMonth(queryStartDate.getMonth() - 1); break;
+        case 'quarter':queryStartDate.setMonth(queryStartDate.getMonth() - 3); break;
+        case 'year':   queryStartDate.setFullYear(queryStartDate.getFullYear() - 1); break;
+        default:       queryStartDate = new Date(0);
       }
     }
-    
-    // Revenue data
-    const paidBookings = await Booking.find({
-      paymentStatus: 'paid',
-      createdAt: { $gte: queryStartDate, $lte: queryEndDate }
+
+    const dateFilter = { createdAt: { $gte: queryStartDate, $lte: queryEndDate } };
+
+    // ── Venue Bookings ──────────────────────────────────────────────────────
+    const allBookings = await Booking.find(dateFilter).populate('venue', 'businessName location owner').populate('customer', 'name email');
+    const paidBookings = allBookings.filter(b => b.paymentStatus === 'paid');
+
+    const totalRevenue = paidBookings.reduce((s, b) => s + (b.amount || 0), 0);
+    const platformFeeTotal = paidBookings.reduce((s, b) => s + (b.priceBreakdown?.platformFeeTotal || 0), 0);
+    const ownerEarnings = paidBookings.reduce((s, b) => s + (b.ownerEarnings || 0), 0);
+    const venueGSTTotal = paidBookings.reduce((s, b) => s + (b.priceBreakdown?.gst || 0), 0);
+    const discountTotal = paidBookings.reduce((s, b) => s + (b.priceBreakdown?.discount || 0), 0);
+
+    // ── Service Bookings ────────────────────────────────────────────────────
+    const allSvcBookings = await ServiceBooking.find(dateFilter).populate('vendor', 'name email').populate('service', 'title category');
+    const paidSvcBookings = allSvcBookings.filter(b => b.paymentStatus === 'paid');
+    const svcRevenue = paidSvcBookings.reduce((s, b) => s + (b.amount || 0), 0);
+
+    // ── Users ───────────────────────────────────────────────────────────────
+    const [totalUsers, customers, owners, vendors, newUsers] = await Promise.all([
+      User.countDocuments(),
+      User.countDocuments({ role: 'customer' }),
+      User.countDocuments({ role: 'owner' }),
+      User.countDocuments({ role: 'vendor' }),
+      User.countDocuments({ ...dateFilter })
+    ]);
+
+    // ── Venues ──────────────────────────────────────────────────────────────
+    const [totalVenues, approvedVenues, pendingVenues, rejectedVenues] = await Promise.all([
+      Venue.countDocuments(),
+      Venue.countDocuments({ status: 'approved' }),
+      Venue.countDocuments({ status: 'pending' }),
+      Venue.countDocuments({ status: 'rejected' })
+    ]);
+
+    // ── Vendor Services ─────────────────────────────────────────────────────
+    const [totalServices, approvedServices] = await Promise.all([
+      VendorService.countDocuments(),
+      VendorService.countDocuments({ status: 'approved' })
+    ]);
+
+    // ── Top Venues by Revenue ───────────────────────────────────────────────
+    const venueRevenueMap = {};
+    paidBookings.forEach(b => {
+      const id = b.venue?._id?.toString();
+      if (!id) return;
+      if (!venueRevenueMap[id]) venueRevenueMap[id] = { name: b.venue.businessName, city: b.venue.location?.city, revenue: 0, bookings: 0 };
+      venueRevenueMap[id].revenue += b.amount || 0;
+      venueRevenueMap[id].bookings += 1;
     });
-    
-    const totalRevenue = paidBookings.reduce((sum, b) => sum + (b.amount || 0), 0);
-    const totalCommission = paidBookings.reduce((sum, b) => sum + (b.commission || 0), 0);
-    const ownerEarnings = paidBookings.reduce((sum, b) => sum + (b.ownerEarnings || 0), 0);
-    const averageBooking = paidBookings.length > 0 ? totalRevenue / paidBookings.length : 0;
-    const platformFeeTotal = paidBookings.reduce((sum, b) => {
-      const subtotal = b.priceBreakdown?.subtotal || 0;
-      const gst = b.priceBreakdown?.gst || 0;
-      const fee = (b.amount || 0) - subtotal - gst;
-      return sum + (fee > 0 ? fee : 0);
-    }, 0);
-    
-    // Bookings data
-    const allBookings = await Booking.find({ 
-      createdAt: { $gte: queryStartDate, $lte: queryEndDate } 
+    const topVenues = Object.values(venueRevenueMap).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+
+    // ── Top Owners by Earnings ──────────────────────────────────────────────
+    const ownerEarningsMap = {};
+    paidBookings.forEach(b => {
+      const ownerId = b.venue?.owner?.toString();
+      if (!ownerId) return;
+      if (!ownerEarningsMap[ownerId]) ownerEarningsMap[ownerId] = { earnings: 0, bookings: 0 };
+      ownerEarningsMap[ownerId].earnings += b.ownerEarnings || 0;
+      ownerEarningsMap[ownerId].bookings += 1;
     });
-    const bookingsStats = {
-      total: allBookings.length,
-      completed: allBookings.filter(b => b.status === 'completed').length,
-      confirmed: allBookings.filter(b => b.status === 'confirmed').length,
-      pending: allBookings.filter(b => b.status === 'pending').length,
-      cancelled: allBookings.filter(b => b.status === 'cancelled').length
+    const ownerIds = Object.keys(ownerEarningsMap);
+    const ownerUsers = ownerIds.length ? await User.find({ _id: { $in: ownerIds } }, 'name email') : [];
+    const topOwners = ownerUsers.map(u => ({
+      name: u.name, email: u.email,
+      earnings: ownerEarningsMap[u._id.toString()]?.earnings || 0,
+      bookings: ownerEarningsMap[u._id.toString()]?.bookings || 0
+    })).sort((a, b) => b.earnings - a.earnings).slice(0, 5);
+
+    // ── Top Vendors by Service Revenue ─────────────────────────────────────
+    const vendorRevenueMap = {};
+    paidSvcBookings.forEach(b => {
+      const id = b.vendor?._id?.toString();
+      if (!id) return;
+      if (!vendorRevenueMap[id]) vendorRevenueMap[id] = { name: b.vendor.name, email: b.vendor.email, revenue: 0, bookings: 0 };
+      vendorRevenueMap[id].revenue += b.amount || 0;
+      vendorRevenueMap[id].bookings += 1;
+    });
+    const topVendors = Object.values(vendorRevenueMap).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+
+    // ── Top Services by Revenue ─────────────────────────────────────────────
+    const serviceRevenueMap = {};
+    paidSvcBookings.forEach(b => {
+      const id = b.service?._id?.toString();
+      if (!id) return;
+      if (!serviceRevenueMap[id]) serviceRevenueMap[id] = {
+        title: b.service.title || b.serviceSnapshot?.title || 'Unknown',
+        category: b.service.category || b.serviceSnapshot?.category || '',
+        vendor: b.vendor?.name || '',
+        revenue: 0, bookings: 0
+      };
+      serviceRevenueMap[id].revenue += b.amount || 0;
+      serviceRevenueMap[id].bookings += 1;
+    });
+    const topServices = Object.values(serviceRevenueMap).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+
+    // ── Service Payment breakdown ───────────────────────────────────────────
+    const svcPayGroups = { paid: 0, paidAmt: 0, pending: 0, pendingAmt: 0, failed: 0, failedAmt: 0 };
+    allSvcBookings.forEach(b => {
+      const a = b.amount || 0;
+      if (b.paymentStatus === 'paid')    { svcPayGroups.paid++;    svcPayGroups.paidAmt += a; }
+      if (b.paymentStatus === 'pending') { svcPayGroups.pending++; svcPayGroups.pendingAmt += a; }
+      if (b.paymentStatus === 'failed')  { svcPayGroups.failed++;  svcPayGroups.failedAmt += a; }
+    });
+
+    // ── Service Bookings by status ──────────────────────────────────────────
+    const svcByStatus = {
+      total: allSvcBookings.length,
+      enquiry: allSvcBookings.filter(b => b.status === 'enquiry').length,
+      confirmed: allSvcBookings.filter(b => b.status === 'confirmed').length,
+      cancelled: allSvcBookings.filter(b => b.status === 'cancelled').length,
+      paid: paidSvcBookings.length
     };
-    
-    // Venues data
-    const totalVenues = await Venue.countDocuments();
-    const approvedVenues = await Venue.countDocuments({ status: 'approved' });
-    const pendingVenues = await Venue.countDocuments({ status: 'pending' });
-    const avgBookingsPerVenue = approvedVenues > 0 ? Math.round(allBookings.length / approvedVenues) : 0;
-    
-    // Users data
-    const totalUsers = await User.countDocuments();
-    const customers = await User.countDocuments({ role: 'customer' });
-    const owners = await User.countDocuments({ role: 'owner' });
-    const activeUsers = await User.countDocuments({ isActive: true });
-    
-    // Payment status breakdown
-    const paidPayments = await Booking.find({ 
-      paymentStatus: 'paid',
-      createdAt: { $gte: queryStartDate, $lte: queryEndDate }
+
+    // ── Payment breakdown ───────────────────────────────────────────────────    const paymentGroups = { paid: 0, paidAmt: 0, pending: 0, pendingAmt: 0, failed: 0, failedAmt: 0, refunded: 0, refundedAmt: 0 };
+    allBookings.forEach(b => {
+      const s = b.paymentStatus;
+      const a = b.amount || 0;
+      if (s === 'paid')     { paymentGroups.paid++;     paymentGroups.paidAmt += a; }
+      if (s === 'pending')  { paymentGroups.pending++;  paymentGroups.pendingAmt += a; }
+      if (s === 'failed')   { paymentGroups.failed++;   paymentGroups.failedAmt += a; }
+      if (s === 'refunded') { paymentGroups.refunded++; paymentGroups.refundedAmt += (b.refundDetails?.refundAmount || a); }
     });
-    const pendingPayments = await Booking.find({ 
-      paymentStatus: 'pending',
-      createdAt: { $gte: queryStartDate, $lte: queryEndDate }
-    });
-    const failedPayments = await Booking.find({ 
-      paymentStatus: 'failed',
-      createdAt: { $gte: queryStartDate, $lte: queryEndDate }
-    });
-    const refundedPayments = await Booking.find({ 
-      paymentStatus: 'refunded',
-      createdAt: { $gte: queryStartDate, $lte: queryEndDate }
-    });
-    
+
     res.json({
       success: true,
       reports: {
         revenue: {
           total: totalRevenue,
-          platformFee: platformFeeTotal,
-          ownerEarnings,
-          average: Math.round(averageBooking)
+          platformFee: Math.round(platformFeeTotal),
+          ownerEarnings: Math.round(ownerEarnings),
+          venueGST: Math.round(venueGSTTotal),
+          discountGiven: Math.round(discountTotal),
+          serviceRevenue: svcRevenue,
+          grandTotal: totalRevenue + svcRevenue,
+          average: paidBookings.length > 0 ? Math.round(totalRevenue / paidBookings.length) : 0
         },
-        bookings: bookingsStats,
-        venues: {
-          total: totalVenues,
-          approved: approvedVenues,
-          pending: pendingVenues,
-          avgBookings: avgBookingsPerVenue
+        bookings: {
+          total: allBookings.length,
+          completed: allBookings.filter(b => b.status === 'completed').length,
+          confirmed: allBookings.filter(b => b.status === 'confirmed').length,
+          pending: allBookings.filter(b => b.status === 'pending').length,
+          cancelled: allBookings.filter(b => b.status === 'cancelled').length,
+          serviceTotal: allSvcBookings.length,
+          servicePaid: paidSvcBookings.length
         },
-        users: {
-          total: totalUsers,
-          customers,
-          owners,
-          active: activeUsers
-        },
+        venues: { total: totalVenues, approved: approvedVenues, pending: pendingVenues, rejected: rejectedVenues, avgBookings: approvedVenues > 0 ? Math.round(allBookings.length / approvedVenues) : 0 },
+        users: { total: totalUsers, customers, owners, vendors, newInPeriod: newUsers },
+        services: { total: totalServices, approved: approvedServices },
         payments: {
-          paid: paidPayments.length,
-          paidAmount: paidPayments.reduce((sum, p) => sum + (p.amount || 0), 0),
-          pending: pendingPayments.length,
-          pendingAmount: pendingPayments.reduce((sum, p) => sum + (p.amount || 0), 0),
-          failed: failedPayments.length,
-          failedAmount: failedPayments.reduce((sum, p) => sum + (p.amount || 0), 0),
-          refunded: refundedPayments.length,
-          refundedAmount: refundedPayments.reduce((sum, p) => sum + (p.amount || 0), 0)
+          paid: paymentGroups.paid, paidAmount: paymentGroups.paidAmt,
+          pending: paymentGroups.pending, pendingAmount: paymentGroups.pendingAmt,
+          failed: paymentGroups.failed, failedAmount: paymentGroups.failedAmt,
+          refunded: paymentGroups.refunded, refundedAmount: paymentGroups.refundedAmt
+        },
+        topVenues,
+        topOwners,
+        topVendors,
+        topServices,
+        svcByStatus,
+        svcPayments: {
+          paid: svcPayGroups.paid, paidAmount: svcPayGroups.paidAmt,
+          pending: svcPayGroups.pending, pendingAmount: svcPayGroups.pendingAmt,
+          failed: svcPayGroups.failed, failedAmount: svcPayGroups.failedAmt
         }
       }
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -1145,13 +1180,14 @@ exports.getTermsConditions = async (req, res) => {
 // @route   PUT /api/admin/terms
 exports.updateTermsConditions = async (req, res) => {
   try {
-    const { bookingTerms, cancellationPolicy, paymentTerms, quotationValidity } = req.body;
+    const { bookingTerms, cancellationPolicy, paymentTerms, quotationValidity, venueOnboardingTerms } = req.body;
     
     const terms = await TermsConditions.create({
       bookingTerms,
       cancellationPolicy,
       paymentTerms,
       quotationValidity,
+      venueOnboardingTerms,
       updatedBy: req.user.id
     });
     
@@ -1367,7 +1403,7 @@ exports.getContactSettings = async (req, res) => {
 // @route   PUT /api/admin/contact-settings
 exports.updateContactSettings = async (req, res) => {
   try {
-    const { address, phone, email, availability, socialMedia, filterSettings } = req.body;
+    const { address, address2, phone, phone2, email, email2, availability, socialMedia, filterSettings } = req.body;
     
     let settings = await ContactSettings.findOne();
     
@@ -1376,10 +1412,13 @@ exports.updateContactSettings = async (req, res) => {
       settings = await ContactSettings.create(req.body);
     } else {
       // Update existing
-      if (address) settings.address = address;
-      if (phone) settings.phone = phone;
-      if (email) settings.email = email;
-      if (availability) settings.availability = availability;
+      if (address !== undefined) settings.address = address;
+      if (address2 !== undefined) settings.address2 = address2;
+      if (phone !== undefined) settings.phone = phone;
+      if (phone2 !== undefined) settings.phone2 = phone2;
+      if (email !== undefined) settings.email = email;
+      if (email2 !== undefined) settings.email2 = email2;
+      if (availability !== undefined) settings.availability = availability;
       if (socialMedia) settings.socialMedia = socialMedia;
       if (filterSettings) settings.filterSettings = filterSettings;
       

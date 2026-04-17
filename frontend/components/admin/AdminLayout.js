@@ -8,7 +8,7 @@ import Image from 'next/image';
 import {
   LayoutDashboard, Building2, Users, BookOpen, Settings,
   LogOut, Menu, X, IndianRupee, Shield, BarChart3, 
-  Grid3x3, MessageSquare, Image as ImageIcon, ChevronLeft, ChevronRight, Tag, FileText, HelpCircle
+  Grid3x3, MessageSquare, Image as ImageIcon, ChevronLeft, ChevronRight, Tag, FileText, HelpCircle, Briefcase, Package
 } from 'lucide-react';
 
 export default function AdminLayout({ children, title, subtitle }) {
@@ -42,10 +42,14 @@ export default function AdminLayout({ children, title, subtitle }) {
     { name: 'Users', href: '/admin/users', icon: Users, permission: 'users' },
     { name: 'Employees', href: '/admin/employees', icon: Users, permission: 'employees' },
     { name: 'SubAdmins', href: '/admin/subadmins', icon: Shield, permission: 'subadmins' },
+    { name: 'Vendors', href: '/admin/vendors', icon: Briefcase, permission: 'users' },
+    { name: 'Vendor Services', href: '/admin/vendor-services', icon: Package, permission: 'users' },
+    { name: 'Service Bookings', href: '/admin/service-bookings', icon: Package, permission: 'users' },
+    { name: 'Svc Quotations', href: '/admin/service-quotation-downloads', icon: Package, permission: 'users' },
     { name: 'Bookings', href: '/admin/bookings', icon: BookOpen, permission: 'bookings' },
     { name: 'Payments', href: '/admin/payments', icon: IndianRupee, permission: 'payments' },
     { name: 'Coupons', href: '/admin/coupons', icon: Tag, permission: 'bookings' },
-    { name: 'Quotation Downloads', href: '/admin/quotation-downloads', icon: FileText, permission: 'bookings' },
+    { name: 'Quotations', href: '/admin/quotation-downloads', icon: FileText, permission: 'bookings' },
     { name: 'FAQ Management', href: '/admin/faqs', icon: HelpCircle, permission: 'settings' },
     { name: 'Chatbot Settings', href: '/admin/chatbot', icon: MessageSquare, permission: 'settings' },
     { name: 'Reports', href: '/admin/reports', icon: BarChart3, permission: 'reports' },

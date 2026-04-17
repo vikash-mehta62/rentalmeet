@@ -29,7 +29,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['owner', 'admin', 'subadmin', 'customer', 'employee'],
+    enum: ['owner', 'admin', 'subadmin', 'customer', 'employee', 'vendor'],
     default: 'customer'
   },
   password: {
@@ -68,7 +68,11 @@ const userSchema = new mongoose.Schema({
   // KYC Documents (mandatory for customers to book)
   kyc: {
     idProof: {
-      type: String,   // Cloudinary URL
+      type: String,   // Cloudinary URL (front side)
+      default: null
+    },
+    idProofBack: {
+      type: String,   // Cloudinary URL (back side — Aadhaar, Voter ID)
       default: null
     },
     idProofType: {
@@ -129,6 +133,18 @@ const userSchema = new mongoose.Schema({
     }
   }],
   
+  // Account type — individual or company
+  accountType: {
+    type: String,
+    enum: ['individual', 'company'],
+    default: 'individual'
+  },
+  // Vendor-specific
+  vendorCategory: {
+    type: String,
+    trim: true
+  },
+
   // GST & Business Details (for all users)
   gstNumber: {
     type: String,

@@ -52,12 +52,30 @@ const platformSettingsSchema = new mongoose.Schema({
   // Signature Images
   gstInvoiceSignature: {
     type: String,
-    default: null // URL to signature image for GST/Venue Invoice
+    default: null
   },
   platformInvoiceSignature: {
     type: String,
-    default: null // URL to signature image for Platform Invoice
+    default: null
   },
+
+  // ── Vendor Service GST & Platform Fee ────────────────────────────────────
+  // Default service settings (applies to all categories unless overridden)
+  serviceCGST: { type: Number, default: 9, min: 0, max: 100 },
+  serviceSGST: { type: Number, default: 9, min: 0, max: 100 },
+  serviceHSN:  { type: String, default: '' },
+  servicePlatformFee: { type: Number, default: 5, min: 0, max: 100 }, // % of service amount
+
+  // Per-category overrides: [{ category: 'Catering & Food', cgst: 5, sgst: 5, platformFee: 3 }]
+  serviceCategoryRates: [{
+    category:    { type: String, required: true },
+    cgst:        { type: Number, default: 9 },
+    sgst:        { type: Number, default: 9 },
+    platformFee: { type: Number, default: 5 },
+    platformCGST: { type: Number, default: 9 },
+    platformSGST: { type: Number, default: 9 },
+    hsn:         { type: String, default: '' }
+  }],
   
   // Legacy fields (kept for backward compatibility)
   gstRate: {
@@ -86,18 +104,13 @@ platformSettingsSchema.statics.getSettings = async function() {
   let settings = await this.findOne();
   if (!settings) {
     settings = await this.create({
-      venueCGST: 9,
-      venueSGST: 9,
-      venueHSN: '',
-      platformFeeType: 'percentage',
-      platformFeePercentage: 5,
-      platformCGST: 9,
-      platformSGST: 9,
-      gstRate: 18,
-      platformFeeValue: 5,
-      commissionRate: 0,
-      gstInvoiceSignature: null,
-      platformInvoiceSignature: null
+      venueCGST: 9, venueSGST: 9, venueHSN: '',
+      platformFeeType: 'percentage', platformFeePercentage: 5,
+      platformCGST: 9, platformSGST: 9,
+      gstRate: 18, platformFeeValue: 5, commissionRate: 0,
+      gstInvoiceSignature: null, platformInvoiceSignature: null,
+      serviceCGST: 9, serviceSGST: 9, serviceHSN: '',
+      servicePlatformFee: 5, serviceCategoryRates: []
     });
   }
   return settings;

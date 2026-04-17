@@ -16,7 +16,8 @@ export default function AdminDashboard() {
     totalVenues: 0, pendingVenues: 0, approvedVenues: 0,
     totalUsers: 0, totalOwners: 0, totalCustomers: 0,
     totalBookings: 0, pendingBookings: 0, confirmedBookings: 0, completedBookings: 0,
-    totalRevenue: 0, totalQuotationDownloads: 0
+    totalRevenue: 0, totalQuotationDownloads: 0,
+    totalServiceBookings: 0, serviceBookingEnquiries: 0
   });
 
   useEffect(() => {
@@ -101,6 +102,14 @@ export default function AdminDashboard() {
       icon: FileDown,
       gradient: 'from-indigo-500 to-indigo-700',
       light: 'bg-indigo-50 text-indigo-600'
+    },
+    {
+      title: 'Service Bookings',
+      value: stats.totalServiceBookings,
+      sub: `${stats.serviceBookingEnquiries} enquiries`,
+      icon: FileDown,
+      gradient: 'from-purple-500 to-purple-700',
+      light: 'bg-purple-50 text-purple-600'
     },
   ];
 

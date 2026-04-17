@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
 import PermissionGuard from '@/components/admin/PermissionGuard';
-import { Settings as SettingsIcon, Save, X, Plus } from 'lucide-react';
+import { Settings as SettingsIcon, Save, X, Plus, FileText, Building2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const defaultContact = {
@@ -16,12 +16,36 @@ const defaultContact = {
   socialMedia: { facebook: '', twitter: '', instagram: '', linkedin: '', youtube: '', whatsapp: '' }
 };
 
+const DEFAULT_VENUE_TERMS = `RentalMeet Venue Owner Agreement
+
+1. Commission Agreement
+• I agree to pay RentalMeet platform service fee on all confirmed bookings
+• Platform fee will be deducted before payout
+• Payouts processed within 24-48 hours after event completion
+
+2. Venue Standards
+• Maintain venue as described in listing
+• Provide all promised amenities and facilities
+• Ensure venue is clean and ready before each booking
+
+3. Booking Management
+• Respond to booking requests within 2 hours
+• Honor confirmed bookings
+• Update calendar regularly
+
+4. Legal Compliance
+• Have all necessary permits and licenses
+• Comply with fire safety and building regulations
+• Maintain adequate insurance coverage`;
+
 export default function AdminSettings() {
   const { token } = useAuthStore();
+  const [activeTab, setActiveTab] = useState('contact');
   const [loading, setLoading] = useState(false);
   const [fetchingTerms, setFetchingTerms] = useState(false);
   const [fetchingContact, setFetchingContact] = useState(false);
   const [contactSettings, setContactSettings] = useState(defaultContact);
+  const [venueOnboardingTerms, setVenueOnboardingTerms] = useState(DEFAULT_VENUE_TERMS);
   const [settings, setSettings] = useState({
     bookingTerms: [
       { point: 'This quotation is valid for 7 days from the date of issue.', order: 1 },
@@ -68,9 +92,26 @@ export default function AdminSettings() {
           paymentTerms: data.terms.paymentTerms || prev.paymentTerms,
           quotationValidity: data.terms.quotationValidity || prev.quotationValidity
         }));
+        if (data.terms.venueOnboardingTerms) {
+          setVenueOnboardingTerms(data.terms.venueOnboardingTerms);
+        }
       }
     } catch (e) { console.error(e); }
     finally { setFetchingTerms(false); }
+  };
+
+  const handleSaveVenueTerms = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/terms`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...settings, venueOnboardingTerms })
+      });
+      const data = await res.json();
+      data.success ? toast.success('Venue T&C saved!') : toast.error(data.message || 'Failed');
+    } catch { toast.error('Failed to save'); }
+    finally { setLoading(false); }
   };
 
   const handleSaveContact = async () => {
@@ -126,8 +167,30 @@ export default function AdminSettings() {
       <PermissionGuard permission="settings">
         <div className="max-w-5xl mx-auto space-y-6">
 
+          {/* Tabs */}
+          <div className="flex gap-2 border-b border-gray-200">
+            {[
+              { id: 'contact', label: 'Contact Info', icon: SettingsIcon },
+              { id: 'terms', label: 'Booking T&C', icon: FileText },
+              { id: 'venue-terms', label: 'Venue Onboarding T&C', icon: Building2 },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
+                  activeTab === tab.id
+                    ? 'border-primary-500 text-primary-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
           {/* ── Contact Information ── */}
-          <div className="bg-white rounded-lg shadow-soft border border-gray-100 p-6">
+          {activeTab === 'contact' && <div className="bg-white rounded-lg shadow-soft border border-gray-100 p-6">
             <h2 className="text-xl font-bold text-dark-800 mb-6 flex items-center gap-2">
               <SettingsIcon className="w-6 h-6 text-primary-500" />
               Contact Information
@@ -194,12 +257,12 @@ export default function AdminSettings() {
                   </div>
                 </div>
 
-                {/* Availability */}
+                {/* Our Presence */}
                 <div>
-                  <label className={labelCls}>Availability</label>
+                  <label className={labelCls}>Our Presence</label>
                   <input type="text" value={contactSettings.availability}
                     onChange={e => setContactSettings({ ...contactSettings, availability: e.target.value })}
-                    className={inputCls} placeholder="24/7 Available" />
+                    className={inputCls} placeholder="INDIA | UAE | USA" />
                 </div>
 
                 {/* Social Media */}
@@ -245,10 +308,10 @@ export default function AdminSettings() {
                 </button>
               </div>
             )}
-          </div>
+          </div>}
 
-          {/* ── Terms & Conditions ── */}
-          <div className="bg-white rounded-lg shadow-soft border border-gray-100 p-6">
+          {/* ── Terms & Conditions (Booking) ── */}
+          {activeTab === 'terms' && <div className="bg-white rounded-lg shadow-soft border border-gray-100 p-6">
             <h2 className="text-xl font-bold text-dark-800 mb-6 flex items-center gap-2">
               <SettingsIcon className="w-6 h-6 text-primary-500" />
               Terms & Conditions Management
@@ -336,7 +399,48 @@ export default function AdminSettings() {
                 </button>
               </div>
             )}
-          </div>
+          </div>}
+
+          {/* ── Venue Onboarding T&C ── */}
+          {activeTab === 'venue-terms' && <div className="bg-white rounded-lg shadow-soft border border-gray-100 p-6">
+            <h2 className="text-xl font-bold text-dark-800 mb-6 flex items-center gap-2">
+              <Building2 className="w-6 h-6 text-primary-500" />
+              Venue Onboarding Terms & Conditions
+            </h2>
+
+            {fetchingTerms ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : (
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Terms & Conditions (shown during venue registration)
+                  </label>
+                  <textarea
+                    value={venueOnboardingTerms}
+                    onChange={e => setVenueOnboardingTerms(e.target.value)}
+                    rows={18}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm font-mono"
+                    placeholder="Enter venue onboarding terms..."
+                  />
+                  <p className="text-xs text-gray-500 mt-2">
+                    💡 Use plain text with line breaks. This will be shown to venue owners during registration (Step 7).
+                  </p>
+                </div>
+
+                <button
+                  onClick={handleSaveVenueTerms}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-6 py-3 bg-primary-500 hover:bg-primary-600 disabled:bg-gray-300 text-white rounded-lg font-semibold transition-colors"
+                >
+                  <Save className="w-5 h-5" />
+                  {loading ? 'Saving...' : 'Save Venue T&C'}
+                </button>
+              </div>
+            )}
+          </div>}
 
         </div>
       </PermissionGuard>

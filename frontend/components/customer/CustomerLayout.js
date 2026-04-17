@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
 import {
   Building2, Calendar, Home, Search, Menu, X, 
-  LogOut, ChevronLeft, ChevronRight, Bell, Settings, User
+  LogOut, ChevronLeft, ChevronRight, Bell, Settings, User, Briefcase
 } from 'lucide-react';
 
 export default function CustomerLayout({ children, activePage = 'dashboard' }) {
@@ -29,10 +29,11 @@ export default function CustomerLayout({ children, activePage = 'dashboard' }) {
 
   // Links wahi hain jo aapne di thi
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: Home, href: '/customer/dashboard' },
-    { id: 'bookings', label: 'My Bookings', icon: Calendar, href: '/customer/bookings' },
-    { id: 'profile', label: 'My Profile', icon: User, href: '/customer/profile' },
-    { id: 'venues', label: 'Browse Venues', icon: Search, href: '/venues' },
+    { id: 'dashboard',         label: 'Dashboard',           icon: Home,     href: '/customer/dashboard' },
+    { id: 'bookings',          label: 'My Bookings',         icon: Calendar, href: '/customer/bookings' },
+    { id: 'service-bookings',  label: 'Service Bookings',    icon: Briefcase, href: '/customer/service-bookings' },
+    { id: 'profile',           label: 'My Profile',          icon: User,     href: '/customer/profile' },
+    { id: 'venues',            label: 'Browse Venues',       icon: Search,   href: '/venues' },
   ];
 
   if (!hydrated) return null;

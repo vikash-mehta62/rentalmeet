@@ -10,7 +10,8 @@ const generateUserId = async (role) => {
   const rolePrefix = role === 'owner' ? 'OWN' : 
                      role === 'admin' ? 'ADM' :
                      role === 'subadmin' ? 'SUB' :
-                     role === 'employee' ? 'EMP' : 'CUST';
+                     role === 'employee' ? 'EMP' :
+                     role === 'vendor' ? 'VND' : 'CUST';
   
   // Create counter ID: user_ROLE_YEAR
   const counterId = `user_${rolePrefix}_${year}`;
@@ -41,7 +42,7 @@ const generateToken = (id) => {
 // @route   POST /api/auth/register
 exports.register = async (req, res) => {
   try {
-    const { name, email, phone, password, role, referralCode, city, state } = req.body;
+    const { name, email, phone, password, role, referralCode, city, state, accountType, companyName, gstNumber, panNumber, vendorCategory } = req.body;
     
     // Check if user exists
     const userExists = await User.findOne({ $or: [{ email }, { phone }] });
@@ -77,6 +78,11 @@ exports.register = async (req, res) => {
       role: userRole,
       city: city || undefined,
       state: state || undefined,
+      accountType: accountType || (role === 'vendor' ? 'company' : 'individual'),
+      companyName: companyName || undefined,
+      gstNumber: gstNumber || undefined,
+      panNumber: panNumber || undefined,
+      vendorCategory: vendorCategory || undefined,
       referredBy: referrer ? referrer._id : null,
       referredByCode: referralCode ? referralCode.toUpperCase() : null
     });
@@ -428,7 +434,7 @@ exports.deactivateAccount = async (req, res) => {
   }
 };
 
-// @desc    Upload KYC documents (ID proof + selfie)
+// @desc    Upload KYC documents (ID proof front + back + selfie)
 // @route   POST /api/auth/kyc-upload
 exports.uploadKYC = async (req, res) => {
   try {
@@ -436,7 +442,7 @@ exports.uploadKYC = async (req, res) => {
     const { uploadToCloudinary } = require('../config/cloudinary');
     const { idProofType } = req.body;
 
-    if (!req.files || (!req.files.idProof && !req.files.selfie)) {
+    if (!req.files || (!req.files.idProof && !req.files.selfie && !req.files.idProofBack)) {
       return res.status(400).json({ success: false, message: 'Please upload at least one document' });
     }
 
@@ -446,6 +452,11 @@ exports.uploadKYC = async (req, res) => {
       const result = await uploadToCloudinary(req.files.idProof[0].buffer, 'kyc/id-proofs');
       updates['kyc.idProof'] = result.secure_url;
       if (idProofType) updates['kyc.idProofType'] = idProofType;
+    }
+
+    if (req.files.idProofBack && req.files.idProofBack[0]) {
+      const result = await uploadToCloudinary(req.files.idProofBack[0].buffer, 'kyc/id-proofs');
+      updates['kyc.idProofBack'] = result.secure_url;
     }
 
     if (req.files.selfie && req.files.selfie[0]) {

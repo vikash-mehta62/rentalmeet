@@ -101,10 +101,23 @@ export default function VenueDetailsModal({
                     venue.status === 'approved' ? 'bg-green-100 text-green-700' :
                     venue.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
                     venue.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                    venue.status === 'resubmitted' ? 'bg-blue-100 text-blue-700' :
                     'bg-gray-100 text-gray-700'
                   }`}>
                     {venue.status?.toUpperCase()}
                   </span>
+                  {(venue.status === 'rejected' || venue.status === 'resubmitted') && venue.rejectionReason && (
+                    <div className={`mt-2 px-2.5 py-2 rounded-lg text-xs border ${
+                      venue.status === 'resubmitted'
+                        ? 'bg-blue-50 border-blue-200 text-blue-800'
+                        : 'bg-red-50 border-red-200 text-red-800'
+                    }`}>
+                      <span className="font-semibold">
+                        {venue.status === 'resubmitted' ? '↩ Previous rejection reason:' : '✗ Rejection reason:'}
+                      </span>{' '}
+                      {venue.rejectionReason}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-gray-500 block mb-1">Venue Type</label>
@@ -674,6 +687,15 @@ export default function VenueDetailsModal({
                         {venue.bankDetails.accountNumber ? '****' + venue.bankDetails.accountNumber.slice(-4) : 'N/A'}
                       </p>
                     </div>
+                    {venue.bankDetails.bankProofUrl && (
+                      <div className="md:col-span-2">
+                        <label className="text-xs font-semibold text-gray-500 block mb-1">Bank Proof (Passbook / Cancelled Cheque)</label>
+                        <a href={venue.bankDetails.bankProofUrl} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs text-primary-600 font-semibold underline hover:text-primary-700">
+                          View Document
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -966,7 +988,7 @@ export default function VenueDetailsModal({
         {showActions && onStatusUpdate && (
           <div className="border-t border-gray-200 px-5 py-3 bg-gray-50 flex-shrink-0">
             <div className="flex gap-2">
-              {venue.status === 'pending' && (
+              {(venue.status === 'pending' || venue.status === 'resubmitted') && (
                 <>
                   <button
                     onClick={() => onStatusUpdate(venue._id, 'approve')}

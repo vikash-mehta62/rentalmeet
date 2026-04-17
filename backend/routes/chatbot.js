@@ -3,8 +3,7 @@ const router = express.Router();
 const ChatbotSettings = require('../models/ChatbotSettings');
 const { protect, authorize } = require('../middleware/auth');
 
-// @route  GET /api/chatbot/quick-replies
-// @desc   Public — get quick replies for chatbot widget
+// GET /api/chatbot/quick-replies  — public
 router.get('/quick-replies', async (req, res) => {
   try {
     let settings = await ChatbotSettings.findOne();
@@ -15,8 +14,7 @@ router.get('/quick-replies', async (req, res) => {
   }
 });
 
-// @route  GET /api/chatbot/settings
-// @desc   Admin — get full chatbot settings
+// GET /api/chatbot/settings  — admin
 router.get('/settings', protect, authorize('admin', 'subadmin'), async (req, res) => {
   try {
     let settings = await ChatbotSettings.findOne();
@@ -27,8 +25,7 @@ router.get('/settings', protect, authorize('admin', 'subadmin'), async (req, res
   }
 });
 
-// @route  PUT /api/chatbot/settings
-// @desc   Admin — update chatbot settings
+// PUT /api/chatbot/settings  — admin
 router.put('/settings', protect, authorize('admin', 'subadmin'), async (req, res) => {
   try {
     const { quickReplies, welcomeMessage, isEnabled } = req.body;

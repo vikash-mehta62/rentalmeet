@@ -452,7 +452,9 @@ export default function Step3Amenities() {
             <h3 className="text-lg font-bold text-dark-800 mb-3">Beverages</h3>
             <p className="text-sm text-gray-600 mb-4">Select available beverages and set rates</p>
             <div className="space-y-3">
-              {beverages.map((beverage, index) => (
+              {beverages.map((beverage, index) => {
+                const isChecked = watch(`beverages.${index}.available`);
+                return (
                 <div key={index} className="flex items-center gap-3 bg-white p-3 rounded-lg border border-gray-200 flex-wrap">
                   <input
                     type="checkbox"
@@ -464,18 +466,21 @@ export default function Step3Amenities() {
                     type="number"
                     {...register(`beverages.${index}.rate`)}
                     placeholder="Rate"
-                    className="w-24 px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
+                    className="w-24 px-3 py-1.5 border border-gray-300 rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                     min="0"
+                    disabled={!isChecked}
                   />
                   <span className="text-xs text-gray-500 min-w-[80px]">{beverage.unit}</span>
                   <input
                     type="text"
                     {...register(`beverages.${index}.brand`)}
                     placeholder="Brand (optional)"
-                    className="w-32 px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
+                    className="w-32 px-3 py-1.5 border border-gray-300 rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    disabled={!isChecked}
                   />
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
@@ -491,56 +496,34 @@ export default function Step3Amenities() {
             {/* Snacks */}
             <div className="mb-4">
               <h4 className="font-semibold text-dark-700 mb-2">Snacks</h4>
-              <div className="flex items-center gap-3 bg-white p-3 rounded-lg border border-gray-200 flex-wrap">
-                <input
-                  type="checkbox"
-                  {...register('food.snacks.available')}
-                  className="w-5 h-5 rounded border-dark-200 text-primary-500"
-                />
-                <span className="text-sm font-medium flex-1 min-w-[150px]">Snacks Pack (3 Items)</span>
-                <input
-                  type="number"
-                  {...register('food.snacks.rate')}
-                  placeholder="Rate per plate"
-                  className="w-32 px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
-                  min="0"
-                />
-                <input
-                  type="text"
-                  {...register('food.snacks.items')}
-                  placeholder="Item names"
-                  className="w-48 px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
-                />
-              </div>
+              {(() => {
+                const isChecked = watch('food.snacks.available');
+                return (
+                <div className="flex items-center gap-3 bg-white p-3 rounded-lg border border-gray-200 flex-wrap">
+                  <input type="checkbox" {...register('food.snacks.available')} className="w-5 h-5 rounded border-dark-200 text-primary-500" />
+                  <span className="text-sm font-medium flex-1 min-w-[150px]">Snacks Pack (3 Items)</span>
+                  <input type="number" {...register('food.snacks.rate')} placeholder="Rate per plate" className="w-32 px-3 py-1.5 border border-gray-300 rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed" min="0" disabled={!isChecked} />
+                  <input type="text" {...register('food.snacks.items')} placeholder="Item names" className="w-48 px-3 py-1.5 border border-gray-300 rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed" disabled={!isChecked} />
+                </div>
+                );
+              })()}
             </div>
 
             {/* Breakfast Packs */}
             <div className="mb-4">
               <h4 className="font-semibold text-dark-700 mb-2">Breakfast Packs</h4>
               <div className="space-y-2">
-                {breakfastPacks.map((pack, index) => (
+                {breakfastPacks.map((pack, index) => {
+                  const isChecked = watch(`breakfast.${index}.available`);
+                  return (
                   <div key={index} className="flex items-center gap-3 bg-white p-3 rounded-lg border border-gray-200 flex-wrap">
-                    <input
-                      type="checkbox"
-                      {...register(`breakfast.${index}.available`)}
-                      className="w-5 h-5 rounded border-dark-200 text-primary-500"
-                    />
+                    <input type="checkbox" {...register(`breakfast.${index}.available`)} className="w-5 h-5 rounded border-dark-200 text-primary-500" />
                     <span className="text-sm font-medium flex-1 min-w-[150px]">{pack.name}</span>
-                    <input
-                      type="number"
-                      {...register(`breakfast.${index}.rate`)}
-                      placeholder="Rate per plate"
-                      className="w-32 px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
-                      min="0"
-                    />
-                    <input
-                      type="text"
-                      {...register(`breakfast.${index}.items`)}
-                      placeholder="Item names"
-                      className="w-48 px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
-                    />
+                    <input type="number" {...register(`breakfast.${index}.rate`)} placeholder="Rate per plate" className="w-32 px-3 py-1.5 border border-gray-300 rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed" min="0" disabled={!isChecked} />
+                    <input type="text" {...register(`breakfast.${index}.items`)} placeholder="Item names" className="w-48 px-3 py-1.5 border border-gray-300 rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed" disabled={!isChecked} />
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { MapPin, Users, Star } from 'lucide-react';
+import { MapPin, Users, Star, ArrowRight } from 'lucide-react';
 
 export default function FeaturedVenues() {
   const router = useRouter();
@@ -188,22 +188,9 @@ Featured Venues at RentalMeet
         <div className="text-center mt-10">
           <button
             onClick={() => router.push('/venues')}
-            className="inline-flex items-center gap-2 bg-gray-900 dark:bg-slate-700 hover:bg-gray-800 dark:hover:bg-slate-600 text-white font-semibold px-8 py-3 rounded-lg transition-all duration-300 transform hover:scale-105"
+            className="inline-flex items-center gap-2 px-6 py-3 border border-gray-300 dark:border-slate-700 rounded-lg text-sm font-semibold text-gray-700 dark:text-slate-200 hover:border-primary-500 hover:text-primary-500 transition-all"
           >
-            View All Venues
-            <svg 
-              className="w-4 h-4" 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-            >
-              <path 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                strokeWidth={2.5} 
-                d="M17 8l4 4m0 0l-4 4m4-4H3" 
-              />
-            </svg>
+            View All Venues <ArrowRight className="w-4 h-4" />
           </button>
         </div>
       </div>

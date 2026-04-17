@@ -151,14 +151,21 @@ exports.createBooking = async (req, res) => {
         const belowMin = amount < coupon.minBookingAmount;
 
         if (!expired && !limitReached && !belowMin) {
+          // Determine applicable amount based on appliesTo
+          const appliesTo = coupon.appliesTo || 'total';
+          let applicableAmount = amount; // default: total
+          if (appliesTo === 'platformFee') applicableAmount = priceBreakdown?.platformFeeTotal || 0;
+          else if (appliesTo === 'amenities') applicableAmount = amenitiesTotal || 0;
+          else if (appliesTo === 'baseAmount') applicableAmount = priceBreakdown?.basePrice || 0;
+
           if (coupon.discountType === 'percentage') {
-            discountAmount = (amount * coupon.discountValue) / 100;
+            discountAmount = (applicableAmount * coupon.discountValue) / 100;
             if (coupon.maxDiscount) discountAmount = Math.min(discountAmount, coupon.maxDiscount);
           } else {
-            discountAmount = Math.min(coupon.discountValue, amount);
+            discountAmount = Math.min(coupon.discountValue, applicableAmount);
           }
           discountAmount = Math.round(discountAmount);
-          finalAmount = amount - discountAmount;
+          finalAmount = Math.max(0, amount - discountAmount);
           appliedCoupon = coupon;
         }
       }

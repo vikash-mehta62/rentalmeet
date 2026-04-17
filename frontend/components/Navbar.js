@@ -47,7 +47,7 @@ export default function Navbar() {
 
   const getDashboardLink = () => {
     if (!user) return '/login';
-    const roles = { owner: '/owner/dashboard', admin: '/admin/dashboard', customer: '/customer/dashboard' };
+    const roles = { owner: '/owner/dashboard', admin: '/admin/dashboard', customer: '/customer/dashboard', vendor: '/vendor/dashboard', employee: '/employee/dashboard' };
     return roles[user.role] || '/';
   };
 
@@ -63,8 +63,8 @@ export default function Navbar() {
   return (
     <>
       {/* Topbar — email only, no mobile number */}
-      <div className="fixed top-0 left-0 right-0 z-[101] bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400 text-xs py-1.5 px-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-end gap-6">
+      <div className="fixed top-0 left-0 right-0 z-[101] bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400 text-xs py-1.5 px-4 h-[30px] flex items-center">
+        <div className="max-w-7xl mx-auto flex items-center justify-end gap-6 w-full">
           <a href="mailto:booking@rentalmeet.in" className="flex items-center gap-1.5 hover:text-primary-500 transition-colors">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -81,7 +81,7 @@ export default function Navbar() {
       </div>
 
       {/* Main Navbar */}
-      <nav className="fixed top-[30px] left-0 right-0 z-[100] w-full bg-white dark:bg-slate-900 shadow-md py-3 transition-all duration-500">
+      <nav className="fixed top-[30px] left-0 right-0 z-[100] w-full bg-white dark:bg-slate-900 shadow-md py-3 transition-all duration-500 border-t-0">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="flex justify-between items-center">
 
@@ -148,7 +148,10 @@ export default function Navbar() {
                       <Link href={getDashboardLink()} onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-primary-50 dark:hover:bg-slate-700 hover:text-primary-600 transition-colors">
                         <LayoutDashboard className="w-4 h-4" /> Dashboard
                       </Link>
-                      <Link href="/profile" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-primary-50 dark:hover:bg-slate-700 hover:text-primary-600 transition-colors">
+                      <Link
+                        href={user?.role === 'vendor' ? '/vendor/onboarding' : user?.role === 'owner' ? '/owner/profile' : user?.role === 'employee' ? '/employee/profile' : '/customer/profile'}
+                        onClick={() => setDropdownOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-primary-50 dark:hover:bg-slate-700 hover:text-primary-600 transition-colors">
                         <User className="w-4 h-4" /> My Profile
                       </Link>
                       <div className="h-px bg-slate-100 dark:bg-slate-700 my-1" />

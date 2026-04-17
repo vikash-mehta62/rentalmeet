@@ -394,13 +394,20 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
   const applyCoupon = async () => {
     if (!couponInput.trim()) return;
     if (!venue._id) return;
-    const baseTotal = calculatedPrice.subtotal + calculatedPrice.gst + calculatedPrice.platformFee;
+    const baseTotal = calculatedPrice.subtotal + calculatedPrice.gst + calculatedPrice.platformFeeTotal;
     setCouponLoading(true);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/coupons/validate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ code: couponInput, venueId: venue._id, bookingAmount: baseTotal })
+        body: JSON.stringify({
+          code: couponInput,
+          venueId: venue._id,
+          bookingAmount: baseTotal,
+          baseAmount: calculatedPrice.basePrice,
+          amenitiesTotal: calculatedPrice.amenitiesTotal,
+          platformFee: calculatedPrice.platformFeeTotal
+        })
       });
       const data = await res.json();
       if (data.success) {
@@ -695,11 +702,10 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
                       key={hours}
                       type="button"
                       onClick={() => handleDurationChange(hours)}
-                      className={`p-4 border-2 rounded-xl text-center transition-all ${
+                      className={`p-3 border-2 rounded-xl text-center transition-all ${
                         formData.duration === hours ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' : 'border-gray-200 dark:border-slate-700 hover:border-primary-300'
                       }`}
                     >
-                      <Clock className="w-6 h-6 mx-auto mb-2 text-primary-500" />
                       <p className="font-semibold text-sm md:text-base dark:text-slate-100">{label}</p>
                       <p className="text-primary-600 font-bold text-base md:text-lg">₹{displayPrice.toLocaleString()}</p>
                     </button>
@@ -710,9 +716,9 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
           </div>
 
           {/* Date & Time */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-dark-700 dark:text-slate-200 mb-2">Booking Date *</label>
+              <label className="block text-sm font-semibold text-dark-700 dark:text-slate-200 mb-2">Select Date *</label>
               <DatePicker
                 selected={formData.bookingDate ? new Date(formData.bookingDate) : null}
                 onChange={(date) => {
@@ -771,17 +777,6 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
                   return slots;
                 })()}
               </select>
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-dark-700 dark:text-slate-200 mb-2">End Time</label>
-              <input 
-                type="text" 
-                name="endTime" 
-                value={formData.endTime} 
-                readOnly
-                className="w-full px-4 py-3 text-sm border border-gray-300 dark:border-slate-700 rounded-lg bg-gray-50 dark:bg-slate-800 text-gray-600 dark:text-slate-300 cursor-not-allowed" 
-                placeholder="Auto-calculated"
-              />
             </div>
           </div>
 
@@ -876,7 +871,11 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
               </div>
               {appliedCoupon && (
                 <div className="flex justify-between text-green-600">
-                  <span>Coupon ({appliedCoupon.code}):</span>
+                  <span>Coupon ({appliedCoupon.code}){appliedCoupon.appliesTo && appliedCoupon.appliesTo !== 'total' ? ` — on ${
+                    appliedCoupon.appliesTo === 'platformFee' ? 'Platform Fee' :
+                    appliedCoupon.appliesTo === 'amenities' ? 'Amenities' :
+                    appliedCoupon.appliesTo === 'baseAmount' ? 'Base Amount' : ''
+                  }` : ''}:</span>
                   <span className="font-semibold">-₹{appliedCoupon.discountAmount.toLocaleString()}</span>
                 </div>
               )}

@@ -113,49 +113,39 @@ exports.deleteCoupon = async (req, res) => {
 // ─── Public: Validate coupon (called from booking form) ─────────────────────
 exports.validateCoupon = async (req, res) => {
   try {
-    const { code, venueId, bookingAmount } = req.body;
+    const { code, venueId, bookingAmount, baseAmount, amenitiesTotal, platformFee } = req.body;
 
     // Try venue-specific first, then global (venue: null)
-    let coupon = await Coupon.findOne({
-      code: code.toUpperCase().trim(),
-      venue: venueId,
-      isActive: true
-    });
+    let coupon = await Coupon.findOne({ code: code.toUpperCase().trim(), venue: venueId, isActive: true });
     if (!coupon) {
-      coupon = await Coupon.findOne({
-        code: code.toUpperCase().trim(),
-        venue: null,
-        isActive: true
-      });
+      coupon = await Coupon.findOne({ code: code.toUpperCase().trim(), venue: null, isActive: true });
     }
 
     if (!coupon) return res.status(404).json({ success: false, message: 'Invalid coupon code' });
 
-    // Expiry check
-    if (coupon.expiryDate && new Date() > new Date(coupon.expiryDate)) {
+    if (coupon.expiryDate && new Date() > new Date(coupon.expiryDate))
       return res.status(400).json({ success: false, message: 'Coupon has expired' });
-    }
 
-    // Max uses check
-    if (coupon.maxUses !== null && coupon.usedCount >= coupon.maxUses) {
+    if (coupon.maxUses !== null && coupon.usedCount >= coupon.maxUses)
       return res.status(400).json({ success: false, message: 'Coupon usage limit reached' });
-    }
 
-    // Min booking amount check
-    if (bookingAmount < coupon.minBookingAmount) {
-      return res.status(400).json({
-        success: false,
-        message: `Minimum booking amount ₹${coupon.minBookingAmount} required`
-      });
-    }
+    if (bookingAmount < coupon.minBookingAmount)
+      return res.status(400).json({ success: false, message: `Minimum booking amount ₹${coupon.minBookingAmount} required` });
 
-    // Calculate discount
+    // Determine the applicable amount based on appliesTo
+    const appliesTo = coupon.appliesTo || 'total';
+    let applicableAmount = bookingAmount; // default: total
+    if (appliesTo === 'platformFee') applicableAmount = platformFee || 0;
+    else if (appliesTo === 'amenities') applicableAmount = amenitiesTotal || 0;
+    else if (appliesTo === 'baseAmount') applicableAmount = baseAmount || 0;
+
+    // Calculate discount on applicable amount
     let discountAmount = 0;
     if (coupon.discountType === 'percentage') {
-      discountAmount = (bookingAmount * coupon.discountValue) / 100;
+      discountAmount = (applicableAmount * coupon.discountValue) / 100;
       if (coupon.maxDiscount) discountAmount = Math.min(discountAmount, coupon.maxDiscount);
     } else {
-      discountAmount = Math.min(coupon.discountValue, bookingAmount);
+      discountAmount = Math.min(coupon.discountValue, applicableAmount);
     }
 
     res.json({
@@ -165,7 +155,8 @@ exports.validateCoupon = async (req, res) => {
         code: coupon.code,
         discountType: coupon.discountType,
         discountValue: coupon.discountValue,
-        maxDiscount: coupon.maxDiscount
+        maxDiscount: coupon.maxDiscount,
+        appliesTo
       },
       discountAmount: Math.round(discountAmount)
     });

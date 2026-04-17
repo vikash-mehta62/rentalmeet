@@ -5,7 +5,7 @@ import { useAuthStore } from '@/lib/store';
 import Link from 'next/link';
 import {
   Building2, Plus, TrendingUp, Calendar, IndianRupee, Eye,
-  Edit, CheckCircle2, Clock, XCircle, AlertCircle
+  Edit, CheckCircle2, Clock, XCircle, AlertCircle, History, ChevronDown, ChevronUp
 } from 'lucide-react';
 import OwnerLayout from '@/components/owner/OwnerLayout';
 
@@ -15,6 +15,7 @@ export default function OwnerDashboard() {
   const [stats, setStats] = useState(null);
   const [venues, setVenues] = useState([]);
   const [bookings, setBookings] = useState([]);
+  const [expandedHistory, setExpandedHistory] = useState({});
 
   useEffect(() => {
     if (token) {
@@ -45,10 +46,11 @@ export default function OwnerDashboard() {
 
   const getStatusBadge = (status) => {
     const badges = {
-      approved: { bg: 'bg-green-100', text: 'text-green-700', icon: CheckCircle2, label: 'Approved' },
-      pending: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: Clock, label: 'Pending' },
-      rejected: { bg: 'bg-red-100', text: 'text-red-700', icon: XCircle, label: 'Rejected' },
-      suspended: { bg: 'bg-gray-100', text: 'text-gray-700', icon: AlertCircle, label: 'Suspended' }
+      approved:    { bg: 'bg-green-100', text: 'text-green-700',  icon: CheckCircle2, label: 'Approved' },
+      pending:     { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: Clock,        label: 'Pending Review' },
+      rejected:    { bg: 'bg-red-100',   text: 'text-red-700',    icon: XCircle,      label: 'Rejected' },
+      resubmitted: { bg: 'bg-blue-100',  text: 'text-blue-700',   icon: Clock,        label: 'Resubmitted' },
+      suspended:   { bg: 'bg-gray-100',  text: 'text-gray-700',   icon: AlertCircle,  label: 'Suspended' }
     };
     const badge = badges[status] || badges.pending;
     const Icon = badge.icon;
@@ -145,7 +147,7 @@ export default function OwnerDashboard() {
               <div key={venue._id} className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
+                    <div className="flex items-center gap-3 mb-2 flex-wrap">
                       <h3 className="text-lg font-semibold text-dark-800">{venue.businessName}</h3>
                       {getStatusBadge(venue.status)}
                     </div>
@@ -160,20 +162,56 @@ export default function OwnerDashboard() {
                         ₹{venue.totalEarnings?.toLocaleString() || 0}
                       </span>
                     </div>
+
+                    {/* Current rejection reason */}
+                    {(venue.status === 'rejected' || venue.status === 'resubmitted') && venue.rejectionReason && (
+                      <div className={`mt-2 px-3 py-2 rounded-lg text-xs border ${
+                        venue.status === 'resubmitted'
+                          ? 'bg-blue-50 border-blue-200 text-blue-800'
+                          : 'bg-red-50 border-red-200 text-red-700'
+                      }`}>
+                        <span className="font-bold">
+                          {venue.status === 'resubmitted' ? '↩ Previous rejection:' : '✗ Rejected:'}
+                        </span>{' '}{venue.rejectionReason}
+                      </div>
+                    )}
+
+                    {/* Rejection history toggle */}
+                    {venue.rejectionHistory?.length > 0 && (
+                      <div className="mt-2">
+                        <button
+                          onClick={() => setExpandedHistory(p => ({ ...p, [venue._id]: !p[venue._id] }))}
+                          className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 font-medium"
+                        >
+                          <History className="w-3.5 h-3.5" />
+                          {venue.rejectionHistory.length} rejection{venue.rejectionHistory.length > 1 ? 's' : ''} history
+                          {expandedHistory[venue._id] ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                        </button>
+                        {expandedHistory[venue._id] && (
+                          <div className="mt-2 space-y-1.5">
+                            {[...venue.rejectionHistory].reverse().map((h, i) => (
+                              <div key={i} className="flex items-start gap-2 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                                <XCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0 mt-0.5" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs text-red-700">{h.reason}</p>
+                                  <p className="text-[10px] text-gray-400 mt-0.5">
+                                    {new Date(h.rejectedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Link
-                      href={`/venues/${venue.sku}`}
-                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="View"
-                    >
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Link href={`/venues/${venue.sku}`}
+                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View">
                       <Eye className="w-5 h-5" />
                     </Link>
-                    <Link
-                      href={`/owner/venues/${venue._id}/edit`}
-                      className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                      title="Edit"
-                    >
+                    <Link href={`/owner/venues/${venue._id}/edit`}
+                      className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors" title="Edit">
                       <Edit className="w-5 h-5" />
                     </Link>
                   </div>

@@ -71,18 +71,18 @@ export default function Step5Photos() {
     setUploading(false);
   };
 
-  const removeImage = async (id, publicId) => {
+  const removeImage = async (imageToRemove) => {
     try {
-      // Delete from Cloudinary
-      if (publicId) {
-        await deleteFromCloudinary(publicId);
+      if (imageToRemove.publicId) {
+        await deleteFromCloudinary(imageToRemove.publicId);
       }
-      
-      setImages(prev => prev.filter(img => img.id !== id));
+      setImages(prev => prev.filter(img => img.url !== imageToRemove.url));
       toast.success('Image removed');
     } catch (error) {
       console.error('Delete error:', error);
-      toast.error('Failed to delete image');
+      // Still remove from UI even if cloudinary delete fails
+      setImages(prev => prev.filter(img => img.url !== imageToRemove.url));
+      toast.success('Image removed');
     }
   };
 
@@ -177,7 +177,7 @@ export default function Step5Photos() {
                       />
                       <button
                         type="button"
-                        onClick={() => removeImage(image.id, image.publicId)}
+                        onClick={() => removeImage(image)}
                         className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <X className="w-3 h-3" />
@@ -222,7 +222,7 @@ export default function Step5Photos() {
                 />
                 <button
                   type="button"
-                  onClick={() => removeImage(image.id, image.publicId)}
+                  onClick={() => removeImage(image)}
                   className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <X className="w-3 h-3" />

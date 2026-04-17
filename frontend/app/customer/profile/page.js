@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useAuthStore } from '@/lib/store';
@@ -668,18 +668,43 @@ function CustomerProfileInner() {
 
 function KYCSection({ token, user, updateUser }) {
   const [loading, setLoading] = useState(false);
-  const [idProofType, setIdProofType] = useState(user?.kyc?.idProofType || 'Aadhaar');
+  const [fetching, setFetching] = useState(true);
+  const [kycData, setKycData] = useState(null); // fresh from API
+  const [idProofType, setIdProofType] = useState('Aadhaar');
   const [idProofFile, setIdProofFile] = useState(null);
-  const [idProofPreview, setIdProofPreview] = useState(user?.kyc?.idProof || null);
+  const [idProofBackFile, setIdProofBackFile] = useState(null);
   const [selfieFile, setSelfieFile] = useState(null);
-  const [selfiePreview, setSelfiePreview] = useState(user?.kyc?.selfie || null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
 
-  const idDone = !!(user?.kyc?.idProof);
-  const selfieDone = !!(user?.kyc?.selfie);
-  const kycComplete = idDone && selfieDone;
+  const NEEDS_BACK = ['Aadhaar', 'Voter ID'];
+
+  // Fetch fresh user data when tab opens
+  useEffect(() => {
+    if (!token) return;
+    setFetching(true);
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          setKycData(data.user?.kyc || {});
+          setIdProofType(data.user?.kyc?.idProofType || 'Aadhaar');
+          updateUser(data.user);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setFetching(false));
+  }, [token]);
+
+  const kyc = kycData ?? (user?.kyc || {});
+  const idDone      = !!kyc.idProof;
+  const idBackDone  = !!kyc.idProofBack;
+  const selfieDone  = !!kyc.selfie;
+  const needsBack   = NEEDS_BACK.includes(idProofType);
+  const kycComplete = idDone && selfieDone && (!needsBack || idBackDone);
 
   const openCamera = async () => {
     try {
@@ -697,9 +722,7 @@ function KYCSection({ token, user, updateUser }) {
     canvas.height = videoRef.current.videoHeight;
     canvas.getContext('2d').drawImage(videoRef.current, 0, 0);
     canvas.toBlob(blob => {
-      const file = new File([blob], 'selfie.jpg', { type: 'image/jpeg' });
-      setSelfieFile(file);
-      setSelfiePreview(URL.createObjectURL(blob));
+      setSelfieFile(new File([blob], 'selfie.jpg', { type: 'image/jpeg' }));
       closeCamera();
     }, 'image/jpeg', 0.9);
   };
@@ -712,14 +735,17 @@ function KYCSection({ token, user, updateUser }) {
   useEffect(() => () => closeCamera(), []);
 
   const handleUpload = async () => {
-    if (!idProofFile && !selfieDone) { toast.error('Please upload your ID proof'); return; }
-    if (!selfieFile && !selfieDone) { toast.error('Please take or upload a selfie'); return; }
-    if (!idProofFile && !selfieFile) { toast.error('No new files to upload'); return; }
+    const hasNew = idProofFile || idProofBackFile || selfieFile;
+    if (!hasNew) { toast.error('No new files selected'); return; }
+    if (!idDone && !idProofFile) { toast.error('Please upload ID proof front'); return; }
+    if (needsBack && !idBackDone && !idProofBackFile) { toast.error(`Please upload ${idProofType} back side`); return; }
+    if (!selfieDone && !selfieFile) { toast.error('Please take or upload a selfie'); return; }
 
     setLoading(true);
     try {
       const fd = new FormData();
       if (idProofFile) { fd.append('idProof', idProofFile); fd.append('idProofType', idProofType); }
+      if (idProofBackFile) fd.append('idProofBack', idProofBackFile);
       if (selfieFile) fd.append('selfie', selfieFile);
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/kyc-upload`, {
@@ -730,7 +756,9 @@ function KYCSection({ token, user, updateUser }) {
       const data = await res.json();
       if (data.success) {
         updateUser(data.user);
-        toast.success('KYC documents uploaded successfully!');
+        setKycData(data.user?.kyc || {});
+        setIdProofFile(null); setIdProofBackFile(null); setSelfieFile(null);
+        toast.success('KYC updated successfully!');
       } else {
         toast.error(data.message || 'Upload failed');
       }
@@ -738,9 +766,56 @@ function KYCSection({ token, user, updateUser }) {
     finally { setLoading(false); }
   };
 
+  // Reusable upload box
+  const UploadBox = ({ label, existingUrl, newFile, onNew, onClear, accept = 'image/*,.pdf', color = 'primary' }) => {
+    const preview = newFile ? URL.createObjectURL(newFile) : existingUrl;
+    const isNew = !!newFile;
+    const isExisting = !newFile && !!existingUrl;
+    return (
+      <div>
+        <p className="text-sm font-semibold text-gray-700 mb-2">{label}</p>
+        {preview ? (
+          <div className="relative rounded-xl overflow-hidden border-2 border-green-400">
+            <img src={preview} alt={label} className="w-full h-36 object-contain bg-gray-50" />
+            <div className={`absolute bottom-0 left-0 right-0 flex items-center justify-between px-3 py-1.5 ${isNew ? 'bg-primary-600' : 'bg-green-600'}`}>
+              <span className="text-white text-xs font-semibold flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" />
+                {isNew ? 'New â€” ready to save' : 'Uploaded'}
+              </span>
+              <div className="flex gap-2">
+                {isExisting && (
+                  <a href={existingUrl} target="_blank" rel="noopener noreferrer"
+                    className="text-white/80 hover:text-white text-xs underline">View</a>
+                )}
+                <label className="text-white/80 hover:text-white text-xs underline cursor-pointer">
+                  Re-upload
+                  <input type="file" accept={accept} className="hidden"
+                    onChange={e => { const f = e.target.files[0]; if (f) onNew(f); }} />
+                </label>
+                {isNew && (
+                  <button onClick={onClear} className="text-white/80 hover:text-white text-xs">âœ•</button>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <label className={`flex flex-col items-center justify-center w-full h-28 border-2 border-dashed rounded-xl cursor-pointer transition-all
+            ${color === 'orange' ? 'border-orange-300 hover:border-orange-400 hover:bg-orange-50' : 'border-gray-300 hover:border-primary-400 hover:bg-primary-50'}`}>
+            <Upload className={`w-7 h-7 mb-1.5 ${color === 'orange' ? 'text-orange-400' : 'text-gray-400'}`} />
+            <span className="text-sm text-gray-500">Click to upload</span>
+            <span className="text-xs text-gray-400 mt-0.5">JPG, PNG, PDF (max 10MB)</span>
+            <input type="file" accept={accept} className="hidden"
+              onChange={e => { const f = e.target.files[0]; if (f) onNew(f); }} />
+          </label>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-soft border border-gray-100 p-6">
-      <div className="flex items-center gap-3 mb-6">
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-5">
         <ShieldCheck className={`w-6 h-6 ${kycComplete ? 'text-green-500' : 'text-amber-500'}`} />
         <div>
           <h3 className="font-bold text-gray-900">KYC Verification</h3>
@@ -753,6 +828,12 @@ function KYCSection({ token, user, updateUser }) {
         )}
       </div>
 
+      {fetching ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500" />
+        </div>
+      ) : (<>
+
       {!kycComplete && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-5 flex items-start gap-2">
           <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -760,51 +841,43 @@ function KYCSection({ token, user, updateUser }) {
         </div>
       )}
 
-      <div className="space-y-6">
-        {/* ID Proof */}
+      <div className="space-y-5">
+        {/* ID Type */}
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            ID Proof Type
-            {idDone && <span className="ml-2 text-green-600 text-xs font-normal">✓ Uploaded ({user?.kyc?.idProofType})</span>}
-          </label>
-          <select value={idProofType} onChange={e => setIdProofType(e.target.value)}
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 mb-3">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">ID Proof Type</label>
+          <select value={idProofType}
+            onChange={e => { setIdProofType(e.target.value); setIdProofFile(null); setIdProofBackFile(null); }}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-500">
             {['Aadhaar', 'PAN', 'Passport', 'Voter ID', 'Driving License'].map(t => <option key={t}>{t}</option>)}
           </select>
-
-          {idProofPreview && !idProofFile ? (
-            <div className="relative">
-              <img src={idProofPreview} alt="ID Proof" className="w-full h-36 object-cover rounded-xl border-2 border-green-400" />
-              <div className="absolute bottom-2 left-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" /> Uploaded
-              </div>
-              <button onClick={() => setIdProofPreview(null)}
-                className="absolute top-2 right-2 w-7 h-7 bg-white/90 text-gray-600 rounded-full flex items-center justify-center text-xs font-bold hover:bg-red-50 hover:text-red-500">
-                ✕
-              </button>
-            </div>
-          ) : idProofFile ? (
-            <div className="relative">
-              <img src={URL.createObjectURL(idProofFile)} alt="ID Proof" className="w-full h-36 object-cover rounded-xl border-2 border-primary-400" />
-              <button onClick={() => setIdProofFile(null)}
-                className="absolute top-2 right-2 w-7 h-7 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold">✕</button>
-            </div>
-          ) : (
-            <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-primary-400 hover:bg-primary-50 transition-all">
-              <Upload className="w-7 h-7 text-gray-400 mb-1.5" />
-              <span className="text-sm text-gray-500">Upload {idProofType}</span>
-              <span className="text-xs text-gray-400 mt-0.5">JPG, PNG (max 5MB)</span>
-              <input type="file" accept="image/*,.pdf" className="hidden"
-                onChange={e => { const f = e.target.files[0]; if (f) setIdProofFile(f); }} />
-            </label>
-          )}
         </div>
+
+        {/* Front */}
+        <UploadBox
+          label={needsBack ? `${idProofType} â€” Front Side *` : `Upload ${idProofType} *`}
+          existingUrl={kyc.idProof}
+          newFile={idProofFile}
+          onNew={setIdProofFile}
+          onClear={() => setIdProofFile(null)}
+        />
+
+        {/* Back â€” only for Aadhaar / Voter ID */}
+        {needsBack && (
+          <UploadBox
+            label={`${idProofType} â€” Back Side *`}
+            existingUrl={kyc.idProofBack}
+            newFile={idProofBackFile}
+            onNew={setIdProofBackFile}
+            onClear={() => setIdProofBackFile(null)}
+            color="orange"
+          />
+        )}
 
         {/* Selfie */}
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Real-time Selfie
-            {selfieDone && <span className="ml-2 text-green-600 text-xs font-normal">✓ Uploaded</span>}
+            Real-time Selfie *
+            {selfieDone && !selfieFile && <span className="ml-2 text-green-600 text-xs font-normal">âœ“ Uploaded</span>}
           </label>
 
           {cameraOpen ? (
@@ -817,20 +890,24 @@ function KYCSection({ token, user, updateUser }) {
                 <button onClick={closeCamera} className="px-4 py-2.5 border border-gray-300 text-gray-600 rounded-xl text-sm font-semibold">Cancel</button>
               </div>
             </div>
-          ) : selfiePreview && !selfieFile ? (
-            <div className="relative">
-              <img src={selfiePreview} alt="Selfie" className="w-full h-36 object-cover rounded-xl border-2 border-green-400" />
-              <div className="absolute bottom-2 left-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" /> Uploaded
-              </div>
-              <button onClick={() => setSelfiePreview(null)}
-                className="absolute top-2 right-2 w-7 h-7 bg-white/90 text-gray-600 rounded-full flex items-center justify-center text-xs font-bold hover:bg-red-50 hover:text-red-500">✕</button>
-            </div>
           ) : selfieFile ? (
-            <div className="relative">
-              <img src={URL.createObjectURL(selfieFile)} alt="Selfie" className="w-full h-36 object-cover rounded-xl border-2 border-primary-400" />
-              <button onClick={() => setSelfieFile(null)}
-                className="absolute top-2 right-2 w-7 h-7 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold">✕</button>
+            <div className="relative rounded-xl overflow-hidden border-2 border-primary-400">
+              <img src={URL.createObjectURL(selfieFile)} alt="Selfie" className="w-full h-36 object-cover" />
+              <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-3 py-1.5 bg-primary-600">
+                <span className="text-white text-xs font-semibold flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> New â€” ready to save</span>
+                <button onClick={() => setSelfieFile(null)} className="text-white/80 hover:text-white text-xs">âœ•</button>
+              </div>
+            </div>
+          ) : kyc.selfie ? (
+            <div className="relative rounded-xl overflow-hidden border-2 border-green-400">
+              <img src={kyc.selfie} alt="Selfie" className="w-full h-36 object-cover" />
+              <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-3 py-1.5 bg-green-600">
+                <span className="text-white text-xs font-semibold flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Uploaded</span>
+                <div className="flex gap-3">
+                  <a href={kyc.selfie} target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white text-xs underline">View</a>
+                  <button onClick={openCamera} className="text-white/80 hover:text-white text-xs underline">Retake</button>
+                </div>
+              </div>
             </div>
           ) : (
             <div className="flex gap-2">
@@ -846,13 +923,15 @@ function KYCSection({ token, user, updateUser }) {
           )}
         </div>
 
-        {(idProofFile || selfieFile) && (
+        {/* Save button */}
+        {(idProofFile || idProofBackFile || selfieFile) && (
           <button onClick={handleUpload} disabled={loading}
             className="w-full flex items-center justify-center gap-2 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-sm transition-colors disabled:opacity-50">
             {loading ? 'Uploading...' : <><CheckCircle2 className="w-4 h-4" /> Save KYC Documents</>}
           </button>
         )}
       </div>
+      </>)}
     </div>
   );
 }

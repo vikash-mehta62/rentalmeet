@@ -10,7 +10,20 @@ const couponSchema = new mongoose.Schema({
   venue: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Venue',
-    required: false,  // null = global coupon (applies to all venues)
+    required: false,
+    default: null
+  },
+  // For vendor service coupons
+  service: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'VendorService',
+    required: false,
+    default: null
+  },
+  serviceVendor: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: false,
     default: null
   },
   owner: {
@@ -28,6 +41,12 @@ const couponSchema = new mongoose.Schema({
     type: Number,
     required: true,
     min: 0
+  },
+  appliesTo: {
+    type: String,
+    enum: ['total', 'platformFee', 'amenities', 'baseAmount'],
+    default: 'total',
+    description: 'total = venue+amenities, platformFee = only platform fee, amenities = only amenities, baseAmount = only venue base price'
   },
   maxDiscount: {
     type: Number,

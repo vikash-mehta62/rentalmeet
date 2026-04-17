@@ -5,52 +5,73 @@ import { useForm } from 'react-hook-form';
 import { useVenueFormStore } from '@/lib/store';
 import toast from 'react-hot-toast';
 import { MapPin, Navigation, Building, Map, ParkingCircle, Bus, Train, Locate } from 'lucide-react';
+import StateCitySelect from '@/components/vendor/StateCitySelect';
 
 const parkingOptions = ['Free', 'Paid', 'Limited', 'None'];
 
 export default function Step2Location() {
   const { formData, setFormData, setStep } = useVenueFormStore();
+
+  // Initialize state/city from saved formData
+  const savedLocation = formData.location || {};
+  const [selectedState, setSelectedState] = useState(
+    savedLocation.state
+      ? { label: savedLocation.state, value: savedLocation.stateCode || savedLocation.state, name: savedLocation.state }
+      : null
+  );
+  const [selectedCity, setSelectedCity] = useState(
+    savedLocation.city
+      ? { label: savedLocation.city, value: savedLocation.city, name: savedLocation.city }
+      : null
+  );
+
   const { register, handleSubmit, setValue, formState: { errors } } = useForm({
-    defaultValues: formData.location
+    defaultValues: savedLocation
   });
+
   const [loadingLocation, setLoadingLocation] = useState(false);
 
   const onSubmit = (data) => {
-    setFormData({ location: data });
+    if (!selectedState) { toast.error('State is required'); return; }
+    if (!selectedCity) { toast.error('City is required'); return; }
+
+    setFormData({
+      location: {
+        ...data,
+        state: selectedState.name,
+        stateCode: selectedState.value,
+        city: selectedCity.name,
+      }
+    });
     setStep(3);
     toast.success('Location details saved! 🎉');
   };
 
-  const goBack = () => {
-    setStep(1);
-  };
+  const goBack = () => setStep(1);
 
   const useCurrentLocation = () => {
     if (!navigator.geolocation) {
       toast.error('Geolocation is not supported by your browser');
       return;
     }
-
     setLoadingLocation(true);
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
-        const mapsLink = `https://www.google.com/maps?q=${latitude},${longitude}`;
-        setValue('googleMapLink', mapsLink);
+        setValue('googleMapLink', `https://www.google.com/maps?q=${latitude},${longitude}`);
         setLoadingLocation(false);
         toast.success('Location captured! 📍');
       },
-      (error) => {
+      () => {
         setLoadingLocation(false);
         toast.error('Unable to get your location. Please enter manually.');
-        console.error('Geolocation error:', error);
       }
     );
   };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 animate-slide-up">
-      {/* 1. Complete Address (Full Width) */}
+      {/* Complete Address */}
       <div className="form-group">
         <label className="flex items-center text-sm font-semibold text-dark-700 mb-2">
           <Building className="w-4 h-4 mr-2 text-primary-500" />
@@ -69,65 +90,39 @@ export default function Step2Location() {
         )}
       </div>
 
-      {/* 2. Landmark | State */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="form-group">
-          <label className="flex items-center text-sm font-semibold text-dark-700 mb-2">
-            <Navigation className="w-4 h-4 mr-2 text-primary-500" />
-            Landmark *
-          </label>
-          <input
-            type="text"
-            {...register('landmark', { required: 'Landmark is required' })}
-            className="input-field"
-            placeholder="Near DB City Mall"
-          />
-          {errors.landmark && (
-            <p className="text-error text-sm mt-1 flex items-center">
-              <span className="mr-1">⚠️</span> {errors.landmark.message}
-            </p>
-          )}
-        </div>
-
-        <div className="form-group">
-          <label className="flex items-center text-sm font-semibold text-dark-700 mb-2">
-            <MapPin className="w-4 h-4 mr-2 text-primary-500" />
-            State *
-          </label>
-          <input
-            type="text"
-            {...register('state', { required: 'State is required' })}
-            className="input-field"
-            placeholder="Madhya Pradesh"
-          />
-          {errors.state && (
-            <p className="text-error text-sm mt-1 flex items-center">
-              <span className="mr-1">⚠️</span> {errors.state.message}
-            </p>
-          )}
-        </div>
+      {/* Landmark */}
+      <div className="form-group">
+        <label className="flex items-center text-sm font-semibold text-dark-700 mb-2">
+          <Navigation className="w-4 h-4 mr-2 text-primary-500" />
+          Landmark *
+        </label>
+        <input
+          type="text"
+          {...register('landmark', { required: 'Landmark is required' })}
+          className="input-field"
+          placeholder="Near DB City Mall"
+        />
+        {errors.landmark && (
+          <p className="text-error text-sm mt-1 flex items-center">
+            <span className="mr-1">⚠️</span> {errors.landmark.message}
+          </p>
+        )}
       </div>
 
-      {/* 3. City | Village */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="form-group">
-          <label className="flex items-center text-sm font-semibold text-dark-700 mb-2">
-            <MapPin className="w-4 h-4 mr-2 text-primary-500" />
-            City *
-          </label>
-          <input
-            type="text"
-            {...register('city', { required: 'City is required' })}
-            className="input-field"
-            placeholder="Bhopal"
-          />
-          {errors.city && (
-            <p className="text-error text-sm mt-1 flex items-center">
-              <span className="mr-1">⚠️</span> {errors.city.message}
-            </p>
-          )}
-        </div>
+      {/* State & City Dropdowns */}
+      <div className="form-group">
+        <StateCitySelect
+          state={selectedState}
+          city={selectedCity}
+          onStateChange={(v) => { setSelectedState(v); setSelectedCity(null); }}
+          onCityChange={(v) => setSelectedCity(v)}
+          required={true}
+          inline={true}
+        />
+      </div>
 
+      {/* Village | Area/Locality */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="form-group">
           <label className="flex items-center text-sm font-semibold text-dark-700 mb-2">
             <Map className="w-4 h-4 mr-2 text-primary-500" />
@@ -140,10 +135,7 @@ export default function Step2Location() {
             placeholder="Village name (if applicable)"
           />
         </div>
-      </div>
 
-      {/* 4. Area/Locality | Pincode */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="form-group">
           <label className="flex items-center text-sm font-semibold text-dark-700 mb-2">
             <Map className="w-4 h-4 mr-2 text-primary-500" />
@@ -161,34 +153,32 @@ export default function Step2Location() {
             </p>
           )}
         </div>
-
-        <div className="form-group">
-          <label className="flex items-center text-sm font-semibold text-dark-700 mb-2">
-            <MapPin className="w-4 h-4 mr-2 text-primary-500" />
-            Pincode *
-          </label>
-          <input
-            type="text"
-            {...register('pincode', { 
-              required: 'Pincode is required',
-              pattern: {
-                value: /^[0-9]{6}$/,
-                message: 'Enter valid 6-digit pincode'
-              }
-            })}
-            className="input-field"
-            placeholder="462001"
-            maxLength={6}
-          />
-          {errors.pincode && (
-            <p className="text-error text-sm mt-1 flex items-center">
-              <span className="mr-1">⚠️</span> {errors.pincode.message}
-            </p>
-          )}
-        </div>
       </div>
 
-      {/* 5. Google Maps Link with Current Location Button */}
+      {/* Pincode */}
+      <div className="form-group">
+        <label className="flex items-center text-sm font-semibold text-dark-700 mb-2">
+          <MapPin className="w-4 h-4 mr-2 text-primary-500" />
+          Pincode *
+        </label>
+        <input
+          type="text"
+          {...register('pincode', {
+            required: 'Pincode is required',
+            pattern: { value: /^[0-9]{6}$/, message: 'Enter valid 6-digit pincode' }
+          })}
+          className="input-field"
+          placeholder="462001"
+          maxLength={6}
+        />
+        {errors.pincode && (
+          <p className="text-error text-sm mt-1 flex items-center">
+            <span className="mr-1">⚠️</span> {errors.pincode.message}
+          </p>
+        )}
+      </div>
+
+      {/* Google Maps Link */}
       <div className="form-group">
         <label className="flex items-center text-sm font-semibold text-dark-700 mb-2">
           <Map className="w-4 h-4 mr-2 text-primary-500" />
@@ -221,7 +211,7 @@ export default function Step2Location() {
         )}
       </div>
 
-      {/* 6. Parking Availability (Full Width) */}
+      {/* Parking Availability */}
       <div className="form-group">
         <label className="flex items-center text-sm font-semibold text-dark-700 mb-2">
           <ParkingCircle className="w-4 h-4 mr-2 text-primary-500" />
@@ -243,7 +233,7 @@ export default function Step2Location() {
         )}
       </div>
 
-      {/* 7. Nearest Bus/Auto Stand | Nearest Metro/Train Station */}
+      {/* Nearest Transport */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="form-group">
           <label className="flex items-center text-sm font-semibold text-dark-700 mb-2">
@@ -256,9 +246,7 @@ export default function Step2Location() {
             className="input-field"
             placeholder="MP Nagar Bus Stand - 0.5 KM"
           />
-          <p className="text-xs text-dark-500 mt-1">
-            Include distance (e.g., "Bus Stand - 0.5 KM")
-          </p>
+          <p className="text-xs text-dark-500 mt-1">Include distance (e.g., "Bus Stand - 0.5 KM")</p>
         </div>
 
         <div className="form-group">
@@ -272,28 +260,19 @@ export default function Step2Location() {
             className="input-field"
             placeholder="MP Nagar Metro - 1.2 KM"
           />
-          <p className="text-xs text-dark-500 mt-1">
-            Include distance (e.g., "Metro Station - 1.2 KM")
-          </p>
+          <p className="text-xs text-dark-500 mt-1">Include distance (e.g., "Metro Station - 1.2 KM")</p>
         </div>
       </div>
 
       {/* Buttons */}
       <div className="flex justify-between pt-4">
-        <button
-          type="button"
-          onClick={goBack}
-          className="btn-secondary flex items-center group"
-        >
+        <button type="button" onClick={goBack} className="btn-secondary flex items-center group">
           <svg className="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
           Previous
         </button>
-        <button
-          type="submit"
-          className="btn-primary flex items-center group"
-        >
+        <button type="submit" className="btn-primary flex items-center group">
           Next Step
           <svg className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

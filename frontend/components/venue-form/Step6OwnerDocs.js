@@ -117,6 +117,45 @@ export default function Step6OwnerDocs() {
   });
   
   const [uploading, setUploading] = useState(false);
+  const [bankProof, setBankProof] = useState(() => {
+    if (formData.bankDetails?.bankProofUrl) {
+      const url = formData.bankDetails.bankProofUrl;
+      const format = url.includes('.pdf') ? 'pdf' : 'image';
+      return { url, name: 'Bank Proof', format };
+    }
+    return null;
+  });
+
+  // Sync uploaded file states when formData loads (edit mode)
+  useEffect(() => {
+    if (formData.documents) {
+      setIdProofFiles(prev => {
+        const updated = { ...prev };
+        if (formData.documents.idProof?.frontUrl && !updated.front) {
+          updated.front = { url: formData.documents.idProof.frontUrl, name: 'ID Proof Front', format: 'image' };
+        }
+        if (formData.documents.idProof?.backUrl && !updated.back) {
+          updated.back = { url: formData.documents.idProof.backUrl, name: 'ID Proof Back', format: 'image' };
+        }
+        if (formData.documents.idProof?.type === 'PAN' && formData.documents.idProof?.frontUrl && !updated.pan) {
+          updated.pan = { url: formData.documents.idProof.frontUrl, name: 'PAN Card', format: 'image' };
+        }
+        if (formData.documents.idProof?.type) setIdProofType(formData.documents.idProof.type);
+        return updated;
+      });
+      if (formData.documents.selfieUrl && !selfie) {
+        setSelfie({ url: formData.documents.selfieUrl, name: 'Selfie', format: 'image' });
+      }
+      if (formData.documents.businessProof?.documentUrl && !businessDoc) {
+        setBusinessDoc({ url: formData.documents.businessProof.documentUrl, name: 'Business Document', format: 'pdf' });
+      }
+    }
+    if (formData.bankDetails?.bankProofUrl) {
+      const url = formData.bankDetails.bankProofUrl;
+      const format = url.includes('.pdf') ? 'pdf' : 'image';
+      setBankProof({ url, name: 'Bank Proof', format });
+    }
+  }, [formData.documents, formData.bankDetails]);
 
   const handleFileUpload = async (e, type) => {
     const file = e.target.files[0];
@@ -154,6 +193,8 @@ export default function Step6OwnerDocs() {
         setSelfie(uploadedFile);
       } else if (type === 'businessDoc') {
         setBusinessDoc(uploadedFile);
+      } else if (type === 'bankProof') {
+        setBankProof(uploadedFile);
       } else {
         setIdProofFiles(prev => ({ ...prev, [type]: uploadedFile }));
       }
@@ -220,7 +261,9 @@ export default function Step6OwnerDocs() {
       ifscCode: data.ifsc,
       bankName: data.bankName,
       branchName: data.branchName,
-      accountType: data.accountType
+      accountType: data.accountType,
+      bankProofUrl: bankProof?.url || '',
+      bankProofPublicId: bankProof?.publicId || ''
     };
 
     setFormData({ 
@@ -881,6 +924,43 @@ export default function Step6OwnerDocs() {
             <p className="text-xs text-gray-500 mt-3">
               🔒 Your bank details will be encrypted and stored securely
             </p>
+
+            {/* Bank Proof Upload */}
+            <div className="mt-4 pt-4 border-t border-yellow-200">
+              <label className="block text-sm font-semibold text-dark-700 mb-2">
+                Bank Proof (Passbook / Cancelled Cheque) *
+              </label>
+              <label className={`btn-secondary cursor-pointer flex items-center justify-center w-full md:w-auto ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                {bankProof ? (
+                  <>
+                    <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+                    {bankProof.name}
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload Passbook / Cancelled Cheque
+                  </>
+                )}
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={(e) => handleFileUpload(e, 'bankProof')}
+                  className="hidden"
+                  disabled={uploading}
+                />
+              </label>
+              {bankProof && (
+                <div className="mt-2">
+                  <p className="text-xs text-green-600 mb-1">✓ Uploaded</p>
+                  {bankProof.format === 'pdf' ? (
+                    <a href={bankProof.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary-500 underline">View PDF</a>
+                  ) : (
+                    <img src={bankProof.url} alt="Bank Proof" className="w-32 h-20 object-cover rounded border-2 border-gray-200" />
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

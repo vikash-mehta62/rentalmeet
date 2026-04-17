@@ -6,7 +6,8 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import PermissionGuard from '@/components/admin/PermissionGuard';
 import {
   Users, Search, Filter, Eye, X, Mail, Phone, Calendar,
-  CheckCircle, XCircle, Shield, User, Building2, Download, Lock, Eye as EyeIcon, EyeOff
+  CheckCircle, XCircle, Shield, User, Building2, Download, Lock, Eye as EyeIcon, EyeOff,
+  Briefcase, MapPin, CreditCard, Clock, Star, ChevronDown, ChevronUp, ExternalLink
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -14,7 +15,8 @@ export default function AdminUsers() {
   const { token } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [allUsers, setAllUsers] = useState([]);
-  const [activeTab, setActiveTab] = useState('customers'); // customers, owners
+  const [vendors, setVendors] = useState([]);
+  const [activeTab, setActiveTab] = useState('customers'); // customers, owners, vendors
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -25,10 +27,18 @@ export default function AdminUsers() {
   const [newPassword, setNewPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [pwdLoading, setPwdLoading] = useState(false);
+  // Vendor detail state
+  const [selectedVendor, setSelectedVendor] = useState(null);
+  const [vendorServices, setVendorServices] = useState([]);
+  const [vendorModalOpen, setVendorModalOpen] = useState(false);
+  const [vendorLoading, setVendorLoading] = useState(false);
+  const [expandedService, setExpandedService] = useState(null);
+  const [serviceActionLoading, setServiceActionLoading] = useState(false);
 
   useEffect(() => {
     if (token) {
       fetchUsers();
+      fetchVendors();
     }
   }, [token]);
 
@@ -39,21 +49,60 @@ export default function AdminUsers() {
   const fetchUsers = async () => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-      
-      if (data.success) {
-        setAllUsers(data.users);
-      }
+      if (data.success) setAllUsers(data.users);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast.error('Failed to load users');
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchVendors = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/vendors`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) setVendors(data.vendors);
+    } catch (e) { console.error('Error fetching vendors:', e); }
+  };
+
+  const openVendorModal = async (vendor) => {
+    setSelectedVendor(vendor);
+    setVendorModalOpen(true);
+    setVendorLoading(true);
+    setVendorServices([]);
+    setExpandedService(null);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/vendors/${vendor._id}/services`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) setVendorServices(data.services);
+    } catch (e) { toast.error('Failed to load vendor services'); }
+    finally { setVendorLoading(false); }
+  };
+
+  const handleServiceAction = async (serviceId, action, reason = '') => {
+    setServiceActionLoading(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/vendor-services/${serviceId}/${action}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Service ${action}d successfully`);
+        setVendorServices(prev => prev.map(s => s._id === serviceId ? { ...s, status: action === 'approve' ? 'approved' : 'rejected', rejectionReason: reason } : s));
+        fetchVendors();
+      } else toast.error(data.message || 'Failed');
+    } catch { toast.error('Something went wrong'); }
+    finally { setServiceActionLoading(false); }
   };
 
   const filterUsers = () => {
@@ -64,6 +113,9 @@ export default function AdminUsers() {
       filtered = filtered.filter(u => u.role === 'customer');
     } else if (activeTab === 'owners') {
       filtered = filtered.filter(u => u.role === 'owner');
+    } else if (activeTab === 'vendors') {
+      // vendors handled separately
+      return;
     }
 
     // Filter by status
@@ -223,6 +275,10 @@ export default function AdminUsers() {
     owners: {
       total: allUsers.filter(u => u.role === 'owner').length,
       active: allUsers.filter(u => u.role === 'owner' && u.isActive).length,
+    },
+    vendors: {
+      total: vendors.length,
+      active: vendors.filter(v => v.isActive).length,
     }
   };
 
@@ -284,6 +340,19 @@ export default function AdminUsers() {
               <span>Owners ({stats.owners.total})</span>
             </div>
           </button>
+          <button
+            onClick={() => setActiveTab('vendors')}
+            className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors ${
+              activeTab === 'vendors'
+                ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Briefcase className="w-5 h-5" />
+              <span>Vendors ({stats.vendors.total})</span>
+            </div>
+          </button>
         </div>
       </div>
 
@@ -291,15 +360,15 @@ export default function AdminUsers() {
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-lg shadow-soft border border-gray-100 p-4">
           <p className="text-xs text-gray-600 mb-1">Total</p>
-          <p className="text-2xl font-bold text-dark-800">{stats[activeTab].total}</p>
+          <p className="text-2xl font-bold text-dark-800">{activeTab === 'vendors' ? stats.vendors.total : stats[activeTab]?.total}</p>
         </div>
         <div className="bg-green-50 rounded-lg shadow-soft border border-green-200 p-4">
           <p className="text-xs text-green-600 mb-1">Active</p>
-          <p className="text-2xl font-bold text-green-700">{stats[activeTab].active}</p>
+          <p className="text-2xl font-bold text-green-700">{activeTab === 'vendors' ? stats.vendors.active : stats[activeTab]?.active}</p>
         </div>
         <div className="bg-red-50 rounded-lg shadow-soft border border-red-200 p-4">
           <p className="text-xs text-red-600 mb-1">Inactive</p>
-          <p className="text-2xl font-bold text-red-700">{stats[activeTab].total - stats[activeTab].active}</p>
+          <p className="text-2xl font-bold text-red-700">{activeTab === 'vendors' ? stats.vendors.total - stats.vendors.active : (stats[activeTab]?.total - stats[activeTab]?.active)}</p>
         </div>
       </div>
 
@@ -344,7 +413,8 @@ export default function AdminUsers() {
         </div>
       </div>
 
-      {/* Users Table */}
+      {/* Users Table — customers & owners */}
+      {activeTab !== 'vendors' && (
       <div className="bg-white rounded-lg shadow-soft border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -543,6 +613,90 @@ export default function AdminUsers() {
           </div>
         )}
       </div>
+      )} {/* end activeTab !== vendors */}
+
+      {/* Vendors Table */}
+      {activeTab === 'vendors' && (
+        <div className="bg-white rounded-lg shadow-soft border border-gray-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">S.No</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Vendor</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Contact</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Category</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Services</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Pending</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Joined</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {vendors.filter(v => {
+                  const q = searchQuery.toLowerCase();
+                  return !q || v.name?.toLowerCase().includes(q) || v.email?.toLowerCase().includes(q) || v.phone?.includes(q);
+                }).length === 0 ? (
+                  <tr><td colSpan={9} className="px-6 py-8 text-center text-gray-500">No vendors found</td></tr>
+                ) : vendors.filter(v => {
+                  const q = searchQuery.toLowerCase();
+                  return !q || v.name?.toLowerCase().includes(q) || v.email?.toLowerCase().includes(q) || v.phone?.includes(q);
+                }).map((vendor, index) => (
+                  <tr key={vendor._id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-xs font-semibold text-gray-700">{index + 1}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center font-bold text-purple-600 text-xs flex-shrink-0">
+                          {vendor.name?.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-dark-800">{vendor.name}</p>
+                          <p className="text-xs text-gray-500">{vendor.userId || `RM-${vendor._id.slice(-8).toUpperCase()}`}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-xs text-gray-700 flex items-center gap-1"><Mail className="w-3 h-3 text-gray-400" />{vendor.email}</p>
+                      <p className="text-xs text-gray-700 flex items-center gap-1 mt-0.5"><Phone className="w-3 h-3 text-gray-400" />{vendor.phone}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-xs text-gray-700">{vendor.vendorCategory || 'N/A'}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-bold text-xs">{vendor.serviceCount || 0}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {vendor.pendingCount > 0 ? (
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-orange-100 text-orange-700 font-bold text-xs">{vendor.pendingCount}</span>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${vendor.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        {vendor.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-xs text-gray-700 flex items-center gap-1">
+                        <Calendar className="w-3 h-3 text-gray-400" />
+                        {new Date(vendor.createdAt).toLocaleDateString()}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <button onClick={() => openVendorModal(vendor)}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white rounded-lg text-xs font-semibold transition-colors">
+                        <Eye className="w-3 h-3" /> View
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* User Details Modal */}
       {modalOpen && selectedUser && (
@@ -697,14 +851,14 @@ export default function AdminUsers() {
                     )}
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* ID Proof */}
+                    {/* ID Proof Front */}
                     <div>
                       <p className="text-xs font-semibold text-gray-500 mb-2">
-                        ID Proof {selectedUser.kyc?.idProofType ? `(${selectedUser.kyc.idProofType})` : ''}
+                        {selectedUser.kyc?.idProofType || 'ID Proof'} — Front
                       </p>
                       {selectedUser.kyc?.idProof ? (
                         <div>
-                          <img src={selectedUser.kyc.idProof} alt="ID Proof"
+                          <img src={selectedUser.kyc.idProof} alt="ID Proof Front"
                             className="w-full h-36 object-contain bg-white rounded-lg border border-gray-300 p-2" />
                           <a href={selectedUser.kyc.idProof} target="_blank" rel="noopener noreferrer"
                             className="text-primary-600 hover:text-primary-700 text-xs mt-1.5 inline-flex items-center gap-1 font-medium">
@@ -717,6 +871,28 @@ export default function AdminUsers() {
                         </div>
                       )}
                     </div>
+                    {/* ID Proof Back — shown if uploaded */}
+                    {(selectedUser.kyc?.idProofBack || ['Aadhaar','Voter ID'].includes(selectedUser.kyc?.idProofType)) && (
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 mb-2">
+                          {selectedUser.kyc?.idProofType || 'ID Proof'} — Back
+                        </p>
+                        {selectedUser.kyc?.idProofBack ? (
+                          <div>
+                            <img src={selectedUser.kyc.idProofBack} alt="ID Proof Back"
+                              className="w-full h-36 object-contain bg-white rounded-lg border border-gray-300 p-2" />
+                            <a href={selectedUser.kyc.idProofBack} target="_blank" rel="noopener noreferrer"
+                              className="text-primary-600 hover:text-primary-700 text-xs mt-1.5 inline-flex items-center gap-1 font-medium">
+                              <Eye className="w-3 h-3" /> View / Download
+                            </a>
+                          </div>
+                        ) : (
+                          <div className="h-36 bg-gray-100 rounded-lg border border-dashed border-gray-300 flex items-center justify-center">
+                            <p className="text-xs text-gray-400">Not uploaded</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     {/* Selfie */}
                     <div>
                       <p className="text-xs font-semibold text-gray-500 mb-2">Real-time Selfie</p>
@@ -866,6 +1042,264 @@ export default function AdminUsers() {
         </div>
       )}
       </PermissionGuard>
+
+      {/* Vendor Detail Modal */}
+      {vendorModalOpen && selectedVendor && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+              <div>
+                <h2 className="text-xl font-bold text-dark-800">{selectedVendor.name}</h2>
+                <p className="text-sm text-gray-500">{selectedVendor.email} · {selectedVendor.vendorCategory || 'Vendor'}</p>
+              </div>
+              <button onClick={() => setVendorModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Basic Info */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                <div><p className="text-xs text-gray-500">Phone</p><p className="font-semibold">{selectedVendor.phone || 'N/A'}</p></div>
+                <div><p className="text-xs text-gray-500">Status</p>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${selectedVendor.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                    {selectedVendor.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+                <div><p className="text-xs text-gray-500">Joined</p><p className="font-semibold">{new Date(selectedVendor.createdAt).toLocaleDateString('en-IN')}</p></div>
+                <div><p className="text-xs text-gray-500">Total Services</p><p className="font-bold text-blue-600">{selectedVendor.serviceCount || 0}</p></div>
+                <div><p className="text-xs text-gray-500">Pending Review</p><p className="font-bold text-orange-500">{selectedVendor.pendingCount || 0}</p></div>
+                <div><p className="text-xs text-gray-500">City / State</p><p className="font-semibold">{selectedVendor.city || '—'} {selectedVendor.state ? `/ ${selectedVendor.state}` : ''}</p></div>
+              </div>
+
+              {/* Services */}
+              <div>
+                <h3 className="text-base font-bold text-gray-800 mb-3 flex items-center gap-2">
+                  <Briefcase className="w-4 h-4 text-purple-500" /> Services
+                </h3>
+                {vendorLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : vendorServices.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-6">No services submitted yet</p>
+                ) : (
+                  <div className="space-y-3">
+                    {vendorServices.map(svc => (
+                      <div key={svc._id} className="border border-gray-200 rounded-xl overflow-hidden">
+                        {/* Service Header */}
+                        <div
+                          className="flex items-center justify-between px-4 py-3 bg-gray-50 cursor-pointer"
+                          onClick={() => setExpandedService(expandedService === svc._id ? null : svc._id)}
+                        >
+                          <div className="flex items-center gap-3">
+                            {svc.featuredImage && (
+                              <img src={svc.featuredImage} alt="" className="w-10 h-10 rounded-lg object-cover border border-gray-200" />
+                            )}
+                            <div>
+                              <p className="text-sm font-semibold text-gray-800">{svc.title}</p>
+                              <p className="text-xs text-gray-500">{svc.category} · {svc.city}, {svc.state}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                              svc.status === 'approved' ? 'bg-green-100 text-green-700' :
+                              svc.status === 'pending' ? 'bg-orange-100 text-orange-700' :
+                              svc.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                              svc.status === 'suspended' ? 'bg-gray-100 text-gray-600' :
+                              'bg-blue-100 text-blue-700'
+                            }`}>{svc.status}</span>
+                            {expandedService === svc._id ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                          </div>
+                        </div>
+
+                        {/* Service Detail */}
+                        {expandedService === svc._id && (
+                          <div className="p-4 space-y-4 text-sm">
+                            {/* Business Info */}
+                            <div className="grid grid-cols-2 gap-3">
+                              <div><p className="text-xs text-gray-500">Company</p><p className="font-semibold">{svc.companyName || '—'}</p></div>
+                              <div><p className="text-xs text-gray-500">Brand</p><p className="font-semibold">{svc.brandName || '—'}</p></div>
+                              <div><p className="text-xs text-gray-500">Experience</p><p className="font-semibold">{svc.experienceYears ? `${svc.experienceYears} yrs` : '—'}</p></div>
+                              <div><p className="text-xs text-gray-500">Starting Price</p><p className="font-semibold text-green-700">₹{svc.startingPrice?.toLocaleString() || '—'}</p></div>
+                              <div><p className="text-xs text-gray-500">Address</p><p className="font-semibold">{svc.officeAddress || '—'}</p></div>
+                              <div><p className="text-xs text-gray-500">Pincode</p><p className="font-semibold">{svc.pincode || '—'}</p></div>
+                            </div>
+
+                            {/* Contact */}
+                            {svc.contactInfo && (
+                              <div className="bg-blue-50 rounded-lg p-3">
+                                <p className="text-xs font-bold text-blue-800 mb-2">Contact Info</p>
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <p><span className="text-gray-500">Name:</span> {svc.contactInfo.fullName}</p>
+                                  <p><span className="text-gray-500">Mobile:</span> {svc.contactInfo.primaryMobile}</p>
+                                  <p><span className="text-gray-500">Role:</span> {svc.contactInfo.role}</p>
+                                  {svc.contactInfo.secondaryMobile && <p><span className="text-gray-500">Alt:</span> {svc.contactInfo.secondaryMobile}</p>}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Description */}
+                            {svc.description && (
+                              <div><p className="text-xs text-gray-500 mb-1">Description</p><p className="text-xs text-gray-700 bg-gray-50 rounded p-2">{svc.description}</p></div>
+                            )}
+
+                            {/* Portfolio Images */}
+                            {svc.images?.length > 0 && (
+                              <div>
+                                <p className="text-xs font-bold text-gray-600 mb-2">Portfolio Photos</p>
+                                <div className="flex gap-2 flex-wrap">
+                                  {svc.images.map((img, i) => (
+                                    <a key={i} href={img} target="_blank" rel="noopener noreferrer">
+                                      <img src={img} alt="" className="w-20 h-16 object-cover rounded-lg border border-gray-200 hover:opacity-80 transition-opacity" />
+                                    </a>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Business Documents */}
+                            {svc.businessDocs && (
+                              <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
+                                <p className="text-xs font-bold text-yellow-800 mb-2">Business Documents</p>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                  {[
+                                    ['registrationCertificate', 'Reg. Certificate'],
+                                    ['msme', 'MSME'],
+                                    ['gst', 'GST'],
+                                    ['pan', 'PAN (Business)'],
+                                    ['tradeLicense', 'Trade License'],
+                                    ['fssai', 'FSSAI'],
+                                  ].map(([key, label]) => svc.businessDocs[key] && (
+                                    <div key={key}>
+                                      <p className="text-xs text-gray-500 mb-1">{label}</p>
+                                      <a href={svc.businessDocs[key]} target="_blank" rel="noopener noreferrer"
+                                        className="flex items-center gap-1 text-xs text-primary-600 hover:underline font-medium">
+                                        <ExternalLink className="w-3 h-3" /> View
+                                      </a>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Owner Documents */}
+                            {svc.ownerDocs && (
+                              <div className="bg-green-50 rounded-lg p-3 border border-green-200">
+                                <p className="text-xs font-bold text-green-800 mb-2">Owner / KYC Documents</p>
+                                <div className="grid grid-cols-2 gap-3">
+                                  {[
+                                    ['aadhaarFront', 'Aadhaar Front'],
+                                    ['aadhaarBack', 'Aadhaar Back'],
+                                    ['pan', 'PAN Card'],
+                                    ['selfie', 'Selfie'],
+                                  ].map(([key, label]) => svc.ownerDocs[key] && (
+                                    <div key={key}>
+                                      <p className="text-xs text-gray-500 mb-1">{label}</p>
+                                      <a href={svc.ownerDocs[key]} target="_blank" rel="noopener noreferrer">
+                                        <img src={svc.ownerDocs[key]} alt={label}
+                                          className="w-full h-24 object-contain bg-white rounded border border-gray-200 p-1 hover:opacity-80" />
+                                      </a>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Bank Details */}
+                            {svc.bankDetails?.accountNumber && (
+                              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                                <p className="text-xs font-bold text-gray-700 mb-2 flex items-center gap-1"><CreditCard className="w-3.5 h-3.5" /> Bank Details</p>
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <p><span className="text-gray-500">Name:</span> {svc.bankDetails.accountHolderName}</p>
+                                  <p><span className="text-gray-500">Bank:</span> {svc.bankDetails.bankName}</p>
+                                  <p><span className="text-gray-500">A/C:</span> {svc.bankDetails.accountNumber}</p>
+                                  <p><span className="text-gray-500">IFSC:</span> {svc.bankDetails.ifsc}</p>
+                                  <p><span className="text-gray-500">Type:</span> {svc.bankDetails.accountType}</p>
+                                  {svc.bankDetails.upiId && <p><span className="text-gray-500">UPI:</span> {svc.bankDetails.upiId}</p>}
+                                </div>
+                                {svc.bankDetails.proof && (
+                                  <a href={svc.bankDetails.proof} target="_blank" rel="noopener noreferrer"
+                                    className="flex items-center gap-1 text-xs text-primary-600 hover:underline mt-2 font-medium">
+                                    <ExternalLink className="w-3 h-3" /> View Bank Proof
+                                  </a>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Packages */}
+                            {svc.packages?.filter(p => p.name).length > 0 && (
+                              <div>
+                                <p className="text-xs font-bold text-gray-600 mb-2">Rate List</p>
+                                <div className="overflow-x-auto rounded-lg border border-gray-200">
+                                  <table className="w-full text-xs">
+                                    <thead className="bg-gray-50"><tr>
+                                      <th className="px-2 py-1.5 text-left text-gray-500">Service</th>
+                                      <th className="px-2 py-1.5 text-left text-gray-500">Rate</th>
+                                      <th className="px-2 py-1.5 text-left text-gray-500">Unit</th>
+                                      <th className="px-2 py-1.5 text-left text-gray-500">Qty</th>
+                                    </tr></thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                      {svc.packages.filter(p => p.name).map((pkg, i) => (
+                                        <tr key={i}>
+                                          <td className="px-2 py-1.5">{pkg.name}</td>
+                                          <td className="px-2 py-1.5 text-green-700 font-semibold">₹{pkg.price?.toLocaleString()}</td>
+                                          <td className="px-2 py-1.5">{pkg.unit}</td>
+                                          <td className="px-2 py-1.5">{pkg.quantity}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Rejection reason */}
+                            {svc.rejectionReason && (
+                              <div className="bg-red-50 rounded-lg p-3 border border-red-200">
+                                <p className="text-xs font-bold text-red-700 mb-1">Rejection Reason</p>
+                                <p className="text-xs text-red-600">{svc.rejectionReason}</p>
+                              </div>
+                            )}
+
+                            {/* Approve / Reject Actions */}
+                            {(svc.status === 'pending' || svc.status === 'rejected') && (
+                              <div className="flex gap-2 pt-2 border-t border-gray-100">
+                                {svc.status === 'pending' && (
+                                  <button
+                                    disabled={serviceActionLoading}
+                                    onClick={() => handleServiceAction(svc._id, 'approve')}
+                                    className="flex items-center gap-1.5 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs font-semibold disabled:opacity-50 transition-colors"
+                                  >
+                                    <CheckCircle className="w-3.5 h-3.5" /> Approve Service
+                                  </button>
+                                )}
+                                {svc.status === 'pending' && (
+                                  <button
+                                    disabled={serviceActionLoading}
+                                    onClick={() => {
+                                      const reason = prompt('Rejection reason:');
+                                      if (reason) handleServiceAction(svc._id, 'reject', reason);
+                                    }}
+                                    className="flex items-center gap-1.5 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-semibold disabled:opacity-50 transition-colors"
+                                  >
+                                    <XCircle className="w-3.5 h-3.5" /> Reject
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }

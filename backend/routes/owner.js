@@ -250,8 +250,9 @@ router.put('/venues/:id/resubmit', async (req, res) => {
     const venue = await Venue.findOne({ _id: req.params.id, owner: req.user._id });
     if (!venue) return res.status(404).json({ success: false, message: 'Venue not found' });
     if (venue.status !== 'rejected') return res.status(400).json({ success: false, message: 'Only rejected venues can be re-submitted' });
-    venue.status = 'pending';
-    venue.rejectionReason = undefined;
+    venue.status = 'resubmitted';
+    venue.resubmittedAt = new Date();
+    // Keep rejectionReason so admin can see what was fixed
     await venue.save();
     res.json({ success: true, message: 'Venue re-submitted for review', venue });
   } catch (e) {

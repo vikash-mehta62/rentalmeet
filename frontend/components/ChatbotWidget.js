@@ -27,11 +27,11 @@ function getBotResponse(msg) {
 }
 
 const DEFAULT_QUICK_REPLIES = [
-  'How to book a venue?',
-  'Pricing & rates',
-  'List my venue',
-  'Premium services',
-  'Contact support',
+  { question: 'How to book a venue?',  answer: "Booking a venue is simple:\n1. Browse venues on the Venues page\n2. Select your preferred venue\n3. Choose date, time & duration\n4. Fill in your details & confirm\n\nYou'll receive a confirmation instantly!" },
+  { question: 'Pricing & rates',       answer: "Venue pricing on RentalMeet:\n• Co-Work Spaces: ₹500–₹2,000/hr\n• Meeting Halls: ₹1,500–₹3,500/hr\n• Conference Halls: ₹6,000–₹12,000/hr\n• Function Halls: ₹7,000–₹15,000/hr\n• Marriage Gardens: ₹9,000–₹20,000/hr" },
+  { question: 'List my venue',         answer: "To list your venue:\n1. Click 'List Your Venue' in navigation\n2. Fill in venue details & upload photos\n3. Set pricing and availability\n4. Submit for review\n\nApproval within 24–48 hours." },
+  { question: 'Premium services',      answer: "Our Premium Services:\n• Catering & Food\n• Makeup & Beauty\n• Photography & Videography\n• Entertainment & DJ\n• Decor & Floral\n• Security & Bouncers\n\nVisit Premium Services page!" },
+  { question: 'Contact support',       answer: "Reach us anytime:\n📞 +91 9425796767\n📧 booking@rentalmeet.in\n📍 G-137, Gautam Nagar, Bhopal\n\nAvailable 24/7!" },
 ];
 
 export default function ChatbotWidget() {
@@ -47,10 +47,17 @@ export default function ChatbotWidget() {
   useEffect(() => {
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/chatbot/quick-replies`)
       .then(r => r.json())
-      .then(d => { if (d.success && d.quickReplies?.length) setQuickReplies(d.quickReplies); })
+      .then(d => {
+        if (d.success && d.quickReplies?.length) {
+          // Support both old string[] and new {question,answer}[] format
+          const normalized = d.quickReplies.map(r =>
+            typeof r === 'string' ? { question: r, answer: getBotResponse(r) } : r
+          );
+          setQuickReplies(normalized);
+        }
+      })
       .catch(() => {});
 
-    // Show tooltip after 3s, hide after 8s
     const show = setTimeout(() => setShowTooltip(true), 3000);
     const hide = setTimeout(() => setShowTooltip(false), 8000);
     return () => { clearTimeout(show); clearTimeout(hide); };
@@ -60,12 +67,13 @@ export default function ChatbotWidget() {
     if (open) setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 80);
   }, [messages, open]);
 
-  const sendMessage = (text) => {
+  const sendMessage = (text, directAnswer = null) => {
     if (!text.trim()) return;
+    const answer = directAnswer || getBotResponse(text);
     setMessages(prev => [
       ...prev,
       { id: Date.now(), from: 'user', text: text.trim() },
-      { id: Date.now() + 1, from: 'bot', text: getBotResponse(text) },
+      { id: Date.now() + 1, from: 'bot', text: answer },
     ]);
     setInput('');
   };
@@ -136,11 +144,11 @@ export default function ChatbotWidget() {
             <div className="flex gap-1.5 flex-wrap">
               {quickReplies.map((qr) => (
                 <button
-                  key={qr}
-                  onClick={() => sendMessage(qr)}
+                  key={qr.question}
+                  onClick={() => sendMessage(qr.question, qr.answer)}
                   className="text-[10px] px-2.5 py-1 rounded-full border border-[#F59F0A]/60 text-[#D97706] bg-[#F59F0A]/5 hover:bg-[#F59F0A]/20 transition-colors leading-tight font-semibold"
                 >
-                  {qr}
+                  {qr.question}
                 </button>
               ))}
             </div>

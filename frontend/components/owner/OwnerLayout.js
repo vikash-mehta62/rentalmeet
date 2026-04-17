@@ -38,7 +38,7 @@ export default function OwnerLayout({ children, title, subtitle }) {
     { href: '/owner/dashboard', icon: Home, label: 'Dashboard' },
     { href: '/owner/venues', icon: Building2, label: 'My Venues' },
     { href: '/owner/bookings', icon: Calendar, label: 'Bookings' },
-    { href: '/owner/quotation-downloads', icon: FileText, label: 'Quotation Downloads' },
+    { href: '/owner/quotation-downloads', icon: FileText, label: 'Quotations' },
     { href: '/owner/coupons', icon: Tag, label: 'Coupons' },
     { href: '/register-venue', icon: Plus, label: 'Add New Venue' },
     { href: '/owner/profile', icon: User, label: 'Profile' },

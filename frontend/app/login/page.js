@@ -54,6 +54,8 @@ export default function Login() {
         router.push('/');
       } else if (user.role === 'employee') {
         router.push('/employee/dashboard');
+      } else if (user.role === 'vendor') {
+        router.push('/vendor/dashboard');
       } else {
         router.push('/');
       }
@@ -116,6 +118,8 @@ export default function Login() {
           router.push('/');
         } else if (data.user.role === 'employee') {
           router.push('/employee/dashboard');
+        } else if (data.user.role === 'vendor') {
+          router.push('/vendor/dashboard');
         } else {
           router.push('/');
         }

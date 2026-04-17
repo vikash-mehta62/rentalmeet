@@ -311,7 +311,9 @@ const venueSchema = new mongoose.Schema({
     accountType: {
       type: String,
       enum: ['Savings', 'Current']
-    }
+    },
+    bankProofUrl: String,
+    bankProofPublicId: String
   },
   
   // STEP 7: Terms & Conditions
@@ -327,10 +329,15 @@ const venueSchema = new mongoose.Schema({
   // Status & Verification
   status: {
     type: String,
-    enum: ['pending', 'approved', 'rejected', 'suspended'],
+    enum: ['pending', 'approved', 'rejected', 'suspended', 'resubmitted'],
     default: 'pending'
   },
   rejectionReason: String,
+  rejectionHistory: [{
+    reason:      { type: String },
+    rejectedAt:  { type: Date, default: Date.now },
+    rejectedBy:  { type: require('mongoose').Schema.Types.ObjectId, ref: 'User' }
+  }],
   verificationTimeline: {
     applicationReview: Date,
     documentVerification: Date,

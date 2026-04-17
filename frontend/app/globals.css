@@ -22,7 +22,7 @@
 body {
   color: #2B2B2B;
   background: #FFFFFF;
-  font-family: var(--font-sans);
+  font-family: var(--font-sans), 'Noto Sans', Arial, sans-serif;
   overflow-x: hidden;
 }
 
@@ -442,4 +442,15 @@ input[type="radio"]:focus {
   width: 45%;
   max-width: 200px;
   object-fit: contain;
+}
+
+/* Ensure ₹ rupee symbol renders correctly on all browsers/OS */
+@font-face {
+  font-family: 'RupeeFont';
+  src: local('Arial Unicode MS'), local('Noto Sans'), local('Segoe UI');
+  unicode-range: U+20B9;
+}
+
+body, * {
+  font-family: var(--font-sans), 'RupeeFont', 'Noto Sans', 'Arial Unicode MS', Arial, sans-serif;
 }

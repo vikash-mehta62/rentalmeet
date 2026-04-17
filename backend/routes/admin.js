@@ -308,4 +308,220 @@ router.get('/quotation-downloads', protect, authorize('admin'), async (req, res)
   }
 });
 
+// ── Vendor Management ────────────────────────────────────────────────────────
+const VendorService = require('../models/VendorService');
+const VendorProfile = require('../models/VendorProfile');
+
+// Get all vendors
+router.get('/vendors', protect, authorize('admin'), async (req, res) => {
+  try {
+    const vendors = await require('../models/User').find({ role: 'vendor' })
+      .select('-password').sort('-createdAt');
+    // Attach profile + service counts
+    const result = await Promise.all(vendors.map(async v => {
+      const profile = await VendorProfile.findOne({ user: v._id }).select('status onboardingStep businessInfo');
+      const serviceCount = await VendorService.countDocuments({ vendor: v._id });
+      const pendingCount = await VendorService.countDocuments({ vendor: v._id, status: 'pending' });
+      return { ...v.toObject(), profile, serviceCount, pendingCount };
+    }));
+    res.json({ success: true, vendors: result });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// Get vendor profile
+router.get('/vendors/:id/profile', protect, authorize('admin'), async (req, res) => {
+  try {
+    const profile = await VendorProfile.findOne({ user: req.params.id });
+    const vendor = await require('../models/User').findById(req.params.id).select('-password');
+    res.json({ success: true, vendor, profile });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// Get vendor services
+router.get('/vendors/:id/services', protect, authorize('admin'), async (req, res) => {
+  try {
+    const services = await VendorService.find({ vendor: req.params.id }).sort('-createdAt');
+    res.json({ success: true, services });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// Approve vendor profile
+router.put('/vendors/:id/approve', protect, authorize('admin'), async (req, res) => {
+  try {
+    const profile = await VendorProfile.findOneAndUpdate(
+      { user: req.params.id }, { status: 'approved', approvedAt: new Date() }, { new: true }
+    );
+    res.json({ success: true, profile, message: 'Vendor approved' });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// Reject vendor profile
+router.put('/vendors/:id/reject', protect, authorize('admin'), async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const profile = await VendorProfile.findOneAndUpdate(
+      { user: req.params.id }, { status: 'rejected', rejectionReason: reason }, { new: true }
+    );
+    res.json({ success: true, profile, message: 'Vendor rejected' });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// Approve service
+router.put('/vendor-services/:id/approve', protect, authorize('admin'), async (req, res) => {
+  try {
+    const svc = await VendorService.findByIdAndUpdate(
+      req.params.id,
+      { status: 'approved', rejectionReason: undefined },
+      { new: true }
+    ).populate('vendor', 'name email');
+    res.json({ success: true, service: svc, message: 'Service approved' });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// Reject service (with history)
+router.put('/vendor-services/:id/reject', protect, authorize('admin'), async (req, res) => {
+  try {
+    const { reason } = req.body;
+    if (!reason?.trim()) return res.status(400).json({ success: false, message: 'Rejection reason required' });
+    const svc = await VendorService.findById(req.params.id);
+    if (!svc) return res.status(404).json({ success: false, message: 'Service not found' });
+    svc.status = 'rejected';
+    svc.rejectionReason = reason;
+    if (!svc.rejectionHistory) svc.rejectionHistory = [];
+    svc.rejectionHistory.push({ reason, rejectedAt: new Date(), rejectedBy: req.user?.id });
+    await svc.save();
+    res.json({ success: true, service: svc, message: 'Service rejected' });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// Get all pending services
+router.get('/vendor-services/pending', protect, authorize('admin'), async (req, res) => {
+  try {
+    const services = await VendorService.find({ status: 'pending' })
+      .populate('vendor', 'name email companyName vendorCategory')
+      .sort('-createdAt');
+    res.json({ success: true, services });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// Get ALL services (with optional status filter)
+router.get('/vendor-services', protect, authorize('admin'), async (req, res) => {
+  try {
+    const { status } = req.query;
+    const query = status && status !== 'all' ? { status } : {};
+    const services = await VendorService.find(query)
+      .populate('vendor', 'name email phone companyName vendorCategory')
+      .sort('-createdAt');
+    res.json({ success: true, services });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// ── Service Coupons (admin) ──────────────────────────────────────────────────
+router.get('/service-coupons', protect, authorize('admin'), async (req, res) => {
+  try {
+    const Coupon = require('../models/Coupon');
+    const coupons = await Coupon.find({ $or: [{ service: { $exists: true, $ne: null } }, { service: null, venue: null }] })
+      .populate('service', 'title category')
+      .populate('serviceVendor', 'name email')
+      .sort('-createdAt');
+    res.json({ success: true, coupons });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+router.post('/service-coupons', protect, authorize('admin'), async (req, res) => {
+  try {
+    const Coupon = require('../models/Coupon');
+    const Counter = require('../models/Counter');
+    const { serviceId, code, discountType, discountValue, maxDiscount, minBookingAmount, maxUses, expiryDate } = req.body;
+    const year = new Date().getFullYear();
+    const seq = await Counter.getNextSequence(`quotation_${year}`);
+    const quotationNumber = `QT-${year}-${seq.toString().padStart(6, '0')}`;
+    const coupon = await Coupon.create({
+      code: code.toUpperCase().trim(),
+      service: serviceId || null, venue: null,
+      discountType, discountValue: Number(discountValue),
+      maxDiscount: maxDiscount ? Number(maxDiscount) : null,
+      minBookingAmount: minBookingAmount ? Number(minBookingAmount) : 0,
+      maxUses: maxUses ? Number(maxUses) : null,
+      expiryDate: expiryDate || null, quotationNumber
+    });
+    res.json({ success: true, coupon });
+  } catch (e) {
+    if (e.code === 11000) return res.status(400).json({ success: false, message: 'Coupon code already exists' });
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+router.put('/service-coupons/:id/toggle', protect, authorize('admin'), async (req, res) => {
+  try {
+    const Coupon = require('../models/Coupon');
+    const coupon = await Coupon.findById(req.params.id);
+    if (!coupon) return res.status(404).json({ success: false, message: 'Not found' });
+    coupon.isActive = !coupon.isActive;
+    coupon.deactivatedAt = coupon.isActive ? null : new Date();
+    await coupon.save();
+    res.json({ success: true, coupon });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+router.delete('/service-coupons/:id', protect, authorize('admin'), async (req, res) => {
+  try {
+    const Coupon = require('../models/Coupon');
+    await Coupon.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// ── Service Quotation Downloads (admin) ─────────────────────────────────────
+router.get('/service-quotation-downloads', protect, authorize('admin'), async (req, res) => {
+  try {
+    const ServiceQuotationDownload = require('../models/ServiceQuotationDownload');
+    const records = await ServiceQuotationDownload.find()
+      .populate('vendor', 'name email companyName')
+      .sort('-downloadedAt');
+    res.json({ success: true, total: records.length, records });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// ── Service Bookings (admin) ─────────────────────────────────────────────────
+router.get('/service-bookings', protect, authorize('admin'), async (req, res) => {
+  try {
+    const ServiceBooking = require('../models/ServiceBooking');
+    const { status, search } = req.query;
+    const filter = {};
+    if (status && status !== 'all') filter.status = status;
+    let bookings = await ServiceBooking.find(filter)
+      .populate('service', 'title category city state')
+      .populate('vendor', 'name email companyName')
+      .sort('-createdAt');
+    if (search) {
+      const q = search.toLowerCase();
+      bookings = bookings.filter(b =>
+        b.quotationNumber?.toLowerCase().includes(q) ||
+        b.customerInfo?.name?.toLowerCase().includes(q) ||
+        b.customerInfo?.email?.toLowerCase().includes(q) ||
+        b.serviceSnapshot?.title?.toLowerCase().includes(q) ||
+        b.vendor?.name?.toLowerCase().includes(q)
+      );
+    }
+    const stats = {
+      total:     await ServiceBooking.countDocuments(),
+      enquiry:   await ServiceBooking.countDocuments({ status: 'enquiry' }),
+      confirmed: await ServiceBooking.countDocuments({ status: 'confirmed' }),
+      cancelled: await ServiceBooking.countDocuments({ status: 'cancelled' }),
+      downloaded: await ServiceBooking.countDocuments({ downloadedAt: { $exists: true, $ne: null } }),
+    };
+    res.json({ success: true, bookings, stats });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+router.put('/service-bookings/:id/status', protect, authorize('admin'), async (req, res) => {
+  try {
+    const ServiceBooking = require('../models/ServiceBooking');
+    const { status } = req.body;
+    const booking = await ServiceBooking.findByIdAndUpdate(req.params.id, { status }, { new: true });
+    res.json({ success: true, booking });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
 module.exports = router;

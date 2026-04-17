@@ -9,7 +9,7 @@ import VenueDetailsModal from '@/components/venue/VenueDetailsModal';
 import {
   Building2, Plus, Eye, Edit, Trash2, Search,
   CheckCircle2, Clock, XCircle, AlertCircle, Calendar, IndianRupee, MapPin,
-  PowerOff, Power, CalendarX, X
+  PowerOff, Power, CalendarX, X, History, ChevronDown, ChevronUp
 } from 'lucide-react';
 import OwnerLayout from '@/components/owner/OwnerLayout';
 import toast from 'react-hot-toast';
@@ -21,6 +21,7 @@ export default function MyVenues() {
   const [filteredVenues, setFilteredVenues] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [expandedHistory, setExpandedHistory] = useState({});
   const [selectedVenue, setSelectedVenue] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -94,7 +95,6 @@ export default function MyVenues() {
   };
 
   const handleResubmit = async (venueId) => {
-    if (!confirm('Re-submit this venue for admin review?')) return;
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/owner/venues/${venueId}/resubmit`, {
         method: 'PUT',
@@ -102,13 +102,13 @@ export default function MyVenues() {
       });
       const data = await res.json();
       if (data.success) {
-        alert('Venue re-submitted for review!');
+        toast.success('Venue re-submitted for admin review!');
         fetchVenues();
       } else {
-        alert(data.message || 'Failed to re-submit');
+        toast.error(data.message || 'Failed to re-submit');
       }
     } catch {
-      alert('Something went wrong');
+      toast.error('Something went wrong');
     }
   };
 
@@ -200,10 +200,11 @@ export default function MyVenues() {
 
   const getStatusBadge = (status) => {
     const badges = {
-      approved: { bg: 'bg-green-100', text: 'text-green-700', icon: CheckCircle2, label: 'Approved' },
-      pending: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: Clock, label: 'Pending' },
-      rejected: { bg: 'bg-red-100', text: 'text-red-700', icon: XCircle, label: 'Rejected' },
-      suspended: { bg: 'bg-gray-100', text: 'text-gray-700', icon: AlertCircle, label: 'Suspended' }
+      approved:     { bg: 'bg-green-100',  text: 'text-green-700',  icon: CheckCircle2, label: 'Approved' },
+      pending:      { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: Clock,        label: 'Pending Review' },
+      rejected:     { bg: 'bg-red-100',    text: 'text-red-700',    icon: XCircle,      label: 'Rejected' },
+      resubmitted:  { bg: 'bg-blue-100',   text: 'text-blue-700',   icon: Clock,        label: 'Resubmitted' },
+      suspended:    { bg: 'bg-gray-100',   text: 'text-gray-700',   icon: AlertCircle,  label: 'Suspended' }
     };
     const badge = badges[status] || badges.pending;
     const Icon = badge.icon;
@@ -217,10 +218,11 @@ export default function MyVenues() {
   };
 
   const stats = {
-    total: venues.length,
-    approved: venues.filter(v => v.status === 'approved').length,
-    pending: venues.filter(v => v.status === 'pending').length,
-    rejected: venues.filter(v => v.status === 'rejected').length,
+    total:       venues.length,
+    approved:    venues.filter(v => v.status === 'approved').length,
+    pending:     venues.filter(v => v.status === 'pending').length,
+    rejected:    venues.filter(v => v.status === 'rejected').length,
+    resubmitted: venues.filter(v => v.status === 'resubmitted').length,
   };
 
   if (loading) {
@@ -404,20 +406,70 @@ export default function MyVenues() {
                   )}
                 </div>
 
-                {/* Rejected venue — show reason + resubmit */}
+                {/* Rejected venue — show reason + edit + resubmit */}
                 {venue.status === 'rejected' && (
-                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl">
+                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl space-y-2">
+                    <p className="text-xs font-bold text-red-700 flex items-center gap-1">
+                      <XCircle className="w-3.5 h-3.5" /> Rejected by Admin
+                    </p>
                     {venue.rejectionReason && (
-                      <p className="text-xs text-red-700 mb-2">
+                      <p className="text-xs text-red-600 bg-white border border-red-200 rounded-lg px-2 py-1.5">
                         <strong>Reason:</strong> {venue.rejectionReason}
                       </p>
                     )}
+                    <div className="flex gap-2">
+                      <Link href={`/owner/venues/${venue._id}/edit`}
+                        className="flex-1 px-3 py-2 bg-white border border-red-300 hover:bg-red-50 text-red-700 rounded-lg text-xs font-bold transition-colors text-center flex items-center justify-center gap-1">
+                        <Edit className="w-3.5 h-3.5" /> Edit & Fix
+                      </Link>
+                      <button onClick={() => handleResubmit(venue._id)}
+                        className="flex-1 px-3 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1">
+                        ↩ Resubmit
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Resubmitted — waiting for review */}
+                {venue.status === 'resubmitted' && (
+                  <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-xl">
+                    <p className="text-xs text-blue-700 font-semibold flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5" /> Resubmitted — Awaiting admin review
+                    </p>
+                    {venue.rejectionReason && (
+                      <p className="text-xs text-blue-600 mt-1">
+                        <strong>Previous rejection:</strong> {venue.rejectionReason}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Rejection history — shown for any venue that has history */}
+                {venue.rejectionHistory?.length > 0 && (
+                  <div className="mt-2">
                     <button
-                      onClick={() => handleResubmit(venue._id)}
-                      className="w-full px-3 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-xs font-bold transition-colors"
+                      onClick={() => setExpandedHistory(p => ({ ...p, [venue._id]: !p[venue._id] }))}
+                      className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 font-medium w-full"
                     >
-                      ↩ Re-submit for Review
+                      <History className="w-3.5 h-3.5" />
+                      {venue.rejectionHistory.length} rejection{venue.rejectionHistory.length > 1 ? 's' : ''} in history
+                      {expandedHistory[venue._id] ? <ChevronUp className="w-3.5 h-3.5 ml-auto" /> : <ChevronDown className="w-3.5 h-3.5 ml-auto" />}
                     </button>
+                    {expandedHistory[venue._id] && (
+                      <div className="mt-2 space-y-1.5">
+                        {[...venue.rejectionHistory].reverse().map((h, i) => (
+                          <div key={i} className="flex items-start gap-2 bg-red-50 border border-red-100 rounded-lg px-2.5 py-2">
+                            <XCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-red-700">{h.reason}</p>
+                              <p className="text-[10px] text-gray-400 mt-0.5">
+                                {new Date(h.rejectedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -454,59 +506,69 @@ export default function MyVenues() {
 
       {/* Manage Venue Modal — 2 options */}
       {manageModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setManageModal(null)}>
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setManageModal(null)}>
+          <div
+            className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[90vh] flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
             {/* Header */}
-            <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-slate-700">
-              <div>
-                <h2 className="text-base font-black text-slate-900 dark:text-slate-100">Temporarily Disable</h2>
-                <p className="text-xs text-gray-500 mt-0.5">{manageModal.businessName}</p>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center">
+                  <CalendarX className="w-5 h-5 text-primary-600" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-gray-900">Manage Availability</h2>
+                  <p className="text-xs text-gray-400 truncate max-w-[200px]">{manageModal.businessName}</p>
+                </div>
               </div>
-              <button onClick={() => setManageModal(null)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800">
+              <button onClick={() => setManageModal(null)} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
                 <X className="w-5 h-5 text-gray-400" />
               </button>
             </div>
 
-            <div className="p-5 space-y-3">
+            <div className="overflow-y-auto flex-1 px-6 py-5 space-y-4">
 
-              {/* Option 1 — Indefinitely disable/enable */}
-              <div className="border border-gray-200 dark:border-slate-700 rounded-xl p-4">
-                <div className="flex items-start gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${manageModal.isActive !== false ? 'bg-orange-100' : 'bg-green-100'}`}>
-                    {manageModal.isActive !== false ? <PowerOff className="w-5 h-5 text-orange-600" /> : <Power className="w-5 h-5 text-green-600" />}
+              {/* Toggle Active/Inactive */}
+              <div className={`rounded-2xl p-4 border-2 ${manageModal.isActive !== false ? 'border-orange-200 bg-orange-50' : 'border-green-200 bg-green-50'}`}>
+                <div className="flex items-center gap-4">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 ${manageModal.isActive !== false ? 'bg-orange-100' : 'bg-green-100'}`}>
+                    {manageModal.isActive !== false
+                      ? <PowerOff className="w-6 h-6 text-orange-600" />
+                      : <Power className="w-6 h-6 text-green-600" />}
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                      {manageModal.isActive !== false ? 'Disable Until I Re-enable' : 'Re-enable Venue'}
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-bold ${manageModal.isActive !== false ? 'text-orange-900' : 'text-green-900'}`}>
+                      {manageModal.isActive !== false ? 'Disable Until Re-enabled' : 'Re-enable Venue'}
                     </p>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
                       {manageModal.isActive !== false
-                        ? 'Venue will be hidden from public listing until you manually enable it again.'
+                        ? 'Venue will be hidden from public listing until you manually enable it.'
                         : 'Venue will become visible in public listing again.'}
                     </p>
-                    <button
-                      onClick={() => { handleToggleActive(manageModal); setManageModal(null); }}
-                      className={`mt-3 px-4 py-2 rounded-lg text-xs font-bold transition-colors ${
-                        manageModal.isActive !== false
-                          ? 'bg-orange-500 hover:bg-orange-600 text-white'
-                          : 'bg-green-500 hover:bg-green-600 text-white'
-                      }`}
-                    >
-                      {manageModal.isActive !== false ? 'Disable Now' : 'Enable Now'}
-                    </button>
                   </div>
+                  <button
+                    onClick={() => { handleToggleActive(manageModal); setManageModal(null); }}
+                    className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
+                      manageModal.isActive !== false
+                        ? 'bg-orange-500 hover:bg-orange-600 text-white'
+                        : 'bg-green-500 hover:bg-green-600 text-white'
+                    }`}
+                  >
+                    {manageModal.isActive !== false ? 'Disable' : 'Enable'}
+                  </button>
                 </div>
               </div>
 
-              {/* Option 2 — Block specific dates */}
-              <div className="border border-gray-200 dark:border-slate-700 rounded-xl p-4">
-                <div className="flex items-start gap-3 mb-3">
+              {/* Block Specific Dates */}
+              <div className="rounded-2xl border-2 border-blue-100 bg-blue-50 p-4">
+                <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
                     <CalendarX className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-slate-800 dark:text-slate-100">Block Specific Dates</p>
-                    <p className="text-xs text-gray-500 mt-0.5">Selected dates will be disabled for booking. Already booked dates are also shown.</p>
+                    <p className="text-sm font-bold text-blue-900">Block Specific Dates</p>
+                    <p className="text-xs text-blue-600 mt-0.5">Disable booking for selected dates</p>
                   </div>
                 </div>
 
@@ -530,62 +592,73 @@ export default function MyVenues() {
                     return !isBooked;
                   }}
                   dateFormat="dd/MM/yyyy"
-                  placeholderText="Click dates to select (multiple allowed)"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 mb-2"
+                  placeholderText="Click to pick dates..."
+                  className="w-full px-3 py-2.5 border border-blue-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-400 bg-white text-gray-800 placeholder-gray-400"
                   inline={false}
                 />
+
                 {blockDates.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mb-2">
+                  <div className="flex flex-wrap gap-1.5 mt-3">
                     {blockDates.map((d, i) => (
-                      <span key={i} className="flex items-center gap-1 bg-blue-100 text-blue-700 text-xs font-semibold px-2 py-1 rounded-full">
+                      <span key={i} className="flex items-center gap-1 bg-blue-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
                         {d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                        <button onClick={() => setBlockDates(prev => prev.filter((_, idx) => idx !== i))} className="hover:text-blue-900">
+                        <button onClick={() => setBlockDates(prev => prev.filter((_, idx) => idx !== i))} className="hover:opacity-70 ml-0.5">
                           <X className="w-3 h-3" />
                         </button>
                       </span>
                     ))}
                   </div>
                 )}
+
                 <input
                   type="text"
                   value={blockReason}
                   onChange={e => setBlockReason(e.target.value)}
-                  placeholder="Reason (optional) e.g. External booking"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 mb-2"
+                  placeholder="Reason (optional) — e.g. External booking"
+                  className="w-full mt-3 px-3 py-2.5 border border-blue-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-400 bg-white text-gray-800 placeholder-gray-400"
                 />
+
                 <button
                   onClick={handleAddBlockedDate}
                   disabled={blockLoading || !blockDates.length}
-                  className="w-full py-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white rounded-lg font-semibold text-sm transition-colors"
+                  className="w-full mt-3 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-bold text-sm transition-colors"
                 >
                   {blockLoading ? 'Blocking...' : `Block ${blockDates.length > 0 ? blockDates.length + ' Date(s)' : 'Selected Dates'}`}
                 </button>
+              </div>
 
-                {/* Existing blocked dates */}
-                {manageModal.blockedDates?.length > 0 && (
-                  <div className="mt-3">
-                    <p className="text-xs font-bold text-gray-600 dark:text-slate-400 mb-2">Blocked Dates</p>
-                    <div className="space-y-1.5 max-h-36 overflow-y-auto">
-                      {manageModal.blockedDates.map((b) => (
-                        <div key={b._id} className="flex items-center justify-between bg-red-50 dark:bg-slate-800 border border-red-100 dark:border-slate-700 rounded-lg px-3 py-1.5">
+              {/* Existing blocked dates */}
+              {manageModal.blockedDates?.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                    Currently Blocked ({manageModal.blockedDates.length})
+                  </p>
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {manageModal.blockedDates.map((b) => (
+                      <div key={b._id} className="flex items-center justify-between bg-white border border-red-100 rounded-xl px-4 py-2.5 shadow-sm">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
+                            <CalendarX className="w-4 h-4 text-red-500" />
+                          </div>
                           <div>
-                            <p className="text-xs font-semibold text-slate-800 dark:text-slate-100">
+                            <p className="text-sm font-semibold text-gray-800">
                               {new Date(b.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                             </p>
-                            <p className="text-[10px] text-gray-500">{b.reason}</p>
+                            {b.reason && <p className="text-xs text-gray-400">{b.reason}</p>}
                           </div>
-                          <button
-                            onClick={() => handleRemoveBlockedDate(manageModal._id, b._id)}
-                            className="p-1 hover:bg-red-100 rounded text-red-500 transition-colors"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
                         </div>
-                      ))}
-                    </div>
+                        <button
+                          onClick={() => handleRemoveBlockedDate(manageModal._id, b._id)}
+                          className="p-1.5 hover:bg-red-50 rounded-lg text-red-400 hover:text-red-600 transition-colors"
+                          title="Unblock"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
             </div>
           </div>

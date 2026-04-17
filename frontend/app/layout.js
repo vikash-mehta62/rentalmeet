@@ -6,7 +6,7 @@ import WhatsAppButton from '@/components/WhatsAppButton'
 import ChatbotWidget from '@/components/ChatbotWidget'
 
 const inter = Inter({
-  subsets: ['latin'],
+  subsets: ['latin', 'latin-ext'],
   variable: '--font-inter',
   display: 'swap',
 })

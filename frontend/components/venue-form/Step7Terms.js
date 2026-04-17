@@ -1,10 +1,32 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useVenueFormStore, useAuthStore } from '@/lib/store';
 import toast from 'react-hot-toast';
-import { CheckCircle2, AlertCircle } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+
+const DEFAULT_TERMS = `RentalMeet Venue Owner Agreement
+
+1. Commission Agreement
+• I agree to pay RentalMeet platform service fee on all confirmed bookings
+• Platform fee will be deducted before payout
+• Payouts processed within 24-48 hours after event completion
+
+2. Venue Standards
+• Maintain venue as described in listing
+• Provide all promised amenities and facilities
+• Ensure venue is clean and ready before each booking
+
+3. Booking Management
+• Respond to booking requests within 2 hours
+• Honor confirmed bookings
+• Update calendar regularly
+
+4. Legal Compliance
+• Have all necessary permits and licenses
+• Comply with fire safety and building regulations
+• Maintain adequate insurance coverage`;
 
 export default function Step7Terms() {
   const router = useRouter();
@@ -12,6 +34,20 @@ export default function Step7Terms() {
   const { token } = useAuthStore();
   const [accepted, setAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [termsText, setTermsText] = useState(DEFAULT_TERMS);
+  const [loadingTerms, setLoadingTerms] = useState(true);
+
+  useEffect(() => {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/terms`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && d.terms?.venueOnboardingTerms) {
+          setTermsText(d.terms.venueOnboardingTerms);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingTerms(false));
+  }, []);
 
   const handleSubmit = async () => {
     if (!accepted) {
@@ -128,7 +164,9 @@ export default function Step7Terms() {
           ifscCode: formData.bankDetails?.ifscCode || '',
           bankName: formData.bankDetails?.bankName || '',
           branchName: formData.bankDetails?.branchName || '',
-          accountType: formData.bankDetails?.accountType || 'Savings'
+          accountType: formData.bankDetails?.accountType || 'Savings',
+          bankProofUrl: formData.bankDetails?.bankProofUrl || '',
+          bankProofPublicId: formData.bankDetails?.bankProofPublicId || ''
         },
         
         // Step 7: Terms
@@ -231,43 +269,15 @@ export default function Step7Terms() {
       <div className="bg-white border border-dark-200 rounded-xl p-6 max-h-96 overflow-y-auto">
         <h4 className="font-bold text-dark-800 mb-4">RentalMeet Venue Owner Agreement</h4>
         
-        <div className="space-y-4 text-sm text-dark-600">
-          <div>
-            <h5 className="font-semibold text-dark-700 mb-2">1. Commission Agreement</h5>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>I agree to pay RentalMeet platform service fee on all confirmed bookings</li>
-              <li>Platform fee will be deducted before payout</li>
-              <li>Payouts processed within 24-48 hours after event completion</li>
-            </ul>
+        {loadingTerms ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
           </div>
-
-          <div>
-            <h5 className="font-semibold text-dark-700 mb-2">2. Venue Standards</h5>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>Maintain venue as described in listing</li>
-              <li>Provide all promised amenities and facilities</li>
-              <li>Ensure venue is clean and ready before each booking</li>
-            </ul>
-          </div>
-
-          <div>
-            <h5 className="font-semibold text-dark-700 mb-2">3. Booking Management</h5>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>Respond to booking requests within 2 hours</li>
-              <li>Honor confirmed bookings</li>
-              <li>Update calendar regularly</li>
-            </ul>
-          </div>
-
-          <div>
-            <h5 className="font-semibold text-dark-700 mb-2">4. Legal Compliance</h5>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>Have all necessary permits and licenses</li>
-              <li>Comply with fire safety and building regulations</li>
-              <li>Maintain adequate insurance coverage</li>
-            </ul>
-          </div>
-        </div>
+        ) : (
+          <pre className="whitespace-pre-wrap text-sm text-dark-600 font-sans leading-relaxed">
+            {termsText}
+          </pre>
+        )}
       </div>
 
       <div className="bg-dark-50 rounded-xl p-4">
