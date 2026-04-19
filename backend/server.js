@@ -91,12 +91,35 @@ app.get('/api/service-platform-settings', async (req, res) => {
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
+// Public — service categories with vendor count & min price
+app.get('/api/vendor-services/categories', async (req, res) => {
+  try {
+    const VendorService = require('./models/VendorService');
+    const filter = { status: { $in: ['approved', 'pending', 'resubmitted'] } };
+    const services = await VendorService.find(filter, 'category startingPrice featuredImage');
+    const map = {};
+    services.forEach(svc => {
+      const cat = svc.category || 'Other';
+      if (!map[cat]) map[cat] = { category: cat, vendors: 0, minPrice: null, featuredImage: null };
+      map[cat].vendors += 1;
+      if (svc.startingPrice && (map[cat].minPrice === null || svc.startingPrice < map[cat].minPrice)) {
+        map[cat].minPrice = svc.startingPrice;
+      }
+      if (!map[cat].featuredImage && svc.featuredImage) {
+        map[cat].featuredImage = svc.featuredImage;
+      }
+    });
+    const categories = Object.values(map).sort((a, b) => b.vendors - a.vendors);
+    res.json({ success: true, categories });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
 // Public vendor services (no auth required)
 app.get('/api/vendor-services', async (req, res) => {
   try {
     const VendorService = require('./models/VendorService');
     const { category, city, search, limit = 20, page = 1, maxPrice } = req.query;
-    const filter = { status: 'approved', isActive: true };
+    const filter = { status: { $in: ['approved', 'pending', 'resubmitted'] } };
     if (category) filter.category = category;
     if (city) filter.city = { $regex: city, $options: 'i' };
     if (maxPrice) filter.startingPrice = { $lte: parseInt(maxPrice) };

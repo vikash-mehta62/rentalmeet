@@ -54,22 +54,22 @@ export default function PricingSection() {
   return (
     <>
       {/* Pricing Section */}
-      <section className="py-16 px-4 sm:px-6 bg-gradient-to-br from-orange-50 via-white to-yellow-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
+      <section className="py-5 px-4 sm:px-6 bg-gradient-to-br from-orange-50 via-white to-yellow-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
-          <div className="text-center mb-12">
-            <p className="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-4">Pricing</p>
+          <div className="text-center mb-4">
+            <p className="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-1">Pricing</p>
         <h2 
-className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-slate-100"
+className="font-serif text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-slate-100"
 >              Exclusive Packages
             </h2>
-            <p className="text-base md:text-lg text-gray-600 dark:text-slate-300 max-w-2xl mx-auto">
+            <p className="text-sm text-gray-600 dark:text-slate-300 max-w-2xl mx-auto">
               Flexible pricing options tailored to your needs. Choose the duration that works best for you.
             </p>
           </div>
 
           {/* Pricing Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-7xl mx-auto">
             {pricingPlans.map((plan, index) => (
               <div
                 key={index}
@@ -106,7 +106,7 @@ className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 d
                 </p>
 
                 {/* Description */}
-                <p className="text-sm text-gray-600 dark:text-slate-300 text-center mb-6">
+                <p className="text-sm text-gray-600 dark:text-slate-300 text-center mb-4">
                   {plan.description}
                 </p>
 
@@ -128,19 +128,19 @@ className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 d
       </section>
 
       {/* Why Choose Us Section */}
-      <section className="py-16 px-4 sm:px-6 bg-gray-50 dark:bg-slate-900">
+      <section className="py-5 px-4 sm:px-6 bg-gray-50 dark:bg-slate-900">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
-          <div className="text-center mb-12">
-            <p className="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-4">Why Choose Us</p>
+          <div className="text-center mb-4">
+            <p className="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-1">Why Choose Us</p>
         <h2 
-className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-slate-100"
+className="font-serif text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-slate-100"
 >              Trusted by Professionals
             </h2>
           </div>
 
           {/* Features Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-5xl mx-auto">
             {whyChooseUs.map((feature, index) => {
               const Icon = feature.icon;
               return (
@@ -173,4 +173,7 @@ className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 d
     </>
   );
 }
+
+
+
 

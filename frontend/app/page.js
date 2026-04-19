@@ -27,8 +27,8 @@ export default function Home() {
           <HeroSection />
         </section>
 
-        {/* Search Filter: Slightly overlapping Hero Section like Replit */}
-        <section className="relative z-30 -mt-8 md:-mt-12 px-4 sm:px-6">
+        {/* Search Filter */}
+        <section className="relative z-30 -mt-4 md:-mt-6 px-4 sm:px-6">
           <div className="max-w-6xl mx-auto">
             <SearchFilter />
           </div>

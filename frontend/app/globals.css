@@ -27,7 +27,7 @@ body {
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-serif);
+  font-family: inherit;
 }
 
 /* Section heading pattern from prototype */
@@ -43,9 +43,9 @@ h1, h2, h3, h4, h5, h6 {
 
 .section-title {
   font-family: var(--font-serif);
-  font-size: clamp(2rem, 5vw, 3rem);
+  font-size: clamp(1.4rem, 4vw, 2.5rem);
   font-weight: 700;
-  line-height: 1.15;
+  line-height: 1.2;
   color: #111827;
 }
 
@@ -59,11 +59,11 @@ code, pre, kbd, samp {
 
 @layer components {
   .btn-primary {
-    @apply bg-primary-500 hover:bg-primary-600 text-white font-semibold px-6 py-3 rounded-xl transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 active:scale-95;
+    @apply bg-primary-500 hover:bg-primary-600 text-white font-semibold px-5 py-2 rounded-xl transition-all duration-300 shadow-md hover:shadow-lg active:scale-95 text-sm;
   }
   
   .btn-secondary {
-    @apply border-2 border-primary-500 text-primary-500 hover:bg-primary-50 font-semibold px-6 py-3 rounded-xl transition-all duration-300;
+    @apply border-2 border-primary-500 text-primary-500 hover:bg-primary-50 font-semibold px-5 py-2 rounded-xl transition-all duration-300 text-sm;
   }
   
   .card {
@@ -71,7 +71,7 @@ code, pre, kbd, samp {
   }
   
   .input-field {
-    @apply w-full px-4 py-3 border border-dark-100 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-300 outline-none;
+    @apply w-full px-3 py-2 border border-dark-100 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-300 outline-none text-sm;
   }
   
   .badge-orange {

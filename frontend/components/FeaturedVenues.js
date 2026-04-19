@@ -29,11 +29,11 @@ export default function FeaturedVenues() {
 
   if (loading) {
     return (
-      <section className="py-12 px-4 sm:px-6 bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
+      <section className="py-5 px-4 sm:px-6 bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-10">
-            <p className="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-4">Our Venues</p>
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-slate-100 leading-10" style={{ fontFamily: 'Georgia, serif' }}>
+          <div className="text-center mb-4">
+            <p className="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-1">Our Venues</p>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-slate-100 leading-10" style={{ fontFamily: 'Georgia, serif' }}>
               Featured Venues at RentalMeet
             </h2>
             <p className="mt-3 text-sm md:text-base text-gray-600 dark:text-slate-300 max-w-2xl mx-auto">
@@ -51,17 +51,17 @@ export default function FeaturedVenues() {
   }
 
   return (
-    <section className="py-12 px-4 sm:px-6">
+    <section className="py-5 px-4 sm:px-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-10">
-          <p className="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-4">Our Venues</p>
+        <div className="text-center mb-4">
+          <p className="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-1">Our Venues</p>
         <h2 
-className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-slate-100"
+className="font-serif text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-slate-100"
 >
 Featured Venues at RentalMeet
 </h2>
-          <p className="mt-3 text-sm md:text-base text-gray-600 dark:text-slate-300 max-w-2xl mx-auto">
+          <p className="mt-1 text-sm text-gray-600 dark:text-slate-300 max-w-2xl mx-auto">
             Discover our handpicked selection of premium venues designed to make every meeting and event exceptional.
           </p>
         </div>
@@ -169,7 +169,7 @@ Featured Venues at RentalMeet
                   <div className="flex items-end justify-between pt-3 border-t border-gray-100 dark:border-slate-800">
                     <div>
                       <p className="text-xs text-gray-500 dark:text-slate-400 mb-0.5">Starting from</p>
-                      <p className="text-2xl font-bold text-[#F59F0A]">
+                      <p className="text-lg font-bold text-[#F59F0A]">
                         {venue.pricing?.perHour?.weekday?.toLocaleString('en-IN') || 0}
                         <span className="text-xs font-normal text-gray-500 dark:text-slate-400"></span>
                       </p>
@@ -185,7 +185,7 @@ Featured Venues at RentalMeet
         </div>
 
         {/* View All Button */}
-        <div className="text-center mt-10">
+        <div className="text-center mt-5">
           <button
             onClick={() => router.push('/venues')}
             className="inline-flex items-center gap-2 px-6 py-3 border border-gray-300 dark:border-slate-700 rounded-lg text-sm font-semibold text-gray-700 dark:text-slate-200 hover:border-primary-500 hover:text-primary-500 transition-all"
@@ -197,4 +197,6 @@ Featured Venues at RentalMeet
     </section>
   );
 }
+
+
 

@@ -157,42 +157,42 @@ export default function SearchFilter() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-8 border border-transparent dark:border-slate-800">
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+    <div className="max-w-4xl mx-auto bg-white dark:bg-slate-900 rounded-xl shadow-xl p-4 border border-transparent dark:border-slate-800">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         {/* Search Input */}
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#F59F0A]" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#F59F0A]" />
           <input
             type="text"
             placeholder="Search venues..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400"
+            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400"
           />
         </div>
 
-        {/* City Input with Google Autocomplete and Location Detection */}
+        {/* City Input */}
         <div className="relative">
           <CityAutocomplete
             value={cityInput}
             onChange={setCityInput}
             placeholder="Search city..."
-            className="w-full pl-12 pr-12 py-3 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+            className="w-full pl-9 pr-9 py-2 text-sm border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
           />
           <button
             onClick={detectCurrentLocation}
             disabled={detectingLocation}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#F59F0A] hover:text-[#D97706] transition-colors disabled:opacity-50"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-[#F59F0A] hover:text-[#D97706] transition-colors disabled:opacity-50"
             title="Detect current location"
           >
             {detectingLocation ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <MapPin className="w-5 h-5" />
+              <MapPin className="w-4 h-4" />
             )}
           </button>
           
-          {/* Around Me Button - Below City Input */}
+          {/* Around Me Button */}
           <button
             onClick={async () => {
               setDetectingLocation(true);
@@ -202,7 +202,6 @@ export default function SearchFilter() {
                     async (position) => {
                       const { latitude, longitude } = position.coords;
                       const city = await getCityFromCoordinates(latitude, longitude);
-                      
                       if (city) {
                         setCityInput(city);
                         toast.success(`Searching venues around ${city}`);
@@ -215,121 +214,69 @@ export default function SearchFilter() {
                         router.push(`/venues?${params.toString()}`);
                       } else {
                         const ipCity = await getLocationFromIP();
-                        if (ipCity) {
-                          setCityInput(ipCity);
-                          toast.success(`Searching venues around ${ipCity}`);
-                          const params = new URLSearchParams();
-                          if (searchQuery) params.append('search', searchQuery);
-                          params.append('location', ipCity);
-                          if (personsInput) params.append('capacity', personsInput);
-                          if (selectedDate) params.append('date', selectedDate.toISOString().split('T')[0]);
-                          if (selectedVenueType) params.append('type', selectedVenueType);
-                          router.push(`/venues?${params.toString()}`);
-                        } else {
-                          toast.error('Could not detect location');
-                        }
+                        if (ipCity) { setCityInput(ipCity); toast.success(`Searching venues around ${ipCity}`); }
+                        else toast.error('Could not detect location');
                       }
                       setDetectingLocation(false);
                     },
-                    async (error) => {
-                      console.error('GPS error:', error);
+                    async () => {
                       const ipCity = await getLocationFromIP();
-                      if (ipCity) {
-                        setCityInput(ipCity);
-                        toast.success(`Searching venues around ${ipCity}`);
-                        const params = new URLSearchParams();
-                        if (searchQuery) params.append('search', searchQuery);
-                        params.append('location', ipCity);
-                        if (personsInput) params.append('capacity', personsInput);
-                        if (selectedDate) params.append('date', selectedDate.toISOString().split('T')[0]);
-                        if (selectedVenueType) params.append('type', selectedVenueType);
-                        router.push(`/venues?${params.toString()}`);
-                      } else {
-                        toast.error('Could not detect location');
-                      }
+                      if (ipCity) { setCityInput(ipCity); toast.success(`Searching venues around ${ipCity}`); }
+                      else toast.error('Could not detect location');
                       setDetectingLocation(false);
                     },
-                    {
-                      enableHighAccuracy: true,
-                      timeout: 10000,
-                      maximumAge: 0
-                    }
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
                   );
                 } else {
                   const ipCity = await getLocationFromIP();
-                  if (ipCity) {
-                    setCityInput(ipCity);
-                    toast.success(`Searching venues around ${ipCity}`);
-                    const params = new URLSearchParams();
-                    if (searchQuery) params.append('search', searchQuery);
-                    params.append('location', ipCity);
-                    if (personsInput) params.append('capacity', personsInput);
-                    if (selectedDate) params.append('date', selectedDate.toISOString().split('T')[0]);
-                    if (selectedVenueType) params.append('type', selectedVenueType);
-                    router.push(`/venues?${params.toString()}`);
-                  } else {
-                    toast.error('Location detection not available');
-                  }
+                  if (ipCity) { setCityInput(ipCity); toast.success(`Searching venues around ${ipCity}`); }
+                  else toast.error('Location detection not available');
                   setDetectingLocation(false);
                 }
-              } catch (error) {
-                console.error('Error:', error);
-                toast.error('Failed to detect location');
-                setDetectingLocation(false);
-              }
+              } catch { toast.error('Failed to detect location'); setDetectingLocation(false); }
             }}
             disabled={detectingLocation}
-            className="absolute -bottom-8 left-0 text-xs bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium px-3 py-1 rounded-md transition-all flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="absolute -bottom-6 left-0 text-[10px] bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium px-2 py-0.5 rounded transition-all flex items-center gap-1 disabled:opacity-50"
           >
-            {detectingLocation ? (
-              <>
-                <Loader2 className="w-3 h-3 animate-spin" />
-                <span>Detecting...</span>
-              </>
-            ) : (
-              <>
-                <MapPin className="w-3 h-3" />
-                <span>Around Me</span>
-              </>
-            )}
+            {detectingLocation ? <><Loader2 className="w-2.5 h-2.5 animate-spin" /><span>Detecting...</span></> : <><MapPin className="w-2.5 h-2.5" /><span>Around Me</span></>}
           </button>
         </div>
 
         {/* Persons Input */}
         <div className="relative">
-          <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#F59F0A]" />
+          <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#F59F0A]" />
           <input
             type="number"
             placeholder="Persons"
             value={personsInput}
             onChange={(e) => setPersonsInput(e.target.value)}
             min="1"
-            className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
           />
         </div>
 
         {/* Date Picker */}
         <div className="relative">
-          <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#F59F0A] z-10 pointer-events-none" />
+          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#F59F0A] z-10 pointer-events-none" />
           <DatePicker
             selected={selectedDate}
             onChange={(date) => setSelectedDate(date)}
             minDate={new Date()}
             placeholderText="Select Date"
             dateFormat="dd/MM/yyyy"
-            className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all cursor-pointer bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all cursor-pointer bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
             calendarClassName="custom-calendar"
           />
         </div>
 
-        {/* Venue Type - Icon only buttons */}
+        {/* Venue Type */}
         <div className="relative">
-          <Grid3x3 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#F59F0A] z-10 pointer-events-none" />
-          <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 z-10 pointer-events-none" />
+          <Grid3x3 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#F59F0A] z-10 pointer-events-none" />
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 z-10 pointer-events-none" />
           <select
             value={selectedVenueType}
             onChange={(e) => setSelectedVenueType(e.target.value)}
-            className="w-full pl-12 pr-10 py-3 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all appearance-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 cursor-pointer"
+            className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-[#F59F0A] focus:border-transparent outline-none transition-all appearance-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 cursor-pointer"
           >
             <option value="">Venue Type</option>
             {venueTypes.map(type => (
@@ -340,16 +287,14 @@ export default function SearchFilter() {
       </div>
 
       {/* Search Button */}
-      <div className="flex justify-center mt-4">
+      <div className="flex justify-center mt-5">
         <button
           onClick={handleSearch}
-          className="bg-[#F59F0A] hover:bg-[#D97706] text-white font-semibold px-12 py-3 rounded-lg transition-all duration-300 transform hover:scale-105"
+          className="bg-[#F59F0A] hover:bg-[#D97706] text-white font-semibold px-10 py-2 rounded-lg transition-all duration-300 text-sm"
         >
           Search
         </button>
       </div>
-
-      {/* Popular Cities - Remove this section since we have Google autocomplete */}
 
       <style jsx global>{`
         .react-datepicker {

@@ -7,7 +7,7 @@ export default function CTASection() {
   const router = useRouter();
 
   return (
-    <section className="py-12 px-6 bg-[#F59F0A]">
+    <section className="py-5 px-6 bg-[#F59F0A]">
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
         
         {/* Left Side: Content */}
@@ -15,7 +15,7 @@ export default function CTASection() {
           <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-slate-100 mb-3">
             Ready to Book Your Venue?
           </h2>
-          <p className="text-base opacity-90 mb-6 max-w-2xl text-gray-900">
+          <p className="text-base opacity-90 mb-3 max-w-2xl text-gray-900">
             Transform your meetings with our premium venues. Download our app to manage bookings on the go.
           </p>
 
@@ -61,3 +61,4 @@ export default function CTASection() {
     </section>
   );
 }
+

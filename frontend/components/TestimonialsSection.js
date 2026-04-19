@@ -103,7 +103,7 @@ export default function TestimonialsSection() {
 
   if (loading) {
     return (
-      <section className="py-16 px-4 sm:px-6 bg-gradient-to-br from-purple-50 via-white to-pink-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
+      <section className="py-5 px-4 sm:px-6 bg-gradient-to-br from-purple-50 via-white to-pink-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
         <div className="max-w-7xl mx-auto">
           <div className="text-center">
             <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
@@ -114,13 +114,13 @@ export default function TestimonialsSection() {
   }
 
   return (
-    <section className="py-16 px-4 sm:px-6 bg-gradient-to-br from-purple-50 via-white to-pink-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
+    <section className="py-5 px-4 sm:px-6 bg-gradient-to-br from-purple-50 via-white to-pink-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-12">
-          <p className="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-4">Testimonials</p>
+        <div className="text-center mb-4">
+          <p className="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-1">Testimonials</p>
           <h2 
-            className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-slate-100"
+            className="font-serif text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-slate-100"
           >
             What Our Clients Say
           </h2>
@@ -161,7 +161,7 @@ export default function TestimonialsSection() {
 
           {/* Reviews Container */}
           <div className="overflow-hidden px-2">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {reviews.slice(currentIndex * 3, currentIndex * 3 + 3).map((review, idx) => (
                 <div
                   key={review._id}
@@ -186,7 +186,7 @@ export default function TestimonialsSection() {
                   </div>
 
                   {/* Review Text */}
-                  <p className="text-gray-700 dark:text-slate-300 text-sm leading-relaxed mb-6 italic">
+                  <p className="text-gray-700 dark:text-slate-300 text-sm leading-relaxed mb-3 italic">
                     "{review.description}"
                   </p>
 
@@ -235,7 +235,7 @@ export default function TestimonialsSection() {
         </div>
 
         {/* Trust Badge */}
-        <div className="mt-12 text-center">
+        <div className="mt-5 text-center">
           <div className="inline-flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-900 rounded-full shadow-md border border-transparent dark:border-slate-800">
             <div className="flex -space-x-2">
               {[1, 2, 3, 4].map((i) => (
@@ -253,3 +253,7 @@ export default function TestimonialsSection() {
     </section>
   );
 }
+
+
+
+

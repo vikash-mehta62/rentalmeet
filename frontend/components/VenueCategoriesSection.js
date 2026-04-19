@@ -45,16 +45,16 @@ export default function VenueCategoriesSection() {
   }, []);
 
   return (
-    <section className="py-14 lg:py-20 bg-white dark:bg-slate-950">
+    <section className="py-5 lg:py-5 bg-white dark:bg-slate-950">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* Header */}
-        <div className="text-center mb-10">
-          <p className="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-4">Browse by Category</p>
-          <h2 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-slate-100 mb-4">
+        <div className="text-center mb-4">
+          <p className="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-1">Browse by Category</p>
+          <h2 className="font-serif text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-slate-100 mb-2">
             Venue Categories
           </h2>
-          <p className="text-gray-500 dark:text-slate-400 max-w-2xl mx-auto">
+          <p className="text-sm text-gray-500 dark:text-slate-400 max-w-2xl mx-auto">
             From intimate meeting halls to grand marriage gardens — find the perfect venue type across Madhya Pradesh and Rajasthan.
           </p>
         </div>
@@ -83,7 +83,7 @@ export default function VenueCategoriesSection() {
         </div>
 
         {/* View All */}
-        <div className="text-center mt-10">
+        <div className="text-center mt-5">
           <button
             onClick={() => router.push('/venues')}
             className="inline-flex items-center gap-2 px-6 py-3 border border-gray-300 dark:border-slate-700 rounded-lg text-sm font-semibold text-gray-700 dark:text-slate-200 hover:border-primary-500 hover:text-primary-500 transition-all"
@@ -95,3 +95,6 @@ export default function VenueCategoriesSection() {
     </section>
   );
 }
+
+
+

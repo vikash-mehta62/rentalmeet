@@ -73,22 +73,21 @@ export default function FacilitiesSection() {
   ];
 
   return (
-<section className="py-16 px-4 sm:px-6 bg-[#f9f8f5] dark:bg-slate-900">
+<section className="py-5 px-4 sm:px-6 bg-[#f9f8f5] dark:bg-slate-900">
       <div className="max-w-7xl mx-auto">
 
         {/* Header */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-4">
 
-          <p className="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-4">Facilities
+          <p className="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-1">Facilities
           </p>
 
            <h2 
-className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-slate-100"
+className="font-serif text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-slate-100"
 >
             Unparalleled Amenities
           </h2>
-
-          <p className="mt-3 text-sm md:text-base text-gray-600 dark:text-slate-300 max-w-2xl mx-auto">
+          <p className="mt-1 text-sm text-gray-600 dark:text-slate-300 max-w-2xl mx-auto">
             Every space comes equipped with premium facilities to ensure your meeting runs flawlessly.
           </p>
 
@@ -103,21 +102,15 @@ className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 d
             return (
               <div
                 key={index}
-                className="bg-[#f9f8f5] dark:bg-slate-900 rounded-xl p-6  hover:shadow-md transition-all duration-300 border shadow-md border-gray-200 dark:border-slate-800 text-center"
+                className="bg-[#f9f8f5] dark:bg-slate-900 rounded-xl p-4 hover:shadow-md transition-all duration-300 border shadow-sm border-gray-200 dark:border-slate-800 text-center"
               >
-
-                {/* Icon */}
-                <div className="w-14 h-14 bg-orange-50 rounded-lg flex items-center justify-center mb-4 mx-auto">
-                  <Icon className="w-7 h-7 text-orange-500" />
+                <div className="w-10 h-10 bg-orange-50 rounded-lg flex items-center justify-center mb-2 mx-auto">
+                  <Icon className="w-5 h-5 text-orange-500" />
                 </div>
-
-                {/* Title */}
-                <h3 className="font-semibold text-base text-gray-900 dark:text-slate-100 mb-2">
+                <h3 className="font-semibold text-sm text-gray-900 dark:text-slate-100 mb-1">
                   {facility.title}
                 </h3>
-
-                {/* Description */}
-                <p className="text-sm text-gray-600 dark:text-slate-300 leading-relaxed">
+                <p className="text-xs text-gray-600 dark:text-slate-300 leading-relaxed">
                   {facility.description}
                 </p>
 
@@ -132,3 +125,6 @@ className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 d
     </section>
   );
 }
+
+
+
