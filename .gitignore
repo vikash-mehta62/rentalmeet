@@ -46,3 +46,4 @@ temp/
 # Misc
 *.pem
 .vercel
+backend/swagger-output.json

@@ -29,7 +29,15 @@
     },
     {
       "name": "Bookings",
-      "description": "Booking management"
+      "description": "Venue booking management"
+    },
+    {
+      "name": "Services",
+      "description": "Vendor service catalogue & service bookings"
+    },
+    {
+      "name": "Vendor",
+      "description": "Vendor / service-provider operations"
     },
     {
       "name": "Owner",
@@ -40,8 +48,28 @@
       "description": "Admin panel operations"
     },
     {
+      "name": "Payment",
+      "description": "Payment processing"
+    },
+    {
+      "name": "Reviews",
+      "description": "Venue & service reviews"
+    },
+    {
+      "name": "FAQs",
+      "description": "Frequently asked questions"
+    },
+    {
+      "name": "Chatbot",
+      "description": "Chatbot interactions"
+    },
+    {
       "name": "Upload",
       "description": "File / image uploads"
+    },
+    {
+      "name": "Health",
+      "description": "Health check & system status"
     }
   ],
   "paths": {
@@ -55,7 +83,30 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Services"
+        ],
+        "security": [],
+        "summary": "Get service platform settings (public)"
+      }
+    },
+    "/api/vendor-services/categories": {
+      "get": {
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "tags": [
+          "Services"
+        ],
+        "security": [],
+        "summary": "List vendor service categories with stats (public)"
       }
     },
     "/api/vendor-services": {
@@ -112,7 +163,12 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Services"
+        ],
+        "security": [],
+        "summary": "List vendor services (public, filterable)"
       }
     },
     "/api/vendor-services/{id}": {
@@ -138,7 +194,12 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Services"
+        ],
+        "security": [],
+        "summary": "Get a single vendor service (public)"
       }
     },
     "/api/service-bookings": {
@@ -156,34 +217,20 @@
           }
         },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "serviceId": {
-                    "example": "any"
-                  },
-                  "eventDate": {
-                    "example": "any"
-                  },
-                  "customerInfo": {
-                    "example": "any"
-                  },
-                  "items": {
-                    "example": "any"
-                  },
-                  "pricing": {
-                    "example": "any"
-                  },
-                  "couponCode": {
-                    "example": "any"
-                  }
-                }
+                "$ref": "#/components/schemas/ServiceBookingCreate"
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Services"
+        ],
+        "security": [],
+        "summary": "Create service booking / quotation (guest allowed)"
       }
     },
     "/api/service-coupons/validate": {
@@ -204,25 +251,20 @@
           }
         },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "code": {
-                    "example": "any"
-                  },
-                  "serviceId": {
-                    "example": "any"
-                  },
-                  "bookingAmount": {
-                    "example": "any"
-                  }
-                }
+                "$ref": "#/components/schemas/ServiceCouponValidate"
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Services"
+        ],
+        "security": [],
+        "summary": "Validate a service coupon (public)"
       }
     },
     "/api/customer/service-bookings": {
@@ -247,7 +289,11 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Services"
+        ],
+        "summary": "List authenticated customer's service bookings"
       }
     },
     "/api/service-bookings/{id}/downloaded": {
@@ -275,19 +321,20 @@
           }
         },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "action": {
-                    "example": "any"
-                  }
-                }
+                "$ref": "#/components/schemas/ServiceBookingDownloaded"
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Services"
+        ],
+        "security": [],
+        "summary": "Mark service quotation as downloaded / viewed"
       }
     },
     "/api/coupons/validate": {
@@ -308,25 +355,19 @@
           }
         },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "code": {
-                    "example": "any"
-                  },
-                  "venueId": {
-                    "example": "any"
-                  },
-                  "bookingAmount": {
-                    "example": "any"
-                  }
-                }
+                "$ref": "#/components/schemas/CouponValidate"
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Bookings"
+        ],
+        "summary": "Validate venue coupon"
       }
     },
     "/api/hero-slides": {
@@ -340,7 +381,11 @@
             "description": "Internal Server Error"
           }
         },
-        "security": []
+        "tags": [
+          "Admin"
+        ],
+        "security": [],
+        "summary": "Get active hero/banner slides (public)"
       }
     },
     "/api/contact-settings": {
@@ -354,7 +399,11 @@
             "description": "Internal Server Error"
           }
         },
-        "security": []
+        "tags": [
+          "Admin"
+        ],
+        "security": [],
+        "summary": "Get public contact settings"
       }
     },
     "/health": {
@@ -365,7 +414,11 @@
             "description": "OK"
           }
         },
-        "security": []
+        "tags": [
+          "Health"
+        ],
+        "security": [],
+        "summary": "Health check"
       }
     },
     "/api/auth/register": {
@@ -1275,7 +1328,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Venues"
+        ]
       }
     },
     "/api/venue-types/admin": {
@@ -1303,7 +1359,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Venues"
+        ]
       },
       "post": {
         "description": "",
@@ -1355,7 +1414,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Venues"
+        ]
       }
     },
     "/api/venue-types/admin/seed": {
@@ -1383,7 +1445,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Venues"
+        ]
       }
     },
     "/api/venue-types/admin/{id}": {
@@ -1448,7 +1513,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Venues"
+        ]
       },
       "delete": {
         "description": "",
@@ -1485,7 +1553,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Venues"
+        ]
       }
     },
     "/api/owner/dashboard": {
@@ -2241,7 +2312,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Vendor"
+        ]
       }
     },
     "/api/vendor/profile": {
@@ -2266,7 +2340,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Vendor"
+        ]
       },
       "put": {
         "description": "",
@@ -2289,7 +2366,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Vendor"
+        ]
       }
     },
     "/api/vendor/profile/submit": {
@@ -2314,7 +2394,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Vendor"
+        ]
       }
     },
     "/api/vendor/upload": {
@@ -2356,7 +2439,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Vendor"
+        ]
       }
     },
     "/api/vendor/services": {
@@ -2381,7 +2467,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Vendor"
+        ]
       },
       "post": {
         "description": "",
@@ -2404,7 +2493,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Vendor"
+        ]
       }
     },
     "/api/vendor/services/{id}": {
@@ -2440,7 +2532,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Vendor"
+        ]
       },
       "put": {
         "description": "",
@@ -2474,7 +2569,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Vendor"
+        ]
       },
       "delete": {
         "description": "",
@@ -2505,7 +2603,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Vendor"
+        ]
       }
     },
     "/api/vendor/services/{id}/submit": {
@@ -2541,7 +2642,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Vendor"
+        ]
       }
     },
     "/api/vendor/services/{id}/resubmit": {
@@ -2580,7 +2684,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Vendor"
+        ]
       }
     },
     "/api/vendor/services/{id}/toggle-active": {
@@ -2616,7 +2723,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Vendor"
+        ]
       }
     },
     "/api/vendor/services/{id}/blocked-dates": {
@@ -2666,7 +2776,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Vendor"
+        ]
       }
     },
     "/api/vendor/service-bookings": {
@@ -2691,7 +2804,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Vendor"
+        ]
       }
     },
     "/api/vendor/service-quotation-downloads": {
@@ -2716,7 +2832,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Vendor"
+        ]
       }
     },
     "/api/vendor/service-coupons": {
@@ -2741,7 +2860,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Vendor"
+        ]
       },
       "post": {
         "description": "",
@@ -2805,7 +2927,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Vendor"
+        ]
       }
     },
     "/api/vendor/service-coupons/{id}": {
@@ -2855,7 +2980,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Vendor"
+        ]
       },
       "delete": {
         "description": "",
@@ -2886,7 +3014,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Vendor"
+        ]
       }
     },
     "/api/admin/hero-slides": {
@@ -4853,6 +4984,9 @@
                   },
                   "quotationValidity": {
                     "example": "any"
+                  },
+                  "venueOnboardingTerms": {
+                    "example": "any"
                   }
                 }
               }
@@ -6498,7 +6632,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Payment"
+        ]
       }
     },
     "/api/payment/verify": {
@@ -6558,7 +6695,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Payment"
+        ]
       }
     },
     "/api/terms/": {
@@ -6571,7 +6711,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Venues"
+        ]
       }
     },
     "/api/reviews/": {
@@ -6584,7 +6727,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Reviews"
+        ]
       }
     },
     "/api/reviews/admin": {
@@ -6612,7 +6758,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Reviews"
+        ]
       },
       "post": {
         "description": "",
@@ -6664,7 +6813,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Reviews"
+        ]
       }
     },
     "/api/reviews/admin/seed": {
@@ -6692,7 +6844,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Reviews"
+        ]
       }
     },
     "/api/reviews/admin/{id}": {
@@ -6760,7 +6915,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Reviews"
+        ]
       },
       "delete": {
         "description": "",
@@ -6797,7 +6955,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Reviews"
+        ]
       }
     },
     "/api/venues/{venueId}/reviews": {
@@ -7124,7 +7285,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "FAQs"
+        ]
       },
       "post": {
         "description": "",
@@ -7176,7 +7340,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "FAQs"
+        ]
       }
     },
     "/api/faqs/admin/all": {
@@ -7204,7 +7371,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "FAQs"
+        ]
       }
     },
     "/api/faqs/{id}": {
@@ -7243,7 +7413,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "FAQs"
+        ]
       },
       "delete": {
         "description": "",
@@ -7277,7 +7450,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "FAQs"
+        ]
       }
     },
     "/api/chatbot/quick-replies": {
@@ -7290,7 +7466,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Chatbot"
+        ]
       }
     },
     "/api/chatbot/settings": {
@@ -7318,7 +7497,10 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "tags": [
+          "Chatbot"
+        ]
       },
       "put": {
         "description": "",
@@ -7364,7 +7546,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Chatbot"
+        ]
       }
     }
   },
@@ -8398,6 +8583,439 @@
                   "type": {
                     "type": "string",
                     "example": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "ServiceBookingCreate": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "object"
+          },
+          "required": {
+            "type": "array",
+            "example": [
+              "serviceId",
+              "eventDate",
+              "customerInfo",
+              "items",
+              "pricing"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "serviceId": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "65f0c1..."
+                  }
+                }
+              },
+              "eventDate": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "format": {
+                    "type": "string",
+                    "example": "date"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "2026-05-15"
+                  }
+                }
+              },
+              "couponCode": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "SAVE10"
+                  }
+                }
+              },
+              "customerInfo": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "object"
+                  },
+                  "required": {
+                    "type": "array",
+                    "example": [
+                      "name",
+                      "email",
+                      "phone"
+                    ],
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "properties": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "string"
+                          },
+                          "example": {
+                            "type": "string",
+                            "example": "Jane Doe"
+                          }
+                        }
+                      },
+                      "email": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "string"
+                          },
+                          "example": {
+                            "type": "string",
+                            "example": "jane@example.com"
+                          }
+                        }
+                      },
+                      "phone": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "string"
+                          },
+                          "example": {
+                            "type": "string",
+                            "example": "9876543210"
+                          }
+                        }
+                      },
+                      "company": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "string"
+                          }
+                        }
+                      },
+                      "eventName": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "items": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "array"
+                  },
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "example": "object"
+                      },
+                      "properties": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "example": "string"
+                              }
+                            }
+                          },
+                          "quantity": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "example": "number"
+                              }
+                            }
+                          },
+                          "price": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "example": "number"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "pricing": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "object"
+                  },
+                  "properties": {
+                    "type": "object",
+                    "properties": {
+                      "subtotal": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "number"
+                          }
+                        }
+                      },
+                      "serviceCGST": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "number"
+                          }
+                        }
+                      },
+                      "serviceSGST": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "number"
+                          }
+                        }
+                      },
+                      "platformFee": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "number"
+                          }
+                        }
+                      },
+                      "platformFeeGST": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "number"
+                          }
+                        }
+                      },
+                      "total": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "ServiceCouponValidate": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "object"
+          },
+          "required": {
+            "type": "array",
+            "example": [
+              "code",
+              "serviceId",
+              "bookingAmount"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "SAVE10"
+                  }
+                }
+              },
+              "serviceId": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "65f0c1..."
+                  }
+                }
+              },
+              "bookingAmount": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "number"
+                  },
+                  "example": {
+                    "type": "number",
+                    "example": 5000
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "CouponValidate": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "object"
+          },
+          "required": {
+            "type": "array",
+            "example": [
+              "code"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "WELCOME20"
+                  }
+                }
+              },
+              "venueId": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "65f0c1..."
+                  }
+                }
+              },
+              "bookingAmount": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "number"
+                  },
+                  "example": {
+                    "type": "number",
+                    "example": 10000
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "ServiceBookingDownloaded": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "object"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "action": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "enum": {
+                    "type": "array",
+                    "example": [
+                      "download",
+                      "view"
+                    ],
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "download"
                   }
                 }
               }
