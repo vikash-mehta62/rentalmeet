@@ -189,9 +189,7 @@ export default function Footer() {
           <p className="text-sm text-gray-400 dark:text-slate-500">
             &copy; {year} RentalMeet. All rights reserved.
           </p>
-          <p className="text-xs text-gray-400 dark:text-slate-500 text-center">
-            Made with care for businesses across Madhya Pradesh &amp; Rajasthan
-          </p>
+          
           <div className="flex gap-6">
             <Link href="/privacy" className="text-sm text-gray-400 dark:text-slate-500 hover:text-primary-500 transition-colors">
               Privacy Policy
