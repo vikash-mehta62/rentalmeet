@@ -178,7 +178,7 @@ export default function Footer() {
               )}
               <li className="flex items-center gap-3">
                 <Globe className="h-4 w-4 text-primary-500 flex-shrink-0" />
-                <span><span className="font-semibold text-gray-700 dark:text-slate-300">Our Presence:</span> {contact.availability}</span>
+                <span> {contact.availability}</span>
               </li>
             </ul>
           </div>
