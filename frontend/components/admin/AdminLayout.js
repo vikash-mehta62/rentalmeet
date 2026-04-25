@@ -35,32 +35,43 @@ export default function AdminLayout({ children, title, subtitle }) {
   };
 
   const navigation = [
-    { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard, permission: 'dashboard' },
-    { name: 'Hero Slides', href: '/admin/hero-slides', icon: ImageIcon, permission: 'heroSlides' },
-    { name: 'Venues', href: '/admin/venues', icon: Building2, permission: 'venues' },
-    { name: 'Venue Types', href: '/admin/venue-types', icon: Grid3x3, permission: 'venueTypes' },
-    { name: 'Users', href: '/admin/users', icon: Users, permission: 'users' },
-    { name: 'Employees', href: '/admin/employees', icon: Users, permission: 'employees' },
-    { name: 'SubAdmins', href: '/admin/subadmins', icon: Shield, permission: 'subadmins' },
-    { name: 'Vendors', href: '/admin/vendors', icon: Briefcase, permission: 'users' },
-    { name: 'Vendor Services', href: '/admin/vendor-services', icon: Package, permission: 'users' },
-    { name: 'Service Bookings', href: '/admin/service-bookings', icon: Package, permission: 'users' },
-    { name: 'Svc Quotations', href: '/admin/service-quotation-downloads', icon: Package, permission: 'users' },
-    { name: 'Bookings', href: '/admin/bookings', icon: BookOpen, permission: 'bookings' },
-    { name: 'Payments', href: '/admin/payments', icon: IndianRupee, permission: 'payments' },
-    { name: 'Coupons', href: '/admin/coupons', icon: Tag, permission: 'bookings' },
-    { name: 'Quotations', href: '/admin/quotation-downloads', icon: FileText, permission: 'bookings' },
-    { name: 'FAQ Management', href: '/admin/faqs', icon: HelpCircle, permission: 'settings' },
-    { name: 'Chatbot Settings', href: '/admin/chatbot', icon: MessageSquare, permission: 'settings' },
-    { name: 'Reports', href: '/admin/reports', icon: BarChart3, permission: 'reports' },
-    { name: 'Reviews', href: '/admin/reviews', icon: MessageSquare, permission: 'reviews' },
-    { name: 'GST / Platform Fee Settings', href: '/admin/platform-settings', icon: Settings, permission: 'platformSettings' },
-    { name: 'Settings', href: '/admin/settings', icon: Settings, permission: 'settings' },
+    { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard, permission: 'dashboard', section: 'Overview' },
+    { name: 'Hero Slides', href: '/admin/hero-slides', icon: ImageIcon, permission: 'heroSlides', section: 'System' },
+
+    { name: 'Venues', href: '/admin/venues', icon: Building2, permission: 'venues', section: 'Venues' },
+    { name: 'Venue Types', href: '/admin/venue-types', icon: Grid3x3, permission: 'venueTypes', section: 'Venues' },
+    { name: 'Bookings', href: '/admin/bookings', icon: BookOpen, permission: 'bookings', section: 'Venues' },
+    { name: 'Payments', href: '/admin/payments', icon: IndianRupee, permission: 'payments', section: 'Venues' },
+    { name: 'Coupons', href: '/admin/coupons', icon: Tag, permission: 'bookings', section: 'Venues' },
+    { name: 'Quotations', href: '/admin/quotation-downloads', icon: FileText, permission: 'bookings', section: 'Venues' },
+
+    // { name: 'Vendors', href: '/admin/vendors', icon: Briefcase, permission: 'users', section: 'Vendors' },
+    { name: 'Vendor Services', href: '/admin/vendor-services', icon: Package, permission: 'users', section: 'Vendors' },
+    { name: 'Service Bookings', href: '/admin/service-bookings', icon: Package, permission: 'users', section: 'Vendors' },
+    { name: 'Service Quotations', href: '/admin/service-quotation-downloads', icon: Package, permission: 'users', section: 'Vendors' },
+
+    { name: 'Users', href: '/admin/users', icon: Users, permission: 'users', section: 'System' },
+    { name: 'Employees', href: '/admin/employees', icon: Users, permission: 'employees', section: 'System' },
+    { name: 'SubAdmins', href: '/admin/subadmins', icon: Shield, permission: 'subadmins', section: 'System' },
+    { name: 'FAQ Management', href: '/admin/faqs', icon: HelpCircle, permission: 'settings', section: 'System' },
+    { name: 'Chatbot Settings', href: '/admin/chatbot', icon: MessageSquare, permission: 'settings', section: 'System' },
+    { name: 'Reports', href: '/admin/reports', icon: BarChart3, permission: 'reports', section: 'System' },
+    { name: 'Reviews', href: '/admin/reviews', icon: MessageSquare, permission: 'reviews', section: 'System' },
+    { name: 'GST/Platform', href: '/admin/platform-settings', icon: Settings, permission: 'platformSettings', section: 'System' },
+    { name: 'Settings', href: '/admin/settings', icon: Settings, permission: 'settings', section: 'System' },
   ];
 
   const filteredNavigation = user?.role === 'admin' 
     ? navigation 
     : navigation.filter(item => user?.permissions?.[item.permission]);
+
+  const sectionOrder = ['Overview', 'Venues', 'Vendors', 'System'];
+  const groupedNavigation = sectionOrder
+    .map(section => ({
+      section,
+      items: filteredNavigation.filter(item => item.section === section)
+    }))
+    .filter(group => group.items.length > 0);
 
   if (!hydrated || !token || (user?.role !== 'admin' && user?.role !== 'subadmin')) {
     return (
@@ -117,33 +128,45 @@ export default function AdminLayout({ children, title, subtitle }) {
         </button>
 
         {/* Middle: Navigation */}
-        <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1 custom-scrollbar">
-          {filteredNavigation.map((item) => {
-            const isActive = pathname === item.href;
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={() => setSidebarOpen(false)}
-                title={sidebarCollapsed ? item.name : ''}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative ${
-                  isActive
-                    ? 'bg-amber-500 text-white font-semibold shadow-lg shadow-amber-500/30'
-                    : 'hover:bg-slate-200 hover:text-slate-900 text-slate-600'
-                } ${sidebarCollapsed ? 'justify-center' : ''}`}
-              >
-                <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-amber-600'}`} />
-                {!sidebarCollapsed && <span className="text-[14px]">{item.name}</span>}
-                {sidebarCollapsed && (
-                  <div className="absolute left-full ml-2 px-3 py-2 bg-slate-800 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-xl">
-                    {item.name}
-                    <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-slate-800"></div>
-                  </div>
-                )}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 overflow-y-auto py-5 px-3 custom-scrollbar">
+          {groupedNavigation.map((group, groupIndex) => (
+            <div key={group.section} className={`${groupIndex > 0 ? 'mt-4 pt-4 border-t border-slate-200' : ''}`}>
+              {!sidebarCollapsed && group.section !== 'Overview' && (
+                <p className="px-4 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                  {group.section}
+                </p>
+              )}
+
+              <div className="space-y-1">
+                {group.items.map((item) => {
+                  const isActive = pathname === item.href;
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      onClick={() => setSidebarOpen(false)}
+                      title={sidebarCollapsed ? item.name : ''}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative ${
+                        isActive
+                          ? 'bg-amber-500 text-white font-semibold shadow-lg shadow-amber-500/30'
+                          : 'hover:bg-slate-200 hover:text-slate-900 text-slate-600'
+                      } ${sidebarCollapsed ? 'justify-center' : ''}`}
+                    >
+                      <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-amber-600'}`} />
+                      {!sidebarCollapsed && <span className="text-[14px]">{item.name}</span>}
+                      {sidebarCollapsed && (
+                        <div className="absolute left-full ml-2 px-3 py-2 bg-slate-800 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-xl">
+                          {item.name}
+                          <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-slate-800"></div>
+                        </div>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         {/* Bottom: Profile & Logout */}

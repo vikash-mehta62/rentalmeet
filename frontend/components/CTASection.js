@@ -28,32 +28,40 @@ export default function CTASection() {
           </button>
         </div>
 
-        {/* Right Side: App Download QR Codes */}
-        <div className="flex flex-col sm:flex-row gap-4 bg-white/20 p-6 rounded-2xl backdrop-blur-sm border border-white/30">
-          {/* iOS QR */}
+        {/* Right Side: QR + Download Links */}
+        <div className="w-full md:w-auto grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white/20 p-5 rounded-2xl backdrop-blur-sm border border-white/30">
           <div className="flex flex-col items-center gap-2">
             <div className="bg-white p-2 rounded-xl shadow-lg">
               <div className="w-24 h-24 bg-gray-200 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-400">
-                <span className="text-[9px] text-gray-500 font-bold uppercase">iOS QR Code</span>
+                <span className="text-[9px] text-gray-500 font-bold uppercase">iOS QR</span>
               </div>
             </div>
-            <div className="flex items-center gap-1.5 text-gray-900 font-semibold text-sm">
+            <a
+              href="https://example.com/ios-app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-1.5 bg-white hover:bg-gray-100 text-gray-900 font-bold px-4 py-2 rounded-lg transition-all duration-300 shadow-md text-sm"
+            >
               <Smartphone className="w-3.5 h-3.5" />
-              <span>App Store</span>
-            </div>
+              Download iOS
+            </a>
           </div>
 
-          {/* Android QR */}
           <div className="flex flex-col items-center gap-2">
             <div className="bg-white p-2 rounded-xl shadow-lg">
               <div className="w-24 h-24 bg-gray-200 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-400">
                 <span className="text-[9px] text-gray-500 font-bold uppercase">Android QR</span>
               </div>
             </div>
-            <div className="flex items-center gap-1.5 text-gray-900 font-semibold text-sm">
+            <a
+              href="https://example.com/android-app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-1.5 bg-white hover:bg-gray-100 text-gray-900 font-bold px-4 py-2 rounded-lg transition-all duration-300 shadow-md text-sm"
+            >
               <Smartphone className="w-3.5 h-3.5" />
-              <span>Play Store</span>
-            </div>
+              Download Android
+            </a>
           </div>
         </div>
 

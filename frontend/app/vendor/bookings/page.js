@@ -71,7 +71,7 @@ export default function VendorBookings() {
               <div className="flex items-center justify-between p-4 flex-wrap gap-3">
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <code className="text-xs font-mono text-primary-600 bg-primary-50 px-1.5 py-0.5 rounded">{b.bookingNumber || b.quotationNumber}</code>
+                    <code className="text-xs font-mono text-primary-600 bg-primary-50 px-1.5 py-0.5 rounded">{b.bookingNumber || '—'}</code>
                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_STYLE[b.status]}`}>{b.status}</span>
                     {b.downloadedAt && <span className="flex items-center gap-1 text-xs text-green-600"><Download className="w-3 h-3" />Downloaded</span>}
                   </div>

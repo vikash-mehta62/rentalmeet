@@ -156,7 +156,11 @@ app.post('/api/service-bookings', async (req, res) => {
     const ServiceBooking = require('./models/ServiceBooking');
     const VendorService  = require('./models/VendorService');
     const Coupon = require('./models/Coupon');
-    const { serviceId, eventDate, customerInfo, items, pricing, couponCode } = req.body;
+    const crypto = require('crypto');
+    const {
+      serviceId, eventDate, customerInfo, items, pricing, couponCode,
+      status, paymentStatus, paymentDetails, amount
+    } = req.body;
 
     const svc = await VendorService.findById(serviceId);
     if (!svc) return res.status(404).json({ success: false, message: 'Service not found' });
@@ -188,6 +192,27 @@ app.post('/api/service-bookings', async (req, res) => {
       }
     }
 
+    let verifiedPaymentDetails = null;
+    if (paymentDetails?.razorpay_order_id && paymentDetails?.razorpay_payment_id && paymentDetails?.razorpay_signature) {
+      const sign = `${paymentDetails.razorpay_order_id}|${paymentDetails.razorpay_payment_id}`;
+      const expectedSign = crypto
+        .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+        .update(sign.toString())
+        .digest('hex');
+
+      if (paymentDetails.razorpay_signature !== expectedSign) {
+        return res.status(400).json({ success: false, message: 'Invalid payment signature' });
+      }
+
+      verifiedPaymentDetails = {
+        razorpay_order_id: paymentDetails.razorpay_order_id,
+        razorpay_payment_id: paymentDetails.razorpay_payment_id,
+        razorpay_signature: paymentDetails.razorpay_signature,
+        paidAt: new Date()
+      };
+    }
+
+    const isPaidBooking = Boolean(verifiedPaymentDetails);
     const booking = await ServiceBooking.create({
       service: serviceId,
       vendor:  svc.vendor,
@@ -197,6 +222,10 @@ app.post('/api/service-bookings', async (req, res) => {
       items,
       pricing: { ...pricing, discount: discountAmount, total: finalTotal },
       coupon: appliedCoupon ? { couponId: appliedCoupon._id, code: appliedCoupon.code, discountAmount } : undefined,
+      amount: isPaidBooking ? Number(amount || finalTotal) : undefined,
+      status: isPaidBooking ? 'confirmed' : (status || 'enquiry'),
+      paymentStatus: isPaidBooking ? 'paid' : (paymentStatus || 'pending'),
+      paymentDetails: isPaidBooking ? verifiedPaymentDetails : undefined,
     });
 
     // Bump enquiry count + coupon usage
@@ -207,11 +236,34 @@ app.post('/api/service-bookings', async (req, res) => {
       await appliedCoupon.save();
     }
 
-    res.status(201).json({ success: true, booking, quotationNumber: booking.quotationNumber, discountAmount, finalTotal });
+    res.status(201).json({ success: true, booking, bookingNumber: booking.bookingNumber, quotationNumber: booking.quotationNumber || booking.bookingNumber, discountAmount, finalTotal });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
-// POST validate service coupon (public)
+// GET/POST service coupons (public)
+app.get('/api/service-coupons', async (req, res) => {
+  try {
+    const Coupon = require('./models/Coupon');
+    const { serviceId } = req.query;
+    if (!serviceId) return res.status(400).json({ success: false, message: 'serviceId is required' });
+
+    const now = new Date();
+    const coupons = await Coupon.find({
+      isActive: true,
+      $or: [{ service: serviceId }, { service: null, venue: null }],
+      $and: [
+        { $or: [{ expiryDate: null }, { expiryDate: { $gte: now } }] },
+        { $or: [{ maxUses: null }, { $expr: { $lt: ['$usedCount', '$maxUses'] } }] }
+      ]
+    })
+      .select('code discountType discountValue maxDiscount minBookingAmount')
+      .sort({ createdAt: -1 })
+      .limit(10);
+
+    res.json({ success: true, coupons });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
 app.post('/api/service-coupons/validate', async (req, res) => {
   try {
     const Coupon = require('./models/Coupon');
@@ -278,7 +330,7 @@ app.patch('/api/service-bookings/:id/downloaded', async (req, res) => {
       serviceBooking: booking._id,
       service:  booking.service?._id,
       vendor:   booking.vendor?._id,
-      quotationNumber: booking.quotationNumber,
+      quotationNumber: booking.quotationNumber || booking.bookingNumber,
       action,
       totalAmount: booking.pricing?.total,
       serviceSnapshot: booking.serviceSnapshot,

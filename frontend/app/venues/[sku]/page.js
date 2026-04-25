@@ -94,6 +94,7 @@ export default function VenueDetail() {
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [bookedDates, setBookedDates] = useState([]);
   const [venueCoupons, setVenueCoupons] = useState([]);
+  const [showAllIncludedFacilities, setShowAllIncludedFacilities] = useState(false);
 
   // Fetch booked dates for this venue
   useEffect(() => {
@@ -328,9 +329,25 @@ export default function VenueDetail() {
     return selectedAmenities[category].some(a => (a.name || a.type) === itemName);
   };
 
+  const getBasicAmenityMaxQuantity = (key) => {
+    if (!key?.startsWith('basic_')) return null;
+    const amenityName = key.replace('basic_', '');
+    const amenity = venue?.amenities?.basic?.find(a => a.name === amenityName);
+    const max = Number(amenity?.maxQuantity);
+    return Number.isFinite(max) && max > 0 ? max : null;
+  };
+
   // Update quantity
   const updateQuantity = (key, value) => {
-    const qty = parseInt(value) || 0;
+    const parsed = parseInt(value);
+    const nextQty = Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+    const maxQty = getBasicAmenityMaxQuantity(key);
+    const qty = maxQty ? Math.min(nextQty, maxQty) : nextQty;
+
+    if (maxQty && nextQty > maxQty) {
+      toast.error(`Maximum allowed is ${maxQty}`);
+    }
+
     setQuantities(prev => ({ ...prev, [key]: qty }));
   };
 
@@ -450,6 +467,9 @@ export default function VenueDetail() {
   const categories = getImageCategories();
   const filteredImages = getFilteredImages();
   const imagesByCategory = getImagesByCategory();
+  const freeBasicAmenities = venue.amenities?.basic?.filter(a => a.available && (a.type === 'Free' || a.type === 'Included')) || [];
+  const paidBasicAmenities = venue.amenities?.basic?.filter(a => a.available && a.type === 'Paid') || [];
+  const visibleFreeBasicAmenities = showAllIncludedFacilities ? freeBasicAmenities : freeBasicAmenities.slice(0, 4);
 
   // Inactive venue — show banner, no booking
   const isInactive = venue.isActive === false;
@@ -649,38 +669,47 @@ export default function VenueDetail() {
                 <div className="space-y-4">
                   
                   {/* Included (Free) — white card */}
-                  {venue.amenities.basic.filter(a => a.available && (a.type === 'Free' || a.type === 'Included')).length > 0 && (
-                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-5">
-                      <h3 className="font-semibold text-base text-gray-900 dark:text-slate-100 mb-4 flex items-center gap-2">
-                        <CheckCircle2 className="w-5 h-5 text-primary-500" />
+                  {freeBasicAmenities.length > 0 && (
+                    <div className="bg-green-50 dark:bg-slate-900 rounded-xl border border-green-300 dark:border-green-800 p-5">
+                      <h3 className="inline-flex items-center gap-2 font-semibold text-base text-green-800 dark:text-green-200 mb-4 bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700 px-3 py-1.5 rounded-lg">
+                        <CheckCircle2 className="w-5 h-5 text-green-600" />
                         Included Facilities (Free)
                       </h3>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        {venue.amenities.basic.filter(a => a.available && (a.type === 'Free' || a.type === 'Included')).map((amenity, idx) => {
+                        {visibleFreeBasicAmenities.map((amenity, idx) => {
                           const AIcon = getAmenityIcon(amenity.name);
                           return (
                             <div
                               key={idx}
-                              className="flex items-center gap-2 p-3 rounded-lg bg-[#FEF7ED] dark:bg-slate-800 border border-[#F59F0A]/20 dark:border-slate-700"
+                              className="flex items-center gap-2 p-3 rounded-lg bg-green-100/70 dark:bg-green-900/20 border border-green-300 dark:border-green-800"
                             >
-                              <AIcon className="w-4 h-4 text-primary-500 flex-shrink-0" />
-                              <span className="text-sm text-gray-700 dark:text-slate-200">{amenity.name}</span>
+                              <AIcon className="w-4 h-4 text-green-600 flex-shrink-0" />
+                              <span className="text-sm text-green-900 dark:text-green-100">{amenity.name}</span>
                             </div>
                           );
                         })}
                       </div>
+                      {freeBasicAmenities.length > 4 && (
+                        <button
+                          type="button"
+                          onClick={() => setShowAllIncludedFacilities(prev => !prev)}
+                          className="mt-4 inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-3 py-1.5 rounded-md transition-colors"
+                        >
+                          {showAllIncludedFacilities ? 'Show Less' : `+${freeBasicAmenities.length - 4} More`}
+                        </button>
+                      )}
                     </div>
                   )}
                   
                   {/* Paid Amenities — warm tinted card */}
-                  {venue.amenities.basic.filter(a => a.available && a.type === 'Paid').length > 0 && (
-                    <div className="bg-[#FEF7ED] dark:bg-slate-900 rounded-xl border border-[#F59F0A]/30 dark:border-slate-700 p-5">
-                      <h3 className="font-semibold text-base text-primary-600 dark:text-primary-400 mb-4 flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-full border-2 border-primary-500 flex items-center justify-center text-primary-500 text-xs font-bold">+</span>
+                  {paidBasicAmenities.length > 0 && (
+                    <div className="bg-orange-50 dark:bg-slate-900 rounded-xl border border-orange-300 dark:border-orange-800 p-5">
+                      <h3 className="inline-flex items-center gap-2 font-semibold text-base text-orange-800 dark:text-orange-200 mb-4 bg-orange-100 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-700 px-3 py-1.5 rounded-lg">
+                        <span className="w-5 h-5 rounded-full border-2 border-orange-500 flex items-center justify-center text-orange-500 text-xs font-bold">+</span>
                         Paid Facilities (Optional)
                       </h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {venue.amenities.basic.filter(a => a.available && a.type === 'Paid').map((amenity, idx) => {
+                        {paidBasicAmenities.map((amenity, idx) => {
                           const key = `basic_${amenity.name}`;
                           const qty = quantities[key] || 0;
                           const isSelected = isAmenitySelected('basic', amenity.name);
@@ -689,32 +718,32 @@ export default function VenueDetail() {
                           return (
                             <div
                               key={idx}
-                              className={`p-3 rounded-lg border transition-all bg-white dark:bg-slate-900 ${
-                                isSelected ? 'border-primary-500 ring-2 ring-primary-100 dark:ring-primary-900/30' : 'border-gray-200 dark:border-slate-700'
+                              className={`p-3 rounded-lg border transition-all bg-orange-100/70 dark:bg-orange-900/20 ${
+                                isSelected ? 'border-orange-500 ring-2 ring-orange-200 dark:ring-orange-900/30' : 'border-orange-300 dark:border-orange-800'
                               }`}
                             >
                               <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2 flex-1">
-                                  {(() => { const PIcon = getAmenityIcon(amenity.name); return <PIcon className="w-4 h-4 text-primary-500 flex-shrink-0" />; })()}
+                                  {(() => { const PIcon = getAmenityIcon(amenity.name); return <PIcon className="w-4 h-4 text-orange-600 flex-shrink-0" />; })()}
                                   <div className="flex flex-col flex-1">
-                                    <span className="text-sm font-medium text-gray-800 dark:text-slate-200">{amenity.name}</span>
-                                    <span className="text-[10px] text-primary-500 font-semibold">₹{amenity.rate} {amenity.rateType || 'Fixed'}</span>
+                                    <span className="text-sm font-medium text-orange-900 dark:text-orange-100">{amenity.name}</span>
+                                    <span className="text-[10px] text-orange-700 dark:text-orange-300 font-semibold">₹{amenity.rate} {amenity.rateType || 'Fixed'}</span>
                                   </div>
                                 </div>
                                 <input
                                   type="checkbox"
                                   checked={isSelected}
                                   onChange={() => toggleAmenity('basic', amenity)}
-                                  className="w-4 h-4 rounded border-2 border-gray-300 text-primary-500 focus:ring-2 focus:ring-primary-500 cursor-pointer"
+                                  className="w-4 h-4 rounded border-2 border-orange-300 text-orange-500 focus:ring-2 focus:ring-orange-500 cursor-pointer"
                                 />
                               </div>
                               
                               {isPerUse && isSelected && (
-                                <div className="flex items-center gap-1.5 pt-2 border-t border-gray-100 dark:border-slate-800">
+                                <div className="flex items-center gap-1.5 pt-2 border-t border-orange-200 dark:border-orange-900/30">
                                   <button
                                     type="button"
                                     onClick={() => updateQuantity(key, Math.max(0, qty - 1))}
-                                    className="w-7 h-7 rounded border border-gray-300 dark:border-slate-600 hover:border-primary-500 hover:bg-primary-50 flex items-center justify-center text-sm font-bold"
+                                    className="w-7 h-7 rounded border border-orange-300 dark:border-orange-700 hover:border-orange-500 hover:bg-orange-100 flex items-center justify-center text-sm font-bold text-orange-700"
                                   >
                                     -
                                   </button>
@@ -722,17 +751,18 @@ export default function VenueDetail() {
                                     type="number"
                                     value={qty}
                                     onChange={(e) => updateQuantity(key, parseInt(e.target.value) || 0)}
-                                    className="w-14 h-7 text-center border border-gray-300 dark:border-slate-700 rounded text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                                    className="w-14 h-7 text-center border border-orange-300 dark:border-orange-700 rounded text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                                     min="0"
+                                    max={amenity.maxQuantity || undefined}
                                   />
                                   <button
                                     type="button"
                                     onClick={() => updateQuantity(key, qty + 1)}
-                                    className="w-7 h-7 rounded border border-gray-300 dark:border-slate-600 hover:border-primary-500 hover:bg-primary-50 flex items-center justify-center text-sm font-bold"
+                                    className="w-7 h-7 rounded border border-orange-300 dark:border-orange-700 hover:border-orange-500 hover:bg-orange-100 flex items-center justify-center text-sm font-bold text-orange-700"
                                   >
                                     +
                                   </button>
-                                  <span className="text-xs font-semibold text-primary-600 ml-auto">₹{((amenity.rate || 0) * qty).toLocaleString()}</span>
+                                  <span className="text-xs font-semibold text-orange-700 ml-auto">₹{((amenity.rate || 0) * qty).toLocaleString()}</span>
                                 </div>
                               )}
                             </div>
@@ -1294,14 +1324,14 @@ export default function VenueDetail() {
 
               {/* Available Coupons */}
               {venueCoupons.length > 0 && (
-                <div className="bg-white dark:bg-slate-900 rounded-xl border border-dashed border-primary-300 dark:border-slate-700 p-3">
-                  <p className="text-xs font-bold text-primary-600 mb-2 flex items-center gap-1">🏷️ Available Coupons</p>
+                <div className="bg-green-50 dark:bg-slate-900 rounded-xl border-2 border-green-300 dark:border-green-800 p-3 shadow-sm">
+                  <p className="inline-flex items-center gap-1 text-xs font-bold text-green-800 dark:text-green-200 mb-2 bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700 px-2.5 py-1 rounded-md">Available Coupons</p>
                   <div className="space-y-2">
                     {venueCoupons.map((c) => (
-                      <div key={c._id} className="flex items-center justify-between bg-primary-50 dark:bg-slate-800 rounded-lg px-3 py-2">
+                      <div key={c._id} className="flex items-center justify-between bg-green-100/70 dark:bg-green-900/20 border border-green-300 dark:border-green-800 rounded-lg px-3 py-2">
                         <div>
-                          <span className="text-xs font-black text-primary-600 tracking-wider">{c.code}</span>
-                          <p className="text-[10px] text-gray-500 mt-0.5">
+                          <span className="text-xs font-black text-green-700 dark:text-green-300 tracking-wider">{c.code}</span>
+                          <p className="text-[10px] text-green-800/80 dark:text-green-200/80 mt-0.5">
                             {c.discountType === 'percentage'
                               ? `${c.discountValue}% off${c.maxDiscount ? ` (max ₹${c.maxDiscount})` : ''}`
                               : `₹${c.discountValue} off`}
@@ -1310,7 +1340,7 @@ export default function VenueDetail() {
                         </div>
                         <button
                           onClick={() => { navigator.clipboard.writeText(c.code); toast.success(`Copied: ${c.code}`); }}
-                          className="text-[10px] text-primary-500 font-bold hover:underline"
+                          className="text-[10px] text-green-700 dark:text-green-300 font-bold hover:underline"
                         >
                           Copy
                         </button>

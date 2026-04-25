@@ -21,7 +21,7 @@ export default function ServiceBookingDetailModal({ booking: b, onClose, onStatu
   const printRef = useRef(null);
   if (!b) return null;
 
-  const bNum = b.bookingNumber || b.quotationNumber || '—';
+  const bNum = b.bookingNumber || '—';
   const st = STATUS_STYLE[b.status] || STATUS_STYLE.enquiry;
   const Icon = st.icon;
 

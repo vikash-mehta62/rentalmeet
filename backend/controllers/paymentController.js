@@ -42,6 +42,20 @@ exports.verifyPayment = async (req, res) => {
 
     // Handle ServiceBooking payment
     if (bookingType === 'service') {
+      // New flow: verify payment first, create booking after verification
+      if (!bookingId) {
+        return res.json({
+          success: true,
+          message: 'Payment verified',
+          payment: {
+            razorpay_order_id,
+            razorpay_payment_id,
+            razorpay_signature
+          }
+        });
+      }
+
+      // Backward compatibility: old flow where booking existed before payment
       const booking = await ServiceBooking.findById(bookingId);
       if (!booking) return res.status(404).json({ success: false, message: 'Service booking not found' });
       booking.paymentStatus = 'paid';

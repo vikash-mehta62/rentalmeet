@@ -7,7 +7,6 @@ import FeaturedVenues from '@/components/FeaturedVenues';
 import VenueCategoriesSection from '@/components/VenueCategoriesSection';
 import PremiumServicesSection from '@/components/PremiumServicesSection';
 import FacilitiesSection from '@/components/FacilitiesSection';
-import PricingSection from '@/components/PricingSection';
 import TestimonialsSection from '@/components/TestimonialsSection';
 import CTASection from '@/components/CTASection';
 import Footer from '@/components/Footer';
@@ -45,9 +44,6 @@ export default function Home() {
 
         {/* Facilities Section */}
         <FacilitiesSection />
-
-        {/* Pricing and Why Choose Us Sections */}
-        <PricingSection />
 
         {/* Testimonials Section */}
         <TestimonialsSection />

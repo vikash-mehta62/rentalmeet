@@ -106,7 +106,7 @@ export default function CustomerServiceBookings() {
                       </div>
 
                       <div className="flex items-center gap-4 mt-2 flex-wrap">
-                        <code className="text-xs font-mono text-primary-600 bg-primary-50 px-1.5 py-0.5 rounded">{b.bookingNumber || b.quotationNumber}</code>
+                        <code className="text-xs font-mono text-primary-600 bg-primary-50 px-1.5 py-0.5 rounded">{b.bookingNumber || '—'}</code>
                         {b.eventDate && (
                           <span className="flex items-center gap-1 text-xs text-gray-500">
                             <Calendar className="w-3 h-3" />

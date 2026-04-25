@@ -488,7 +488,8 @@ router.get('/service-bookings', protect, authorize('admin'), async (req, res) =>
   try {
     const ServiceBooking = require('../models/ServiceBooking');
     const { status, search } = req.query;
-    const filter = {};
+    const baseFilter = { bookingNumber: { $exists: true, $ne: null, $not: /^SQ-/i } };
+    const filter = { ...baseFilter };
     if (status && status !== 'all') filter.status = status;
     let bookings = await ServiceBooking.find(filter)
       .populate('service', 'title category city state')
@@ -497,7 +498,7 @@ router.get('/service-bookings', protect, authorize('admin'), async (req, res) =>
     if (search) {
       const q = search.toLowerCase();
       bookings = bookings.filter(b =>
-        b.quotationNumber?.toLowerCase().includes(q) ||
+        b.bookingNumber?.toLowerCase().includes(q) ||
         b.customerInfo?.name?.toLowerCase().includes(q) ||
         b.customerInfo?.email?.toLowerCase().includes(q) ||
         b.serviceSnapshot?.title?.toLowerCase().includes(q) ||
@@ -505,11 +506,11 @@ router.get('/service-bookings', protect, authorize('admin'), async (req, res) =>
       );
     }
     const stats = {
-      total:     await ServiceBooking.countDocuments(),
-      enquiry:   await ServiceBooking.countDocuments({ status: 'enquiry' }),
-      confirmed: await ServiceBooking.countDocuments({ status: 'confirmed' }),
-      cancelled: await ServiceBooking.countDocuments({ status: 'cancelled' }),
-      downloaded: await ServiceBooking.countDocuments({ downloadedAt: { $exists: true, $ne: null } }),
+      total:     await ServiceBooking.countDocuments(baseFilter),
+      enquiry:   await ServiceBooking.countDocuments({ ...baseFilter, status: 'enquiry' }),
+      confirmed: await ServiceBooking.countDocuments({ ...baseFilter, status: 'confirmed' }),
+      cancelled: await ServiceBooking.countDocuments({ ...baseFilter, status: 'cancelled' }),
+      downloaded: await ServiceBooking.countDocuments({ ...baseFilter, downloadedAt: { $exists: true, $ne: null } }),
     };
     res.json({ success: true, bookings, stats });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }

@@ -25,6 +25,7 @@ const quickLinks = [
   { name: 'Home',               href: '/'               },
   { name: 'Browse Venues',      href: '/venues'         },
   { name: 'Premium Services',   href: '/other-services' },
+  { name: 'How to Use',         href: '/faqs'           },
   { name: 'About Us',           href: '/about'          },
   { name: 'FAQs',               href: '/faqs'           },
   { name: 'Terms & Conditions', href: '/terms'          },
@@ -33,7 +34,7 @@ const quickLinks = [
 const businessLinks = [
   { name: 'List Your Venue',    href: '/register-venue'     },
   { name: 'Register as Vendor', href: '/register?role=vendor'},
-  { name: 'Client Registration',href: '/register-customer'  },
+  { name: 'User Registration',  href: '/register-customer'  },
   { name: 'Pricing & Plans',    href: '/venues'         },
   { name: 'Privacy Policy',     href: '/privacy'        },
   { name: 'Terms of Service',   href: '/terms'          },
@@ -72,7 +73,7 @@ export default function Footer() {
               <img
                 src="/logo.png"
                 alt="RentalMeet"
-                className="h-20 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
+                className="h-12 sm:h-16 lg:h-20 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
               />
             </Link>
             <p className="text-sm text-gray-500 dark:text-slate-400 leading-relaxed mb-6">
@@ -141,18 +142,24 @@ export default function Footer() {
                 <MapPin className="h-4 w-4 mt-0.5 text-primary-500 flex-shrink-0" />
                 <span>{contact.address}</span>
               </li>
-              {contact.address2 && (
-                <li className="flex items-start gap-3">
-                  <MapPin className="h-4 w-4 mt-0.5 text-primary-500 flex-shrink-0" />
-                  <span>{contact.address2}</span>
-                </li>
-              )}
               <li className="flex items-center gap-3">
                 <Phone className="h-4 w-4 text-primary-500 flex-shrink-0" />
                 <a href={`tel:${contact.phone?.replace(/\s/g,'')}`} className="hover:text-gray-900 dark:hover:text-slate-100 transition-colors">
                   {contact.phone}
                 </a>
               </li>
+              <li className="flex items-center gap-3">
+                <Mail className="h-4 w-4 text-primary-500 flex-shrink-0" />
+                <a href={`mailto:${contact.email}`} className="hover:text-gray-900 dark:hover:text-slate-100 transition-colors">
+                  {contact.email}
+                </a>
+              </li>
+              {contact.address2 && (
+                <li className="flex items-start gap-3">
+                  <MapPin className="h-4 w-4 mt-0.5 text-primary-500 flex-shrink-0" />
+                  <span>{contact.address2}</span>
+                </li>
+              )}
               {contact.phone2 && (
                 <li className="flex items-center gap-3">
                   <Phone className="h-4 w-4 text-primary-500 flex-shrink-0" />
@@ -161,12 +168,6 @@ export default function Footer() {
                   </a>
                 </li>
               )}
-              <li className="flex items-center gap-3">
-                <Mail className="h-4 w-4 text-primary-500 flex-shrink-0" />
-                <a href={`mailto:${contact.email}`} className="hover:text-gray-900 dark:hover:text-slate-100 transition-colors">
-                  {contact.email}
-                </a>
-              </li>
               {contact.email2 && (
                 <li className="flex items-center gap-3">
                   <Mail className="h-4 w-4 text-primary-500 flex-shrink-0" />

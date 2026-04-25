@@ -44,7 +44,9 @@ function VendorCard({ svc, isFavorite, onToggleFavorite }) {
       {/* Content */}
       <div className="flex-1 p-5 flex flex-col">
         <div className="flex items-start justify-between gap-2 mb-1">
-          <h3 className="text-xl font-black text-gray-900 leading-tight">{svc.title}</h3>
+          <h3 className="font-serif text-lg font-bold text-slate-900 leading-tight line-clamp-1">
+            {svc.title}
+          </h3>
         </div>
         <div className="flex items-center gap-1.5 text-sm text-gray-500 mb-2">
           <MapPin className="w-3.5 h-3.5 text-primary-500" />
@@ -80,11 +82,16 @@ function VendorCard({ svc, isFavorite, onToggleFavorite }) {
             )}
             <p className="text-[10px] text-gray-400 mt-0.5">Direct booking available</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap justify-end">
             <button
               onClick={() => router.push(`/other-services/${svc._id}`)}
               className="flex items-center gap-1.5 px-4 py-2.5 border-2 border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:border-primary-500 hover:text-primary-500 transition-all">
               <User className="w-4 h-4" />View Profile
+            </button>
+            <button
+              onClick={() => router.push(`/other-services/${svc._id}`)}
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 transition-all shadow-lg">
+              Book Now
             </button>
             <button
               onClick={() => router.push(`/other-services/${svc._id}`)}

@@ -440,7 +440,7 @@ export default function BrowseVenues() {
                     {/* Info Section */}
                     <div className="flex-1 p-5 flex flex-col">
                       <div className="flex-1">
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1" style={{ fontFamily: 'Georgia, serif' }}>{venue.businessName}</h3>
+                        <h3 className="font-serif text-lg font-bold text-slate-900 dark:text-slate-100 mb-1 leading-tight line-clamp-1">{venue.businessName}</h3>
                         <p className="text-sm text-slate-500 dark:text-slate-300 flex items-center gap-1 mb-3">
                           <MapPin className="w-3.5 h-3.5 text-primary-500" /> 
                           {venue.location?.area}, {venue.location?.city}

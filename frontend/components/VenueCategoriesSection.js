@@ -6,21 +6,21 @@ import { ArrowRight, Building2, Briefcase, GraduationCap, Utensils, TreePine, Mo
 
 const staticCategories = [
   { name: 'Meeting Hall',        icon: Building2,      count: 48, price: 1000 },
-  { name: 'Farm House',          icon: TreePine,        count: 32, price: 3000 },
-  { name: 'Conference Hall',     icon: Monitor,         count: 56, price: 5000 },
-  { name: 'Govt. Auditorium',    icon: Landmark,        count: 18, price: 3000 },
-  { name: 'Hotel',               icon: BedDouble,       count: 74, price: 4000 },
-  { name: 'Private Auditorium',  icon: Briefcase,       count: 22, price: 6000 },
-  { name: 'Restaurant',          icon: UtensilsCrossed, count: 61, price: 2000 },
-  { name: 'School Auditorium',   icon: School,          count: 29, price: 2500 },
-  { name: 'Function Hall',       icon: PartyPopper,     count: 85, price: 7000 },
-  { name: 'College Auditorium',  icon: GraduationCap,   count: 24, price: 3000 },
-  { name: 'Open Lawn',           icon: Leaf,            count: 43, price: 5000 },
-  { name: 'Co-Work Space',       icon: Laptop,          count: 37, price: 500  },
-  { name: 'Banquet Hall',        icon: Utensils,        count: 69, price: 6000 },
+  { name: 'Farm House',          icon: TreePine,       count: 32, price: 3000 },
+  { name: 'Conference Hall',     icon: Monitor,        count: 56, price: 5000 },
+  { name: 'Govt. Auditorium',    icon: Landmark,       count: 18, price: 3000 },
+  { name: 'Hotel',               icon: BedDouble,      count: 74, price: 4000 },
+  { name: 'Private Auditorium',  icon: Briefcase,      count: 22, price: 6000 },
+  { name: 'Restaurant',          icon: UtensilsCrossed,count: 61, price: 2000 },
+  { name: 'School Auditorium',   icon: School,         count: 29, price: 2500 },
+  { name: 'Function Hall',       icon: PartyPopper,    count: 85, price: 7000 },
+  { name: 'College Auditorium',  icon: GraduationCap,  count: 24, price: 3000 },
+  { name: 'Open Lawn',           icon: Leaf,           count: 43, price: 5000 },
+  { name: 'Co-Work Space',       icon: Laptop,         count: 37, price: 500 },
+  { name: 'Banquet Hall',        icon: Utensils,       count: 69, price: 6000 },
   { name: 'Guest House',         icon: Home,           count: 41, price: 1500 },
-  { name: 'Training Center',     icon: BookOpen,        count: 28, price: 2000 },
-  { name: 'Marriage Garden',     icon: Flower2,         count: 53, price: 8000 },
+  { name: 'Training Center',     icon: BookOpen,       count: 28, price: 2000 },
+  { name: 'Marriage Garden',     icon: Flower2,        count: 53, price: 8000 },
 ];
 
 export default function VenueCategoriesSection() {
@@ -28,18 +28,46 @@ export default function VenueCategoriesSection() {
   const [categories, setCategories] = useState(staticCategories);
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/venue-types`)
-      .then(r => r.json())
-      .then(d => {
-        if (d.success && d.venueTypes?.length) {
-          const merged = d.venueTypes.map((vt, i) => ({
-            name: vt.name,
-            icon: staticCategories[i % staticCategories.length].icon,
-            count: staticCategories[i % staticCategories.length].count,
-            price: staticCategories[i % staticCategories.length].price,
-          }));
-          setCategories(merged);
-        }
+    const iconPriceMap = Object.fromEntries(
+      staticCategories.map(c => [c.name, { icon: c.icon, price: c.price }])
+    );
+
+    Promise.all([
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/venue-types`).then(r => r.json()).catch(() => ({})),
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues`).then(r => r.json()).catch(() => ({})),
+    ])
+      .then(([typesRes, venuesRes]) => {
+        const typeNames = typesRes?.success && typesRes.venueTypes?.length
+          ? typesRes.venueTypes.map(vt => vt.name)
+          : staticCategories.map(c => c.name);
+
+        const venues = venuesRes?.success && Array.isArray(venuesRes.venues) ? venuesRes.venues : [];
+        const counts = {};
+
+        venues.forEach((venue) => {
+          const types = Array.isArray(venue.venueType)
+            ? venue.venueType
+            : venue.venueType
+              ? [venue.venueType]
+              : [];
+
+          types.forEach((typeName) => {
+            if (!typeName) return;
+            counts[typeName] = (counts[typeName] || 0) + 1;
+          });
+        });
+
+        const merged = typeNames.map((name, i) => {
+          const fallback = staticCategories[i % staticCategories.length];
+          return {
+            name,
+            icon: iconPriceMap[name]?.icon || fallback.icon || Building2,
+            price: iconPriceMap[name]?.price ?? fallback.price ?? 0,
+            count: counts[name] || 0,
+          };
+        });
+
+        setCategories(merged);
       })
       .catch(() => {});
   }, []);
@@ -55,11 +83,11 @@ export default function VenueCategoriesSection() {
             Venue Categories
           </h2>
           <p className="text-sm text-gray-500 dark:text-slate-400 max-w-2xl mx-auto">
-            From intimate meeting halls to grand marriage gardens — find the perfect venue type across Madhya Pradesh and Rajasthan.
+            From intimate meeting halls to grand marriage gardens - find the perfect venue type for your meeting hall and events.
           </p>
         </div>
 
-        {/* Grid — 4 cols mobile, 6 sm, 8 lg */}
+        {/* Grid */}
         <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-3">
           {categories.map((cat) => {
             const Icon = cat.icon;
@@ -75,7 +103,7 @@ export default function VenueCategoriesSection() {
                 <div>
                   <p className="font-semibold text-xs leading-tight text-gray-800 dark:text-slate-100 group-hover:text-primary-500 transition-colors">{cat.name}</p>
                   <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-0.5">{cat.count} venues</p>
-                  <p className="text-[10px] text-primary-500 font-medium mt-0.5">₹{cat.price.toLocaleString()}/hr</p>
+                  <p className="text-[10px] text-primary-500 font-medium mt-0.5">Rs.{cat.price.toLocaleString()}/hr</p>
                 </div>
               </button>
             );
@@ -95,6 +123,4 @@ export default function VenueCategoriesSection() {
     </section>
   );
 }
-
-
 

@@ -161,7 +161,7 @@ export default function VendorDashboard() {
               <div key={b._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
                 <div>
                   <div className="flex items-center gap-2">
-                    <code className="text-xs font-mono text-primary-600">{b.quotationNumber}</code>
+                    <code className="text-xs font-mono text-primary-600">{b.bookingNumber || '—'}</code>
                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${b.status === 'enquiry' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>{b.status}</span>
                   </div>
                   <p className="text-sm font-semibold text-gray-800 mt-0.5">{b.customerInfo?.name}</p>

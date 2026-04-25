@@ -112,7 +112,9 @@ const venueSchema = new mongoose.Schema({
       available: Boolean,
       type: { type: String, enum: ['Included', 'Paid'] },
       rate: Number,
-      rateType: { type: String, enum: ['Fixed', 'Per Use'], default: 'Fixed' }
+      rateType: { type: String, enum: ['Fixed', 'Per Use'], default: 'Fixed' },
+      // Null/undefined means unlimited
+      maxQuantity: { type: Number, min: 1, default: null }
     }],
     beverages: [{
       name: String,

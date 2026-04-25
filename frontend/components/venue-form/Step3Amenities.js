@@ -164,8 +164,11 @@ export default function Step3Amenities() {
     const amenitiesData = {
       // Basic amenities (user selected + default locked)
       basic: [
-        ...selectedAmenities,
-        ...defaultAmenities.map(d => ({ name: d.name, available: true, type: 'Included', rate: 0 }))
+        ...selectedAmenities.map(a => ({
+          ...a,
+          maxQuantity: a.maxQuantity === '' || a.maxQuantity === undefined || a.maxQuantity === null ? null : Number(a.maxQuantity)
+        })),
+        ...defaultAmenities.map(d => ({ name: d.name, available: true, type: 'Included', rate: 0, maxQuantity: null }))
       ],
       
       // Beverages - only include if available is true
@@ -236,14 +239,22 @@ export default function Step3Amenities() {
         available: true, 
         type: 'Included', 
         rate: 0,
-        rateType: 'Fixed' // Default to Fixed
+        rateType: 'Fixed', // Default to Fixed
+        maxQuantity: null // Blank/empty means unlimited
       }]);
     }
   };
 
   const updateAmenityType = (amenityName, type) => {
     setSelectedAmenities(prev => prev.map(a => 
-      a.name === amenityName ? { ...a, type, rate: type === 'Included' ? 0 : a.rate } : a
+      a.name === amenityName
+        ? {
+            ...a,
+            type,
+            rate: type === 'Included' ? 0 : a.rate,
+            maxQuantity: type === 'Included' ? null : a.maxQuantity
+          }
+        : a
     ));
   };
 
@@ -256,6 +267,14 @@ export default function Step3Amenities() {
   const updateAmenityRateType = (amenityName, rateType) => {
     setSelectedAmenities(prev => prev.map(a => 
       a.name === amenityName ? { ...a, rateType } : a
+    ));
+  };
+
+  const updateAmenityMaxQuantity = (amenityName, maxQuantity) => {
+    setSelectedAmenities(prev => prev.map(a =>
+      a.name === amenityName
+        ? { ...a, maxQuantity: maxQuantity === '' ? null : Number(maxQuantity) }
+        : a
     ));
   };
 
@@ -430,6 +449,15 @@ export default function Step3Amenities() {
                                   <option value="Fixed">Fixed</option>
                                   <option value="Per Use">Per Use</option>
                                 </select>
+                                <span className="text-xs text-gray-600 ml-1">Max:</span>
+                                <input
+                                  type="number"
+                                  value={selected.maxQuantity ?? ''}
+                                  onChange={(e) => updateAmenityMaxQuantity(amenity, e.target.value)}
+                                  placeholder="Unlimited"
+                                  className="w-28 px-2 py-1 border border-gray-300 rounded text-xs"
+                                  min="1"
+                                />
                               </div>
                             )}
                           </div>

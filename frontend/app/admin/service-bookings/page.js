@@ -53,7 +53,7 @@ export default function AdminServiceBookings() {
     } else toast.error(data.message);
   };
 
-  const bNum = (b) => b?.bookingNumber || b?.quotationNumber || '—';
+  const bNum = (b) => b?.bookingNumber || '—';
 
   const filtered = bookings.filter(b => {
     if (!search) return true;

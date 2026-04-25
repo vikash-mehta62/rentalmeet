@@ -10,7 +10,7 @@ import ServiceQuotationModal from '@/components/service/ServiceQuotationModal';
 import {
   ArrowLeft, MapPin, BadgeCheck, Package, FileText,
   Plus, Minus, Download, ChevronLeft, ChevronRight,
-  Clock, Phone, Globe, Instagram, Facebook, Star, X, CheckCircle2
+  Clock, Globe, Instagram, Facebook, Star, X, CheckCircle2, Share2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -121,8 +121,8 @@ function AvailabilityCalendar({ availability, blockedDates, advanceBooking, cust
             <button key={i} disabled={disabled || !day}
               onClick={() => {
                 if (!day || disabled) return;
-                const d = new Date(year, month, day);
-                onSelectDate(d.toISOString().slice(0,10));
+                const local = `${year}-${String(month + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                onSelectDate(local);
               }}
               className={`aspect-square rounded-lg text-xs font-medium transition-all
                 ${!day ? 'invisible' : ''}
@@ -159,6 +159,8 @@ export default function ServiceDetailPage() {
 
   // Selection state
   const [selectedDate, setSelectedDate] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedTime, setSelectedTime] = useState('');
   const [quantities, setQuantities] = useState({});
 
   // Booking modal state
@@ -169,6 +171,12 @@ export default function ServiceDetailPage() {
 
   // Quotation modal (after booking)
   const [showQuotationModal, setShowQuotationModal] = useState(false);
+
+  // Coupon state
+  const [couponCode, setCouponCode] = useState('');
+  const [couponApplied, setCouponApplied] = useState(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [availableCoupons, setAvailableCoupons] = useState([]);
 
   // Auto-fill form from logged-in user
   useEffect(() => {
@@ -202,12 +210,16 @@ export default function ServiceDetailPage() {
       .then(r => r.json())
       .then(d => { if (d.success) setPlatformSettings(d.settings); })
       .catch(() => {});
+
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/service-coupons?serviceId=${id}`)
+      .then(r => r.json())
+      .then(d => { if (d.success) setAvailableCoupons(d.coupons || []); })
+      .catch(() => {});
   }, [id]);
 
-  // Coupon state
-  const [couponCode, setCouponCode] = useState('');
-  const [couponApplied, setCouponApplied] = useState(null);
-  const [couponLoading, setCouponLoading] = useState(false);
+  useEffect(() => {
+    setSelectedTime('');
+  }, [selectedDate]);
 
   if (loading) return (
     <div className="min-h-screen bg-gray-50">
@@ -249,31 +261,56 @@ export default function ServiceDetailPage() {
   const platformFeeGst = Math.round(platformFee * (platformCgstPct + platformSgstPct) / 100);
   const total = subtotal + serviceCgst + serviceSgst + platformFee + platformFeeGst;
   const hasItems = subtotal > 0;
-  const quoteNo = `QT-${id.slice(-6).toUpperCase()}-${Date.now().toString().slice(-4)}`;
   const setQty = (i, delta) => setQuantities(prev => ({ ...prev, [i]: Math.max(0, (prev[i] || 0) + delta) }));
+  const toMinutes = (t) => {
+    if (!t || !t.includes(':')) return null;
+    const [h, m] = t.split(':').map(Number);
+    if (Number.isNaN(h) || Number.isNaN(m)) return null;
+    return h * 60 + m;
+  };
+  const formatSlot = (mins) => {
+    const h24 = Math.floor(mins / 60);
+    const m = mins % 60;
+    const suffix = h24 >= 12 ? 'PM' : 'AM';
+    const h12 = h24 % 12 || 12;
+    return `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${suffix}`;
+  };
+  const selectedDayName = selectedDate ? DAYS[new Date(`${selectedDate}T00:00:00`).getDay()] : null;
+  const selectedDayAvailability = selectedDayName
+    ? (svc.availability || []).find(a => a.isAvailable && a.day === selectedDayName)
+    : null;
+  const timeSlots = (() => {
+    if (!selectedDayAvailability?.startTime || !selectedDayAvailability?.endTime) return [];
+    const start = toMinutes(selectedDayAvailability.startTime);
+    const end = toMinutes(selectedDayAvailability.endTime);
+    if (start === null || end === null || end <= start) return [];
+    const slots = [];
+    for (let mins = start; mins <= end; mins += 30) slots.push(formatSlot(mins));
+    return slots;
+  })();
 
   const handleBookNow = () => {
     if (!selectedDate) { toast.error('Please select an event date'); return; }
+    if (!selectedTime) { toast.error('Please select a start time'); return; }
     if (!hasItems) { toast.error('Please select at least one service'); return; }
     setBookingModal('form');
   };
 
-  // Create booking record (shared helper)
-  const createBookingRecord = async () => {
+  // Build booking payload for API
+  const buildBookingPayload = (extra = {}) => {
     const items = packages
       .map((pkg, i) => ({ name: pkg.name, price: pkg.price || 0, unit: pkg.unit, quantity: quantities[i] || 0, amount: (pkg.price || 0) * (quantities[i] || 0) }))
       .filter(it => it.quantity > 0);
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/service-bookings`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        serviceId: id, eventDate: selectedDate,
-        customerInfo: form, items,
-        pricing: { subtotal, serviceCgst, serviceSgst, cgstPct, sgstPct, platformFee, platformFeePct, platformFeeGst, total },
-        couponCode: couponApplied?.code || undefined
-      })
-    });
-    return res.json();
+    const notesWithTime = [form.notes?.trim(), selectedTime ? `Preferred Time: ${selectedTime}` : ''].filter(Boolean).join(' | ');
+    return {
+      serviceId: id,
+      eventDate: selectedDate,
+      customerInfo: { ...form, notes: notesWithTime },
+      items,
+      pricing: { subtotal, serviceCgst, serviceSgst, cgstPct, sgstPct, platformFee, platformFeePct, platformFeeGst, total },
+      couponCode: couponApplied?.code || undefined,
+      ...extra
+    };
   };
 
   // Download quotation without payment
@@ -281,39 +318,66 @@ export default function ServiceDetailPage() {
     if (!form.name.trim() || !form.email.trim() || !form.phone.trim()) { toast.error('Name, email & phone required'); return; }
     setSubmitting(true);
     try {
-      const data = await createBookingRecord();
-      if (data.success) {
-        setBooking(data.booking);
-        setBookingModal(false);
-        setShowQuotationModal(true);
-        toast.success('Quotation ready to download!');
-      } else toast.error(data.message);
+      // Do not create booking for quotation-only flow
+      const tempQuotation = {
+        quotationNumber: `SVC-QTN-TEMP-${Date.now().toString().slice(-6)}`,
+        customerInfo: {
+          ...form,
+          notes: [form.notes?.trim(), selectedTime ? `Preferred Time: ${selectedTime}` : ''].filter(Boolean).join(' | ')
+        },
+        serviceSnapshot: {
+          title: svc.title,
+          category: svc.category,
+          companyName: svc.companyName || svc.vendor?.companyName,
+          city: svc.city,
+          state: svc.state
+        },
+        eventDate: selectedDate,
+        items: (packages || [])
+          .map((pkg, i) => ({ name: pkg.name, price: pkg.price || 0, unit: pkg.unit, quantity: quantities[i] || 0, amount: (pkg.price || 0) * (quantities[i] || 0) }))
+          .filter(it => it.quantity > 0),
+        pricing: {
+          subtotal,
+          serviceCGST: serviceCgst,
+          serviceSGST: serviceSgst,
+          cgstPct,
+          sgstPct,
+          platformFee,
+          platformFeePct,
+          platformFeeGST: platformFeeGst,
+          total: finalTotal,
+          discount: couponApplied?.discountAmount || 0
+        },
+        coupon: couponApplied ? { code: couponApplied.code, discountAmount: couponApplied.discountAmount } : undefined,
+        status: 'enquiry',
+        paymentStatus: 'pending'
+      };
+      setBooking(tempQuotation);
+      setBookingModal(false);
+      setShowQuotationModal(true);
+      toast.success('Quotation ready to download!');
     } catch { toast.error('Something went wrong'); }
     finally { setSubmitting(false); }
   };
 
   const handleSubmitBooking = async () => {
+    if (!selectedDate) { toast.error('Event date required'); return; }
+    if (!selectedTime) { toast.error('Start time required'); return; }
     if (!form.name.trim()) { toast.error('Full name required'); return; }
     if (!form.email.trim()) { toast.error('Email required'); return; }
     if (!form.phone.trim()) { toast.error('Phone required'); return; }
     setSubmitting(true);
     try {
-      // Step 1: Create booking record (pending payment)
-      const bookData = await createBookingRecord();
-      if (!bookData.success) { toast.error(bookData.message); setSubmitting(false); return; }
-
-      const createdBooking = bookData.booking;
-
-      // Step 2: Create Razorpay order
+      // Step 1: Create Razorpay order first (no booking before payment)
       const orderRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payment/create-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ amount: finalTotal, bookingId: createdBooking._id, bookingType: 'service' })
+        body: JSON.stringify({ amount: finalTotal, bookingType: 'service' })
       });
       const orderData = await orderRes.json();
       if (!orderData.success) { toast.error('Payment setup failed'); setSubmitting(false); return; }
 
-      // Step 3: Open Razorpay checkout
+        // Step 2: Open Razorpay checkout
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: orderData.order.amount,
@@ -324,7 +388,7 @@ export default function ServiceDetailPage() {
         prefill: { name: form.name, email: form.email, contact: form.phone },
         theme: { color: '#F59E0B' },
         handler: async (response) => {
-          // Step 4: Verify payment
+          // Step 3: Verify payment signature
           const verifyRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payment/verify`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -332,16 +396,35 @@ export default function ServiceDetailPage() {
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
-              bookingId: createdBooking._id,
               bookingType: 'service',
-              paidAmount: total
+              paidAmount: finalTotal
             })
           });
           const verifyData = await verifyRes.json();
           if (verifyData.success) {
-            setBooking(verifyData.booking);
-            setBookingModal('success');
-            toast.success('Payment successful! Booking confirmed.');
+            // Step 4: Create booking only after successful payment verification
+            const bookingRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/service-bookings`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(buildBookingPayload({
+                status: 'confirmed',
+                paymentStatus: 'paid',
+                amount: finalTotal,
+                paymentDetails: {
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature
+                }
+              }))
+            });
+            const bookData = await bookingRes.json();
+            if (bookData.success) {
+              setBooking(bookData.booking);
+              setBookingModal('success');
+              toast.success('Payment successful! Booking confirmed.');
+            } else {
+              toast.error(bookData.message || 'Payment done but booking creation failed. Contact support.');
+            }
           } else {
             toast.error('Payment verification failed. Contact support.');
           }
@@ -365,14 +448,14 @@ export default function ServiceDetailPage() {
   };
 
   // Availability days display
-  const handleApplyCoupon = async () => {
-    if (!couponCode.trim()) return;
+  const applyCouponByCode = async (code) => {
+    if (!code?.trim()) return;
     setCouponLoading(true);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/service-coupons/validate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: couponCode, serviceId: id, bookingAmount: total })
+        body: JSON.stringify({ code: code.trim(), serviceId: id, bookingAmount: total })
       });
       const data = await res.json();
       if (data.success) {
@@ -382,9 +465,11 @@ export default function ServiceDetailPage() {
     } catch { toast.error('Failed to validate coupon'); }
     finally { setCouponLoading(false); }
   };
+  const handleApplyCoupon = async () => applyCouponByCode(couponCode);
 
   const finalTotal = couponApplied ? Math.max(0, total - couponApplied.discountAmount) : total;
   const availDays = (svc.availability || []).filter(a => a.isAvailable);
+  const visibleCoupons = (availableCoupons || []).filter(c => !c.minBookingAmount || total >= c.minBookingAmount);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -515,19 +600,6 @@ export default function ServiceDetailPage() {
                           );
                         })}
                       </tbody>
-                      {hasItems && (
-                        <tfoot className="border-t border-gray-200">
-                          <tr><td colSpan={4} className="px-4 py-1.5 text-right text-gray-500 text-xs">Subtotal</td><td className="px-4 py-1.5 text-right font-medium">₹{subtotal.toLocaleString()}</td></tr>
-                          <tr><td colSpan={4} className="px-4 py-1.5 text-right text-gray-500 text-xs">CGST ({cgstPct}%)</td><td className="px-4 py-1.5 text-right font-medium">₹{serviceCgst.toLocaleString()}</td></tr>
-                          <tr><td colSpan={4} className="px-4 py-1.5 text-right text-gray-500 text-xs">SGST ({sgstPct}%)</td><td className="px-4 py-1.5 text-right font-medium">₹{serviceSgst.toLocaleString()}</td></tr>
-                          <tr><td colSpan={4} className="px-4 py-1.5 text-right text-gray-500 text-xs">Platform Fee ({platformFeePct}%)</td><td className="px-4 py-1.5 text-right font-medium">₹{platformFee.toLocaleString()}</td></tr>
-                          <tr><td colSpan={4} className="px-4 py-1.5 text-right text-gray-500 text-xs">Platform GST ({platformCgstPct + platformSgstPct}%)</td><td className="px-4 py-1.5 text-right font-medium">₹{platformFeeGst.toLocaleString()}</td></tr>
-                          <tr className="bg-primary-50">
-                            <td colSpan={4} className="px-4 py-2 text-right font-bold">Total</td>
-                            <td className="px-4 py-2 text-right font-black text-primary-600">₹{total.toLocaleString()}</td>
-                          </tr>
-                        </tfoot>
-                      )}
                     </table>
                   </div>
                 </div>
@@ -536,63 +608,154 @@ export default function ServiceDetailPage() {
 
             {/* RIGHT — Booking Sidebar */}
             <div className="lg:col-span-1">
-              <div className="sticky top-28 space-y-4">
+              <div className="sticky top-28 space-y-3">
+                <div className="bg-[#fffcf5] rounded-2xl p-5 border border-gray-200 shadow-sm space-y-4">
+                  <h3 className="font-serif text-lg font-bold text-gray-900 mb-2">Book This Service</h3>
 
-                {/* Price + Book Now */}
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                  <p className="text-xs text-gray-400 mb-1">Starting from</p>
-                  <p className="text-2xl font-black text-gray-900">
-                    {svc.startingPrice ? `₹${svc.startingPrice.toLocaleString()}` : 'Price on request'}
-                    {svc.startingPrice && <span className="text-sm font-normal text-gray-400 ml-1">onwards</span>}
-                  </p>
-                  {svc.contactInfo?.primaryMobile && (
-                    <a href={`tel:${svc.contactInfo.primaryMobile}`}
-                      className="flex items-center gap-2 mt-2 text-sm text-primary-600 hover:underline font-medium">
-                      <Phone className="w-4 h-4" />+91 {svc.contactInfo.primaryMobile}
-                    </a>
-                  )}
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">Starting from</p>
+                    <p className="text-2xl font-bold text-primary-600">
+                      {svc.startingPrice ? `₹${svc.startingPrice.toLocaleString()}` : 'Price on request'}
+                      {svc.startingPrice && <span className="text-sm font-normal text-gray-400 ml-1">onwards</span>}
+                    </p>
+                  </div>
+
+                  <div className="border-t border-gray-200 pt-4">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1">Select Date</label>
+                        <button
+                          type="button"
+                          onClick={() => setShowDatePicker(v => !v)}
+                          className="w-full text-left px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white hover:border-primary-400 focus:ring-2 focus:ring-primary-500"
+                        >
+                          {selectedDate
+                            ? new Date(`${selectedDate}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                            : 'Pick a date'}
+                        </button>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1">Start Time</label>
+                        <select
+                          value={selectedTime}
+                          onChange={(e) => setSelectedTime(e.target.value)}
+                          disabled={!selectedDate || timeSlots.length === 0}
+                          className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-primary-500 disabled:opacity-60"
+                        >
+                          <option value="">{!selectedDate ? 'Select date first' : (timeSlots.length === 0 ? 'No slot available' : 'Select time')}</option>
+                          {timeSlots.map((slot) => (
+                            <option key={slot} value={slot}>{slot}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    {showDatePicker && (
+                      <div className="mt-2">
+                        <AvailabilityCalendar
+                          availability={svc.availability}
+                          blockedDates={svc.blockedDates}
+                          advanceBooking={svc.advanceBooking}
+                          customAdvanceDays={svc.customAdvanceDays}
+                          selectedDate={selectedDate}
+                          onSelectDate={(val) => { setSelectedDate(val); setShowDatePicker(false); }}
+                        />
+                      </div>
+                    )}
+                    {selectedDate && (
+                      <div className="mt-2 flex items-center justify-between bg-primary-50 rounded-xl px-3 py-2">
+                        <span className="text-xs font-semibold text-primary-700">
+                          {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                        </span>
+                        <button onClick={() => { setSelectedDate(''); setShowDatePicker(false); }} className="text-gray-400 hover:text-gray-600"><X className="w-3.5 h-3.5" /></button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-xl border border-yellow-200 bg-white overflow-hidden text-sm">
+                    <div className="px-3 py-2 border-b border-yellow-200 bg-[#fff8e9]">
+                      <p className="font-semibold text-gray-700">Pricing Summary</p>
+                    </div>
+                    <div className="px-3 py-2.5 space-y-1 text-xs">
+                      <div className="flex justify-between text-gray-600"><span>Base Price:</span><span className="font-semibold">₹{subtotal.toLocaleString()}</span></div>
+                      <div className="flex justify-between text-gray-600"><span>CGST ({cgstPct}%)</span><span>₹{serviceCgst.toLocaleString()}</span></div>
+                      <div className="flex justify-between text-gray-600"><span>SGST ({sgstPct}%)</span><span>₹{serviceSgst.toLocaleString()}</span></div>
+                      <div className="flex justify-between text-gray-600"><span>Platform Fee ({platformFeePct}%)</span><span>₹{platformFee.toLocaleString()}</span></div>
+                      <div className="flex justify-between text-gray-600"><span>Platform GST ({platformCgstPct + platformSgstPct}%)</span><span>₹{platformFeeGst.toLocaleString()}</span></div>
+                      {couponApplied && (
+                        <div className="flex justify-between text-green-600 font-semibold">
+                          <span>Coupon ({couponApplied.code})</span>
+                          <span>- ₹{couponApplied.discountAmount.toLocaleString()}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="px-3 py-2.5 bg-[#fff8e9] border-t border-yellow-200 flex items-center justify-between">
+                      <span className="font-bold text-gray-900">Estimated Total:</span>
+                      <span className="font-black text-primary-600 text-xl">₹{finalTotal.toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <input type="text" placeholder="Coupon code" value={couponCode}
+                        onChange={e => { setCouponCode(e.target.value.toUpperCase()); setCouponApplied(null); }}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none uppercase" />
+                      <button onClick={handleApplyCoupon} disabled={couponLoading || !couponCode.trim()}
+                        className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors">
+                        {couponLoading ? '...' : 'Apply'}
+                      </button>
+                    </div>
+                    {svc.minimumOrderPrice > 0 && (
+                      <p className="text-center text-[10px] text-gray-400">
+                        Minimum order: ₹{svc.minimumOrderPrice.toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+
                   <button onClick={handleBookNow}
-                    disabled={!svc.isActive || !hasItems || !selectedDate || (svc.minimumOrderPrice && subtotal < svc.minimumOrderPrice)}
-                    className="w-full mt-4 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-bold text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                    disabled={!svc.isActive || !hasItems || !selectedDate || !selectedTime || (svc.minimumOrderPrice && subtotal < svc.minimumOrderPrice)}
+                    className="w-full py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-bold text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                     {!svc.isActive ? 'Service Unavailable'
                       : !selectedDate ? 'Select a Date First'
+                      : !selectedTime ? 'Select a Time First'
                       : !hasItems ? 'Select Services First'
-                      : (svc.minimumOrderPrice && subtotal < svc.minimumOrderPrice) ? `Min. Order ₹${svc.minimumOrderPrice.toLocaleString()} (₹${(svc.minimumOrderPrice - subtotal).toLocaleString()} more)`
-                      : '🎉 Book Now'}
+                      : (svc.minimumOrderPrice && subtotal < svc.minimumOrderPrice) ? `Min. Order ₹${svc.minimumOrderPrice.toLocaleString()}`
+                      : 'Reserve Now'}
                   </button>
-                  {hasItems && selectedDate && (
-                    <p className="text-center text-xs text-gray-400 mt-2">Total: <strong className="text-primary-600">₹{total.toLocaleString()}</strong></p>
-                  )}
-                  {svc.minimumOrderPrice > 0 && (
-                    <p className="text-center text-[10px] text-gray-400 mt-1">
-                      Minimum order: ₹{svc.minimumOrderPrice.toLocaleString()}
-                      {subtotal > 0 && subtotal < svc.minimumOrderPrice && (
-                        <span className="text-orange-500 font-semibold"> · ₹{(svc.minimumOrderPrice - subtotal).toLocaleString()} more needed</span>
-                      )}
-                    </p>
-                  )}
                 </div>
 
-                {/* Calendar */}
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                  <h3 className="font-bold text-gray-900 mb-3 text-sm">Select Event Date</h3>
-                  <AvailabilityCalendar
-                    availability={svc.availability}
-                    blockedDates={svc.blockedDates}
-                    advanceBooking={svc.advanceBooking}
-                    customAdvanceDays={svc.customAdvanceDays}
-                    selectedDate={selectedDate}
-                    onSelectDate={setSelectedDate}
-                  />
-                  {selectedDate && (
-                    <div className="mt-2 flex items-center justify-between bg-primary-50 rounded-xl px-3 py-2">
-                      <span className="text-xs font-semibold text-primary-700">
-                        {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                      </span>
-                      <button onClick={() => setSelectedDate('')} className="text-gray-400 hover:text-gray-600"><X className="w-3.5 h-3.5" /></button>
+                <button type="button" className="w-full rounded-xl border border-primary-500 bg-white text-primary-600 py-2.5 text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary-50 transition-colors">
+                  <Share2 className="w-4 h-4" />
+                  Share Service
+                </button>
+
+                {visibleCoupons.length > 0 && (
+                  <div className="rounded-2xl border border-green-300 bg-green-50 p-3">
+                    <span className="inline-flex items-center rounded-lg border border-green-300 bg-green-100 px-3 py-1 text-sm font-semibold text-green-800">
+                      Available Coupons
+                    </span>
+                    <div className="mt-3 space-y-2">
+                      {visibleCoupons.slice(0, 3).map((c) => (
+                        <div key={c._id} className="rounded-lg border border-green-300 bg-white px-3 py-2 flex items-center justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-bold text-green-800">{c.code}</p>
+                            <p className="text-xs text-gray-500">
+                              {c.discountType === 'percentage'
+                                ? `${c.discountValue}% off${c.maxDiscount ? ` (max ₹${Number(c.maxDiscount).toLocaleString()})` : ''}`
+                                : `₹${Number(c.discountValue).toLocaleString()} off`}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => { setCouponCode(c.code); applyCouponByCode(c.code); }}
+                            className="text-xs font-semibold text-green-700 hover:text-green-800"
+                          >
+                            Copy
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -656,6 +819,7 @@ export default function ServiceDetailPage() {
                     <p className="font-bold text-gray-900">{svc.title}</p>
                     <p className="text-xs text-gray-500 mt-0.5">{svc.vendor?.companyName || svc.vendor?.name} · {[svc.city, svc.state].filter(Boolean).join(', ')}</p>
                     <p className="text-xs font-semibold text-primary-700 mt-1">📅 {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                    {selectedTime && <p className="text-xs font-semibold text-primary-700 mt-1">Start Time: {selectedTime}</p>}
                   </div>
 
                   {/* Customer */}
@@ -771,3 +935,4 @@ export default function ServiceDetailPage() {
     </div>
   );
 }
+

@@ -58,20 +58,24 @@ const serviceBookingSchema = new mongoose.Schema({
   downloadedAt: Date,
 }, { timestamps: true });
 
-// Auto-generate booking number using Counter (clean sequential: SB-YYYY-NNNN)
+// Auto-generate separate booking and quotation numbers
 serviceBookingSchema.pre('save', async function(next) {
-  if (this.isNew && !this.bookingNumber) {
+  if (this.isNew) {
     try {
       const Counter = require('./Counter');
       const year = new Date().getFullYear();
-      const seq = await Counter.getNextSequence(`service_booking_${year}`);
-      this.bookingNumber = `SB-${year}-${String(seq).padStart(4, '0')}`;
-      // also set quotationNumber for backward compat
-      if (!this.quotationNumber) this.quotationNumber = this.bookingNumber;
+      if (!this.bookingNumber) {
+        const bookingSeq = await Counter.getNextSequence(`service_booking_order_${year}`);
+        this.bookingNumber = `SVC-ORD-${year}-${String(bookingSeq).padStart(4, '0')}`;
+      }
+      if (!this.quotationNumber) {
+        const quotationSeq = await Counter.getNextSequence(`service_booking_quote_${year}`);
+        this.quotationNumber = `SVC-QTN-${year}-${String(quotationSeq).padStart(6, '0')}`;
+      }
     } catch (e) {
-      const fallback = `SB-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
-      this.bookingNumber = fallback;
-      if (!this.quotationNumber) this.quotationNumber = fallback;
+      const year = new Date().getFullYear();
+      if (!this.bookingNumber) this.bookingNumber = `SVC-ORD-${year}-${Date.now().toString().slice(-6)}`;
+      if (!this.quotationNumber) this.quotationNumber = `SVC-QTN-${year}-${Date.now().toString().slice(-6)}`;
     }
   }
   next();

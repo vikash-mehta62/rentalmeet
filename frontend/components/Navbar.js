@@ -94,7 +94,7 @@ export default function Navbar() {
                 localStorage.removeItem('pendingBooking');
               }}
             >
-              <img src="/logo.png" alt="RentalMeet Logo" className="h-14 w-auto object-contain" />
+              <img src="/logo.png" alt="RentalMeet Logo" className="h-10 sm:h-11 w-auto object-contain" />
             </Link>
 
             {/* Desktop Nav Links */}
@@ -240,7 +240,7 @@ export default function Navbar() {
             <div className="flex flex-col h-full">
               <div className="p-6 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2">
-                  <img src="/logo.png" alt="RentalMeet" className="h-10 w-auto object-contain" />
+                  <img src="/logo.png" alt="RentalMeet" className="h-8 w-auto object-contain" />
                   <span className="text-base font-black text-slate-900 dark:text-slate-100">RentalMeet</span>
                 </div>
                 <button onClick={() => setMobileMenuOpen(false)} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500 dark:text-slate-300">
