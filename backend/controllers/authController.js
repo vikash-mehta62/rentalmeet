@@ -1,6 +1,8 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const User = require('../models/User');
 const Counter = require('../models/Counter');
+const { sendEmail } = require('../utils/emailService');
 
 // Helper function to generate user ID
 // Format: RM-ROLE-YEAR-SEQUENCE
@@ -434,7 +436,7 @@ exports.deactivateAccount = async (req, res) => {
   }
 };
 
-// @desc    Upload KYC documents (ID proof front + back + selfie)
+// @desc    Upload KYC documents (ID proof front + back + selfie + address proof)
 // @route   POST /api/auth/kyc-upload
 exports.uploadKYC = async (req, res) => {
   try {
@@ -442,7 +444,7 @@ exports.uploadKYC = async (req, res) => {
     const { uploadToCloudinary } = require('../config/cloudinary');
     const { idProofType } = req.body;
 
-    if (!req.files || (!req.files.idProof && !req.files.selfie && !req.files.idProofBack)) {
+    if (!req.files || (!req.files.idProof && !req.files.selfie && !req.files.idProofBack && !req.files.addressProof)) {
       return res.status(400).json({ success: false, message: 'Please upload at least one document' });
     }
 
@@ -462,6 +464,11 @@ exports.uploadKYC = async (req, res) => {
     if (req.files.selfie && req.files.selfie[0]) {
       const result = await uploadToCloudinary(req.files.selfie[0].buffer, 'kyc/selfies');
       updates['kyc.selfie'] = result.secure_url;
+    }
+
+    if (req.files.addressProof && req.files.addressProof[0]) {
+      const result = await uploadToCloudinary(req.files.addressProof[0].buffer, 'kyc/address-proofs');
+      updates['kyc.addressProof'] = result.secure_url;
     }
 
     const user = await User.findByIdAndUpdate(
@@ -545,5 +552,156 @@ exports.employeeSelfUpdate = async (req, res) => {
   } catch (error) {
     console.error('Employee self-update error:', error);
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Request forgot password OTP
+// @route   POST /api/auth/forgot-password
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required'
+      });
+    }
+
+    const user = await User.findOne({ email: String(email).trim().toLowerCase() }).select('+resetPasswordToken +resetPasswordExpire');
+
+    // Always return success response to avoid email enumeration
+    if (!user) {
+      return res.json({
+        success: true,
+        message: 'If this email is registered, reset OTP has been sent.'
+      });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const hashedOtp = crypto.createHash('sha256').update(otp).digest('hex');
+
+    user.resetPasswordToken = hashedOtp;
+    user.resetPasswordExpire = Date.now() + (10 * 60 * 1000); // 10 minutes
+    await user.save({ validateBeforeSave: false });
+
+    const html = `
+      <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
+        <h2 style="margin-bottom:8px">Reset Your RentalMeet Password</h2>
+        <p style="margin:0 0 14px">Hi ${user.name || 'User'},</p>
+        <p style="margin:0 0 14px">Use the OTP below to reset your password. This OTP is valid for 10 minutes.</p>
+        <div style="font-size:28px;font-weight:700;letter-spacing:6px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:14px 18px;display:inline-block;color:#9a3412">
+          ${otp}
+        </div>
+        <p style="margin:16px 0 0;color:#6b7280">If you did not request this, please ignore this email.</p>
+      </div>
+    `;
+
+    await sendEmail({
+      email: user.email,
+      subject: 'RentalMeet Password Reset OTP',
+      html
+    });
+
+    return res.json({
+      success: true,
+      message: 'If this email is registered, reset OTP has been sent.'
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to process forgot password request'
+    });
+  }
+};
+
+// @desc    Reset password with OTP
+// @route   POST /api/auth/reset-password
+exports.resetPassword = async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email, OTP and new password are required'
+      });
+    }
+
+    if (String(newPassword).length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters'
+      });
+    }
+
+    const hashedOtp = crypto.createHash('sha256').update(String(otp).trim()).digest('hex');
+
+    const user = await User.findOne({
+      email: String(email).trim().toLowerCase(),
+      resetPasswordToken: hashedOtp,
+      resetPasswordExpire: { $gt: Date.now() }
+    }).select('+password +resetPasswordToken +resetPasswordExpire');
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired OTP'
+      });
+    }
+
+    user.password = newPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: 'Password reset successfully. Please login.'
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to reset password'
+    });
+  }
+};
+
+// @desc    Get referrer details by referral code
+// @route   GET /api/auth/referrer/:code
+exports.getReferrerByCode = async (req, res) => {
+  try {
+    const code = String(req.params.code || '').trim().toUpperCase();
+    if (!code) {
+      return res.status(400).json({
+        success: false,
+        message: 'Referral code is required'
+      });
+    }
+
+    const referrer = await User.findOne({ referralCode: code }).select('name email role referralCode');
+    if (!referrer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Invalid referral code'
+      });
+    }
+
+    return res.json({
+      success: true,
+      referrer: {
+        name: referrer.name,
+        email: referrer.email,
+        role: referrer.role,
+        referralCode: referrer.referralCode
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };

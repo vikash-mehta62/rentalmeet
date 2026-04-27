@@ -840,7 +840,7 @@ export default function AdminUsers() {
                   <h3 className="text-lg font-semibold mb-3 text-blue-900 flex items-center gap-2">
                     <Shield className="w-5 h-5" />
                     KYC Documents
-                    {selectedUser.kyc?.idProof && selectedUser.kyc?.selfie ? (
+                    {selectedUser.kyc?.idProof && selectedUser.kyc?.selfie && selectedUser.kyc?.addressProof ? (
                       <span className="ml-auto px-2.5 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-bold flex items-center gap-1">
                         <CheckCircle className="w-3 h-3" /> Verified
                       </span>
@@ -850,7 +850,7 @@ export default function AdminUsers() {
                       </span>
                     )}
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {/* ID Proof Front */}
                     <div>
                       <p className="text-xs font-semibold text-gray-500 mb-2">
@@ -893,6 +893,24 @@ export default function AdminUsers() {
                         )}
                       </div>
                     )}
+                    {/* Address Proof */}
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 mb-2">Address Proof</p>
+                      {selectedUser.kyc?.addressProof ? (
+                        <div>
+                          <img src={selectedUser.kyc.addressProof} alt="Address Proof"
+                            className="w-full h-36 object-contain bg-white rounded-lg border border-gray-300 p-2" />
+                          <a href={selectedUser.kyc.addressProof} target="_blank" rel="noopener noreferrer"
+                            className="text-primary-600 hover:text-primary-700 text-xs mt-1.5 inline-flex items-center gap-1 font-medium">
+                            <Eye className="w-3 h-3" /> View / Download
+                          </a>
+                        </div>
+                      ) : (
+                        <div className="h-36 bg-gray-100 rounded-lg border border-dashed border-gray-300 flex items-center justify-center">
+                          <p className="text-xs text-gray-400">Not uploaded</p>
+                        </div>
+                      )}
+                    </div>
                     {/* Selfie */}
                     <div>
                       <p className="text-xs font-semibold text-gray-500 mb-2">Real-time Selfie</p>

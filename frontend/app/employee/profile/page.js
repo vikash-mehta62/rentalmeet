@@ -6,7 +6,7 @@ import { useAuthStore } from '@/lib/store';
 import EmployeeLayout from '@/components/employee/EmployeeLayout';
 import {
   User, Lock, Eye, EyeOff, FileText, CreditCard,
-  Users, Copy, CheckCircle, AlertCircle, Upload, ExternalLink
+  Users, Copy, CheckCircle, AlertCircle, Upload, ExternalLink, Gift, Share2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -34,7 +34,7 @@ export default function EmployeeProfile() {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [fullUser, setFullUser] = useState(null);
-  const [copied, setCopied] = useState(false);
+  const [copyMessage, setCopyMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [uploading, setUploading] = useState({});
   const [uploadedUrls, setUploadedUrls] = useState({});
@@ -209,10 +209,48 @@ export default function EmployeeProfile() {
     finally { setLoading(false); }
   };
 
-  const copyCode = () => {
-    if (!fullUser?.referralCode) return;
-    navigator.clipboard.writeText(fullUser.referralCode);
-    setCopied(true); setTimeout(() => setCopied(false), 2000);
+  const buildReferralLink = (target) => {
+    const code = fullUser?.referralCode || '';
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const baseMap = {
+      customer: `${origin}/register-customer`,
+      venue: `${origin}/register?role=owner`,
+      vendor: `${origin}/register?role=vendor`
+    };
+    const baseUrl = baseMap[target] || baseMap.customer;
+    const separator = baseUrl.includes('?') ? '&' : '?';
+    return `${baseUrl}${separator}ref=${encodeURIComponent(code)}`;
+  };
+
+  const handleCopyLink = async (target) => {
+    const link = buildReferralLink(target);
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopyMessage(`${target}-copied`);
+      setTimeout(() => setCopyMessage(''), 1800);
+    } catch {
+      setCopyMessage('copy-failed');
+      setTimeout(() => setCopyMessage(''), 1800);
+    }
+  };
+
+  const handleShareLink = async (target) => {
+    const link = buildReferralLink(target);
+    const titleMap = {
+      customer: 'Register as Customer',
+      venue: 'Register as Venue Owner',
+      vendor: 'Register as Vendor Partner'
+    };
+    const text = `Use my referral code (${fullUser?.referralCode || ''}) and join RentalMeet.`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: titleMap[target], text, url: link });
+      } else {
+        await navigator.clipboard.writeText(link);
+        setCopyMessage(`${target}-shared`);
+        setTimeout(() => setCopyMessage(''), 1800);
+      }
+    } catch {}
   };
 
   if (!token || user?.role !== 'employee') return null;
@@ -367,10 +405,7 @@ export default function EmployeeProfile() {
             {/* ── PERSONAL EDIT ── */}
             {activeTab === 'personal' && (
               <form onSubmit={handlePersonal} className="space-y-5">
-                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-center gap-1.5">
-                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                  Salary, position, department and employment type can only be changed by admin.
-                </p>
+            
                 <div>
                   <p className={sec}>Basic Info</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -476,17 +511,56 @@ export default function EmployeeProfile() {
             {/* ── REFERRALS ── */}
             {activeTab === 'referrals' && (
               <div className="space-y-4">
-                <div className="bg-primary-50 rounded-xl p-4 border border-primary-200 flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-xs text-gray-500 mb-0.5">Your Referral Code</p>
-                    <p className="text-xl font-bold text-primary-700 tracking-widest">{fullUser?.referralCode || 'N/A'}</p>
-                    <p className="text-xs text-gray-500 mt-1">Total: <span className="font-semibold text-gray-800">{fullUser?.referralCount || 0}</span></p>
+                <div className="bg-gradient-to-br from-purple-500 to-pink-500 text-white rounded-2xl p-6 shadow-lg">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                      <Gift className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">Referral Code</h3>
+                      <p className="text-xs text-white/80">Share & Earn Rewards</p>
+                    </div>
                   </div>
-                  <button type="button" onClick={copyCode}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold rounded-lg transition-colors">
-                    {copied ? <CheckCircle className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    {copied ? 'Copied!' : 'Copy Code'}
-                  </button>
+                  <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 mb-3">
+                    <p className="text-xs text-white/80 mb-1">Your Code</p>
+                    <p className="text-2xl font-black tracking-wider">{fullUser?.referralCode || 'N/A'}</p>
+                  </div>
+                  <div className="flex items-center justify-between text-sm mb-3">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      <span>{fullUser?.referralCount || 0} Referrals</span>
+                    </div>
+                    <span className="text-xs text-white/80">Copy + Share links</span>
+                  </div>
+                  <div className="space-y-2">
+                    {[
+                      { key: 'customer', label: 'Customer to Customer' },
+                      { key: 'venue', label: 'Customer to Venue' },
+                      { key: 'vendor', label: 'Customer to Vendor' }
+                    ].map((item) => (
+                      <div key={item.key} className="flex items-center justify-between gap-2 bg-white/10 rounded-lg px-2.5 py-2">
+                        <span className="text-[11px] font-semibold">{item.label}</span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleCopyLink(item.key)}
+                            className="px-2.5 py-1 bg-white/20 hover:bg-white/30 rounded-md flex items-center gap-1 text-[11px] font-semibold transition-colors"
+                          >
+                            <Copy className="w-3 h-3" />
+                            {copyMessage === `${item.key}-copied` ? 'Copied' : 'Copy'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleShareLink(item.key)}
+                            className="px-2.5 py-1 bg-white/20 hover:bg-white/30 rounded-md flex items-center gap-1 text-[11px] font-semibold transition-colors"
+                          >
+                            <Share2 className="w-3 h-3" />
+                            {copyMessage === `${item.key}-shared` ? 'Shared' : 'Share'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 {fullUser?.referrals?.length > 0 ? (
                   <div className="overflow-x-auto rounded-xl border border-gray-200">

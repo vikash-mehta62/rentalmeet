@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
 import CustomerLayout from '@/components/customer/CustomerLayout';
 import {
-  Calendar, CheckCircle2, XCircle, Clock, Search, Gift, Copy, Users
+  Calendar, CheckCircle2, XCircle, Clock, Search, Gift, Copy, Users, Share2
 } from 'lucide-react';
 
 export default function CustomerDashboard() {
@@ -73,6 +73,50 @@ export default function CustomerDashboard() {
     }
   };
 
+  const buildReferralLink = (target) => {
+    const code = user?.referralCode || '';
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const baseMap = {
+      customer: `${origin}/register-customer`,
+      venue: `${origin}/register?role=owner`,
+      vendor: `${origin}/register?role=vendor`
+    };
+    const baseUrl = baseMap[target] || baseMap.customer;
+    const separator = baseUrl.includes('?') ? '&' : '?';
+    return `${baseUrl}${separator}ref=${encodeURIComponent(code)}`;
+  };
+
+  const handleCopyLink = async (target) => {
+    const link = buildReferralLink(target);
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopyMessage(`${target}-copied`);
+      setTimeout(() => setCopyMessage(''), 1800);
+    } catch {
+      setCopyMessage('copy-failed');
+      setTimeout(() => setCopyMessage(''), 1800);
+    }
+  };
+
+  const handleShareLink = async (target) => {
+    const link = buildReferralLink(target);
+    const titleMap = {
+      venue: 'Register as Venue Owner',
+      vendor: 'Register as Vendor Partner'
+    };
+    const text = `Use my referral code (${user?.referralCode || ''}) and join RentalMeet.`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: titleMap[target], text, url: link });
+      } else {
+        await navigator.clipboard.writeText(link);
+        setCopyMessage(`${target}-shared`);
+        setTimeout(() => setCopyMessage(''), 1800);
+      }
+    } catch {}
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -85,7 +129,7 @@ export default function CustomerDashboard() {
   }
 
   return (
-    <CustomerLayout activePage="dashboard">
+    <CustomerLayout activePage="dashboard" fullWidth>
       {/* Page Header */}
       <div className="bg-gradient-to-r from-primary-500 to-primary-600 px-4 sm:px-6 lg:px-8 py-8 shadow-lg">
         <div>
@@ -219,22 +263,40 @@ export default function CustomerDashboard() {
               <p className="text-2xl font-black tracking-wider">{user?.referralCode || 'LOADING'}</p>
             </div>
             
-            <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center justify-between text-sm mb-3">
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4" />
                 <span>{user?.referralCount || 0} Referrals</span>
               </div>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(user?.referralCode || '');
-                  setCopyMessage('Copied!');
-                  setTimeout(() => setCopyMessage(''), 2000);
-                }}
-                className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-lg flex items-center gap-1 transition-colors"
-              >
-                <Copy className="w-3 h-3" />
-                {copyMessage || 'Copy'}
-              </button>
+              <span className="text-xs text-white/80">Copy + Share links</span>
+            </div>
+
+            <div className="space-y-2">
+              {[
+                { key: 'customer', label: 'For Customer' },
+                { key: 'venue', label: 'For Venue' },
+                { key: 'vendor', label: 'For Vendor' }
+              ].map((item) => (
+                <div key={item.key} className="flex items-center justify-between gap-2 bg-white/10 rounded-lg px-2.5 py-2">
+                  <span className="text-[11px] font-semibold">{item.label}</span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => handleCopyLink(item.key)}
+                      className="px-2.5 py-1 bg-white/20 hover:bg-white/30 rounded-md flex items-center gap-1 text-[11px] font-semibold transition-colors"
+                    >
+                      <Copy className="w-3 h-3" />
+                      {copyMessage === `${item.key}-copied` ? 'Copied' : 'Copy'}
+                    </button>
+                    <button
+                      onClick={() => handleShareLink(item.key)}
+                      className="px-2.5 py-1 bg-white/20 hover:bg-white/30 rounded-md flex items-center gap-1 text-[11px] font-semibold transition-colors"
+                    >
+                      <Share2 className="w-3 h-3" />
+                      {copyMessage === `${item.key}-shared` ? 'Shared' : 'Share'}
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 

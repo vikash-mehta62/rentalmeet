@@ -13,7 +13,7 @@ const NAV = [
   { href: '/vendor/services',            label: 'My Services',         icon: Briefcase },
   { href: '/vendor/bookings',            label: 'Bookings',            icon: BookOpen },
   { href: '/vendor/quotation-downloads', label: 'Quotation Downloads', icon: FileText },
-  { href: '/vendor/coupons',             label: 'Coupons',             icon: Tag },
+  { href: '/vendor/coupons',             label: 'Service Coupons',     icon: Tag },
 ];
 
 export default function VendorLayout({ children, title, subtitle }) {
@@ -60,21 +60,6 @@ export default function VendorLayout({ children, title, subtitle }) {
           </div>
         </div>
 
-        {/* User info */}
-        {!collapsed && (
-          <div className="px-4 py-3 border-b border-gray-100 bg-primary-50">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-primary-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                {user?.name?.charAt(0)?.toUpperCase()}
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-bold text-gray-800 truncate">{user?.name}</p>
-                <p className="text-[10px] text-gray-400 truncate">{user?.companyName || user?.vendorCategory || 'Vendor'}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Nav */}
         <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
           {NAV.map(({ href, label, icon: Icon }) => {
@@ -92,14 +77,6 @@ export default function VendorLayout({ children, title, subtitle }) {
           })}
         </nav>
 
-        {/* Logout */}
-        <div className="px-2 py-4 border-t border-gray-100">
-          <button onClick={handleLogout} title={collapsed ? 'Logout' : undefined}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 w-full transition-colors ${collapsed ? 'justify-center' : ''}`}>
-            <LogOut className="w-4 h-4" />
-            {!collapsed && 'Logout'}
-          </button>
-        </div>
       </aside>
 
       {/* Overlay */}
@@ -116,9 +93,27 @@ export default function VendorLayout({ children, title, subtitle }) {
             {title && <h1 className="text-base font-bold text-gray-900 truncate">{title}</h1>}
             {subtitle && <p className="text-xs text-gray-400 truncate">{subtitle}</p>}
           </div>
-          <button className="p-2 text-gray-400 hover:bg-gray-100 rounded-xl">
-            <Bell className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-3">
+            <button className="hidden sm:flex p-2 text-gray-400 hover:bg-gray-100 rounded-xl relative">
+              <Bell className="w-5 h-5" />
+              <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
+            </button>
+            <div className="h-8 w-px bg-gray-200 hidden sm:block"></div>
+            <div className="hidden sm:flex flex-col text-right leading-tight">
+              <span className="text-sm font-bold text-gray-800 max-w-[180px] truncate">{user?.name || 'Vendor'}</span>
+              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{user?.companyName || user?.vendorCategory || 'Vendor'}</span>
+            </div>
+            <div className="w-10 h-10 rounded-full border-2 border-white shadow-md overflow-hidden bg-slate-100">
+              <img src={user?.profilePicture || `https://ui-avatars.com/api/?name=${user?.name || 'Vendor'}&background=random`} alt="user" />
+            </div>
+            <button
+              onClick={handleLogout}
+              className="inline-flex items-center gap-2 px-3 py-2 text-xs font-bold uppercase tracking-wider text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-50 transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
+          </div>
         </header>
 
         <main className="flex-1 p-4 md:p-6">

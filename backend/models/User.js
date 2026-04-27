@@ -37,6 +37,14 @@ const userSchema = new mongoose.Schema({
     required: true,
     select: false
   },
+  resetPasswordToken: {
+    type: String,
+    select: false
+  },
+  resetPasswordExpire: {
+    type: Date,
+    select: false
+  },
   address: {
     type: String
   },
@@ -82,6 +90,10 @@ const userSchema = new mongoose.Schema({
     },
     selfie: {
       type: String,   // Cloudinary URL (real-time selfie)
+      default: null
+    },
+    addressProof: {
+      type: String,   // Cloudinary URL (address proof)
       default: null
     },
     verifiedAt: {

@@ -7,7 +7,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {
   LayoutDashboard, Building2, Users, BookOpen, Settings,
-  LogOut, Menu, X, IndianRupee, Shield, BarChart3, 
+  LogOut, Menu, X, IndianRupee, Shield, BarChart3, Bell, 
   Grid3x3, MessageSquare, Image as ImageIcon, ChevronLeft, ChevronRight, Tag, FileText, HelpCircle, Briefcase, Package
 } from 'lucide-react';
 
@@ -47,6 +47,7 @@ export default function AdminLayout({ children, title, subtitle }) {
 
     // { name: 'Vendors', href: '/admin/vendors', icon: Briefcase, permission: 'users', section: 'Vendors' },
     { name: 'Vendor Services', href: '/admin/vendor-services', icon: Package, permission: 'users', section: 'Vendors' },
+    { name: 'Vendor Coupons', href: '/admin/vendor-coupons', icon: Tag, permission: 'users', section: 'Vendors' },
     { name: 'Service Bookings', href: '/admin/service-bookings', icon: Package, permission: 'users', section: 'Vendors' },
     { name: 'Service Quotations', href: '/admin/service-quotation-downloads', icon: Package, permission: 'users', section: 'Vendors' },
 
@@ -169,36 +170,6 @@ export default function AdminLayout({ children, title, subtitle }) {
           ))}
         </nav>
 
-        {/* Bottom: Profile & Logout */}
-        <div className="p-3 border-t border-slate-200 bg-slate-100">
-          {!sidebarCollapsed ? (
-            <>
-              <div className="flex items-center gap-3 mb-3 p-2">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center ring-2 ring-amber-500/30 shadow-lg">
-                  <span className="text-white font-bold text-sm">{user?.name?.charAt(0).toUpperCase()}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-800 truncate">{user?.name}</p>
-                  <p className="text-[11px] text-amber-600 uppercase font-bold tracking-wider">
-                    {user?.role === 'admin' ? 'Super Admin' : 'Sub Admin'}
-                  </p>
-                </div>
-              </div>
-              <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition-all duration-200 text-sm font-bold">
-                <LogOut className="w-4 h-4" /> Logout
-              </button>
-            </>
-          ) : (
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center ring-2 ring-amber-500/30 shadow-lg">
-                <span className="text-white font-bold text-sm">{user?.name?.charAt(0).toUpperCase()}</span>
-              </div>
-              <button onClick={handleLogout} title="Logout" className="w-10 h-10 flex items-center justify-center bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition-all duration-200">
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-        </div>
       </aside>
 
       {/* Content Wrapper */}
@@ -217,6 +188,27 @@ export default function AdminLayout({ children, title, subtitle }) {
                 <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">{title}</h2>
                 {subtitle && <p className="text-xs text-slate-500 font-medium italic">{subtitle}</p>}
               </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button className="hidden sm:flex p-2.5 text-slate-400 hover:text-amber-600 transition-all relative">
+                <Bell className="w-5 h-5" />
+                <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
+              </button>
+              <div className="h-8 w-[1px] bg-slate-200 mx-2 hidden sm:block"></div>
+              <div className="hidden sm:flex flex-col text-right leading-tight">
+                <span className="text-sm font-bold text-slate-800 max-w-[180px] truncate">{user?.name || 'Admin'}</span>
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{user?.role === 'admin' ? 'Super Admin' : 'Sub Admin'}</span>
+              </div>
+              <div className="w-10 h-10 rounded-full border-2 border-white shadow-md overflow-hidden bg-slate-100">
+                <img src={user?.profilePicture || `https://ui-avatars.com/api/?name=${user?.name || 'Admin'}&background=random`} alt="user" />
+              </div>
+              <button
+                onClick={handleLogout}
+                className="inline-flex items-center gap-2 px-3 py-2 text-xs font-bold uppercase tracking-wider text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-50 transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
             </div>
           </div>
         </header>

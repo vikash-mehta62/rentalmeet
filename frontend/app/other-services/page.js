@@ -6,97 +6,130 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { serviceCategories, categoryIconMap } from '@/data/serviceData';
 import {
-  Filter, X, Search, MapPin, Heart,
-  Package, Calendar, IndianRupee, User, FileText,
-  CheckCircle2, BadgeCheck, Printer, Plus, Minus,
-  Star, ChevronLeft, ChevronRight
+  Filter, X, Search, MapPin,
+  Package, User,
+  BadgeCheck,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 const BUDGET_MIN = 0;
 const BUDGET_MAX = 1000000;
 
-// ── Vendor Card ───────────────────────────────────────────────────────────
-function VendorCard({ svc, isFavorite, onToggleFavorite }) {
+// â”€â”€ Vendor Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function VendorCard({ svc }) {
   const router = useRouter();
   const cat = categoryIconMap[svc.category];
   const Icon = cat?.icon ?? Package;
+  const serviceImages = [svc.featuredImage, ...(svc.images || [])].filter(Boolean);
+  const hasSideImages = serviceImages.length > 1;
 
   return (
-    <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col md:flex-row">
-      {/* Image */}
-      <div className="relative w-full md:w-72 flex-shrink-0 h-52 md:h-auto overflow-hidden">
-        {svc.featuredImage
-          ? <img src={svc.featuredImage} alt={svc.title} className="w-full h-full object-cover transition-transform duration-500 hover:scale-105" />
-          : <div className="w-full h-full bg-gray-100 flex items-center justify-center"><Package className="w-14 h-14 text-gray-300" /></div>
-        }
-        <div className="absolute top-2 left-2">
-          <span className="bg-white/90 backdrop-blur-sm text-gray-700 text-[10px] font-semibold px-2 py-1 rounded-full flex items-center gap-1">
-            <Icon className="w-3 h-3" />{cat?.label || svc.category}
-          </span>
-        </div>
-        <button
-          onClick={() => onToggleFavorite(svc._id)}
-          className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center shadow-sm transition-all ${isFavorite ? 'bg-red-50 text-red-500' : 'bg-white/80 text-gray-400 hover:text-red-400'}`}>
-          <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
-        </button>
-      </div>
+    <div className="group bg-white rounded-lg border border-slate-200 overflow-hidden flex flex-col sm:flex-row hover:shadow-lg transition-all duration-300">
+      {/* Image Section with Gallery */}
+      <div className="w-full sm:w-80 flex-shrink-0">
+        <div className="flex gap-1 h-52 sm:h-56">
+          <div className="flex-1 relative overflow-hidden bg-slate-100">
+            {serviceImages[0] ? (
+              <img
+                src={serviceImages[0]}
+                alt={svc.title}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              />
+            ) : (
+              <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                <Package className="w-14 h-14 text-gray-300" />
+              </div>
+            )}
+            <div className="absolute top-2 left-2">
+              <span className="bg-white/95 text-gray-700 text-[10px] font-semibold px-2 py-1 rounded-full flex items-center gap-1 shadow-sm">
+                <Icon className="w-3 h-3" />{cat?.label || svc.category}
+              </span>
+            </div>
+          </div>
 
-      {/* Content */}
-      <div className="flex-1 p-5 flex flex-col">
-        <div className="flex items-start justify-between gap-2 mb-1">
-          <h3 className="font-serif text-lg font-bold text-slate-900 leading-tight line-clamp-1">
-            {svc.title}
-          </h3>
-        </div>
-        <div className="flex items-center gap-1.5 text-sm text-gray-500 mb-2">
-          <MapPin className="w-3.5 h-3.5 text-primary-500" />
-          {[svc.city, svc.state].filter(Boolean).join(', ') || '—'}
-        </div>
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-xs text-gray-500 flex items-center gap-1">
-            <BadgeCheck className="w-4 h-4 text-green-600" /> Verified Vendor
-          </span>
-          {svc.vendor?.companyName && (
-            <span className="text-xs text-gray-400">· {svc.vendor.companyName}</span>
+          {hasSideImages && (
+            <div className="w-20 flex flex-col gap-1">
+              {serviceImages.slice(1, 3).map((img, idx) => (
+                <div key={idx} className="flex-1 relative overflow-hidden bg-slate-100 rounded">
+                  <img
+                    src={img}
+                    alt={`${svc.title} ${idx + 2}`}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ))}
+              {serviceImages.length > 3 && (
+                <div className="flex-1 relative overflow-hidden bg-slate-900/80 rounded flex items-center justify-center">
+                  <span className="text-white text-xs font-semibold">+{serviceImages.length - 3}</span>
+                </div>
+              )}
+            </div>
           )}
         </div>
-        {svc.description && (
-          <p className="text-sm text-gray-600 mb-3 line-clamp-2 leading-relaxed">{svc.description}</p>
-        )}
-        {svc.tags?.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-4">
-            {svc.tags.slice(0, 5).map(tag => (
-              <span key={tag} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-[10px] font-medium">{tag}</span>
-            ))}
+      </div>
+
+      {/* Info Section */}
+      <div className="flex-1 p-5 flex flex-col">
+        <div className="flex-1">
+          <h3 className="font-serif text-lg font-bold text-slate-900 mb-1 leading-tight line-clamp-1">
+            {svc.title}
+          </h3>
+          <p className="text-sm text-slate-500 flex items-center gap-1 mb-3">
+            <MapPin className="w-3.5 h-3.5 text-primary-500" />
+            {[svc.city, svc.state].filter(Boolean).join(', ') || '-'}
+          </p>
+
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xs text-slate-500 flex items-center gap-1">
+              <BadgeCheck className="w-4 h-4 text-green-600" /> Verified Vendor
+            </span>
+            {svc.vendor?.companyName && (
+              <span className="text-xs text-slate-400">· {svc.vendor.companyName}</span>
+            )}
           </div>
-        )}
-        <div className="mt-auto flex items-end justify-between gap-4 flex-wrap">
+
+          {svc.description && (
+            <p className="text-sm text-slate-600 mb-2 line-clamp-1">{svc.description}</p>
+          )}
+
+          <div className="flex flex-wrap gap-3 text-xs text-slate-600">
+            {svc.tags?.slice(0, 3).map((tag) => (
+              <span key={tag}>{tag}</span>
+            ))}
+            {(svc.tags?.length || 0) > 3 && (
+              <span className="text-primary-500 font-medium">+ {svc.tags.length - 3} more</span>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-4 pt-4 border-t border-slate-100 flex items-end justify-between">
           <div>
             {svc.startingPrice ? (
-              <>
-                <span className="text-2xl font-black text-gray-900">₹{svc.startingPrice.toLocaleString()}</span>
-                <span className="text-sm text-gray-400 ml-1">onwards</span>
-              </>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-slate-900">
+                  ₹{svc.startingPrice.toLocaleString('en-IN')}
+                </span>
+                <span className="text-xs text-slate-500">onwards</span>
+              </div>
             ) : (
-              <span className="text-sm text-gray-400">Price on request</span>
+              <span className="text-sm text-slate-500">Price on request</span>
             )}
-            <p className="text-[10px] text-gray-400 mt-0.5">Direct booking available</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">Direct booking available</p>
           </div>
-          <div className="flex gap-2 flex-wrap justify-end">
+
+          <div className="flex gap-2">
             <button
               onClick={() => router.push(`/other-services/${svc._id}`)}
-              className="flex items-center gap-1.5 px-4 py-2.5 border-2 border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:border-primary-500 hover:text-primary-500 transition-all">
-              <User className="w-4 h-4" />View Profile
+              className="px-4 py-2 border border-slate-300 rounded-md text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors inline-flex items-center gap-1.5"
+            >
+              <User className="w-4 h-4" />
+              View Profile
             </button>
             <button
               onClick={() => router.push(`/other-services/${svc._id}`)}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 transition-all shadow-lg">
+              className="px-5 py-2 bg-green-600 text-white rounded-md text-sm font-semibold hover:bg-green-700 transition-colors"
+            >
               Book Now
-            </button>
-            <button
-              onClick={() => router.push(`/other-services/${svc._id}`)}
-              className="flex items-center gap-1.5 px-5 py-2.5 bg-primary-500 text-white rounded-xl text-sm font-bold hover:bg-primary-600 transition-all shadow-lg">
-              <FileText className="w-4 h-4" />Get Quotation
             </button>
           </div>
         </div>
@@ -104,8 +137,6 @@ function VendorCard({ svc, isFavorite, onToggleFavorite }) {
     </div>
   );
 }
-
-// ── Filter Panel ──────────────────────────────────────────────────────────
 function FilterPanel({ search, setSearch, citySearch, setCitySearch, budgetRange, setBudgetRange, formatBudget, onReset, selectedCategory, setSelectedCategory }) {
   return (
     <div className="space-y-5">
@@ -128,11 +159,11 @@ function FilterPanel({ search, setSearch, citySearch, setCitySearch, budgetRange
       </div>
       <div>
         <label className="block text-sm font-semibold text-gray-700 mb-1">Budget</label>
-        <p className="text-xs text-gray-500 mb-2">{formatBudget(budgetRange[0])} – {formatBudget(budgetRange[1])}</p>
+        <p className="text-xs text-gray-500 mb-2">{formatBudget(budgetRange[0])} â€“ {formatBudget(budgetRange[1])}</p>
         <input type="range" min={0} max={1000000} step={10000} value={budgetRange[1]}
           onChange={e => setBudgetRange([0, parseInt(e.target.value)])}
           className="w-full accent-primary-500" />
-        <div className="flex justify-between text-[10px] text-gray-400 mt-1"><span>₹0</span><span>₹10L+</span></div>
+        <div className="flex justify-between text-[10px] text-gray-400 mt-1"><span>â‚¹0</span><span>â‚¹10L+</span></div>
       </div>
       <div>
         <label className="block text-sm font-semibold text-gray-700 mb-2">Service Category</label>
@@ -163,7 +194,7 @@ function FilterPanel({ search, setSearch, citySearch, setCitySearch, budgetRange
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────
+// â”€â”€ Main Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function OtherServicesPage() {
   const [services, setServices] = useState([]);
   const [total, setTotal] = useState(0);
@@ -175,7 +206,6 @@ export default function OtherServicesPage() {
   const [search, setSearch] = useState('');
   const [citySearch, setCitySearch] = useState('');
   const [budgetRange, setBudgetRange] = useState([BUDGET_MIN, BUDGET_MAX]);
-  const [favorites, setFavorites] = useState([]);
   const [filterOpen, setFilterOpen] = useState(false);
 
   // Debounced fetch
@@ -203,16 +233,14 @@ export default function OtherServicesPage() {
   // Reset page on filter change
   useEffect(() => { setPage(1); }, [selectedCategory, search, citySearch, budgetRange]);
 
-  const toggleFavorite = (id) => setFavorites(prev => prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]);
-
   const hasActiveFilters = selectedCategory || search || citySearch || budgetRange[1] < BUDGET_MAX;
   const handleReset = () => { setSelectedCategory(''); setSearch(''); setCitySearch(''); setBudgetRange([BUDGET_MIN, BUDGET_MAX]); };
 
   const formatBudget = (val) => {
-    if (val >= 1000000) return '₹10L+';
-    if (val >= 100000) return `₹${(val / 100000).toFixed(0)}L`;
-    if (val >= 1000) return `₹${(val / 1000).toFixed(0)}K`;
-    return `₹${val}`;
+    if (val >= 1000000) return 'â‚¹10L+';
+    if (val >= 100000) return `â‚¹${(val / 100000).toFixed(0)}L`;
+    if (val >= 1000) return `â‚¹${(val / 1000).toFixed(0)}K`;
+    return `â‚¹${val}`;
   };
 
   const totalPages = Math.ceil(total / LIMIT);
@@ -228,7 +256,7 @@ export default function OtherServicesPage() {
           <div className="mb-6">
             <span className="inline-block border border-gray-300 text-gray-600 text-xs font-semibold px-3 py-1 rounded-full mb-4">Premium Services</span>
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4" style={{ fontFamily: 'Georgia, serif' }}>Browse All Services</h1>
-            <p className="text-gray-500 max-w-2xl">From catering to celebrity appearances — find verified vendors for every aspect of your event.</p>
+            <p className="text-gray-500 max-w-2xl">From catering to celebrity appearances â€” find verified vendors for every aspect of your event.</p>
           </div>
 
           {/* Category Strip */}
@@ -320,7 +348,7 @@ export default function OtherServicesPage() {
                 <>
                   <div className="flex flex-col gap-4">
                     {services.map(svc => (
-                      <VendorCard key={svc._id} svc={svc} isFavorite={favorites.includes(svc._id)} onToggleFavorite={toggleFavorite} />
+                      <VendorCard key={svc._id} svc={svc} />
                     ))}
                   </div>
 
@@ -339,7 +367,7 @@ export default function OtherServicesPage() {
                             {p}
                           </button>
                         );
-                        if (p === page - 2 || p === page + 2) return <span key={p} className="text-gray-400">…</span>;
+                        if (p === page - 2 || p === page + 2) return <span key={p} className="text-gray-400">â€¦</span>;
                         return null;
                       })}
                       <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
@@ -359,3 +387,4 @@ export default function OtherServicesPage() {
     </div>
   );
 }
+
