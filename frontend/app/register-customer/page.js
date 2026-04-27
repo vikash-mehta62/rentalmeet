@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { Suspense, useState, useRef, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { User, Mail, Phone, Lock, Eye, EyeOff, ArrowLeft, Camera, Upload, CheckCircle2, AlertCircle, MapPin } from 'lucide-react';
@@ -11,7 +11,7 @@ import Navbar from '@/components/Navbar';
 
 const STEPS = ['Account', 'KYC Documents', 'Done'];
 
-export default function CustomerRegister() {
+function CustomerRegisterInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setAuth } = useAuthStore();
@@ -489,5 +489,13 @@ export default function CustomerRegister() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function CustomerRegister() {
+  return (
+    <Suspense fallback={null}>
+      <CustomerRegisterInner />
+    </Suspense>
   );
 }

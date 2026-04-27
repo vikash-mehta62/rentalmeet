@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, AlertCircle } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
 import Navbar from '@/components/Navbar';
 
-export default function Login() {
+function LoginInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, token, setAuth } = useAuthStore();
@@ -258,5 +258,13 @@ export default function Login() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function Login() {
+  return (
+    <Suspense fallback={null}>
+      <LoginInner />
+    </Suspense>
   );
 }

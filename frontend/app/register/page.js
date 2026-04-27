@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -16,7 +16,7 @@ const VENDOR_CATEGORIES = [
   'Transportation', 'Security Services', 'Cleaning Services', 'Other'
 ];
 
-export default function Register() {
+function RegisterInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, token, setAuth } = useAuthStore();
@@ -356,5 +356,13 @@ export default function Register() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function Register() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterInner />
+    </Suspense>
   );
 }
