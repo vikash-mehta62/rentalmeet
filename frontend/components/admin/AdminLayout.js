@@ -8,7 +8,7 @@ import Image from 'next/image';
 import {
   LayoutDashboard, Building2, Users, BookOpen, Settings,
   LogOut, Menu, X, IndianRupee, Shield, BarChart3, Bell, 
-  Grid3x3, MessageSquare, Image as ImageIcon, ChevronLeft, ChevronRight, Tag, FileText, HelpCircle, Briefcase, Package
+  Grid3x3, MessageSquare, Image as ImageIcon, ChevronLeft, ChevronRight, Tag, FileText, HelpCircle, Briefcase, Package, Wallet
 } from 'lucide-react';
 
 export default function AdminLayout({ children, title, subtitle }) {
@@ -47,6 +47,7 @@ export default function AdminLayout({ children, title, subtitle }) {
 
     // { name: 'Vendors', href: '/admin/vendors', icon: Briefcase, permission: 'users', section: 'Vendors' },
     { name: 'Vendor Services', href: '/admin/vendor-services', icon: Package, permission: 'users', section: 'Vendors' },
+    { name: 'Vendor Payments', href: '/admin/vendor-payments', icon: IndianRupee, permission: 'payments', section: 'Vendors' },
     { name: 'Vendor Coupons', href: '/admin/vendor-coupons', icon: Tag, permission: 'users', section: 'Vendors' },
     { name: 'Service Bookings', href: '/admin/service-bookings', icon: Package, permission: 'users', section: 'Vendors' },
     { name: 'Service Quotations', href: '/admin/service-quotation-downloads', icon: Package, permission: 'users', section: 'Vendors' },
@@ -56,6 +57,8 @@ export default function AdminLayout({ children, title, subtitle }) {
     { name: 'SubAdmins', href: '/admin/subadmins', icon: Shield, permission: 'subadmins', section: 'System' },
     { name: 'FAQ Management', href: '/admin/faqs', icon: HelpCircle, permission: 'settings', section: 'System' },
     { name: 'Chatbot Settings', href: '/admin/chatbot', icon: MessageSquare, permission: 'settings', section: 'System' },
+    { name: 'Expenses', href: '/admin/expenses', icon: Wallet, permission: 'payments', section: 'System' },
+    { name: 'Revenue', href: '/admin/revenue', icon: IndianRupee, permission: 'payments', section: 'System' },
     { name: 'Reports', href: '/admin/reports', icon: BarChart3, permission: 'reports', section: 'System' },
     { name: 'Reviews', href: '/admin/reviews', icon: MessageSquare, permission: 'reviews', section: 'System' },
     { name: 'GST/Platform', href: '/admin/platform-settings', icon: Settings, permission: 'platformSettings', section: 'System' },

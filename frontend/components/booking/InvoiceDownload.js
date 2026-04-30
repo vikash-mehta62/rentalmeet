@@ -4,6 +4,8 @@ import React from 'react';
 import { FileText } from 'lucide-react';
 
 export default function InvoiceDownload({ booking, userRole = 'customer' }) {
+  if (!booking || booking.status === 'cancelled') return null;
+
   const [settings, setSettings] = React.useState(null);
   const [loading, setLoading] = React.useState({ venue: false, platform: false });
 

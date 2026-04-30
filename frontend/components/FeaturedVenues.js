@@ -127,20 +127,10 @@ Featured Venues at RentalMeet
                     {venue.businessName}
                   </h3>
 
-                  {/* Rating row */}
-                  {(venue.rating > 0 || venue.averageRating > 0) && (
-                    <div className="flex items-center gap-1 mb-2">
-                      {[1,2,3,4,5].map(s => (
-                        <Star key={s}
-                          className={`w-3.5 h-3.5 ${s <= Math.round(venue.rating || venue.averageRating) ? 'fill-[#F59F0A] text-[#F59F0A]' : 'text-gray-200 dark:text-slate-700'}`}
-                        />
-                      ))}
-                      <span className="text-xs text-gray-500 dark:text-slate-400 ml-1">
-                        {(venue.rating || venue.averageRating)?.toFixed(1)}
-                        {venue.reviewCount > 0 && ` (${venue.reviewCount})`}
-                      </span>
-                    </div>
-                  )}
+                  {/* Address row */}
+                  <p className="text-xs text-gray-500 dark:text-slate-400 mb-2 line-clamp-1">
+                    {[venue.location?.area, venue.location?.city, venue.location?.state].filter(Boolean).join(', ') || venue.location?.address || 'Address not available'}
+                  </p>
                   {venue.activeCoupons?.length > 0 && (
                     <div className="mb-2">
                       <span className="inline-flex items-center gap-1 bg-green-50 border border-green-200 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
@@ -174,7 +164,7 @@ Featured Venues at RentalMeet
                         <span className="text-xs font-normal text-gray-500 dark:text-slate-400"></span>
                       </p>
                     </div>
-                    <button className="bg-white dark:bg-slate-900 border-2 border-gray-200 dark:border-slate-700 hover:border-[#F59F0A] hover:bg-[#F59F0A] hover:text-white text-gray-700 dark:text-slate-200 font-semibold px-4 py-2 rounded-lg transition-all duration-300 text-sm whitespace-nowrap">
+                    <button className="bg-[#F59F0A] hover:bg-[#D97706] text-white font-semibold px-4 py-2 rounded-lg transition-all duration-300 text-sm whitespace-nowrap">
                       View Details
                     </button>
                   </div>
@@ -188,7 +178,7 @@ Featured Venues at RentalMeet
         <div className="text-center mt-5">
           <button
             onClick={() => router.push('/venues')}
-            className="inline-flex items-center gap-2 px-6 py-3 border border-gray-300 dark:border-slate-700 rounded-lg text-sm font-semibold text-gray-700 dark:text-slate-200 hover:border-primary-500 hover:text-primary-500 transition-all"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-[#F59F0A] hover:bg-[#D97706] text-white rounded-lg text-sm font-semibold transition-all duration-300"
           >
             View All Venues <ArrowRight className="w-4 h-4" />
           </button>

@@ -159,11 +159,11 @@ function FilterPanel({ search, setSearch, citySearch, setCitySearch, budgetRange
       </div>
       <div>
         <label className="block text-sm font-semibold text-gray-700 mb-1">Budget</label>
-        <p className="text-xs text-gray-500 mb-2">{formatBudget(budgetRange[0])} â€“ {formatBudget(budgetRange[1])}</p>
+        <p className="text-xs text-gray-500 mb-2">{formatBudget(budgetRange[0])} - {formatBudget(budgetRange[1])}</p>
         <input type="range" min={0} max={1000000} step={10000} value={budgetRange[1]}
           onChange={e => setBudgetRange([0, parseInt(e.target.value)])}
           className="w-full accent-primary-500" />
-        <div className="flex justify-between text-[10px] text-gray-400 mt-1"><span>â‚¹0</span><span>â‚¹10L+</span></div>
+        <div className="flex justify-between text-[10px] text-gray-400 mt-1"><span>₹0</span><span>₹10L+</span></div>
       </div>
       <div>
         <label className="block text-sm font-semibold text-gray-700 mb-2">Service Category</label>
@@ -237,10 +237,10 @@ export default function OtherServicesPage() {
   const handleReset = () => { setSelectedCategory(''); setSearch(''); setCitySearch(''); setBudgetRange([BUDGET_MIN, BUDGET_MAX]); };
 
   const formatBudget = (val) => {
-    if (val >= 1000000) return 'â‚¹10L+';
-    if (val >= 100000) return `â‚¹${(val / 100000).toFixed(0)}L`;
-    if (val >= 1000) return `â‚¹${(val / 1000).toFixed(0)}K`;
-    return `â‚¹${val}`;
+    if (val >= 1000000) return '₹10L+';
+    if (val >= 100000) return `₹${(val / 100000).toFixed(0)}L`;
+    if (val >= 1000) return `₹${(val / 1000).toFixed(0)}K`;
+    return `₹${val}`;
   };
 
   const totalPages = Math.ceil(total / LIMIT);
@@ -255,8 +255,8 @@ export default function OtherServicesPage() {
           {/* Header */}
           <div className="mb-6">
             <span className="inline-block border border-gray-300 text-gray-600 text-xs font-semibold px-3 py-1 rounded-full mb-4">Premium Services</span>
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4" style={{ fontFamily: 'Georgia, serif' }}>Browse All Services</h1>
-            <p className="text-gray-500 max-w-2xl">From catering to celebrity appearances â€” find verified vendors for every aspect of your event.</p>
+            <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">Browse All Services</h1>
+            <p className="text-gray-500 max-w-2xl">From catering to celebrity appearances - find verified vendors for every aspect of your event.</p>
           </div>
 
           {/* Category Strip */}
@@ -367,7 +367,7 @@ export default function OtherServicesPage() {
                             {p}
                           </button>
                         );
-                        if (p === page - 2 || p === page + 2) return <span key={p} className="text-gray-400">â€¦</span>;
+                        if (p === page - 2 || p === page + 2) return <span key={p} className="text-gray-400">...</span>;
                         return null;
                       })}
                       <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}

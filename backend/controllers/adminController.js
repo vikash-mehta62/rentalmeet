@@ -1083,7 +1083,7 @@ exports.getReports = async (req, res) => {
       paid: paidSvcBookings.length
     };
 
-    // ── Payment breakdown ───────────────────────────────────────────────────    const paymentGroups = { paid: 0, paidAmt: 0, pending: 0, pendingAmt: 0, failed: 0, failedAmt: 0, refunded: 0, refundedAmt: 0 };
+    const paymentGroups = { paid: 0, paidAmt: 0, pending: 0, pendingAmt: 0, failed: 0, failedAmt: 0, refunded: 0, refundedAmt: 0 };
     allBookings.forEach(b => {
       const s = b.paymentStatus;
       const a = b.amount || 0;
@@ -2022,3 +2022,4 @@ exports.getVenueAnalytics = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+

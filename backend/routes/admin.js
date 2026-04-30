@@ -118,6 +118,47 @@ router.get('/payments/venue-analytics', protect, authorize('admin'), checkPermis
 router.get('/payments', protect, authorize('admin'), checkPermission('payments'), getAllPayments);
 router.get('/payments/:id', protect, authorize('admin'), checkPermission('payments'), getPayment);
 
+
+// Expense routes
+router.get('/expenses', protect, authorize('admin'), checkPermission('payments'), async (req, res) => {
+  try {
+    const Expense = require('../models/Expense');
+    const expenses = await Expense.find({})
+      .populate('createdBy', 'name email role')
+      .sort('-expenseDate');
+
+    const totalExpenditure = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+    res.json({ success: true, expenses, summary: { totalExpenditure, totalRecords: expenses.length } });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+router.post('/expenses', protect, authorize('admin'), checkPermission('payments'), async (req, res) => {
+  try {
+    const Expense = require('../models/Expense');
+    const { title, category, amount, note, expenseDate } = req.body;
+    if (!title?.trim()) return res.status(400).json({ success: false, message: 'Title is required' });
+    if (amount === undefined || amount === null || Number(amount) < 0) {
+      return res.status(400).json({ success: false, message: 'Valid amount is required' });
+    }
+
+    const expense = await Expense.create({
+      title: title.trim(),
+      category: (category || 'General').trim(),
+      amount: Number(amount),
+      note: (note || '').trim(),
+      expenseDate: expenseDate ? new Date(expenseDate) : new Date(),
+      createdBy: req.user.id
+    });
+
+    const populated = await Expense.findById(expense._id).populate('createdBy', 'name email role');
+    res.status(201).json({ success: true, message: 'Expense added', expense: populated });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
 // ── Payment Ledger endpoints ──────────────────────────────────────────────
 // Admin: record a manual payment (cash/cheque/bank transfer)
 router.post('/bookings/:id/ledger/payment', protect, authorize('admin'), async (req, res) => {
@@ -514,6 +555,80 @@ router.get('/service-bookings', protect, authorize('admin'), async (req, res) =>
     };
     res.json({ success: true, bookings, stats });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// Vendor Service Payments (admin)
+router.get('/vendor-payments', protect, authorize('admin'), checkPermission('payments'), async (req, res) => {
+  try {
+    const ServiceBooking = require('../models/ServiceBooking');
+    const { paymentStatus = 'paid', search } = req.query;
+
+    const filter = {
+      bookingNumber: { $exists: true, $ne: null, $not: /^SQ-/i }
+    };
+    if (paymentStatus && paymentStatus !== 'all') filter.paymentStatus = paymentStatus;
+
+    let payments = await ServiceBooking.find(filter)
+      .populate('service', 'title category city state')
+      .populate('vendor', 'name email companyName phone')
+      .sort('-createdAt');
+
+    if (search) {
+      const q = search.toLowerCase();
+      payments = payments.filter(p =>
+        p.bookingNumber?.toLowerCase().includes(q) ||
+        p.customerInfo?.name?.toLowerCase().includes(q) ||
+        p.customerInfo?.email?.toLowerCase().includes(q) ||
+        p.serviceSnapshot?.title?.toLowerCase().includes(q) ||
+        p.vendor?.name?.toLowerCase().includes(q) ||
+        p.vendor?.companyName?.toLowerCase().includes(q) ||
+        p.paymentDetails?.razorpay_payment_id?.toLowerCase().includes(q)
+      );
+    }
+
+    const mapped = payments.map((p) => {
+      const total = Number(p.pricing?.total ?? p.amount ?? 0);
+      const platformFee = Number(p.pricing?.platformFee ?? 0);
+      const platformFeeGST = Number(p.pricing?.platformFeeGST ?? 0);
+      const vendorPayout = Math.max(total - platformFee - platformFeeGST, 0);
+      return {
+        ...p.toObject(),
+        paymentMeta: { total, platformFee, platformFeeGST, vendorPayout }
+      };
+    });
+
+    const stats = mapped.reduce((acc, p) => {
+      const status = p.paymentStatus || 'pending';
+      const total = p.paymentMeta.total || 0;
+      const payout = p.paymentMeta.vendorPayout || 0;
+      acc.total += 1;
+      if (status === 'paid') {
+        acc.paid += 1;
+        acc.paidAmount += total;
+        acc.vendorPayout += payout;
+      } else if (status === 'failed') {
+        acc.failed += 1;
+        acc.failedAmount += total;
+      } else {
+        acc.pending += 1;
+        acc.pendingAmount += total;
+      }
+      return acc;
+    }, {
+      total: 0,
+      paid: 0,
+      pending: 0,
+      failed: 0,
+      paidAmount: 0,
+      pendingAmount: 0,
+      failedAmount: 0,
+      vendorPayout: 0
+    });
+
+    res.json({ success: true, payments: mapped, stats });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
 });
 
 router.put('/service-bookings/:id/status', protect, authorize('admin'), async (req, res) => {

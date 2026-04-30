@@ -137,7 +137,7 @@ export default function PremiumServicesSection() {
         <div className="text-center mt-5">
           <button
             onClick={() => router.push('/other-services')}
-            className="inline-flex items-center gap-2 px-6 py-3 border border-gray-300 dark:border-slate-700 rounded-lg text-sm font-semibold text-gray-700 dark:text-slate-200 hover:border-primary-500 hover:text-primary-500 transition-all"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-[#F59F0A] hover:bg-[#D97706] text-white rounded-lg text-sm font-semibold transition-all duration-300"
           >
             View All Premium Services <ArrowRight className="w-4 h-4" />
           </button>

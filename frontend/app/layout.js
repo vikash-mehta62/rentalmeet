@@ -2,7 +2,6 @@ import { Inter, Playfair_Display, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import { Toaster } from 'react-hot-toast'
 import ThemeInitializer from '@/components/ThemeInitializer'
-import WhatsAppButton from '@/components/WhatsAppButton'
 import ChatbotWidget from '@/components/ChatbotWidget'
 
 const inter = Inter({
@@ -47,7 +46,6 @@ export default function RootLayout({ children }) {
         <ThemeInitializer />
         {children}
         <ChatbotWidget />
-        <WhatsAppButton />
         <Toaster position="top-right" />
       </body>
     </html>

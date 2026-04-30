@@ -296,6 +296,27 @@ export default function ServiceDetailPage() {
     setBookingModal('form');
   };
 
+  const handleShareService = async () => {
+    try {
+      const shareUrl = typeof window !== 'undefined' ? window.location.href : `${process.env.NEXT_PUBLIC_SITE_URL || ''}/other-services/${id}`;
+      const shareData = {
+        title: svc?.title || 'RentalMeet Service',
+        text: `Check out this service on RentalMeet: ${svc?.title || ''}`,
+        url: shareUrl
+      };
+
+      if (navigator.share) {
+        await navigator.share(shareData);
+        return;
+      }
+
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success('Service link copied');
+    } catch {
+      toast.error('Unable to share service');
+    }
+  };
+
   // Build booking payload for API
   const buildBookingPayload = (extra = {}) => {
     const items = packages
@@ -503,7 +524,7 @@ export default function ServiceDetailPage() {
               {/* Info Card */}
               <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
                 <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
-                  <h1 className="text-2xl font-bold text-gray-900">{svc.title}</h1>
+                  <h1 className="font-serif text-2xl font-bold text-gray-900">{svc.title}</h1>
                   <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold"
                     style={{ backgroundColor: cat?.bg || '#f3f4f6', color: cat?.iconColor || '#374151' }}>
                     <Icon className="w-3.5 h-3.5" />{cat?.label || svc.category}
@@ -723,7 +744,11 @@ export default function ServiceDetailPage() {
                   </button>
                 </div>
 
-                <button type="button" className="w-full rounded-xl border border-primary-500 bg-white text-primary-600 py-2.5 text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary-50 transition-colors">
+                <button
+                  type="button"
+                  onClick={handleShareService}
+                  className="w-full rounded-xl border border-primary-500 bg-white text-primary-600 py-2.5 text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary-50 transition-colors"
+                >
                   <Share2 className="w-4 h-4" />
                   Share Service
                 </button>

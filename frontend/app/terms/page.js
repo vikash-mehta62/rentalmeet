@@ -74,7 +74,7 @@ export default function TermsPage() {
             ['Company Name', 'Yuwaka EduTech Pvt. Ltd.'],
             ['Brand Name', 'RentalMeet'],
             ['CIN', 'U85301MP2023PTC066019'],
-            ['GSTIN', '[Your GST Number]'],
+            ['GSTIN', '23AABCY6855D1ZC'],
             ['PAN', 'AABCY6855D'],
             ['Registered Office', 'Bhopal, Madhya Pradesh'],
             ['Contact Email', 'info@rentalmeet.com'],

@@ -799,7 +799,7 @@ function KYCSection({ token, user, updateUser }) {
             <div className={`absolute bottom-0 left-0 right-0 flex items-center justify-between px-3 py-1.5 ${isNew ? 'bg-primary-600' : 'bg-green-600'}`}>
               <span className="text-white text-xs font-semibold flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3" />
-                {isNew ? 'New â€” ready to save' : 'Uploaded'}
+                {isNew ? 'New - ready to save' : 'Uploaded'}
               </span>
               <div className="flex gap-2">
                 {isExisting && (
@@ -812,7 +812,7 @@ function KYCSection({ token, user, updateUser }) {
                     onChange={e => { const f = e.target.files[0]; if (f) onNew(f); }} />
                 </label>
                 {isNew && (
-                  <button onClick={onClear} className="text-white/80 hover:text-white text-xs">âœ•</button>
+                  <button onClick={onClear} className="text-white/80 hover:text-white text-xs">x</button>
                 )}
               </div>
             </div>
@@ -874,17 +874,17 @@ function KYCSection({ token, user, updateUser }) {
         <div className={`grid grid-cols-1 ${needsBack ? 'xl:grid-cols-4' : 'xl:grid-cols-3'} gap-5 items-start`}>
           {/* Front */}
           <UploadBox
-            label={needsBack ? `${idProofType} â€” Front Side *` : `Upload ${idProofType} *`}
+            label={needsBack ? `${idProofType} - Front Side *` : `Upload ${idProofType} *`}
             existingUrl={kyc.idProof}
             newFile={idProofFile}
             onNew={setIdProofFile}
             onClear={() => setIdProofFile(null)}
           />
 
-          {/* Back â€” only for Aadhaar / Voter ID */}
+          {/* Back - only for Aadhaar / Voter ID */}
           {needsBack && (
             <UploadBox
-              label={`${idProofType} â€” Back Side *`}
+              label={`${idProofType} - Back Side *`}
               existingUrl={kyc.idProofBack}
               newFile={idProofBackFile}
               onNew={setIdProofBackFile}
@@ -906,7 +906,7 @@ function KYCSection({ token, user, updateUser }) {
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               Real-time Selfie *
-              {selfieDone && !selfieFile && <span className="ml-2 text-green-600 text-xs font-normal">âœ“ Uploaded</span>}
+              {selfieDone && !selfieFile && <span className="ml-2 text-green-600 text-xs font-normal">Uploaded</span>}
             </label>
 
             {cameraOpen ? (
@@ -923,8 +923,8 @@ function KYCSection({ token, user, updateUser }) {
               <div className="relative rounded-xl overflow-hidden border-2 border-primary-400">
                 <img src={URL.createObjectURL(selfieFile)} alt="Selfie" className="w-full h-36 object-cover" />
                 <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-3 py-1.5 bg-primary-600">
-                  <span className="text-white text-xs font-semibold flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> New â€” ready to save</span>
-                  <button onClick={() => setSelfieFile(null)} className="text-white/80 hover:text-white text-xs">âœ•</button>
+                  <span className="text-white text-xs font-semibold flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> New - ready to save</span>
+                  <button onClick={() => setSelfieFile(null)} className="text-white/80 hover:text-white text-xs">x</button>
                 </div>
               </div>
             ) : kyc.selfie ? (

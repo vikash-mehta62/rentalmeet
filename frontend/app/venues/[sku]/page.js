@@ -376,6 +376,27 @@ export default function VenueDetail() {
     setBookingFormOpen(true);
   };
 
+  const handleShareVenue = async () => {
+    try {
+      const shareUrl = typeof window !== 'undefined' ? window.location.href : `${process.env.NEXT_PUBLIC_SITE_URL || ''}/venues/${venue?.sku || params?.sku}`;
+      const shareData = {
+        title: venue?.businessName || 'RentalMeet Venue',
+        text: `Check out this venue on RentalMeet: ${venue?.businessName || ''}`,
+        url: shareUrl
+      };
+
+      if (navigator.share) {
+        await navigator.share(shareData);
+        return;
+      }
+
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success('Venue link copied');
+    } catch {
+      toast.error('Unable to share venue');
+    }
+  };
+
   // Calculate estimate price
   const calculateEstimate = () => {
     if (!venue?.pricing || !quickBooking.duration) return 0;
@@ -1317,7 +1338,10 @@ export default function VenueDetail() {
             </div>
 
               {/* Share Button */}
-              <button className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white dark:bg-slate-900 border-2 border-primary-500 text-primary-500 rounded-lg text-xs font-semibold hover:bg-primary-50 dark:hover:bg-slate-800 transition-colors shadow-md">
+              <button
+                onClick={handleShareVenue}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white dark:bg-slate-900 border-2 border-primary-500 text-primary-500 rounded-lg text-xs font-semibold hover:bg-primary-50 dark:hover:bg-slate-800 transition-colors shadow-md"
+              >
                 <Share2 className="w-3.5 h-3.5" />
                 Share Venue
               </button>
