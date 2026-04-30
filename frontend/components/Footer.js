@@ -35,7 +35,6 @@ const businessLinks = [
   { name: 'List Your Venue',    href: '/register-venue'     },
   { name: 'Register as Vendor', href: '/register?role=vendor'},
   { name: 'User Registration',  href: '/register-customer'  },
-  { name: 'Pricing & Plans',    href: '/venues'         },
   { name: 'Privacy Policy',     href: '/privacy'        },
   { name: 'Terms of Service',   href: '/terms'          },
 ];

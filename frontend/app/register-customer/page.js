@@ -25,11 +25,16 @@ export default function CustomerRegister() {
   const [idProofType, setIdProofType] = useState('Aadhaar');
   const [idProofFile, setIdProofFile] = useState(null);
   const [idProofPreview, setIdProofPreview] = useState(null);
+  const [idProofBackFile, setIdProofBackFile] = useState(null);
+  const [idProofBackPreview, setIdProofBackPreview] = useState(null);
   const [selfieFile, setSelfieFile] = useState(null);
   const [selfiePreview, setSelfiePreview] = useState(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+
+  // Back side required for Aadhaar and Voter ID
+  const needsBack = ['Aadhaar', 'Voter ID'].includes(idProofType);
 
   const handleChange = e => { setForm(p => ({ ...p, [e.target.name]: e.target.value })); setError(''); };
 
@@ -93,13 +98,15 @@ export default function CustomerRegister() {
 
   // Step 2 submit — upload KYC
   const handleKYC = async () => {
-    if (!idProofFile) { toast.error('Please upload your ID proof'); return; }
+    if (!idProofFile) { toast.error('Please upload your ID proof (front)'); return; }
+    if (needsBack && !idProofBackFile) { toast.error(`Please upload the back side of your ${idProofType}`); return; }
     if (!selfieFile) { toast.error('Please take a selfie or upload one'); return; }
 
     setLoading(true);
     try {
       const fd = new FormData();
       fd.append('idProof', idProofFile);
+      if (idProofBackFile) fd.append('idProofBack', idProofBackFile);
       fd.append('selfie', selfieFile);
       fd.append('idProofType', idProofType);
 
@@ -186,15 +193,17 @@ export default function CustomerRegister() {
                 {/* ID Proof Type */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">ID Proof Type *</label>
-                  <select value={idProofType} onChange={e => setIdProofType(e.target.value)}
+                  <select value={idProofType} onChange={e => { setIdProofType(e.target.value); setIdProofBackFile(null); setIdProofBackPreview(null); }}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-500">
                     {['Aadhaar', 'PAN', 'Passport', 'Voter ID', 'Driving License'].map(t => <option key={t}>{t}</option>)}
                   </select>
                 </div>
 
-                {/* ID Proof Upload */}
+                {/* ID Proof Upload — Front */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Upload {idProofType} *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Upload {idProofType} {needsBack ? '— Front Side *' : '*'}
+                  </label>
                   {idProofPreview ? (
                     <div className="relative">
                       <img src={idProofPreview} alt="ID Proof" className="w-full h-40 object-cover rounded-xl border-2 border-green-400" />
@@ -205,13 +214,38 @@ export default function CustomerRegister() {
                   ) : (
                     <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-primary-400 hover:bg-primary-50 transition-all">
                       <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                      <span className="text-sm text-gray-500">Click to upload {idProofType}</span>
+                      <span className="text-sm text-gray-500">Click to upload {needsBack ? 'front side' : idProofType}</span>
                       <span className="text-xs text-gray-400 mt-1">JPG, PNG, PDF (max 5MB)</span>
                       <input type="file" accept="image/*,.pdf" className="hidden"
                         onChange={e => { const f = e.target.files[0]; if (f) { setIdProofFile(f); setIdProofPreview(URL.createObjectURL(f)); } }} />
                     </label>
                   )}
                 </div>
+
+                {/* ID Proof Back — only for Aadhaar & Voter ID */}
+                {needsBack && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Upload {idProofType} — Back Side *
+                    </label>
+                    {idProofBackPreview ? (
+                      <div className="relative">
+                        <img src={idProofBackPreview} alt="ID Proof Back" className="w-full h-40 object-cover rounded-xl border-2 border-green-400" />
+                        <button onClick={() => { setIdProofBackFile(null); setIdProofBackPreview(null); }}
+                          className="absolute top-2 right-2 w-7 h-7 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold">✕</button>
+                        <div className="absolute bottom-2 left-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Uploaded</div>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-primary-400 hover:bg-primary-50 transition-all">
+                        <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                        <span className="text-sm text-gray-500">Click to upload back side</span>
+                        <span className="text-xs text-gray-400 mt-1">JPG, PNG, PDF (max 5MB)</span>
+                        <input type="file" accept="image/*,.pdf" className="hidden"
+                          onChange={e => { const f = e.target.files[0]; if (f) { setIdProofBackFile(f); setIdProofBackPreview(URL.createObjectURL(f)); } }} />
+                      </label>
+                    )}
+                  </div>
+                )}
 
                 {/* Selfie */}
                 <div>
@@ -249,7 +283,7 @@ export default function CustomerRegister() {
                   )}
                 </div>
 
-                <button onClick={handleKYC} disabled={loading || !idProofFile || !selfieFile}
+                <button onClick={handleKYC} disabled={loading || !idProofFile || (needsBack && !idProofBackFile) || !selfieFile}
                   className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
                   {loading ? 'Uploading...' : <><CheckCircle2 className="w-4 h-4" /> Complete Registration</>}
                 </button>
