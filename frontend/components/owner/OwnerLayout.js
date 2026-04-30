@@ -51,7 +51,7 @@ export default function OwnerLayout({ children, title, subtitle }) {
       
       {/* --- SIDEBAR --- */}
       <aside 
-        className={`fixed top-[30px] bottom-0 left-0 z-50 bg-[#F1F5F9] text-slate-700 transition-all duration-300 ease-in-out border-r border-slate-200
+        className={`fixed top-0 bottom-0 left-0 z-50 bg-[#F1F5F9] text-slate-700 transition-all duration-300 ease-in-out border-r border-slate-200
           ${isCollapsed ? 'w-20' : 'w-72'} 
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
@@ -111,34 +111,6 @@ export default function OwnerLayout({ children, title, subtitle }) {
             })}
           </nav>
 
-          {/* Sidebar Footer */}
-          <div className="mt-auto p-4 border-t border-slate-200 bg-slate-100">
-            {!isCollapsed && (
-              <div className="mb-4 p-4 rounded-2xl bg-white border border-slate-200">
-                <div className="flex items-center gap-3">
-                  <img 
-                    src={user?.profilePicture || `https://ui-avatars.com/api/?name=${user?.name}&background=0EA5E9&color=fff&bold=true`} 
-                    className="w-10 h-10 rounded-xl border-2 border-slate-200 shadow-lg object-cover"
-                    alt="avatar"
-                  />
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-sm font-black text-slate-800 truncate leading-tight">{user?.name}</span>
-                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter mt-1">Owner Partner</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <button
-              onClick={handleLogout}
-              className={`group flex items-center gap-3 px-4 py-3 w-full rounded-xl transition-all duration-300
-                ${isCollapsed ? 'justify-center hover:bg-rose-500/10' : 'bg-rose-500/5 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20'}
-              `}
-            >
-              <LogOut className={`w-5 h-5 transition-transform group-hover:-translate-x-1 ${isCollapsed ? 'text-slate-500 group-hover:text-rose-500' : 'text-rose-500'}`} />
-              {!isCollapsed && <span className="text-sm font-black text-rose-500 uppercase tracking-widest">Logout</span>}
-            </button>
-          </div>
         </div>
       </aside>
 
@@ -146,7 +118,7 @@ export default function OwnerLayout({ children, title, subtitle }) {
       <div className={`flex-1 transition-all duration-300 ${isCollapsed ? 'lg:ml-20' : 'lg:ml-72'}`}>
         
         {/* Top Header */}
-        <header className="bg-white/80 backdrop-blur-lg sticky top-[30px] z-40 border-b border-slate-200">
+        <header className="bg-white/80 backdrop-blur-lg sticky top-0 z-40 border-b border-slate-200">
           <div className="px-4 sm:px-8 py-4">
             <div className="flex items-center justify-between max-w-7xl mx-auto">
               <div className="flex items-center gap-4">
@@ -161,8 +133,27 @@ export default function OwnerLayout({ children, title, subtitle }) {
                   {subtitle && <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1.5">{subtitle}</p>}
                 </div>
               </div>
-
-            
+              <div className="flex items-center gap-3">
+                <button className="hidden sm:flex p-2.5 text-slate-400 hover:text-primary-600 transition-all relative">
+                  <Bell size={20} />
+                  <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
+                </button>
+                <div className="h-8 w-[1px] bg-slate-200 mx-2 hidden sm:block"></div>
+                <div className="hidden sm:flex flex-col text-right leading-tight">
+                  <span className="text-sm font-bold text-slate-800 max-w-[180px] truncate">{user?.name || 'Owner'}</span>
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Owner Partner</span>
+                </div>
+                <div className="w-10 h-10 rounded-full border-2 border-white shadow-md overflow-hidden bg-slate-100">
+                  <img src={user?.profilePicture || `https://ui-avatars.com/api/?name=${user?.name || 'Owner'}&background=random`} alt="user" />
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-xs font-bold uppercase tracking-wider text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-50 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span className="hidden sm:inline">Logout</span>
+                </button>
+              </div>
             </div>
           </div>
         </header>

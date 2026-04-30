@@ -141,6 +141,15 @@ Featured Venues at RentalMeet
                       </span>
                     </div>
                   )}
+                  {venue.activeCoupons?.length > 0 && (
+                    <div className="mb-2">
+                      <span className="inline-flex items-center gap-1 bg-green-50 border border-green-200 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                        Save {venue.activeCoupons[0].discountType === 'percentage'
+                          ? `${venue.activeCoupons[0].discountValue}%${venue.activeCoupons[0].maxDiscount ? ` (max Rs.${venue.activeCoupons[0].maxDiscount})` : ''}`
+                          : `Rs.${venue.activeCoupons[0].discountValue}`} off
+                      </span>
+                    </div>
+                  )}
 
                   {/* Amenities Icons */}
                   <div className="flex items-center gap-2 mb-3 text-gray-500 dark:text-slate-400">
@@ -164,15 +173,6 @@ Featured Venues at RentalMeet
                         {venue.pricing?.perHour?.weekday?.toLocaleString('en-IN') || 0}
                         <span className="text-xs font-normal text-gray-500 dark:text-slate-400"></span>
                       </p>
-                      {venue.activeCoupons?.length > 0 && (
-                        <div className="mt-1.5">
-                          <span className="inline-flex items-center gap-1 bg-green-50 border border-green-200 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                            Coupon: {venue.activeCoupons[0].code} - {venue.activeCoupons[0].discountType === 'percentage'
-                              ? `${venue.activeCoupons[0].discountValue}%${venue.activeCoupons[0].maxDiscount ? ` (max Rs.${venue.activeCoupons[0].maxDiscount})` : ''} off`
-                              : `Rs.${venue.activeCoupons[0].discountValue} off`}
-                          </span>
-                        </div>
-                      )}
                     </div>
                     <button className="bg-white dark:bg-slate-900 border-2 border-gray-200 dark:border-slate-700 hover:border-[#F59F0A] hover:bg-[#F59F0A] hover:text-white text-gray-700 dark:text-slate-200 font-semibold px-4 py-2 rounded-lg transition-all duration-300 text-sm whitespace-nowrap">
                       View Details

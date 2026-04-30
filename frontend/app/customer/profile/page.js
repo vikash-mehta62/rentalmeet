@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useState, useEffect, useRef, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense, useMemo } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import CustomerLayout from '@/components/customer/CustomerLayout';
 import toast from 'react-hot-toast';
+import { State, City } from 'country-state-city';
 
 function CustomerProfileInner() {
   const { user, token, updateUser } = useAuthStore();
@@ -53,6 +54,12 @@ function CustomerProfileInner() {
 
   const [profilePictureFile, setProfilePictureFile] = useState(null);
   const [profilePicturePreview, setProfilePicturePreview] = useState('');
+  const [selectedStateCode, setSelectedStateCode] = useState('');
+  const stateOptions = useMemo(() => State.getStatesOfCountry('IN'), []);
+  const cityOptions = useMemo(
+    () => (selectedStateCode ? City.getCitiesOfState('IN', selectedStateCode) : []),
+    [selectedStateCode]
+  );
 
   useEffect(() => {
     if (user) {
@@ -72,6 +79,11 @@ function CustomerProfileInner() {
       setProfilePicturePreview(user.profilePicture || '');
     }
   }, [user]);
+
+  useEffect(() => {
+    const matchedState = stateOptions.find((s) => s.name === profileData.state);
+    setSelectedStateCode(matchedState?.isoCode || '');
+  }, [profileData.state, stateOptions]);
 
   const handleProfilePictureChange = (e) => {
     const file = e.target.files[0];
@@ -194,7 +206,7 @@ function CustomerProfileInner() {
   };
 
   return (
-    <CustomerLayout title="My Profile" subtitle="Manage your account settings">
+    <CustomerLayout activePage="profile" fullWidth title="My Profile" subtitle="Manage your account settings">
       {/* Message Alert */}
       {message.text && (
         <div className={`mb-6 p-4 rounded-xl ${
@@ -206,48 +218,9 @@ function CustomerProfileInner() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Profile Card */}
-        <div className="lg:col-span-1">
-          <div className="bg-white rounded-2xl shadow-soft border border-gray-100 p-6">
-            <div className="text-center">
-              {/* Profile Picture */}
-              <div className="relative inline-block mb-4">
-                <div className="w-32 h-32 rounded-full overflow-hidden bg-gray-200 mx-auto">
-                  {profilePicturePreview ? (
-                    <img
-                      src={profilePicturePreview}
-                      alt={user?.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-primary-100">
-                      <User className="w-16 h-16 text-primary-500" />
-                    </div>
-                  )}
-                </div>
-                <label className="absolute bottom-0 right-0 w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center cursor-pointer hover:bg-primary-600 transition-colors shadow-lg">
-                  <Camera className="w-5 h-5 text-white" />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleProfilePictureChange}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-
-              <h2 className="text-2xl font-bold text-dark-800 mb-1">{user?.name}</h2>
-              <p className="text-gray-600 mb-2">{user?.email}</p>
-              <span className="inline-block px-4 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
-                Customer
-              </span>
-            </div>
-          </div>
-        </div>
-
+      <div className="space-y-6">
         {/* Forms */}
-        <div className="lg:col-span-2">
+        <div className="w-full">
           {/* Tabs */}
           <div className="bg-white rounded-2xl shadow-soft border border-gray-100 mb-6">
             <div className="flex border-b border-gray-200 overflow-x-auto">
@@ -258,7 +231,7 @@ function CustomerProfileInner() {
               <button onClick={() => setActiveTab('kyc')}
                 className={`flex-shrink-0 px-5 py-4 font-semibold text-sm transition-colors flex items-center gap-1.5 ${activeTab === 'kyc' ? 'text-primary-500 border-b-2 border-primary-500' : 'text-gray-600 hover:text-gray-800'}`}>
                 KYC / ID Verify
-                {(!user?.kyc?.idProof || !user?.kyc?.selfie) && (
+                {(!user?.kyc?.idProof || !user?.kyc?.selfie || !user?.kyc?.addressProof) && (
                   <span className="w-2 h-2 bg-red-500 rounded-full inline-block" />
                 )}
               </button>
@@ -277,67 +250,109 @@ function CustomerProfileInner() {
           {activeTab === 'profile' && (
             <div className="bg-white rounded-2xl shadow-soft border border-gray-100 p-6">
               <form onSubmit={handleProfileUpdate} className="space-y-6">
+                <div className="border-b border-gray-100 pb-6">
+                  <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+                    <div className="relative inline-block">
+                      <div className="w-28 h-28 rounded-full overflow-hidden bg-gray-200">
+                        {profilePicturePreview ? (
+                          <img
+                            src={profilePicturePreview}
+                            alt={user?.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-primary-100">
+                            <User className="w-14 h-14 text-primary-500" />
+                          </div>
+                        )}
+                      </div>
+                      <label className="absolute bottom-0 right-0 w-9 h-9 bg-primary-500 rounded-full flex items-center justify-center cursor-pointer hover:bg-primary-600 transition-colors shadow-lg">
+                        <Camera className="w-4.5 h-4.5 text-white" />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleProfilePictureChange}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+
+                    <div className="flex-1 w-full sm:w-auto">
+                      <div className="space-y-3">
+                        <input
+                          type="text"
+                          value={profileData.name}
+                          onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
+                          placeholder="Full Name"
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
+                        />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <input
+                            type="tel"
+                            value={profileData.phone}
+                            onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
+                            placeholder="Phone Number"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
+                          />
+                          <input
+                            type="email"
+                            value={profileData.email}
+                            onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+                            placeholder="Email Address"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-3">
+                        <span className="inline-block px-4 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
+                          Customer
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Full Name *
+                      State
                     </label>
-                    <input
-                      type="text"
-                      value={profileData.name}
-                      onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Email Address *
-                    </label>
-                    <input
-                      type="email"
-                      value={profileData.email}
-                      onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Phone Number
-                    </label>
-                    <input
-                      type="tel"
-                      value={profileData.phone}
-                      onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-                    />
+                    <select
+                      value={selectedStateCode}
+                      onChange={(e) => {
+                        const code = e.target.value;
+                        const selected = stateOptions.find((s) => s.isoCode === code);
+                        setSelectedStateCode(code);
+                        setProfileData((p) => ({ ...p, state: selected?.name || '', city: '' }));
+                      }}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none bg-white"
+                    >
+                      <option value="">Select State</option>
+                      {stateOptions.map((s) => (
+                        <option key={s.isoCode} value={s.isoCode}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       City
                     </label>
-                    <input
-                      type="text"
+                    <select
                       value={profileData.city}
                       onChange={(e) => setProfileData({ ...profileData, city: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      State
-                    </label>
-                    <input
-                      type="text"
-                      value={profileData.state}
-                      onChange={(e) => setProfileData({ ...profileData, state: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-                    />
+                      disabled={!selectedStateCode}
+                      className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none ${!selectedStateCode ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white'}`}
+                    >
+                      <option value="">{selectedStateCode ? 'Select City' : 'Select State First'}</option>
+                      {cityOptions.map((c) => (
+                        <option key={c.name} value={c.name}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>
@@ -673,6 +688,7 @@ function KYCSection({ token, user, updateUser }) {
   const [idProofType, setIdProofType] = useState('Aadhaar');
   const [idProofFile, setIdProofFile] = useState(null);
   const [idProofBackFile, setIdProofBackFile] = useState(null);
+  const [addressProofFile, setAddressProofFile] = useState(null);
   const [selfieFile, setSelfieFile] = useState(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const videoRef = useRef(null);
@@ -703,8 +719,9 @@ function KYCSection({ token, user, updateUser }) {
   const idDone      = !!kyc.idProof;
   const idBackDone  = !!kyc.idProofBack;
   const selfieDone  = !!kyc.selfie;
+  const addressDone = !!kyc.addressProof;
   const needsBack   = NEEDS_BACK.includes(idProofType);
-  const kycComplete = idDone && selfieDone && (!needsBack || idBackDone);
+  const kycComplete = idDone && selfieDone && addressDone && (!needsBack || idBackDone);
 
   const openCamera = async () => {
     try {
@@ -735,10 +752,11 @@ function KYCSection({ token, user, updateUser }) {
   useEffect(() => () => closeCamera(), []);
 
   const handleUpload = async () => {
-    const hasNew = idProofFile || idProofBackFile || selfieFile;
+    const hasNew = idProofFile || idProofBackFile || addressProofFile || selfieFile;
     if (!hasNew) { toast.error('No new files selected'); return; }
     if (!idDone && !idProofFile) { toast.error('Please upload ID proof front'); return; }
     if (needsBack && !idBackDone && !idProofBackFile) { toast.error(`Please upload ${idProofType} back side`); return; }
+    if (!addressDone && !addressProofFile) { toast.error('Please upload address proof'); return; }
     if (!selfieDone && !selfieFile) { toast.error('Please take or upload a selfie'); return; }
 
     setLoading(true);
@@ -746,6 +764,7 @@ function KYCSection({ token, user, updateUser }) {
       const fd = new FormData();
       if (idProofFile) { fd.append('idProof', idProofFile); fd.append('idProofType', idProofType); }
       if (idProofBackFile) fd.append('idProofBack', idProofBackFile);
+      if (addressProofFile) fd.append('addressProof', addressProofFile);
       if (selfieFile) fd.append('selfie', selfieFile);
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/kyc-upload`, {
@@ -757,7 +776,7 @@ function KYCSection({ token, user, updateUser }) {
       if (data.success) {
         updateUser(data.user);
         setKycData(data.user?.kyc || {});
-        setIdProofFile(null); setIdProofBackFile(null); setSelfieFile(null);
+        setIdProofFile(null); setIdProofBackFile(null); setAddressProofFile(null); setSelfieFile(null);
         toast.success('KYC updated successfully!');
       } else {
         toast.error(data.message || 'Upload failed');
@@ -837,7 +856,7 @@ function KYCSection({ token, user, updateUser }) {
       {!kycComplete && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-5 flex items-start gap-2">
           <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-          <p className="text-xs text-amber-700">Complete KYC to unlock venue booking. Upload your ID proof and take a real-time selfie.</p>
+          <p className="text-xs text-amber-700">Complete KYC to unlock venue booking. Upload ID proof, address proof and take a real-time selfie.</p>
         </div>
       )}
 
@@ -852,79 +871,90 @@ function KYCSection({ token, user, updateUser }) {
           </select>
         </div>
 
-        {/* Front */}
-        <UploadBox
-          label={needsBack ? `${idProofType} â€” Front Side *` : `Upload ${idProofType} *`}
-          existingUrl={kyc.idProof}
-          newFile={idProofFile}
-          onNew={setIdProofFile}
-          onClear={() => setIdProofFile(null)}
-        />
-
-        {/* Back â€” only for Aadhaar / Voter ID */}
-        {needsBack && (
+        <div className={`grid grid-cols-1 ${needsBack ? 'xl:grid-cols-4' : 'xl:grid-cols-3'} gap-5 items-start`}>
+          {/* Front */}
           <UploadBox
-            label={`${idProofType} â€” Back Side *`}
-            existingUrl={kyc.idProofBack}
-            newFile={idProofBackFile}
-            onNew={setIdProofBackFile}
-            onClear={() => setIdProofBackFile(null)}
+            label={needsBack ? `${idProofType} â€” Front Side *` : `Upload ${idProofType} *`}
+            existingUrl={kyc.idProof}
+            newFile={idProofFile}
+            onNew={setIdProofFile}
+            onClear={() => setIdProofFile(null)}
+          />
+
+          {/* Back â€” only for Aadhaar / Voter ID */}
+          {needsBack && (
+            <UploadBox
+              label={`${idProofType} â€” Back Side *`}
+              existingUrl={kyc.idProofBack}
+              newFile={idProofBackFile}
+              onNew={setIdProofBackFile}
+              onClear={() => setIdProofBackFile(null)}
+              color="orange"
+            />
+          )}
+
+          <UploadBox
+            label="Address Proof *"
+            existingUrl={kyc.addressProof}
+            newFile={addressProofFile}
+            onNew={setAddressProofFile}
+            onClear={() => setAddressProofFile(null)}
             color="orange"
           />
-        )}
 
-        {/* Selfie */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Real-time Selfie *
-            {selfieDone && !selfieFile && <span className="ml-2 text-green-600 text-xs font-normal">âœ“ Uploaded</span>}
-          </label>
+          {/* Selfie */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Real-time Selfie *
+              {selfieDone && !selfieFile && <span className="ml-2 text-green-600 text-xs font-normal">âœ“ Uploaded</span>}
+            </label>
 
-          {cameraOpen ? (
-            <div className="space-y-3">
-              <video ref={videoRef} autoPlay playsInline className="w-full rounded-xl border-2 border-primary-400" style={{ maxHeight: 220 }} />
-              <div className="flex gap-2">
-                <button onClick={captureSelfie} className="flex-1 py-2.5 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2">
-                  <Camera className="w-4 h-4" /> Capture
-                </button>
-                <button onClick={closeCamera} className="px-4 py-2.5 border border-gray-300 text-gray-600 rounded-xl text-sm font-semibold">Cancel</button>
-              </div>
-            </div>
-          ) : selfieFile ? (
-            <div className="relative rounded-xl overflow-hidden border-2 border-primary-400">
-              <img src={URL.createObjectURL(selfieFile)} alt="Selfie" className="w-full h-36 object-cover" />
-              <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-3 py-1.5 bg-primary-600">
-                <span className="text-white text-xs font-semibold flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> New â€” ready to save</span>
-                <button onClick={() => setSelfieFile(null)} className="text-white/80 hover:text-white text-xs">âœ•</button>
-              </div>
-            </div>
-          ) : kyc.selfie ? (
-            <div className="relative rounded-xl overflow-hidden border-2 border-green-400">
-              <img src={kyc.selfie} alt="Selfie" className="w-full h-36 object-cover" />
-              <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-3 py-1.5 bg-green-600">
-                <span className="text-white text-xs font-semibold flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Uploaded</span>
-                <div className="flex gap-3">
-                  <a href={kyc.selfie} target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white text-xs underline">View</a>
-                  <button onClick={openCamera} className="text-white/80 hover:text-white text-xs underline">Retake</button>
+            {cameraOpen ? (
+              <div className="space-y-3">
+                <video ref={videoRef} autoPlay playsInline className="w-full rounded-xl border-2 border-primary-400" style={{ maxHeight: 220 }} />
+                <div className="flex gap-2">
+                  <button onClick={captureSelfie} className="flex-1 py-2.5 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2">
+                    <Camera className="w-4 h-4" /> Capture
+                  </button>
+                  <button onClick={closeCamera} className="px-4 py-2.5 border border-gray-300 text-gray-600 rounded-xl text-sm font-semibold">Cancel</button>
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <button onClick={openCamera} className="flex-1 flex items-center justify-center gap-2 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-semibold text-sm">
-                <Camera className="w-4 h-4" /> Open Camera
-              </button>
-              <label className="flex-1 flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-primary-400 text-sm text-gray-500 font-semibold">
-                <Upload className="w-4 h-4" /> Upload Photo
-                <input type="file" accept="image/*" className="hidden"
-                  onChange={e => { const f = e.target.files[0]; if (f) setSelfieFile(f); }} />
-              </label>
-            </div>
-          )}
+            ) : selfieFile ? (
+              <div className="relative rounded-xl overflow-hidden border-2 border-primary-400">
+                <img src={URL.createObjectURL(selfieFile)} alt="Selfie" className="w-full h-36 object-cover" />
+                <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-3 py-1.5 bg-primary-600">
+                  <span className="text-white text-xs font-semibold flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> New â€” ready to save</span>
+                  <button onClick={() => setSelfieFile(null)} className="text-white/80 hover:text-white text-xs">âœ•</button>
+                </div>
+              </div>
+            ) : kyc.selfie ? (
+              <div className="relative rounded-xl overflow-hidden border-2 border-green-400">
+                <img src={kyc.selfie} alt="Selfie" className="w-full h-36 object-cover" />
+                <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-3 py-1.5 bg-green-600">
+                  <span className="text-white text-xs font-semibold flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Uploaded</span>
+                  <div className="flex gap-3">
+                    <a href={kyc.selfie} target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white text-xs underline">View</a>
+                    <button onClick={openCamera} className="text-white/80 hover:text-white text-xs underline">Retake</button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <button onClick={openCamera} className="flex-1 flex items-center justify-center gap-2 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-semibold text-sm">
+                  <Camera className="w-4 h-4" /> Open Camera
+                </button>
+                <label className="flex-1 flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-primary-400 text-sm text-gray-500 font-semibold">
+                  <Upload className="w-4 h-4" /> Upload Photo
+                  <input type="file" accept="image/*" className="hidden"
+                    onChange={e => { const f = e.target.files[0]; if (f) setSelfieFile(f); }} />
+                </label>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Save button */}
-        {(idProofFile || idProofBackFile || selfieFile) && (
+        {(idProofFile || idProofBackFile || addressProofFile || selfieFile) && (
           <button onClick={handleUpload} disabled={loading}
             className="w-full flex items-center justify-center gap-2 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-sm transition-colors disabled:opacity-50">
             {loading ? 'Uploading...' : <><CheckCircle2 className="w-4 h-4" /> Save KYC Documents</>}
