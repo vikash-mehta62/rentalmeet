@@ -30,28 +30,159 @@ export default function ServiceQuotationModal({ booking, svc, form, selectedDate
     }
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     setPrinting(true);
     markDownloaded('print');
-    const content = quotationRef.current?.innerHTML;
-    if (!content) { setPrinting(false); return; }
+
+    const logoUrl = `${window.location.origin}/logo.png`;
+    const toBase64 = (url) => new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = img.width; c.height = img.height;
+        c.getContext('2d').drawImage(img, 0, 0);
+        resolve(c.toDataURL('image/png'));
+      };
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+
+    const logoB64 = await toBase64(logoUrl);
+    const fmt = (n) => (n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const serviceTotal = subtotal + serviceCgst + serviceSgst;
+    const platformTotal = platformFee + platformFeeGst;
+
+    const itemRows = selectedItems.map((item, i) =>
+      `<tr style="background:${i % 2 === 0 ? '#fff' : '#f9fafb'};border-bottom:1px solid #e5e7eb">
+        <td style="padding:7px 10px;font-size:11px">${item.name}</td>
+        <td style="padding:7px 10px;text-align:right;font-size:11px">₹${(item.price || 0).toLocaleString()}</td>
+        <td style="padding:7px 10px;text-align:center;font-size:10px;color:#6b7280">${item.unit}</td>
+        <td style="padding:7px 10px;text-align:center;font-size:11px;font-weight:600">${item.qty}</td>
+        <td style="padding:7px 10px;text-align:right;font-size:11px;font-weight:700;color:#F59E0B">₹${((item.price || 0) * item.qty).toLocaleString()}</td>
+      </tr>`
+    ).join('');
+
+    const css = `
+      *{margin:0;padding:0;box-sizing:border-box}
+      body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1f2937;background:#fff;padding:32px 36px}
+      .hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
+      .logo-img{height:44px;object-fit:contain}
+      .inv-title{font-size:20px;font-weight:800;letter-spacing:1px;margin-bottom:3px}
+      .inv-no{font-size:10px;color:#6b7280;margin-bottom:1px}
+      .badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:9px;font-weight:700;margin-top:4px;background:#fef3c7;color:#92400e}
+      .divider{height:3px;border-radius:2px;margin-bottom:16px;background:linear-gradient(90deg,#F59E0B,#FCD34D)}
+      .meta{display:flex;justify-content:space-between;background:#f9fafb;border-radius:8px;padding:12px 16px;margin-bottom:16px}
+      .meta-label{font-size:9px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:1px}
+      .meta-val{font-size:12px;font-weight:800;color:#111827}
+      .two-col{display:flex;gap:12px;margin-bottom:16px}
+      .card{flex:1;border-radius:8px;padding:12px;border:1px solid}
+      .card-title{font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid}
+      .card-row{margin-bottom:5px}
+      .card-label{font-size:8px;color:#9ca3af;margin-bottom:1px}
+      .card-val{font-size:10px;font-weight:600;color:#111827}
+      table{width:100%;border-collapse:collapse;margin-bottom:14px}
+      th{padding:7px 9px;text-align:left;font-size:8px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#fff;background:#F59E0B}
+      td{padding:6px 9px;border-bottom:1px solid #f3f4f6;font-size:10px;vertical-align:top}
+      .inv-section{border:3px solid;border-radius:10px;padding:16px;margin-bottom:16px}
+      .inv-section-title{font-size:14px;font-weight:900;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid}
+      .totals{border-radius:8px;padding:12px 14px;margin-bottom:8px}
+      .tot-row{display:flex;justify-content:space-between;padding:3px 0;font-size:10px}
+      .tot-grand{font-size:13px;font-weight:800;border-top:2px solid rgba(0,0,0,.15);margin-top:5px;padding-top:7px}
+      .grand-box{background:linear-gradient(135deg,#F59E0B,#FCD34D);border-radius:10px;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+      .footer{text-align:center;font-size:8px;color:#9ca3af;padding-top:8px;border-top:1px solid #e5e7eb}
+      @media print{body{padding:16px}}
+    `;
+
+    const html = `<!DOCTYPE html><html><head><title>Service Quotation - ${booking?.quotationNumber}</title><style>${css}</style></head><body>
+      <div class="hdr">
+        <div>
+          ${logoB64 ? `<img src="${logoB64}" class="logo-img" alt="RentalMeet"/>` : `<div style="font-size:22px;font-weight:900;color:#F59E0B">RentalMeet</div>`}
+          <div style="font-size:9px;color:#6b7280;margin-top:2px">Premium Vendor Services Platform</div>
+          <div style="font-size:9px;color:#6b7280">booking@rentalmeet.in | 24/7 Available</div>
+        </div>
+        <div style="text-align:right">
+          <div class="inv-title" style="color:#F59E0B">SERVICE QUOTATION</div>
+          <div class="inv-no">Quotation No: <strong>${booking?.quotationNumber || '—'}</strong></div>
+          <div class="inv-no">Date: ${todayStr}</div>
+          <span class="badge">ENQUIRY</span>
+        </div>
+      </div>
+      <div class="divider"></div>
+
+      <div class="meta">
+        <div><div class="meta-label">Valid Until</div><div class="meta-val">${validUntil}</div></div>
+        <div style="text-align:center"><div class="meta-label">Event Date</div><div class="meta-val" style="color:#F59E0B">${eventDateStr}</div></div>
+        <div style="text-align:right"><div class="meta-label">Status</div><div class="meta-val" style="color:#F59E0B">ENQUIRY</div></div>
+      </div>
+
+      <div class="two-col">
+        <div class="card" style="background:#eff6ff;border-color:#bfdbfe">
+          <div class="card-title" style="color:#1e40af;border-color:#bfdbfe">Billed To</div>
+          <div class="card-row"><div class="card-label">Name</div><div class="card-val">${form?.name || '—'}</div></div>
+          ${form?.company ? `<div class="card-row"><div class="card-label">Company</div><div class="card-val">${form.company}</div></div>` : ''}
+          <div class="card-row"><div class="card-label">Email</div><div class="card-val">${form?.email || '—'}</div></div>
+          <div class="card-row"><div class="card-label">Phone</div><div class="card-val">${form?.phone || '—'}</div></div>
+          ${form?.eventName ? `<div class="card-row"><div class="card-label">Event</div><div class="card-val">${form.eventName}</div></div>` : ''}
+        </div>
+        <div class="card" style="background:#fefce8;border-color:#fde68a">
+          <div class="card-title" style="color:#92400e;border-color:#fde68a">Service Provider</div>
+          <div class="card-row"><div class="card-label">Service</div><div class="card-val">${svc?.title || '—'}</div></div>
+          <div class="card-row"><div class="card-label">Category</div><div class="card-val">${svc?.category || '—'}</div></div>
+          ${(svc?.vendor?.companyName || svc?.companyName) ? `<div class="card-row"><div class="card-label">Company</div><div class="card-val">${svc?.vendor?.companyName || svc?.companyName}</div></div>` : ''}
+          <div class="card-row"><div class="card-label">Location</div><div class="card-val">${[svc?.city, svc?.state].filter(Boolean).join(', ') || '—'}</div></div>
+        </div>
+      </div>
+
+      <!-- Items Table -->
+      <table>
+        <thead><tr><th>Service / Item</th><th style="text-align:right">Rate</th><th style="text-align:center">Unit</th><th style="text-align:center">Qty</th><th style="text-align:right">Amount</th></tr></thead>
+        <tbody>${itemRows}</tbody>
+      </table>
+
+      <!-- Invoice 1: Service -->
+      <div class="inv-section" style="border-color:#93c5fd;background:linear-gradient(135deg,#eff6ff,#fff)">
+        <div class="inv-section-title" style="color:#1e40af;border-color:#93c5fd">📄 SERVICE INVOICE</div>
+        <div class="totals" style="background:#eff6ff;border:1px solid #bfdbfe">
+          <div class="tot-row"><span>Service Amount</span><span>₹${fmt(subtotal)}</span></div>
+          <div class="tot-row" style="color:#1d4ed8"><span>CGST (${cgstPct}%)</span><span>₹${fmt(serviceCgst)}</span></div>
+          <div class="tot-row" style="color:#1d4ed8"><span>SGST (${sgstPct}%)</span><span>₹${fmt(serviceSgst)}</span></div>
+          <div class="tot-row tot-grand" style="color:#1e40af"><span>Service Invoice Total</span><span>₹${fmt(serviceTotal)}</span></div>
+        </div>
+      </div>
+
+      <!-- Invoice 2: Platform -->
+      <div class="inv-section" style="border-color:#c4b5fd;background:linear-gradient(135deg,#faf5ff,#fff)">
+        <div class="inv-section-title" style="color:#6d28d9;border-color:#c4b5fd">📄 PLATFORM INVOICE</div>
+        <div class="totals" style="background:#faf5ff;border:1px solid #c4b5fd">
+          <div class="tot-row"><span>Platform Fee (${platformFeePct}%)</span><span>₹${fmt(platformFee)}</span></div>
+          <div class="tot-row" style="color:#7c3aed"><span>CGST (${platformCgstPct}%)</span><span>₹${fmt(Math.round(platformFee * platformCgstPct / 100))}</span></div>
+          <div class="tot-row" style="color:#7c3aed"><span>SGST (${platformSgstPct}%)</span><span>₹${fmt(Math.round(platformFee * platformSgstPct / 100))}</span></div>
+          <div class="tot-row tot-grand" style="color:#6d28d9"><span>Platform Invoice Total</span><span>₹${fmt(platformTotal)}</span></div>
+        </div>
+      </div>
+
+      <!-- Grand Total -->
+      <div class="grand-box">
+        <div style="font-size:18px;font-weight:900;color:#fff">TOTAL AMOUNT</div>
+        <div style="font-size:28px;font-weight:900;color:#fff">₹${fmt(total)}</div>
+      </div>
+
+      ${form?.notes ? `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:10px"><strong>Special Requirements:</strong> ${form.notes}</div>` : ''}
+
+      <div class="footer">
+        <p>This is a non-binding quotation. Valid for 7 days from date of issue. Final pricing subject to vendor confirmation.</p>
+        <p style="margin-top:2px">Generated by RentalMeet · booking@rentalmeet.in · Ref: ${booking?.quotationNumber}</p>
+      </div>
+    </body></html>`;
+
     const w = window.open('', '_blank');
     if (!w) { setPrinting(false); return; }
     w.document.open();
-    w.document.write(`<!DOCTYPE html><html><head><title>Service Quotation - ${booking?.quotationNumber}</title>
-      <style>
-        *{margin:0;padding:0;box-sizing:border-box}
-        body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1f2937;padding:24px;background:#fff}
-        table{width:100%;border-collapse:collapse}
-        th,td{border:1px solid #e5e7eb;padding:8px 10px;text-align:left}
-        th{background:#f9fafb;font-weight:700;font-size:11px}
-        .text-right{text-align:right}
-        .text-center{text-align:center}
-        @media print{body{padding:0}}
-      </style>
-    </head><body>${content}</body></html>`);
+    w.document.write(html);
     w.document.close();
-    setTimeout(() => { w.print(); setPrinting(false); }, 300);
+    setTimeout(() => { w.print(); setPrinting(false); }, 400);
   };
 
   const handleDownloadPDF = async () => {
@@ -61,9 +192,152 @@ export default function ServiceQuotationModal({ booking, svc, form, selectedDate
       const { default: jsPDF } = await import('jspdf');
       const { default: html2canvas } = await import('html2canvas');
 
+      const logoUrl = `${window.location.origin}/logo.png`;
+      const toBase64 = (url) => new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          const c = document.createElement('canvas');
+          c.width = img.width; c.height = img.height;
+          c.getContext('2d').drawImage(img, 0, 0);
+          resolve(c.toDataURL('image/png'));
+        };
+        img.onerror = () => resolve(null);
+        img.src = url;
+      });
+
+      const logoB64 = await toBase64(logoUrl);
+      const fmt = (n) => (n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+      const serviceTotal = subtotal + serviceCgst + serviceSgst;
+      const platformTotal = platformFee + platformFeeGst;
+
+      const itemRows = selectedItems.map((item, i) =>
+        `<tr style="background:${i % 2 === 0 ? '#fff' : '#f9fafb'};border-bottom:1px solid #e5e7eb">
+          <td style="padding:7px 10px;font-size:11px">${item.name}</td>
+          <td style="padding:7px 10px;text-align:right;font-size:11px">₹${(item.price || 0).toLocaleString()}</td>
+          <td style="padding:7px 10px;text-align:center;font-size:10px;color:#6b7280">${item.unit}</td>
+          <td style="padding:7px 10px;text-align:center;font-size:11px;font-weight:600">${item.qty}</td>
+          <td style="padding:7px 10px;text-align:right;font-size:11px;font-weight:700;color:#F59E0B">₹${((item.price || 0) * item.qty).toLocaleString()}</td>
+        </tr>`
+      ).join('');
+
+      const commonCSS = `
+        *{margin:0;padding:0;box-sizing:border-box}
+        body,div{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1f2937;-webkit-print-color-adjust:exact}
+        .wrap{width:794px;background:#fff;padding:32px 36px}
+        .hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
+        .logo-img{height:44px;object-fit:contain}
+        .brand-sub{font-size:9px;color:#6b7280;margin-top:2px}
+        .inv-right{text-align:right}
+        .inv-title{font-size:20px;font-weight:800;letter-spacing:1px;margin-bottom:3px}
+        .inv-no{font-size:10px;color:#6b7280;margin-bottom:1px}
+        .badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:9px;font-weight:700;letter-spacing:.5px;margin-top:4px;background:#fef3c7;color:#92400e}
+        .divider{height:3px;border-radius:2px;margin-bottom:16px}
+        .meta{display:flex;justify-content:space-between;background:#f9fafb;border-radius:8px;padding:12px 16px;margin-bottom:16px}
+        .meta-label{font-size:9px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:1px}
+        .meta-val{font-size:12px;font-weight:800;color:#111827}
+        .two-col{display:flex;gap:12px;margin-bottom:16px}
+        .card{flex:1;border-radius:8px;padding:12px;border:1px solid}
+        .card-title{font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid}
+        .card-row{margin-bottom:5px}
+        .card-label{font-size:8px;color:#9ca3af;margin-bottom:1px}
+        .card-val{font-size:10px;font-weight:600;color:#111827}
+        table{width:100%;border-collapse:collapse;margin-bottom:14px}
+        th{padding:7px 9px;text-align:left;font-size:8px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#fff}
+        td{padding:6px 9px;border-bottom:1px solid #f3f4f6;font-size:10px;vertical-align:top}
+        .right{text-align:right}
+        .totals{border-radius:8px;padding:12px 14px;margin-bottom:14px}
+        .tot-row{display:flex;justify-content:space-between;padding:3px 0;font-size:10px}
+        .tot-grand{font-size:13px;font-weight:800;border-top:2px solid rgba(0,0,0,.15);margin-top:5px;padding-top:7px}
+        .inv-section{border:3px solid;border-radius:10px;padding:16px;margin-bottom:16px}
+        .inv-section-title{font-size:14px;font-weight:900;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid}
+        .grand-box{border-radius:10px;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+        .footer{text-align:center;font-size:8px;color:#9ca3af;padding-top:8px;border-top:1px solid #e5e7eb}
+      `;
+
+      const htmlContent = `<div class="wrap" style="font-family:'Segoe UI',Arial,sans-serif">
+        <style>${commonCSS}</style>
+        <div class="hdr">
+          <div>
+            ${logoB64 ? `<img src="${logoB64}" class="logo-img" alt="RentalMeet"/>` : `<div style="font-size:20px;font-weight:800;color:#F59E0B">RentalMeet</div>`}
+            <div class="brand-sub">Premium Vendor Services Platform</div>
+            <div style="font-size:9px;color:#6b7280;margin-top:2px">booking@rentalmeet.in | 24/7 Available</div>
+          </div>
+          <div class="inv-right">
+            <div class="inv-title" style="color:#F59E0B">SERVICE QUOTATION</div>
+            <div class="inv-no">Quotation No: <strong>${booking?.quotationNumber || '—'}</strong></div>
+            <div class="inv-no">Date: ${todayStr}</div>
+            <span class="badge">ENQUIRY</span>
+          </div>
+        </div>
+        <div class="divider" style="background:linear-gradient(90deg,#F59E0B,#FCD34D)"></div>
+
+        <div class="meta">
+          <div><div class="meta-label">Valid Until</div><div class="meta-val">${validUntil}</div></div>
+          <div style="text-align:center"><div class="meta-label">Event Date</div><div class="meta-val" style="color:#F59E0B">${eventDateStr}</div></div>
+          <div style="text-align:right"><div class="meta-label">Status</div><div class="meta-val" style="color:#F59E0B">ENQUIRY</div></div>
+        </div>
+
+        <div class="two-col">
+          <div class="card" style="background:#eff6ff;border-color:#bfdbfe">
+            <div class="card-title" style="color:#1e40af;border-color:#bfdbfe">Billed To</div>
+            <div class="card-row"><div class="card-label">Name</div><div class="card-val">${form?.name || '—'}</div></div>
+            ${form?.company ? `<div class="card-row"><div class="card-label">Company</div><div class="card-val">${form.company}</div></div>` : ''}
+            <div class="card-row"><div class="card-label">Email</div><div class="card-val">${form?.email || '—'}</div></div>
+            <div class="card-row"><div class="card-label">Phone</div><div class="card-val">${form?.phone || '—'}</div></div>
+            ${form?.eventName ? `<div class="card-row"><div class="card-label">Event</div><div class="card-val">${form.eventName}</div></div>` : ''}
+          </div>
+          <div class="card" style="background:#fefce8;border-color:#fde68a">
+            <div class="card-title" style="color:#92400e;border-color:#fde68a">Service Provider</div>
+            <div class="card-row"><div class="card-label">Service</div><div class="card-val">${svc?.title || '—'}</div></div>
+            <div class="card-row"><div class="card-label">Category</div><div class="card-val">${svc?.category || '—'}</div></div>
+            ${(svc?.vendor?.companyName || svc?.companyName) ? `<div class="card-row"><div class="card-label">Company</div><div class="card-val">${svc?.vendor?.companyName || svc?.companyName}</div></div>` : ''}
+            <div class="card-row"><div class="card-label">Location</div><div class="card-val">${[svc?.city, svc?.state].filter(Boolean).join(', ') || '—'}</div></div>
+          </div>
+        </div>
+
+        <table>
+          <thead><tr style="background:#F59E0B"><th>Service / Item</th><th style="text-align:right">Rate</th><th style="text-align:center">Unit</th><th style="text-align:center">Qty</th><th style="text-align:right">Amount</th></tr></thead>
+          <tbody>${itemRows}</tbody>
+        </table>
+
+        <div class="inv-section" style="border-color:#93c5fd;background:linear-gradient(135deg,#eff6ff,#fff)">
+          <div class="inv-section-title" style="color:#1e40af;border-color:#93c5fd">📄 SERVICE INVOICE</div>
+          <div class="totals" style="background:#eff6ff;border:1px solid #bfdbfe">
+            <div class="tot-row"><span>Service Amount</span><span>₹${fmt(subtotal)}</span></div>
+            <div class="tot-row" style="color:#1d4ed8"><span>CGST (${cgstPct}%)</span><span>₹${fmt(serviceCgst)}</span></div>
+            <div class="tot-row" style="color:#1d4ed8"><span>SGST (${sgstPct}%)</span><span>₹${fmt(serviceSgst)}</span></div>
+            <div class="tot-row tot-grand" style="color:#1e40af"><span>Service Invoice Total</span><span>₹${fmt(serviceTotal)}</span></div>
+          </div>
+        </div>
+
+        <div class="inv-section" style="border-color:#c4b5fd;background:linear-gradient(135deg,#faf5ff,#fff)">
+          <div class="inv-section-title" style="color:#6d28d9;border-color:#c4b5fd">📄 PLATFORM INVOICE</div>
+          <div class="totals" style="background:#faf5ff;border:1px solid #c4b5fd">
+            <div class="tot-row"><span>Platform Fee (${platformFeePct}%)</span><span>₹${fmt(platformFee)}</span></div>
+            <div class="tot-row" style="color:#7c3aed"><span>CGST (${platformCgstPct}%)</span><span>₹${fmt(Math.round(platformFee * platformCgstPct / 100))}</span></div>
+            <div class="tot-row" style="color:#7c3aed"><span>SGST (${platformSgstPct}%)</span><span>₹${fmt(Math.round(platformFee * platformSgstPct / 100))}</span></div>
+            <div class="tot-row tot-grand" style="color:#6d28d9"><span>Platform Invoice Total</span><span>₹${fmt(platformTotal)}</span></div>
+          </div>
+        </div>
+
+        <div class="grand-box" style="background:linear-gradient(135deg,#F59E0B,#FCD34D)">
+          <div style="font-size:18px;font-weight:900;color:#fff">TOTAL AMOUNT</div>
+          <div style="font-size:28px;font-weight:900;color:#fff">₹${fmt(total)}</div>
+        </div>
+
+        ${form?.notes ? `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:10px"><strong>Special Requirements:</strong> ${form.notes}</div>` : ''}
+
+        <div class="footer">
+          <p>This is a non-binding quotation. Valid for 7 days from date of issue. Final pricing subject to vendor confirmation.</p>
+          <p style="margin-top:2px">Generated by RentalMeet &nbsp;|&nbsp; booking@rentalmeet.in &nbsp;|&nbsp; Ref: ${booking?.quotationNumber}</p>
+        </div>
+      </div>`;
+
       const container = document.createElement('div');
-      container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;z-index:-1;padding:32px';
-      container.innerHTML = quotationRef.current?.innerHTML || '';
+      container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;z-index:-1';
+      container.innerHTML = htmlContent;
       document.body.appendChild(container);
 
       await new Promise(r => setTimeout(r, 300));

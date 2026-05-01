@@ -139,73 +139,393 @@ export default function QuotationView({
 
   const handlePrint = async () => {
     await recordToBackend('print');
-    window.print();
+
+    // Build same invoice-style HTML for print (mirrors PDF output)
+    const logoUrl = `${window.location.origin}/logo.png`;
+    const toBase64 = (url) => new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = img.width; c.height = img.height;
+        c.getContext('2d').drawImage(img, 0, 0);
+        resolve(c.toDataURL('image/png'));
+      };
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+
+    const logoB64 = await toBase64(logoUrl);
+    const sigVenueB64 = platformSettings?.gstInvoiceSignature ? await toBase64(platformSettings.gstInvoiceSignature) : null;
+    const sigPlatformB64 = platformSettings?.platformInvoiceSignature ? await toBase64(platformSettings.platformInvoiceSignature) : null;
+
+    const fmt = (n) => (n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+
+    // Build amenity rows
+    const amenRows = [];
+    const basic = (sa.basic || []).filter(a => a.type === 'Paid' && a.total > 0);
+    const bev = sa.beverages || [];
+    const food = sa.refreshmentFood || [];
+    const thalis = sa.lunchThalis || [];
+    const add = (sa.additional || []).filter(a => a.total > 0);
+    [...basic, ...bev, ...food, ...thalis, ...add].forEach(a => {
+      const name = a.name || a.thaliType || 'Item';
+      const q = a.quantity || 1;
+      const rate = a.rate || a.ratePerUnit || a.ratePerPlate || a.charges || 0;
+      const total = a.total || 0;
+      amenRows.push(`<tr><td style="padding-left:18px">${name}</td><td>${q}</td><td style="text-align:right">₹${fmt(rate)}</td><td style="text-align:right">₹${fmt(total)}</td></tr>`);
+    });
+
+    const css = `
+      *{margin:0;padding:0;box-sizing:border-box}
+      body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1f2937;background:#fff;padding:32px 36px}
+      .hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
+      .logo-img{height:44px;object-fit:contain}
+      .inv-title{font-size:20px;font-weight:800;letter-spacing:1px;margin-bottom:3px}
+      .inv-no{font-size:10px;color:#6b7280;margin-bottom:1px}
+      .badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:9px;font-weight:700;margin-top:4px;background:#fef3c7;color:#92400e}
+      .divider{height:3px;border-radius:2px;margin-bottom:16px;background:linear-gradient(90deg,#F59E0B,#FCD34D)}
+      .meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#f9fafb;border-radius:8px;padding:12px 16px;margin-bottom:16px}
+      .meta-label{font-size:9px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:1px}
+      .meta-val{font-size:12px;font-weight:800;color:#111827}
+      .meta-right{text-align:right}
+      .two-col{display:flex;gap:12px;margin-bottom:16px}
+      .card{flex:1;border-radius:8px;padding:12px;border:1px solid}
+      .card-title{font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid}
+      .card-row{margin-bottom:5px}
+      .card-label{font-size:8px;color:#9ca3af;margin-bottom:1px}
+      .card-val{font-size:10px;font-weight:600;color:#111827}
+      table{width:100%;border-collapse:collapse;margin-bottom:14px}
+      th{padding:7px 9px;text-align:left;font-size:8px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#fff;background:#F59E0B}
+      td{padding:6px 9px;border-bottom:1px solid #f3f4f6;font-size:10px;vertical-align:top}
+      .inv-section{border:3px solid;border-radius:10px;padding:16px;margin-bottom:16px}
+      .inv-section-title{font-size:14px;font-weight:900;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid}
+      .totals{border-radius:8px;padding:12px 14px;margin-bottom:14px}
+      .tot-row{display:flex;justify-content:space-between;padding:3px 0;font-size:10px}
+      .tot-grand{font-size:13px;font-weight:800;border-top:2px solid rgba(0,0,0,.15);margin-top:5px;padding-top:7px}
+      .grand-box{background:linear-gradient(135deg,#16a34a,#22c55e);border-radius:10px;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+      .sig-area{display:flex;justify-content:flex-end;margin-bottom:12px}
+      .sig-box{text-align:center;min-width:130px}
+      .sig-img{height:44px;margin-bottom:3px;object-fit:contain}
+      .sig-line{border-top:1px solid #374151;padding-top:3px;font-size:8px;font-weight:600;color:#374151}
+      .footer{text-align:center;font-size:8px;color:#9ca3af;padding-top:8px;border-top:1px solid #e5e7eb}
+      @media print{body{padding:16px}}
+    `;
+
+    const html = `<!DOCTYPE html><html><head><title>Quotation - ${quotationNumber}</title><style>${css}</style></head><body>
+      <div class="hdr">
+        <div>
+          ${logoB64 ? `<img src="${logoB64}" class="logo-img" alt="RentalMeet"/>` : `<div style="font-size:22px;font-weight:900;color:#F59E0B">RentalMeet</div>`}
+          <div style="font-size:9px;color:#6b7280;margin-top:2px">Venue Booking Platform</div>
+          <div style="font-size:9px;color:#6b7280">bookings@rentalmeet.com | +91 98765 43210</div>
+        </div>
+        <div style="text-align:right">
+          <div class="inv-title" style="color:#F59E0B">BOOKING QUOTATION</div>
+          <div class="inv-no">Quotation No: <strong>${quotationNumber}</strong></div>
+          <div class="inv-no">Date: ${fmtDate(new Date())}</div>
+          <span class="badge">DRAFT</span>
+        </div>
+      </div>
+      <div class="divider"></div>
+
+      <div class="meta">
+        <div><div class="meta-label">Valid Until</div><div class="meta-val">${fmtDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))}</div></div>
+        <div class="meta-right"><div class="meta-label">Status</div><div class="meta-val" style="color:#F59E0B">DRAFT</div></div>
+      </div>
+
+      <div class="two-col">
+        <div class="card" style="background:#eff6ff;border-color:#bfdbfe">
+          <div class="card-title" style="color:#1e40af;border-color:#bfdbfe">Venue Details</div>
+          <div class="card-row"><div class="card-label">Venue</div><div class="card-val">${venue.businessName}</div></div>
+          <div class="card-row"><div class="card-label">Location</div><div class="card-val">${venue.location?.city || ''}${venue.location?.area ? ', ' + venue.location.area : ''}</div></div>
+          <div class="card-row"><div class="card-label">Address</div><div class="card-val">${venue.location?.address || '—'}</div></div>
+          <div class="card-row"><div class="card-label">Capacity</div><div class="card-val">${venue.capacity || '—'}</div></div>
+          <div class="card-row"><div class="card-label">Date</div><div class="card-val">${fmtDate(fd.bookingDate || fd.date)}</div></div>
+          <div class="card-row"><div class="card-label">Time</div><div class="card-val">${fd.startTime || ''} – ${fd.endTime || ''} (${fd.bookingType || ''})</div></div>
+        </div>
+        <div class="card" style="background:#f0fdf4;border-color:#bbf7d0">
+          <div class="card-title" style="color:#166534;border-color:#bbf7d0">Customer Details</div>
+          <div class="card-row"><div class="card-label">Name</div><div class="card-val">${fd.customerName || '—'}</div></div>
+          <div class="card-row"><div class="card-label">Email</div><div class="card-val">${fd.customerEmail || '—'}</div></div>
+          <div class="card-row"><div class="card-label">Phone</div><div class="card-val">${fd.customerPhone || '—'}</div></div>
+          <div class="card-row"><div class="card-label">Event Type</div><div class="card-val">${fd.eventType || '—'}</div></div>
+          <div class="card-row"><div class="card-label">Guests</div><div class="card-val">${fd.guestCount || '—'}</div></div>
+          ${fd.isWeekend !== undefined ? `<div class="card-row"><div class="card-label">Day Type</div><div class="card-val">${fd.isWeekend ? 'Weekend' : 'Weekday'}</div></div>` : ''}
+        </div>
+      </div>
+
+      <!-- Invoice 1: Venue -->
+      <div class="inv-section" style="border-color:#93c5fd;background:linear-gradient(135deg,#eff6ff,#fff)">
+        <div class="inv-section-title" style="color:#1e40af;border-color:#93c5fd">📄 INVOICE 1: VENUE RENTAL &nbsp;<span style="font-size:10px;font-weight:600;color:#6b7280">${quotationNumber}-V</span></div>
+        <table>
+          <thead><tr><th>Description</th><th>Qty</th><th style="text-align:right">Rate</th><th style="text-align:right">Amount</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Venue Rental – ${venue.businessName}</strong><br><span style="font-size:8px;color:#6b7280">${fmtDate(fd.bookingDate || fd.date)} | ${fd.startTime || ''} – ${fd.endTime || ''}</span></td><td style="text-transform:capitalize">${fd.bookingType || ''}</td><td style="text-align:right">—</td><td style="text-align:right"><strong>₹${fmt(cp.basePrice || 0)}</strong></td></tr>
+            ${amenRows.length ? `<tr style="background:#fef9c3"><td colspan="4" style="font-size:8px;font-weight:700;color:#92400e;padding:4px 9px">AMENITIES & SERVICES</td></tr>${amenRows.join('')}` : ''}
+            ${(cp.amenitiesTotal || 0) > 0 ? `<tr style="background:#f9fafb"><td colspan="3"><strong>Amenities Subtotal</strong></td><td style="text-align:right"><strong>₹${fmt(cp.amenitiesTotal)}</strong></td></tr>` : ''}
+          </tbody>
+        </table>
+        <div class="totals" style="background:#eff6ff;border:1px solid #bfdbfe">
+          <div class="tot-row"><span>Subtotal (Rental + Amenities)</span><span>₹${fmt(venueInvoice.baseAmount)}</span></div>
+          <div class="tot-row" style="color:#1d4ed8"><span>CGST (${venueInvoice.cgstRate}%)</span><span>₹${fmt(venueInvoice.cgst)}</span></div>
+          <div class="tot-row" style="color:#1d4ed8"><span>SGST (${venueInvoice.sgstRate}%)</span><span>₹${fmt(venueInvoice.sgst)}</span></div>
+          <div class="tot-row tot-grand" style="color:#1e40af"><span>Venue Invoice Total</span><span>₹${fmt(venueInvoice.total)}</span></div>
+        </div>
+        ${sigVenueB64 ? `<div class="sig-area"><div class="sig-box"><img src="${sigVenueB64}" class="sig-img"/><div class="sig-line">Authorized Signatory</div></div></div>` : ''}
+      </div>
+
+      <!-- Invoice 2: Platform -->
+      <div class="inv-section" style="border-color:#c4b5fd;background:linear-gradient(135deg,#faf5ff,#fff)">
+        <div class="inv-section-title" style="color:#6d28d9;border-color:#c4b5fd">📄 INVOICE 2: PLATFORM FEE &nbsp;<span style="font-size:10px;font-weight:600;color:#6b7280">${quotationNumber}-P</span></div>
+        <table>
+          <thead><tr style="background:#7c3aed"><th>Description</th><th>Rate</th><th style="text-align:right">Base Amount</th><th style="text-align:right">Amount</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Platform Service Fee</strong><br><span style="font-size:8px;color:#6b7280">Booking facilitation for ${venue.businessName} on ${fmtDate(fd.bookingDate || fd.date)}</span></td><td>${platformInvoice.feePercentage}% of base</td><td style="text-align:right">₹${fmt(venueInvoice.baseAmount)}</td><td style="text-align:right"><strong>₹${fmt(platformInvoice.platformFee)}</strong></td></tr>
+          </tbody>
+        </table>
+        <div class="totals" style="background:#faf5ff;border:1px solid #c4b5fd">
+          <div class="tot-row"><span>Platform Fee (${platformInvoice.feePercentage}%)</span><span>₹${fmt(platformInvoice.platformFee)}</span></div>
+          <div class="tot-row" style="color:#7c3aed"><span>CGST (${platformInvoice.cgstRate}%)</span><span>₹${fmt(platformInvoice.cgst)}</span></div>
+          <div class="tot-row" style="color:#7c3aed"><span>SGST (${platformInvoice.sgstRate}%)</span><span>₹${fmt(platformInvoice.sgst)}</span></div>
+          <div class="tot-row tot-grand" style="color:#6d28d9"><span>Platform Invoice Total</span><span>₹${fmt(platformInvoice.total)}</span></div>
+        </div>
+        ${sigPlatformB64 ? `<div class="sig-area"><div class="sig-box"><img src="${sigPlatformB64}" class="sig-img"/><div class="sig-line">Authorized Signatory</div></div></div>` : ''}
+      </div>
+
+      <!-- Grand Total -->
+      <div class="grand-box">
+        <div>
+          <div style="font-size:11px;color:rgba(255,255,255,.8)">Venue Total + Platform Total${couponDiscount > 0 ? ' − Coupon Discount' : ''}</div>
+          <div style="font-size:18px;font-weight:900;color:#fff">GRAND TOTAL</div>
+        </div>
+        <div style="font-size:28px;font-weight:900;color:#fff">₹${fmt(grandTotal)}</div>
+      </div>
+
+      ${fd.specialRequirements ? `<div style="background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:10px"><strong>Special Requirements:</strong> ${fd.specialRequirements}</div>` : ''}
+
+      <div class="footer">
+        <p><strong>RentalMeet</strong> — Venue Booking Platform | bookings@rentalmeet.com | +91 98765 43210</p>
+        <p style="margin-top:2px">Quotation Ref: ${quotationNumber} | Valid for 7 days | This is a non-binding quotation, not a confirmed booking.</p>
+      </div>
+    </body></html>`;
+
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => { w.print(); }, 400);
   };
 
   const handleDownloadPDF = async () => {
     try {
-      const element = quotationRef.current;
-      if (!element) return;
+      const { default: jsPDF } = await import('jspdf');
+      const { default: html2canvas } = await import('html2canvas');
 
-      const loadingToast = document.createElement('div');
-      loadingToast.className = 'fixed top-4 right-4 bg-primary-500 text-white px-6 py-3 rounded-lg shadow-lg z-[200]';
-      loadingToast.textContent = 'Generating PDF...';
-      document.body.appendChild(loadingToast);
-
-      const originalOverflow = element.style.overflow;
-      const originalMaxHeight = element.style.maxHeight;
-      element.style.overflow = 'visible';
-      element.style.maxHeight = 'none';
-
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight
+      const logoUrl = `${window.location.origin}/logo.png`;
+      const toBase64 = (url) => new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          const c = document.createElement('canvas');
+          c.width = img.width; c.height = img.height;
+          c.getContext('2d').drawImage(img, 0, 0);
+          resolve(c.toDataURL('image/png'));
+        };
+        img.onerror = () => resolve(null);
+        img.src = url;
       });
 
-      element.style.overflow = originalOverflow;
-      element.style.maxHeight = originalMaxHeight;
+      const logoB64 = await toBase64(logoUrl);
+      const sigVenueB64 = platformSettings?.gstInvoiceSignature ? await toBase64(platformSettings.gstInvoiceSignature) : null;
+      const sigPlatformB64 = platformSettings?.platformInvoiceSignature ? await toBase64(platformSettings.platformInvoiceSignature) : null;
 
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      
-      const imgWidth = pdfWidth;
-      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      const imgData = canvas.toDataURL('image/png');
-      
-      let heightLeft = imgHeight;
-      let position = 0;
-      
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pdfHeight;
-      
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pdfHeight;
+      const fmt = (n) => (n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+
+      const amenRows = [];
+      const basic = (sa.basic || []).filter(a => a.type === 'Paid' && a.total > 0);
+      const bev = sa.beverages || [];
+      const food = sa.refreshmentFood || [];
+      const thalis = sa.lunchThalis || [];
+      const add = (sa.additional || []).filter(a => a.total > 0);
+      [...basic, ...bev, ...food, ...thalis, ...add].forEach(a => {
+        const name = a.name || a.thaliType || 'Item';
+        const q = a.quantity || 1;
+        const rate = a.rate || a.ratePerUnit || a.ratePerPlate || a.charges || 0;
+        const total = a.total || 0;
+        amenRows.push(`<tr><td style="padding-left:18px">${name}</td><td>${q}</td><td style="text-align:right">₹${fmt(rate)}</td><td style="text-align:right">₹${fmt(total)}</td></tr>`);
+      });
+
+      const commonCSS = `
+        *{margin:0;padding:0;box-sizing:border-box}
+        body,div{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1f2937;-webkit-print-color-adjust:exact}
+        .wrap{width:794px;background:#fff;padding:32px 36px}
+        .hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
+        .logo-img{height:44px;object-fit:contain}
+        .brand-sub{font-size:9px;color:#6b7280;margin-top:2px}
+        .inv-right{text-align:right}
+        .inv-title{font-size:20px;font-weight:800;letter-spacing:1px;margin-bottom:3px}
+        .inv-no{font-size:10px;color:#6b7280;margin-bottom:1px}
+        .badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:9px;font-weight:700;letter-spacing:.5px;margin-top:4px;background:#fef3c7;color:#92400e}
+        .divider{height:3px;border-radius:2px;margin-bottom:16px}
+        .meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#f9fafb;border-radius:8px;padding:12px 16px;margin-bottom:16px}
+        .meta-label{font-size:9px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:1px}
+        .meta-val{font-size:12px;font-weight:800;color:#111827}
+        .meta-right{text-align:right}
+        .two-col{display:flex;gap:12px;margin-bottom:16px}
+        .card{flex:1;border-radius:8px;padding:12px;border:1px solid}
+        .card-title{font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid}
+        .card-row{margin-bottom:5px}
+        .card-label{font-size:8px;color:#9ca3af;margin-bottom:1px}
+        .card-val{font-size:10px;font-weight:600;color:#111827}
+        table{width:100%;border-collapse:collapse;margin-bottom:14px}
+        th{padding:7px 9px;text-align:left;font-size:8px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#fff}
+        td{padding:6px 9px;border-bottom:1px solid #f3f4f6;font-size:10px;vertical-align:top}
+        .right{text-align:right}
+        .totals{border-radius:8px;padding:12px 14px;margin-bottom:14px}
+        .tot-row{display:flex;justify-content:space-between;padding:3px 0;font-size:10px}
+        .tot-grand{font-size:13px;font-weight:800;border-top:2px solid rgba(0,0,0,.15);margin-top:5px;padding-top:7px}
+        .inv-section{border:3px solid;border-radius:10px;padding:16px;margin-bottom:16px}
+        .inv-section-title{font-size:14px;font-weight:900;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid}
+        .grand-box{border-radius:10px;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+        .sig-area{display:flex;justify-content:flex-end;margin-bottom:12px}
+        .sig-box{text-align:center;min-width:130px}
+        .sig-img{height:44px;margin-bottom:3px;object-fit:contain}
+        .sig-line{border-top:1px solid #374151;padding-top:3px;font-size:8px;font-weight:600;color:#374151}
+        .footer{text-align:center;font-size:8px;color:#9ca3af;padding-top:8px;border-top:1px solid #e5e7eb}
+      `;
+
+      const htmlContent = `<div class="wrap" style="font-family:'Segoe UI',Arial,sans-serif">
+        <style>${commonCSS}</style>
+        <div class="hdr">
+          <div>
+            ${logoB64 ? `<img src="${logoB64}" class="logo-img" alt="RentalMeet"/>` : `<div style="font-size:20px;font-weight:800;color:#F59E0B">RentalMeet</div>`}
+            <div class="brand-sub">Venue Booking Platform</div>
+            <div style="font-size:9px;color:#6b7280;margin-top:2px">bookings@rentalmeet.com | +91 98765 43210</div>
+          </div>
+          <div class="inv-right">
+            <div class="inv-title" style="color:#F59E0B">BOOKING QUOTATION</div>
+            <div class="inv-no">Quotation No: <strong>${quotationNumber}</strong></div>
+            <div class="inv-no">Date: ${fmtDate(new Date())}</div>
+            <span class="badge">DRAFT</span>
+          </div>
+        </div>
+        <div class="divider" style="background:linear-gradient(90deg,#F59E0B,#FCD34D)"></div>
+
+        <div class="meta">
+          <div><div class="meta-label">Valid Until</div><div class="meta-val">${fmtDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))}</div></div>
+          <div class="meta-right"><div class="meta-label">Status</div><div class="meta-val" style="color:#F59E0B">DRAFT</div></div>
+        </div>
+
+        <div class="two-col">
+          <div class="card" style="background:#eff6ff;border-color:#bfdbfe">
+            <div class="card-title" style="color:#1e40af;border-color:#bfdbfe">Venue Details</div>
+            <div class="card-row"><div class="card-label">Venue</div><div class="card-val">${venue.businessName}</div></div>
+            <div class="card-row"><div class="card-label">Location</div><div class="card-val">${venue.location?.city || ''}${venue.location?.area ? ', ' + venue.location.area : ''}</div></div>
+            <div class="card-row"><div class="card-label">Address</div><div class="card-val">${venue.location?.address || '—'}</div></div>
+            <div class="card-row"><div class="card-label">Capacity</div><div class="card-val">${venue.capacity || '—'}</div></div>
+            <div class="card-row"><div class="card-label">Date</div><div class="card-val">${fmtDate(fd.bookingDate || fd.date)}</div></div>
+            <div class="card-row"><div class="card-label">Time</div><div class="card-val">${fd.startTime || ''} – ${fd.endTime || ''} (${fd.bookingType || ''})</div></div>
+          </div>
+          <div class="card" style="background:#f0fdf4;border-color:#bbf7d0">
+            <div class="card-title" style="color:#166534;border-color:#bbf7d0">Customer Details</div>
+            <div class="card-row"><div class="card-label">Name</div><div class="card-val">${fd.customerName || '—'}</div></div>
+            <div class="card-row"><div class="card-label">Email</div><div class="card-val">${fd.customerEmail || '—'}</div></div>
+            <div class="card-row"><div class="card-label">Phone</div><div class="card-val">${fd.customerPhone || '—'}</div></div>
+            <div class="card-row"><div class="card-label">Event Type</div><div class="card-val">${fd.eventType || '—'}</div></div>
+            <div class="card-row"><div class="card-label">Guests</div><div class="card-val">${fd.guestCount || '—'}</div></div>
+            ${fd.isWeekend !== undefined ? `<div class="card-row"><div class="card-label">Day Type</div><div class="card-val">${fd.isWeekend ? 'Weekend' : 'Weekday'}</div></div>` : ''}
+          </div>
+        </div>
+
+        <div class="inv-section" style="border-color:#93c5fd;background:linear-gradient(135deg,#eff6ff,#fff)">
+          <div class="inv-section-title" style="color:#1e40af;border-color:#93c5fd">📄 INVOICE 1: VENUE RENTAL &nbsp;<span style="font-size:10px;font-weight:600;color:#6b7280">${quotationNumber}-V</span></div>
+          <table>
+            <thead><tr style="background:#F59E0B"><th>Description</th><th>Qty</th><th class="right">Rate</th><th class="right">Amount</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Venue Rental – ${venue.businessName}</strong><br><span style="font-size:8px;color:#6b7280">${fmtDate(fd.bookingDate || fd.date)} | ${fd.startTime || ''} – ${fd.endTime || ''}</span></td><td style="text-transform:capitalize">${fd.bookingType || ''}</td><td class="right">—</td><td class="right"><strong>₹${fmt(cp.basePrice || 0)}</strong></td></tr>
+              ${amenRows.length ? `<tr style="background:#fef9c3"><td colspan="4" style="font-size:8px;font-weight:700;color:#92400e;padding:4px 9px">AMENITIES & SERVICES</td></tr>${amenRows.join('')}` : ''}
+              ${(cp.amenitiesTotal || 0) > 0 ? `<tr style="background:#f9fafb"><td colspan="3"><strong>Amenities Subtotal</strong></td><td class="right"><strong>₹${fmt(cp.amenitiesTotal)}</strong></td></tr>` : ''}
+            </tbody>
+          </table>
+          <div class="totals" style="background:#eff6ff;border:1px solid #bfdbfe">
+            <div class="tot-row"><span>Subtotal (Rental + Amenities)</span><span>₹${fmt(venueInvoice.baseAmount)}</span></div>
+            <div class="tot-row" style="color:#1d4ed8"><span>CGST (${venueInvoice.cgstRate}%)</span><span>₹${fmt(venueInvoice.cgst)}</span></div>
+            <div class="tot-row" style="color:#1d4ed8"><span>SGST (${venueInvoice.sgstRate}%)</span><span>₹${fmt(venueInvoice.sgst)}</span></div>
+            <div class="tot-row tot-grand" style="color:#1e40af"><span>Venue Invoice Total</span><span>₹${fmt(venueInvoice.total)}</span></div>
+          </div>
+          ${sigVenueB64 ? `<div class="sig-area"><div class="sig-box"><img src="${sigVenueB64}" class="sig-img"/><div class="sig-line">Authorized Signatory</div></div></div>` : ''}
+        </div>
+
+        <div class="inv-section" style="border-color:#c4b5fd;background:linear-gradient(135deg,#faf5ff,#fff)">
+          <div class="inv-section-title" style="color:#6d28d9;border-color:#c4b5fd">📄 INVOICE 2: PLATFORM FEE &nbsp;<span style="font-size:10px;font-weight:600;color:#6b7280">${quotationNumber}-P</span></div>
+          <table>
+            <thead><tr style="background:#7c3aed"><th>Description</th><th>Rate</th><th class="right">Base Amount</th><th class="right">Amount</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Platform Service Fee</strong><br><span style="font-size:8px;color:#6b7280">Booking facilitation for ${venue.businessName} on ${fmtDate(fd.bookingDate || fd.date)}</span></td><td>${platformInvoice.feePercentage}% of base</td><td class="right">₹${fmt(venueInvoice.baseAmount)}</td><td class="right"><strong>₹${fmt(platformInvoice.platformFee)}</strong></td></tr>
+            </tbody>
+          </table>
+          <div class="totals" style="background:#faf5ff;border:1px solid #c4b5fd">
+            <div class="tot-row"><span>Platform Fee (${platformInvoice.feePercentage}%)</span><span>₹${fmt(platformInvoice.platformFee)}</span></div>
+            <div class="tot-row" style="color:#7c3aed"><span>CGST (${platformInvoice.cgstRate}%)</span><span>₹${fmt(platformInvoice.cgst)}</span></div>
+            <div class="tot-row" style="color:#7c3aed"><span>SGST (${platformInvoice.sgstRate}%)</span><span>₹${fmt(platformInvoice.sgst)}</span></div>
+            <div class="tot-row tot-grand" style="color:#6d28d9"><span>Platform Invoice Total</span><span>₹${fmt(platformInvoice.total)}</span></div>
+          </div>
+          ${sigPlatformB64 ? `<div class="sig-area"><div class="sig-box"><img src="${sigPlatformB64}" class="sig-img"/><div class="sig-line">Authorized Signatory</div></div></div>` : ''}
+        </div>
+
+        <div class="grand-box" style="background:linear-gradient(135deg,#16a34a,#22c55e)">
+          <div>
+            <div style="font-size:11px;color:rgba(255,255,255,.8)">Venue Total + Platform Total${couponDiscount > 0 ? ' − Coupon Discount' : ''}</div>
+            <div style="font-size:18px;font-weight:900;color:#fff">GRAND TOTAL</div>
+          </div>
+          <div style="font-size:28px;font-weight:900;color:#fff">₹${fmt(grandTotal)}</div>
+        </div>
+
+        ${fd.specialRequirements ? `<div style="background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:10px"><strong>Special Requirements:</strong> ${fd.specialRequirements}</div>` : ''}
+
+        <div class="footer">
+          <p><strong>RentalMeet</strong> — Venue Booking Platform &nbsp;|&nbsp; bookings@rentalmeet.com &nbsp;|&nbsp; +91 98765 43210</p>
+          <p style="margin-top:2px">Quotation Ref: ${quotationNumber} &nbsp;|&nbsp; Valid for 7 days &nbsp;|&nbsp; Non-binding quotation, not a confirmed booking.</p>
+        </div>
+      </div>`;
+
+      const container = document.createElement('div');
+      container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;z-index:-1';
+      container.innerHTML = htmlContent;
+      document.body.appendChild(container);
+
+      await new Promise(r => setTimeout(r, 300));
+
+      const canvas = await html2canvas(container, {
+        scale: 2, useCORS: true, allowTaint: true,
+        backgroundColor: '#ffffff', logging: false,
+        width: 794, windowWidth: 794
+      });
+
+      document.body.removeChild(container);
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pdfW = pdf.internal.pageSize.getWidth();
+      const pdfH = (canvas.height * pdfW) / canvas.width;
+      const pageH = pdf.internal.pageSize.getHeight();
+
+      if (pdfH <= pageH) {
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfW, pdfH);
+      } else {
+        let yPos = 0;
+        while (yPos < pdfH) {
+          if (yPos > 0) pdf.addPage();
+          pdf.addImage(imgData, 'JPEG', 0, -yPos, pdfW, pdfH);
+          yPos += pageH;
+        }
       }
-      
-      const filename = `RentalMeet_Quotation_${quotationNumber}.pdf`;
-      pdf.save(filename);
 
-      document.body.removeChild(loadingToast);
-
-      // ── Record download in backend ──────────────────────────────────────────
+      pdf.save(`RentalMeet_Quotation_${quotationNumber}.pdf`);
       await recordToBackend('download');
-
-      const successToast = document.createElement('div');
-      successToast.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-[200]';
-      successToast.textContent = 'PDF Downloaded Successfully!';
-      document.body.appendChild(successToast);
-      setTimeout(() => document.body.removeChild(successToast), 3000);
 
     } catch (error) {
       console.error('PDF generation error:', error);
