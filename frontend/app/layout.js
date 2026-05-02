@@ -25,6 +25,9 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata = {
   title: 'RentalMeet - Book Your Premium Meeting Venues',
   description: 'Find and book the perfect venue for your meetings, events, and conferences',
+  verification: {
+    google: 'uTqA47_wan_8NNEFA6uAII7f8cPyO4ry1L8FezkrbuE',
+  },
   openGraph: {
     title: 'RentalMeet - Book Your Premium Meeting Venues',
     description: 'Find and book the perfect venue for your meetings, events, and conferences',
