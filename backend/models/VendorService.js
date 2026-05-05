@@ -18,7 +18,7 @@ const vendorServiceSchema = new mongoose.Schema({
   brandName:       String,
   experienceYears: Number,
   description:     String,
-  specialization:  String,
+  specialization:  [String],
   tags:            [String],
 
   // Step 3 — Address

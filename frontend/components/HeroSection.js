@@ -95,12 +95,22 @@ export default function HeroSection() {
       {/* Content */}
       <div className="relative h-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center text-center">
         {/* Main Heading */}
-        <h1 className="font-serif text-3xl sm:text-4xl lg:text-6xl font-bold text-white mb-4 leading-tight">
+        <h1 style={{ fontFamily: "var(--font-playfair), 'Playfair Display', Georgia, serif" }} className="text-3xl sm:text-4xl lg:text-6xl font-bold text-white mb-4 leading-tight">
           {slide.title}
           {slide.subtitle && (
             <>
               <br />
-              <span className="text-primary-500">{slide.subtitle}</span>
+              {slide.subtitle.includes('RentalMeet')
+                ? slide.subtitle.split('RentalMeet').map((part, i, arr) => (
+                    <span key={i} style={{ fontFamily: "var(--font-playfair), 'Playfair Display', Georgia, serif" }}>
+                      {part}
+                      {i < arr.length - 1 && (
+                        <span style={{ fontFamily: "var(--font-playfair), 'Playfair Display', Georgia, serif", color: '#F59F0A' }}>RentalMeet</span>
+                      )}
+                    </span>
+                  ))
+                : <span style={{ fontFamily: "var(--font-playfair), 'Playfair Display', Georgia, serif" }} className="text-primary-500">{slide.subtitle}</span>
+              }
             </>
           )}
         </h1>

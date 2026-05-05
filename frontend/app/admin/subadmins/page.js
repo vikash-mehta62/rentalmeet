@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
@@ -26,18 +26,11 @@ export default function SubAdminsPage() {
     password: '',
     permissions: {
       dashboard: false,
-      heroSlides: false,
-      venues: false,
-      venueTypes: false,
-      users: false,
-      employees: false,
-      subadmins: false,
-      bookings: false,
-      payments: false,
-      reports: false,
-      reviews: false,
-      platformSettings: false,
-      settings: false
+      venues: false, venueTypes: false, bookings: false, payments: false, coupons: false, quotations: false,
+      vendorServices: false, vendorPayments: false, vendorCoupons: false, serviceBookings: false, serviceQuotations: false,
+      heroSlides: false, users: false, employees: false, subadmins: false,
+      expenses: false, revenue: false, reports: false, reviews: false,
+      platformSettings: false, faqs: false, chatbot: false, settings: false
     }
   });
 
@@ -141,18 +134,11 @@ export default function SubAdminsPage() {
       password: '',
       permissions: subadmin.permissions || {
         dashboard: false,
-        heroSlides: false,
-        venues: false,
-        venueTypes: false,
-        users: false,
-        employees: false,
-        subadmins: false,
-        bookings: false,
-        payments: false,
-        reports: false,
-        reviews: false,
-        platformSettings: false,
-        settings: false
+        venues: false, venueTypes: false, bookings: false, payments: false, coupons: false, quotations: false,
+        vendorServices: false, vendorPayments: false, vendorCoupons: false, serviceBookings: false, serviceQuotations: false,
+        heroSlides: false, users: false, employees: false, subadmins: false,
+        expenses: false, revenue: false, reports: false, reviews: false,
+        platformSettings: false, faqs: false, chatbot: false, settings: false
       }
     });
     setShowModal(true);
@@ -223,18 +209,11 @@ export default function SubAdminsPage() {
       password: '',
       permissions: {
         dashboard: false,
-        heroSlides: false,
-        venues: false,
-        venueTypes: false,
-        users: false,
-        employees: false,
-        subadmins: false,
-        bookings: false,
-        payments: false,
-        reports: false,
-        reviews: false,
-        platformSettings: false,
-        settings: false
+        venues: false, venueTypes: false, bookings: false, payments: false, coupons: false, quotations: false,
+        vendorServices: false, vendorPayments: false, vendorCoupons: false, serviceBookings: false, serviceQuotations: false,
+        heroSlides: false, users: false, employees: false, subadmins: false,
+        expenses: false, revenue: false, reports: false, reviews: false,
+        platformSettings: false, faqs: false, chatbot: false, settings: false
       }
     });
   };
@@ -318,18 +297,11 @@ export default function SubAdminsPage() {
                 password: '',
                 permissions: {
                   dashboard: false,
-                  heroSlides: false,
-                  venues: false,
-                  venueTypes: false,
-                  users: false,
-                  employees: false,
-                  subadmins: false,
-                  bookings: false,
-                  payments: false,
-                  reports: false,
-                  reviews: false,
-                  platformSettings: false,
-                  settings: false
+                  venues: false, venueTypes: false, bookings: false, payments: false, coupons: false, quotations: false,
+                  vendorServices: false, vendorPayments: false, vendorCoupons: false, serviceBookings: false, serviceQuotations: false,
+                  heroSlides: false, users: false, employees: false, subadmins: false,
+                  expenses: false, revenue: false, reports: false, reviews: false,
+                  platformSettings: false, faqs: false, chatbot: false, settings: false
                 }
               });
               setShowModal(true);
@@ -663,55 +635,80 @@ export default function SubAdminsPage() {
                   <label className="block text-sm font-medium text-gray-700">
                     Access Permissions <span className="text-red-500">*</span>
                   </label>
-                  <button
-                    type="button"
+                  <button type="button"
                     onClick={() => {
                       const allSelected = Object.values(formData.permissions).every(v => v);
-                      const newPermissions = {};
-                      Object.keys(formData.permissions).forEach(key => {
-                        newPermissions[key] = !allSelected;
-                      });
-                      setFormData({ ...formData, permissions: newPermissions });
+                      const newPerms = {};
+                      Object.keys(formData.permissions).forEach(k => { newPerms[k] = !allSelected; });
+                      setFormData({ ...formData, permissions: newPerms });
                     }}
-                    className="text-xs text-primary-600 hover:text-primary-700 font-medium"
-                  >
+                    className="text-xs text-primary-600 hover:text-primary-700 font-medium">
                     {Object.values(formData.permissions).every(v => v) ? 'Deselect All' : 'Select All'}
                   </button>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {[
-                      { key: 'dashboard', label: 'Dashboard' },
-                      { key: 'heroSlides', label: 'Hero Slides' },
-                      { key: 'venues', label: 'Venues' },
-                      { key: 'venueTypes', label: 'Venue Types' },
-                      { key: 'users', label: 'Users' },
-                      { key: 'employees', label: 'Employees' },
-                      { key: 'subadmins', label: 'SubAdmins' },
-                      { key: 'bookings', label: 'Bookings' },
-                      { key: 'payments', label: 'Payments' },
-                      { key: 'reports', label: 'Reports' },
-                      { key: 'reviews', label: 'Reviews' },
-                      { key: 'platformSettings', label: 'Platform Settings' },
-                      { key: 'settings', label: 'Settings' }
-                    ].map(perm => (
-                      <label key={perm.key} className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={formData.permissions[perm.key]}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            permissions: {
-                              ...formData.permissions,
-                              [perm.key]: e.target.checked
-                            }
-                          })}
-                          className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                        />
-                        <span className="text-sm text-gray-700">{perm.label}</span>
-                      </label>
-                    ))}
-                  </div>
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 space-y-5">
+                  {[
+                    {
+                      section: 'Overview',
+                      items: [
+                        { key: 'dashboard', label: 'Dashboard' },
+                      ]
+                    },
+                    {
+                      section: 'Venues',
+                      items: [
+                        { key: 'venues', label: 'Venues' },
+                        { key: 'venueTypes', label: 'Venue Types' },
+                        { key: 'bookings', label: 'Bookings' },
+                        { key: 'payments', label: 'Payments' },
+                        { key: 'coupons', label: 'Coupons' },
+                        { key: 'quotations', label: 'Quotations' },
+                      ]
+                    },
+                    {
+                      section: 'Vendors',
+                      items: [
+                        { key: 'vendorServices', label: 'Vendor Services' },
+                        { key: 'vendorPayments', label: 'Vendor Payments' },
+                        { key: 'vendorCoupons', label: 'Vendor Coupons' },
+                        { key: 'serviceBookings', label: 'Service Bookings' },
+                        { key: 'serviceQuotations', label: 'Service Quotations' },
+                      ]
+                    },
+                    {
+                      section: 'System',
+                      items: [
+                        { key: 'heroSlides', label: 'Hero Slides' },
+                        { key: 'users', label: 'Users' },
+                        { key: 'employees', label: 'Employees' },
+                        { key: 'subadmins', label: 'SubAdmins' },
+                        { key: 'expenses', label: 'Expenses' },
+                        { key: 'revenue', label: 'Revenue' },
+                        { key: 'reports', label: 'Reports' },
+                        { key: 'reviews', label: 'Reviews' },
+                        { key: 'platformSettings', label: 'Platform Settings' },
+                        { key: 'faqs', label: 'FAQ Management' },
+                        { key: 'chatbot', label: 'Chatbot Settings' },
+                        { key: 'settings', label: 'Settings' },
+                      ]
+                    }
+                  ].map(group => (
+                    <div key={group.section}>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 pb-1 border-b border-gray-200">{group.section}</p>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {group.items.map(perm => (
+                          <label key={perm.key}
+                            className={`flex items-center gap-2 cursor-pointer rounded-lg border px-3 py-2 transition-colors ${formData.permissions[perm.key] ? 'bg-primary-50 border-primary-300' : 'bg-white border-gray-200 hover:border-gray-300'}`}>
+                            <input type="checkbox"
+                              checked={!!formData.permissions[perm.key]}
+                              onChange={(e) => setFormData({ ...formData, permissions: { ...formData.permissions, [perm.key]: e.target.checked } })}
+                              className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 flex-shrink-0" />
+                            <span className="text-sm font-medium text-gray-700">{perm.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 

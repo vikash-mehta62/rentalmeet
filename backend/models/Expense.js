@@ -2,22 +2,22 @@ const mongoose = require('mongoose');
 
 const expenseSchema = new mongoose.Schema(
   {
-    title: {
+    head: {
       type: String,
       required: true,
       trim: true
     },
-    category: {
+    subHead: {
       type: String,
       trim: true,
-      default: 'General'
+      default: ''
     },
     amount: {
       type: Number,
       required: true,
       min: 0
     },
-    note: {
+    remark: {
       type: String,
       trim: true,
       default: ''

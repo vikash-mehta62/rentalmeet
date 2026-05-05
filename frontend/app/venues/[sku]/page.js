@@ -377,23 +377,37 @@ export default function VenueDetail() {
   };
 
   const handleShareVenue = async () => {
-    try {
-      const shareUrl = typeof window !== 'undefined' ? window.location.href : `${process.env.NEXT_PUBLIC_SITE_URL || ''}/venues/${venue?.sku || params?.sku}`;
-      const shareData = {
-        title: venue?.businessName || 'RentalMeet Venue',
-        text: `Check out this venue on RentalMeet: ${venue?.businessName || ''}`,
-        url: shareUrl
-      };
+    const shareUrl = typeof window !== 'undefined' ? window.location.href : `${process.env.NEXT_PUBLIC_SITE_URL || ''}/venues/${venue?.sku || params?.sku}`;
+    const shareData = {
+      title: venue?.businessName || 'RentalMeet Venue',
+      text: `Check out this venue on RentalMeet: ${venue?.businessName || ''}`,
+      url: shareUrl
+    };
 
-      if (navigator.share) {
+    if (navigator.share) {
+      try {
         await navigator.share(shareData);
-        return;
+      } catch (err) {
+        // User cancelled share — no error toast needed
+        if (err?.name !== 'AbortError') {
+          // Fallback to clipboard if share fails for other reasons
+          try {
+            await navigator.clipboard.writeText(shareUrl);
+            toast.success('Venue link copied to clipboard');
+          } catch {
+            toast.error('Unable to share venue');
+          }
+        }
       }
+      return;
+    }
 
+    // Fallback for browsers without Web Share API
+    try {
       await navigator.clipboard.writeText(shareUrl);
-      toast.success('Venue link copied');
+      toast.success('Venue link copied to clipboard');
     } catch {
-      toast.error('Unable to share venue');
+      toast.error('Unable to copy venue link');
     }
   };
 

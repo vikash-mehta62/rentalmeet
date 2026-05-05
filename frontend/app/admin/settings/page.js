@@ -247,13 +247,13 @@ export default function AdminSettings() {
                     <label className={labelCls}>Email 1 (Primary)</label>
                     <input type="email" value={contactSettings.email}
                       onChange={e => setContactSettings({ ...contactSettings, email: e.target.value })}
-                      className={inputCls} placeholder="booking@rentalmeet.in" />
+                      className={inputCls} placeholder="booking@rentalmeet.com" />
                   </div>
                   <div>
                     <label className={labelCls}>Email 2 (Optional)</label>
                     <input type="email" value={contactSettings.email2}
                       onChange={e => setContactSettings({ ...contactSettings, email2: e.target.value })}
-                      className={inputCls} placeholder="support@rentalmeet.in" />
+                      className={inputCls} placeholder="support@rentalmeet.com" />
                   </div>
                 </div>
 

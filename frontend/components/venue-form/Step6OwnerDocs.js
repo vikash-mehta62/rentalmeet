@@ -844,8 +844,16 @@ export default function Step6OwnerDocs() {
                 </label>
                 <input
                   type="text"
-                  {...register('accountNumber', { required: 'Account number is required' })}
+                  inputMode="numeric"
+                  {...register('accountNumber', {
+                    required: 'Account number is required',
+                    pattern: { value: /^\d+$/, message: 'Only numbers allowed' },
+                    maxLength: { value: 18, message: 'Max 18 digits' }
+                  })}
                   className="input-field"
+                  placeholder="Numeric only"
+                  maxLength={18}
+                  onInput={e => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 18); }}
                 />
                 {errors.accountNumber && (
                   <p className="text-error text-sm mt-1">{errors.accountNumber.message}</p>
@@ -858,17 +866,19 @@ export default function Step6OwnerDocs() {
                 </label>
                 <input
                   type="text"
-                  {...register('ifsc', { 
+                  {...register('ifsc', {
                     required: 'IFSC code is required',
                     pattern: {
                       value: /^[A-Z]{4}0[A-Z0-9]{6}$/,
-                      message: 'Enter valid IFSC code'
-                    }
+                      message: 'Enter valid IFSC code (e.g. SBIN0001234)'
+                    },
+                    maxLength: { value: 11, message: 'Max 11 characters' }
                   })}
                   className="input-field"
                   placeholder="SBIN0001234"
                   maxLength={11}
                   style={{ textTransform: 'uppercase' }}
+                  onInput={e => { e.target.value = e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 11).toUpperCase(); }}
                 />
                 {errors.ifsc && (
                   <p className="text-error text-sm mt-1">{errors.ifsc.message}</p>

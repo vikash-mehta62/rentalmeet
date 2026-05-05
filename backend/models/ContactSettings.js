@@ -25,7 +25,7 @@ const contactSettingsSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
-    default: 'booking@rentalmeet.in'
+    default: 'booking@rentalmeet.com'
   },
   // Secondary email (optional)
   email2: {

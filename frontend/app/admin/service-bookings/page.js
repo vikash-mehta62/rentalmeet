@@ -8,11 +8,6 @@ import toast from 'react-hot-toast';
 import { Search, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import ServiceBookingDetailModal from '@/components/service/ServiceBookingDetailModal';
 
-const STATUS_STYLE = {
-  enquiry:   { cls: 'bg-yellow-100 text-yellow-700', icon: Clock },
-  confirmed: { cls: 'bg-green-100 text-green-700',  icon: CheckCircle2 },
-  cancelled: { cls: 'bg-red-100 text-red-700',      icon: XCircle },
-};
 const PAY_STYLE = { paid: 'bg-green-100 text-green-700', pending: 'bg-yellow-100 text-yellow-700', failed: 'bg-red-100 text-red-700' };
 
 export default function AdminServiceBookings() {
@@ -67,7 +62,7 @@ export default function AdminServiceBookings() {
 
   return (
     <AdminLayout title="Service Bookings" subtitle="All vendor service enquiries & bookings">
-      <PermissionGuard permission="users">
+      <PermissionGuard permission="serviceBookings">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {[['Total', stats.total, 'bg-white border-gray-100'], ['Enquiries', stats.enquiry, 'bg-yellow-50 border-yellow-200'], ['Confirmed', stats.confirmed, 'bg-green-50 border-green-200'], ['Cancelled', stats.cancelled, 'bg-red-50 border-red-200']].map(([label, value, cls]) => (
             <div key={label} className={`rounded-xl border shadow-sm p-4 ${cls}`}>
@@ -98,16 +93,15 @@ export default function AdminServiceBookings() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  {['#','Booking No','Customer','Service','Vendor','Event Date','Total','Payment','Status','Actions'].map(h => (
+                  {['#','Booking No','Customer','Service','Vendor','Event Date','Total','Payment','Actions'].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {loading ? <tr><td colSpan={10} className="text-center py-12 text-gray-400">Loading...</td></tr>
-                : filtered.length === 0 ? <tr><td colSpan={10} className="text-center py-12 text-gray-400">No bookings found</td></tr>
+                {loading ? <tr><td colSpan={9} className="text-center py-12 text-gray-400">Loading...</td></tr>
+                : filtered.length === 0 ? <tr><td colSpan={9} className="text-center py-12 text-gray-400">No bookings found</td></tr>
                 : filtered.map((b, i) => {
-                  const st = STATUS_STYLE[b.status] || STATUS_STYLE.enquiry;
                   return (
                     <tr key={b._id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-xs text-gray-400">{i + 1}</td>
@@ -118,14 +112,6 @@ export default function AdminServiceBookings() {
                       <td className="px-4 py-3 text-xs text-gray-600">{b.eventDate ? new Date(b.eventDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td>
                       <td className="px-4 py-3 text-xs font-bold text-primary-600">{b.pricing?.total ? `₹${b.pricing.total.toLocaleString()}` : '—'}{b.coupon?.code && <p className="text-[10px] text-green-600 font-normal">Coupon: {b.coupon.code}</p>}</td>
                       <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${PAY_STYLE[b.paymentStatus] || PAY_STYLE.pending}`}>{b.paymentStatus || 'pending'}</span></td>
-                      <td className="px-4 py-3">
-                        <select value={b.status} onChange={e => handleStatusChange(b._id, e.target.value)}
-                          className={`px-2 py-0.5 rounded-full text-xs font-semibold border-0 outline-none cursor-pointer ${st.cls}`}>
-                          <option value="enquiry">Enquiry</option>
-                          <option value="confirmed">Confirmed</option>
-                          <option value="cancelled">Cancelled</option>
-                        </select>
-                      </td>
                       <td className="px-4 py-3">
                         <button onClick={() => setSelected(b)} className="px-3 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-xs font-semibold">View</button>
                       </td>

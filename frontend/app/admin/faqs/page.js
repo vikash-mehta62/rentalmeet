@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 import toast from 'react-hot-toast';
 import { Plus, Pencil, Trash2, X, ToggleLeft, ToggleRight, GripVertical } from 'lucide-react';
 
@@ -101,6 +102,7 @@ export default function AdminFAQs() {
 
   return (
     <AdminLayout title="FAQ Management" subtitle="Manage frequently asked questions shown on the public FAQ page">
+      <PermissionGuard permission="faqs">
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
@@ -249,6 +251,7 @@ export default function AdminFAQs() {
           })}
         </div>
       )}
+      </PermissionGuard>
     </AdminLayout>
   );
 }

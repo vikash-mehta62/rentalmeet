@@ -120,10 +120,20 @@ router.get('/payments/:id', protect, authorize('admin'), checkPermission('paymen
 
 
 // Expense routes
-router.get('/expenses', protect, authorize('admin'), checkPermission('payments'), async (req, res) => {
+router.get('/expenses', protect, authorize('admin'), checkPermission('expenses'), async (req, res) => {
   try {
     const Expense = require('../models/Expense');
-    const expenses = await Expense.find({})
+    const { dateFilter, fyYear, from, to } = req.query;
+
+    let dateMatch = {};
+    if (dateFilter === 'fy' && fyYear) {
+      const y = parseInt(fyYear);
+      dateMatch = { expenseDate: { $gte: new Date(`${y}-04-01T00:00:00`), $lte: new Date(`${y + 1}-03-31T23:59:59`) } };
+    } else if (dateFilter === 'custom' && from && to) {
+      dateMatch = { expenseDate: { $gte: new Date(from + 'T00:00:00'), $lte: new Date(to + 'T23:59:59') } };
+    }
+
+    const expenses = await Expense.find(dateMatch)
       .populate('createdBy', 'name email role')
       .sort('-expenseDate');
 
@@ -134,29 +144,57 @@ router.get('/expenses', protect, authorize('admin'), checkPermission('payments')
   }
 });
 
-router.post('/expenses', protect, authorize('admin'), checkPermission('payments'), async (req, res) => {
+router.post('/expenses', protect, authorize('admin'), checkPermission('expenses'), async (req, res) => {
   try {
     const Expense = require('../models/Expense');
-    const { title, category, amount, note, expenseDate } = req.body;
-    if (!title?.trim()) return res.status(400).json({ success: false, message: 'Title is required' });
+    const { head, subHead, amount, remark, expenseDate } = req.body;
+    if (!head?.trim()) return res.status(400).json({ success: false, message: 'Head is required' });
     if (amount === undefined || amount === null || Number(amount) < 0) {
       return res.status(400).json({ success: false, message: 'Valid amount is required' });
     }
-
     const expense = await Expense.create({
-      title: title.trim(),
-      category: (category || 'General').trim(),
+      head: head.trim(),
+      subHead: (subHead || '').trim(),
       amount: Number(amount),
-      note: (note || '').trim(),
+      remark: (remark || '').trim(),
       expenseDate: expenseDate ? new Date(expenseDate) : new Date(),
       createdBy: req.user.id
     });
-
     const populated = await Expense.findById(expense._id).populate('createdBy', 'name email role');
     res.status(201).json({ success: true, message: 'Expense added', expense: populated });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }
+});
+
+// Expense Heads CRUD
+router.get('/expense-heads', protect, authorize('admin'), checkPermission('expenses'), async (req, res) => {
+  try {
+    const ExpenseHead = require('../models/ExpenseHead');
+    const heads = await ExpenseHead.find().sort('name');
+    res.json({ success: true, heads });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+router.post('/expense-heads', protect, authorize('admin'), checkPermission('expenses'), async (req, res) => {
+  try {
+    const ExpenseHead = require('../models/ExpenseHead');
+    const { name } = req.body;
+    if (!name?.trim()) return res.status(400).json({ success: false, message: 'Head name is required' });
+    const head = await ExpenseHead.create({ name: name.trim(), createdBy: req.user.id });
+    res.status(201).json({ success: true, head });
+  } catch (e) {
+    if (e.code === 11000) return res.status(400).json({ success: false, message: 'Head already exists' });
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+router.delete('/expense-heads/:id', protect, authorize('admin'), checkPermission('expenses'), async (req, res) => {
+  try {
+    const ExpenseHead = require('../models/ExpenseHead');
+    await ExpenseHead.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
 // ── Payment Ledger endpoints ──────────────────────────────────────────────
@@ -354,7 +392,7 @@ const VendorService = require('../models/VendorService');
 const VendorProfile = require('../models/VendorProfile');
 
 // Get all vendors
-router.get('/vendors', protect, authorize('admin'), async (req, res) => {
+router.get('/vendors', protect, authorize('admin'), checkPermission('vendorServices'), async (req, res) => {
   try {
     const vendors = await require('../models/User').find({ role: 'vendor' })
       .select('-password').sort('-createdAt');
@@ -370,7 +408,7 @@ router.get('/vendors', protect, authorize('admin'), async (req, res) => {
 });
 
 // Get vendor profile
-router.get('/vendors/:id/profile', protect, authorize('admin'), async (req, res) => {
+router.get('/vendors/:id/profile', protect, authorize('admin'), checkPermission('vendorServices'), async (req, res) => {
   try {
     const profile = await VendorProfile.findOne({ user: req.params.id });
     const vendor = await require('../models/User').findById(req.params.id).select('-password');
@@ -379,7 +417,7 @@ router.get('/vendors/:id/profile', protect, authorize('admin'), async (req, res)
 });
 
 // Get vendor services
-router.get('/vendors/:id/services', protect, authorize('admin'), async (req, res) => {
+router.get('/vendors/:id/services', protect, authorize('admin'), checkPermission('vendorServices'), async (req, res) => {
   try {
     const services = await VendorService.find({ vendor: req.params.id }).sort('-createdAt');
     res.json({ success: true, services });
@@ -387,7 +425,7 @@ router.get('/vendors/:id/services', protect, authorize('admin'), async (req, res
 });
 
 // Approve vendor profile
-router.put('/vendors/:id/approve', protect, authorize('admin'), async (req, res) => {
+router.put('/vendors/:id/approve', protect, authorize('admin'), checkPermission('vendorServices'), async (req, res) => {
   try {
     const profile = await VendorProfile.findOneAndUpdate(
       { user: req.params.id }, { status: 'approved', approvedAt: new Date() }, { new: true }
@@ -397,7 +435,7 @@ router.put('/vendors/:id/approve', protect, authorize('admin'), async (req, res)
 });
 
 // Reject vendor profile
-router.put('/vendors/:id/reject', protect, authorize('admin'), async (req, res) => {
+router.put('/vendors/:id/reject', protect, authorize('admin'), checkPermission('vendorServices'), async (req, res) => {
   try {
     const { reason } = req.body;
     const profile = await VendorProfile.findOneAndUpdate(
@@ -408,7 +446,7 @@ router.put('/vendors/:id/reject', protect, authorize('admin'), async (req, res) 
 });
 
 // Approve service
-router.put('/vendor-services/:id/approve', protect, authorize('admin'), async (req, res) => {
+router.put('/vendor-services/:id/approve', protect, authorize('admin'), checkPermission('vendorServices'), async (req, res) => {
   try {
     const svc = await VendorService.findByIdAndUpdate(
       req.params.id,
@@ -420,7 +458,7 @@ router.put('/vendor-services/:id/approve', protect, authorize('admin'), async (r
 });
 
 // Reject service (with history)
-router.put('/vendor-services/:id/reject', protect, authorize('admin'), async (req, res) => {
+router.put('/vendor-services/:id/reject', protect, authorize('admin'), checkPermission('vendorServices'), async (req, res) => {
   try {
     const { reason } = req.body;
     if (!reason?.trim()) return res.status(400).json({ success: false, message: 'Rejection reason required' });
@@ -436,7 +474,7 @@ router.put('/vendor-services/:id/reject', protect, authorize('admin'), async (re
 });
 
 // Get all pending services
-router.get('/vendor-services/pending', protect, authorize('admin'), async (req, res) => {
+router.get('/vendor-services/pending', protect, authorize('admin'), checkPermission('vendorServices'), async (req, res) => {
   try {
     const services = await VendorService.find({ status: 'pending' })
       .populate('vendor', 'name email companyName vendorCategory')
@@ -446,7 +484,7 @@ router.get('/vendor-services/pending', protect, authorize('admin'), async (req, 
 });
 
 // Get ALL services (with optional status filter)
-router.get('/vendor-services', protect, authorize('admin'), async (req, res) => {
+router.get('/vendor-services', protect, authorize('admin'), checkPermission('vendorServices'), async (req, res) => {
   try {
     const { status } = req.query;
     const query = status && status !== 'all' ? { status } : {};
@@ -458,7 +496,7 @@ router.get('/vendor-services', protect, authorize('admin'), async (req, res) => 
 });
 
 // ── Service Coupons (admin) ──────────────────────────────────────────────────
-router.get('/service-coupons', protect, authorize('admin'), async (req, res) => {
+router.get('/service-coupons', protect, authorize('admin'), checkPermission('vendorCoupons'), async (req, res) => {
   try {
     const Coupon = require('../models/Coupon');
     const coupons = await Coupon.find({ $or: [{ service: { $exists: true, $ne: null } }, { service: null, venue: null }] })
@@ -469,7 +507,7 @@ router.get('/service-coupons', protect, authorize('admin'), async (req, res) => 
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
-router.post('/service-coupons', protect, authorize('admin'), async (req, res) => {
+router.post('/service-coupons', protect, authorize('admin'), checkPermission('vendorCoupons'), async (req, res) => {
   try {
     const Coupon = require('../models/Coupon');
     const Counter = require('../models/Counter');
@@ -493,7 +531,7 @@ router.post('/service-coupons', protect, authorize('admin'), async (req, res) =>
   }
 });
 
-router.put('/service-coupons/:id/toggle', protect, authorize('admin'), async (req, res) => {
+router.put('/service-coupons/:id/toggle', protect, authorize('admin'), checkPermission('vendorCoupons'), async (req, res) => {
   try {
     const Coupon = require('../models/Coupon');
     const coupon = await Coupon.findById(req.params.id);
@@ -505,7 +543,7 @@ router.put('/service-coupons/:id/toggle', protect, authorize('admin'), async (re
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
-router.delete('/service-coupons/:id', protect, authorize('admin'), async (req, res) => {
+router.delete('/service-coupons/:id', protect, authorize('admin'), checkPermission('vendorCoupons'), async (req, res) => {
   try {
     const Coupon = require('../models/Coupon');
     await Coupon.findByIdAndDelete(req.params.id);
@@ -514,7 +552,7 @@ router.delete('/service-coupons/:id', protect, authorize('admin'), async (req, r
 });
 
 // ── Service Quotation Downloads (admin) ─────────────────────────────────────
-router.get('/service-quotation-downloads', protect, authorize('admin'), async (req, res) => {
+router.get('/service-quotation-downloads', protect, authorize('admin'), checkPermission('serviceQuotations'), async (req, res) => {
   try {
     const ServiceQuotationDownload = require('../models/ServiceQuotationDownload');
     const records = await ServiceQuotationDownload.find()
@@ -525,7 +563,7 @@ router.get('/service-quotation-downloads', protect, authorize('admin'), async (r
 });
 
 // ── Service Bookings (admin) ─────────────────────────────────────────────────
-router.get('/service-bookings', protect, authorize('admin'), async (req, res) => {
+router.get('/service-bookings', protect, authorize('admin'), checkPermission('serviceBookings'), async (req, res) => {
   try {
     const ServiceBooking = require('../models/ServiceBooking');
     const { status, search } = req.query;
@@ -558,7 +596,7 @@ router.get('/service-bookings', protect, authorize('admin'), async (req, res) =>
 });
 
 // Vendor Service Payments (admin)
-router.get('/vendor-payments', protect, authorize('admin'), checkPermission('payments'), async (req, res) => {
+router.get('/vendor-payments', protect, authorize('admin'), checkPermission('vendorPayments'), async (req, res) => {
   try {
     const ServiceBooking = require('../models/ServiceBooking');
     const { paymentStatus = 'paid', search } = req.query;
@@ -631,7 +669,7 @@ router.get('/vendor-payments', protect, authorize('admin'), checkPermission('pay
   }
 });
 
-router.put('/service-bookings/:id/status', protect, authorize('admin'), async (req, res) => {
+router.put('/service-bookings/:id/status', protect, authorize('admin'), checkPermission('serviceBookings'), async (req, res) => {
   try {
     const ServiceBooking = require('../models/ServiceBooking');
     const { status } = req.body;

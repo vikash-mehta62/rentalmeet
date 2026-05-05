@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
 import PermissionGuard from '@/components/admin/PermissionGuard';
-import { Search, Download, Printer, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Download, Printer, ChevronDown, ChevronUp, FileDown } from 'lucide-react';
 
 export default function AdminServiceQuotationDownloads() {
   const { token } = useAuthStore();
@@ -40,9 +40,45 @@ export default function AdminServiceQuotationDownloads() {
     return acc;
   }, {});
 
+  const handleExportCSV = () => {
+    const rows = [
+      ['#', 'Quotation No', 'Action', 'Customer Name', 'Customer Email', 'Customer Phone', 'Event Name', 'Service', 'Category', 'Company', 'Vendor', 'Vendor Email', 'Event Date', 'Subtotal', 'GST', 'Platform Fee+GST', 'Discount', 'Coupon', 'Total', 'Downloaded At'],
+      ...filtered.map((r, i) => {
+        const ps = r.priceSnapshot || {};
+        return [
+          i + 1,
+          r.quotationNumber || '',
+          r.action || '',
+          r.customerSnapshot?.name || '',
+          r.customerSnapshot?.email || '',
+          r.customerSnapshot?.phone || '',
+          r.customerSnapshot?.eventName || '',
+          r.serviceSnapshot?.title || '',
+          r.serviceSnapshot?.category || '',
+          r.serviceSnapshot?.companyName || '',
+          r.vendor?.name || '',
+          r.vendor?.email || '',
+          r.eventDate ? new Date(r.eventDate).toLocaleDateString('en-IN') : '',
+          ps.subtotal || 0,
+          ((ps.serviceCGST || 0) + (ps.serviceSGST || 0)),
+          ((ps.platformFee || 0) + (ps.platformFeeGST || 0)),
+          ps.discount || 0,
+          ps.couponCode || '',
+          ps.total || r.totalAmount || 0,
+          new Date(r.downloadedAt).toLocaleString('en-IN'),
+        ];
+      })
+    ];
+    const csv = rows.map(r => r.map(c => `"${c ?? ''}"`).join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+    a.download = `Service_Quotations_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+  };
+
   return (
     <AdminLayout title="Service Quotation Downloads" subtitle={`${filtered.length} records`}>
-      <PermissionGuard permission="users">
+      <PermissionGuard permission="serviceQuotations">
 
         {/* Summary Cards */}
         {Object.keys(summary).length > 0 && (
@@ -61,11 +97,17 @@ export default function AdminServiceQuotationDownloads() {
 
         {/* Search */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-5">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input type="text" placeholder="Search by quotation no, customer, service, vendor..."
-              value={search} onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500" />
+          <div className="flex gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input type="text" placeholder="Search by quotation no, customer, service, vendor..."
+                value={search} onChange={e => setSearch(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500" />
+            </div>
+            <button onClick={handleExportCSV} disabled={filtered.length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50">
+              <FileDown className="w-4 h-4" /> CSV
+            </button>
           </div>
         </div>
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Building2, Phone, Mail, MapPin, Globe } from 'lucide-react';
+import { Phone, Mail, MapPin, Globe } from 'lucide-react';
 
 // ── Social icon SVGs (matching react-icons/si style) ─────────────────────
 const FacebookIcon  = () => <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>;
@@ -46,7 +46,7 @@ export default function Footer() {
     address2:     '',
     phone:        '+91 9425796767',
     phone2:       '',
-    email:        'booking@rentalmeet.in',
+    email:        'booking@rentalmeet.com',
     email2:       '',
     availability: '24/7 Available',
     socialMedia:  {},
@@ -67,24 +67,26 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
 
           {/* Col 1 — Brand */}
-          <div>
-            <Link href="/" className="flex items-center gap-2 mb-4 group">
+          <div className="flex flex-col items-center text-center">
+            <Link href="/" className="flex items-center gap-2 mb-2 group">
               <img
                 src="/logo.png"
                 alt="RentalMeet"
                 className="h-12 sm:h-16 lg:h-20 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
               />
             </Link>
-            <p className="text-sm text-gray-500 dark:text-slate-400 leading-relaxed mb-6">
+            <p className="text-sm text-gray-500 dark:text-slate-400 leading-relaxed mb-6 relative px-4">
+              <span className="absolute -top-2 left-0 text-4xl text-primary-300 dark:text-primary-700 font-serif leading-none select-none">"</span>
               Premium meeting spaces and event venues for every occasion. Experience luxury venues with world-class facilities for your corporate events, meetings, and celebrations.
+              <span className="absolute -bottom-4 right-0 text-4xl text-primary-300 dark:text-primary-700 font-serif leading-none select-none">"</span>
             </p>
 
             {/* Social links */}
-            <div>
+            <div className="mt-2">
               <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-3">
                 Follow Us
               </p>
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center justify-center gap-2 flex-wrap">
                 {SOCIAL_DEFS.map(({ key, Icon, label, color }) => {
                   const url = contact.socialMedia?.[key];
                   if (!url) return null;

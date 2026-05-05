@@ -9,6 +9,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { 
   Clock, IndianRupee, X, CheckCircle
 } from 'lucide-react';
+import Image from 'next/image';
 import QuotationView from './QuotationView';
 
 export default function BookingForm({ venue, initialData = {}, initialAmenities = {}, initialQuantities = {}, onClose }) {
@@ -667,10 +668,13 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
   return (
     <div className="fixed inset-0 z-[150] bg-white dark:bg-slate-950 overflow-y-auto">
       {/* Header - Fixed at top */}
-      <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 px-4 py-4 md:px-6 md:py-5 flex items-center justify-between shadow-sm">
-        <div>
-          <h2 className="text-xl md:text-2xl font-bold text-dark-800 dark:text-slate-100">Book Venue</h2>
-          <p className="text-sm text-gray-600 dark:text-slate-400">{venue.businessName}</p>
+      <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 px-4 py-3 md:px-6 md:py-4 flex items-center justify-between shadow-sm">
+        <div className="flex items-center gap-3">
+          <Image src="/logo.png" alt="RentalMeet" width={120} height={36} className="h-8 w-auto object-contain" />
+          <div>
+            <h2 className="text-lg md:text-xl font-bold text-dark-800 dark:text-slate-100">Book Venue</h2>
+            <p className="text-xs text-gray-500 dark:text-slate-400">{venue.businessName}</p>
+          </div>
         </div>
         <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
           <X className="w-6 h-6" />

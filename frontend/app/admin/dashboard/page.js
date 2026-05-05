@@ -6,7 +6,7 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import PermissionGuard from '@/components/admin/PermissionGuard';
 import {
   Building2, Users, BookOpen, IndianRupee,
-  Calendar, CheckCircle, Clock, UserCheck, UserCog, FileDown
+  Calendar, CheckCircle, Clock, UserCheck, UserCog, FileDown, Briefcase
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -17,7 +17,8 @@ export default function AdminDashboard() {
     totalUsers: 0, totalOwners: 0, totalCustomers: 0,
     totalBookings: 0, pendingBookings: 0, confirmedBookings: 0, completedBookings: 0,
     totalRevenue: 0, totalQuotationDownloads: 0,
-    totalServiceBookings: 0, serviceBookingEnquiries: 0
+    totalServiceBookings: 0, serviceBookingEnquiries: 0,
+    totalVendorServices: 0, pendingVendorServices: 0, approvedVendorServices: 0
   });
 
   useEffect(() => {
@@ -110,6 +111,14 @@ export default function AdminDashboard() {
       icon: FileDown,
       gradient: 'from-purple-500 to-purple-700',
       light: 'bg-purple-50 text-purple-600'
+    },
+    {
+      title: 'Vendor Services',
+      value: stats.totalVendorServices,
+      sub: `${stats.approvedVendorServices} approved · ${stats.pendingVendorServices} pending`,
+      icon: Briefcase,
+      gradient: 'from-orange-500 to-orange-700',
+      light: 'bg-orange-50 text-orange-600'
     },
   ];
 

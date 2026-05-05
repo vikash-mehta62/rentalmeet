@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
 import PermissionGuard from '@/components/admin/PermissionGuard';
-import { Search } from 'lucide-react';
+import { Search, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const fmtRs = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
@@ -52,9 +52,40 @@ export default function AdminVendorPaymentsPage() {
     if (token) fetchPayments();
   }, [token, paymentStatus]);
 
+  const handleExportCSV = () => {
+    const rows = [
+      ['#', 'Booking No', 'Vendor', 'Vendor Email', 'Customer', 'Customer Email', 'Service', 'Category', 'Total', 'Platform Fee+GST', 'Vendor Payout', 'Payment Status', 'Paid At'],
+      ...payments.map((p, idx) => {
+        const meta = p.paymentMeta || {};
+        const feeGst = (meta.platformFee || 0) + (meta.platformFeeGST || 0);
+        return [
+          idx + 1,
+          p.bookingNumber || '',
+          p.vendor?.name || '',
+          p.vendor?.email || '',
+          p.customerInfo?.name || '',
+          p.customerInfo?.email || '',
+          p.serviceSnapshot?.title || p.service?.title || '',
+          p.serviceSnapshot?.category || p.service?.category || '',
+          meta.total || 0,
+          feeGst,
+          meta.vendorPayout || 0,
+          p.paymentStatus || 'pending',
+          p.paymentDetails?.paidAt ? new Date(p.paymentDetails.paidAt).toLocaleString('en-IN') : '',
+        ];
+      })
+    ];
+    const csv = rows.map(r => r.map(c => `"${c ?? ''}"`).join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+    a.download = `Vendor_Payments_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    toast.success('CSV downloaded');
+  };
+
   return (
     <AdminLayout title="Vendor Payments" subtitle={`Showing ${payments.length} service payment records`}>
-      <PermissionGuard permission="payments">
+      <PermissionGuard permission="vendorPayments">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
           <div className="bg-white border border-gray-100 rounded-lg p-3">
             <p className="text-xs text-gray-500">Total</p>
@@ -97,6 +128,10 @@ export default function AdminVendorPaymentsPage() {
             </select>
             <button onClick={fetchPayments} className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm font-semibold">
               Search
+            </button>
+            <button onClick={handleExportCSV} disabled={payments.length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50">
+              <Download className="w-4 h-4" /> CSV
             </button>
           </div>
         </div>

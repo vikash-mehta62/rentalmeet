@@ -13,7 +13,7 @@ const chatbotSettingsSchema = new mongoose.Schema({
       { question: 'Pricing & rates',       answer: "Venue pricing on RentalMeet:\n• Co-Work Spaces: ₹500–₹2,000/hr\n• Meeting Halls: ₹1,500–₹3,500/hr\n• Conference Halls: ₹6,000–₹12,000/hr\n• Function Halls: ₹7,000–₹15,000/hr\n• Marriage Gardens: ₹9,000–₹20,000/hr" },
       { question: 'List my venue',         answer: "To list your venue:\n1. Click 'List Your Venue' in navigation\n2. Fill in venue details & upload photos\n3. Set pricing and availability\n4. Submit for review\n\nApproval within 24–48 hours." },
       { question: 'Premium services',      answer: "Our Premium Services:\n• Catering & Food\n• Makeup & Beauty\n• Photography & Videography\n• Entertainment & DJ\n• Decor & Floral\n• Security & Bouncers\n\nVisit Premium Services page!" },
-      { question: 'Contact support',       answer: "Reach us anytime:\n📞 +91 9425796767\n📧 booking@rentalmeet.in\n📍 G-137, Gautam Nagar, Bhopal\n\nAvailable 24/7!" },
+      { question: 'Contact support',       answer: "Reach us anytime:\n📞 +91 9425796767\n📧 booking@rentalmeet.com\n📍 G-137, Gautam Nagar, Bhopal\n\nAvailable 24/7!" },
     ]
   },
   welcomeMessage: {

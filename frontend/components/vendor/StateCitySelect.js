@@ -145,7 +145,7 @@ export default function StateCitySelect({
     setFetchingPin(true);
     try {
       const res = await fetch(
-        `https://api.postalpincode.in/postoffice/${encodeURIComponent(opt.name)}`
+        `https://api.postalpincode.com/postoffice/${encodeURIComponent(opt.name)}`
       );
       const data = await res.json();
       if (data?.[0]?.Status === 'Success' && data[0].PostOffice?.length > 0) {

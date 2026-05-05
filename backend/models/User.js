@@ -103,19 +103,33 @@ const userSchema = new mongoose.Schema({
   },
   // SubAdmin Permissions (only for subadmin role)
   permissions: {
-    dashboard: { type: Boolean, default: false },
-    heroSlides: { type: Boolean, default: false },
-    venues: { type: Boolean, default: false },
-    venueTypes: { type: Boolean, default: false },
-    users: { type: Boolean, default: false },
-    employees: { type: Boolean, default: false },
-    subadmins: { type: Boolean, default: false },
-    bookings: { type: Boolean, default: false },
-    payments: { type: Boolean, default: false },
-    reports: { type: Boolean, default: false },
-    reviews: { type: Boolean, default: false },
-    platformSettings: { type: Boolean, default: false },
-    settings: { type: Boolean, default: false }
+    dashboard:            { type: Boolean, default: false },
+    // Venues section
+    venues:               { type: Boolean, default: false },
+    venueTypes:           { type: Boolean, default: false },
+    bookings:             { type: Boolean, default: false },
+    payments:             { type: Boolean, default: false },
+    coupons:              { type: Boolean, default: false },
+    quotations:           { type: Boolean, default: false },
+    // Vendors section
+    vendorServices:       { type: Boolean, default: false },
+    vendorPayments:       { type: Boolean, default: false },
+    vendorCoupons:        { type: Boolean, default: false },
+    serviceBookings:      { type: Boolean, default: false },
+    serviceQuotations:    { type: Boolean, default: false },
+    // System section
+    heroSlides:           { type: Boolean, default: false },
+    users:                { type: Boolean, default: false },
+    employees:            { type: Boolean, default: false },
+    subadmins:            { type: Boolean, default: false },
+    expenses:             { type: Boolean, default: false },
+    revenue:              { type: Boolean, default: false },
+    reports:              { type: Boolean, default: false },
+    reviews:              { type: Boolean, default: false },
+    platformSettings:     { type: Boolean, default: false },
+    faqs:                 { type: Boolean, default: false },
+    chatbot:              { type: Boolean, default: false },
+    settings:             { type: Boolean, default: false },
   },
   // Referral System
   referralCode: {

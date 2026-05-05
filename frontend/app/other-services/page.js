@@ -92,6 +92,17 @@ function VendorCard({ svc }) {
             <p className="text-sm text-slate-600 mb-2 line-clamp-1">{svc.description}</p>
           )}
 
+          {svc.specialization?.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {svc.specialization.slice(0, 3).map((s, i) => (
+                <span key={i} className="text-[11px] bg-primary-50 text-primary-700 border border-primary-100 px-2 py-0.5 rounded-full font-medium">{s}</span>
+              ))}
+              {svc.specialization.length > 3 && (
+                <span className="text-[11px] text-primary-500 font-medium">+{svc.specialization.length - 3} more</span>
+              )}
+            </div>
+          )}
+
           <div className="flex flex-wrap gap-3 text-xs text-slate-600">
             {svc.tags?.slice(0, 3).map((tag) => (
               <span key={tag}>{tag}</span>
@@ -246,7 +257,7 @@ export default function OtherServicesPage() {
   const totalPages = Math.ceil(total / LIMIT);
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950">
+    <div className="min-h-screen bg-[#F8F9FA] dark:bg-slate-950">
       <Navbar />
 
       <div className="min-h-screen pt-28 lg:pt-32 pb-16">
@@ -255,8 +266,8 @@ export default function OtherServicesPage() {
           {/* Header */}
           <div className="mb-6">
             <span className="inline-block border border-gray-300 text-gray-600 text-xs font-semibold px-3 py-1 rounded-full mb-4">Premium Services</span>
-            <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">Browse All Services</h1>
-            <p className="text-gray-500 max-w-2xl">From catering to celebrity appearances - find verified vendors for every aspect of your event.</p>
+            <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-900 dark:text-slate-100 mb-4">Browse All Services</h1>
+            <p className="text-gray-500 dark:text-slate-400 max-w-2xl">From catering to celebrity appearances - find verified vendors for every aspect of your event.</p>
           </div>
 
           {/* Category Strip */}

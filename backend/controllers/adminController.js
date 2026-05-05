@@ -450,12 +450,18 @@ exports.getDashboardStats = async (req, res) => {
   try {
     const QuotationDownload = require('../models/QuotationDownload');
     const ServiceBooking = require('../models/ServiceBooking');
+    const VendorService = require('../models/VendorService');
+
     const totalVenues = await Venue.countDocuments();
     const pendingVenues = await Venue.countDocuments({ status: 'pending' });
     const approvedVenues = await Venue.countDocuments({ status: 'approved' });
-    const totalUsers = await User.countDocuments();
+
+    // Exclude admin/subadmin from user counts
+    const nonAdminFilter = { role: { $nin: ['admin', 'subadmin'] } };
+    const totalUsers = await User.countDocuments(nonAdminFilter);
     const totalOwners = await User.countDocuments({ role: 'owner' });
     const totalCustomers = await User.countDocuments({ role: 'customer' });
+
     const totalBookings = await Booking.countDocuments();
     const pendingBookings = await Booking.countDocuments({ status: 'pending' });
     const confirmedBookings = await Booking.countDocuments({ status: 'confirmed' });
@@ -463,6 +469,11 @@ exports.getDashboardStats = async (req, res) => {
     const totalQuotationDownloads = await QuotationDownload.countDocuments();
     const totalServiceBookings = await ServiceBooking.countDocuments();
     const serviceBookingEnquiries = await ServiceBooking.countDocuments({ status: 'enquiry' });
+
+    // Vendor service stats
+    const totalVendorServices = await VendorService.countDocuments();
+    const pendingVendorServices = await VendorService.countDocuments({ status: 'pending' });
+    const approvedVendorServices = await VendorService.countDocuments({ status: 'approved' });
 
     const revenueData = await Booking.aggregate([
       { $match: { status: { $in: ['completed', 'confirmed'] } } },
@@ -477,7 +488,8 @@ exports.getDashboardStats = async (req, res) => {
         totalUsers, totalOwners, totalCustomers,
         totalBookings, pendingBookings, confirmedBookings, completedBookings,
         totalRevenue, totalQuotationDownloads,
-        totalServiceBookings, serviceBookingEnquiries
+        totalServiceBookings, serviceBookingEnquiries,
+        totalVendorServices, pendingVendorServices, approvedVendorServices
       }
     });
   } catch (error) {
@@ -1376,7 +1388,7 @@ exports.getContactSettings = async (req, res) => {
       settings = await ContactSettings.create({
         address: 'G-137, Gautam Nagar, Near Chokak Bridge, Bhopal',
         phone: '+91 8423796767',
-        email: 'booking@rentalmeet.in',
+        email: 'booking@rentalmeet.com',
         availability: '24/7 Available',
         filterSettings: {
           capacityMin: 10,
@@ -1448,7 +1460,7 @@ exports.getPublicContactSettings = async (req, res) => {
       settings = {
         address: 'G-137, Gautam Nagar, Near Chokak Bridge, Bhopal',
         phone: '+91 8423796767',
-        email: 'booking@rentalmeet.in',
+        email: 'booking@rentalmeet.com',
         availability: '24/7 Available',
         socialMedia: {},
         filterSettings: {

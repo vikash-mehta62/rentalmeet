@@ -147,7 +147,7 @@ export default function AdminVendorCouponsPage() {
 
   return (
     <AdminLayout title="Vendor Coupons" subtitle="Manage service coupons for vendors">
-      <PermissionGuard permission="users">
+      <PermissionGuard permission="vendorCoupons">
         <div className="flex items-center justify-between mb-6">
           <p className="text-sm text-gray-500">{coupons.length} coupon(s)</p>
           <button

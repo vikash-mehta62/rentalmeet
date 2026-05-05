@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
-import { FileText, Building2, Search, Download, Printer, ChevronDown, ChevronUp } from 'lucide-react';
+import PermissionGuard from '@/components/admin/PermissionGuard';
+import { FileText, Building2, Search, Download, Printer, ChevronDown, ChevronUp, FileDown } from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -70,8 +71,44 @@ export default function AdminQuotationDownloads() {
     return acc;
   }, {});
 
+  const handleExportCSV = () => {
+    const rows = [
+      ['#', 'Quotation No', 'Action', 'Customer Name', 'Customer Email', 'Customer Phone', 'Event Type', 'Guests', 'Venue', 'City', 'State', 'Booking Date', 'Start Time', 'End Time', 'Base Price', 'Amenities', 'Subtotal', 'GST', 'Platform Fee', 'Discount', 'Grand Total', 'Downloaded At'],
+      ...filtered.map((r, i) => [
+        i + 1,
+        r.quotationNumber || '',
+        r.action || '',
+        r.customerSnapshot?.name || '',
+        r.customerSnapshot?.email || '',
+        r.customerSnapshot?.phone || '',
+        r.customerSnapshot?.eventType || '',
+        r.customerSnapshot?.guestCount || '',
+        r.venueSnapshot?.businessName || r.venue?.businessName || '',
+        r.venueSnapshot?.city || r.venue?.location?.city || '',
+        r.venueSnapshot?.state || r.venue?.location?.state || '',
+        r.bookingSnapshot?.date ? new Date(r.bookingSnapshot.date).toLocaleDateString('en-IN') : '',
+        r.bookingSnapshot?.startTime || '',
+        r.bookingSnapshot?.endTime || '',
+        r.priceSnapshot?.basePrice || 0,
+        r.priceSnapshot?.amenitiesTotal || 0,
+        r.priceSnapshot?.subtotal || 0,
+        r.priceSnapshot?.gst || 0,
+        r.priceSnapshot?.platformFee || 0,
+        r.priceSnapshot?.discount || 0,
+        r.priceSnapshot?.grandTotal || r.totalAmount || 0,
+        new Date(r.downloadedAt).toLocaleString('en-IN'),
+      ])
+    ];
+    const csv = rows.map(r => r.map(c => `"${c ?? ''}"`).join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+    a.download = `Venue_Quotations_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+  };
+
   return (
     <AdminLayout title="Quotation Downloads" subtitle={`${filtered.length} records`}>
+      <PermissionGuard permission="quotations">
 
       {/* Venue-wise Summary Cards */}
       {Object.keys(venueSummary).length > 0 && (
@@ -126,6 +163,10 @@ export default function AdminQuotationDownloads() {
           <option value="download">PDF Download</option>
           <option value="print">Print</option>
         </select>
+        <button onClick={handleExportCSV} disabled={filtered.length === 0}
+          className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50">
+          <FileDown className="w-4 h-4" /> CSV
+        </button>
       </div>
 
       {/* Records */}
@@ -262,6 +303,7 @@ export default function AdminQuotationDownloads() {
           </table>
         </div>
       )}
+      </PermissionGuard>
     </AdminLayout>
   );
 }

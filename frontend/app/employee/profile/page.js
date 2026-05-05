@@ -499,8 +499,8 @@ export default function EmployeeProfile() {
               <form onSubmit={handleBank} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div><label className={lbl}>Account Holder Name</label><input name="accountHolderName" value={form.accountHolderName} onChange={handleChange} className={inp} /></div>
-                  <div><label className={lbl}>Account Number</label><input name="accountNumber" value={form.accountNumber} onChange={handleChange} className={inp} /></div>
-                  <div><label className={lbl}>IFSC Code</label><input name="ifscCode" value={form.ifscCode} onChange={handleChange} className={inp} /></div>
+                  <div><label className={lbl}>Account Number</label><input name="accountNumber" inputMode="numeric" value={form.accountNumber} onChange={e => { const v = e.target.value.replace(/\D/g,'').slice(0,18); handleChange({target:{name:'accountNumber',value:v}}); }} className={inp} placeholder="Numeric only" maxLength={18} /></div>
+                  <div><label className={lbl}>IFSC Code</label><input name="ifscCode" value={form.ifscCode} onChange={e => { const v = e.target.value.replace(/[^A-Za-z0-9]/g,'').slice(0,11).toUpperCase(); handleChange({target:{name:'ifscCode',value:v}}); }} className={inp+' uppercase'} placeholder="e.g. SBIN0001234" maxLength={11} /></div>
                   <div><label className={lbl}>Bank Name</label><input name="bankName" value={form.bankName} onChange={handleChange} className={inp} /></div>
                   <div><label className={lbl}>Branch Name</label><input name="branchName" value={form.branchName} onChange={handleChange} className={inp} /></div>
                 </div>

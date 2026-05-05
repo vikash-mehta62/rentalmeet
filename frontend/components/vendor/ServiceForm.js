@@ -11,6 +11,7 @@ import {
   Upload, Plus, X, ArrowLeft
 } from 'lucide-react';
 import StateCitySelect from './StateCitySelect';
+import { serviceCategories } from '@/data/serviceData';
 
 const STEPS = [
   { id: 1, label: 'Contact',      icon: User },
@@ -23,11 +24,8 @@ const STEPS = [
   { id: 8, label: 'Availability', icon: Calendar },
 ];
 
-const CATEGORIES = [
-  'Catering & Food','Photography & Video','Decoration & Flowers',
-  'Entertainment & Music','Event Management','AV & Tech Equipment',
-  'Transportation','Security Services','Cleaning Services','Other'
-];
+// Same categories as other-services page
+const CATEGORIES = serviceCategories.map(c => c.id);
 
 const CATEGORY_UNITS = {
   'Catering & Food':       ['Per Person','Per Plate','Per Unit','Per Item'],
@@ -66,7 +64,7 @@ const req = <span className="text-red-500 ml-0.5">*</span>;
 const DEFAULT_STATE = {
   step: 1,
   contact: { fullName:'', primaryMobile:'', secondaryMobile:'', role:'owner' },
-  biz: { title:'', category:'', companyName:'', brandName:'', experienceYears:'', description:'', specialization:'', tags:'' },
+  biz: { title:'', category:'', companyName:'', brandName:'', experienceYears:'', description:'', specialization:[], specializationInput:'', tags:'' },
   addr: { officeAddress:'', state:null, city:null, area:'', village:'', pincode:'', serviceableAreas:'', website:'', instagram:'', facebook:'' },
   pricing: { startingPrice:'', minimumOrderPrice:'', packages:[{ sno:1, name:'', price:'', unit:'', quantity:'' }] },
   portfolio: { featuredImage:'', images:[], videoLinks:['','',''], previousWorkLinks:['','',''] },
@@ -77,6 +75,7 @@ const DEFAULT_STATE = {
   publicHoliday: { isAvailable:false, startTime:'09:00', endTime:'18:00' },
   advanceBooking: '24h',
   customDays: '',
+  confirmationHours: 3,
   termsChecked: Array(TERMS.length).fill(false),
 };
 
@@ -113,7 +112,7 @@ function FileField({ label, value, onUpload, uploading, required, accept='image/
 
 export default function ServiceForm({ serviceId }) {
   const router = useRouter();
-  const { token } = useAuthStore();
+  const { token, user } = useAuthStore();
   const isEdit = !!serviceId;
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState({});
@@ -127,7 +126,7 @@ export default function ServiceForm({ serviceId }) {
     } catch { return DEFAULT_STATE; }
   });
 
-  const { step, contact, biz, addr, pricing, portfolio, bizDocs, ownerDocs, bank, avail, publicHoliday, advanceBooking, customDays, termsChecked } = formState;
+  const { step, contact, biz, addr, pricing, portfolio, bizDocs, ownerDocs, bank, avail, publicHoliday, advanceBooking, customDays, confirmationHours, termsChecked } = formState;
 
   // Save to localStorage on every change
   const update = useCallback((patch) => {
@@ -137,6 +136,24 @@ export default function ServiceForm({ serviceId }) {
       return next;
     });
   }, [serviceId]);
+
+  // Auto-fill contact from logged-in user (only for new service, only if fields are empty)
+  useEffect(() => {
+    if (isEdit || !user) return;
+    setFormState(prev => {
+      const c = prev.contact;
+      // Only fill if fields are still empty (don't overwrite user's edits)
+      if (c.fullName || c.primaryMobile) return prev;
+      return {
+        ...prev,
+        contact: {
+          ...c,
+          fullName: user.name || '',
+          primaryMobile: user.phone || '',
+        }
+      };
+    });
+  }, [user, isEdit]);
 
   const setStep = (s) => update({ step: s });
   const setContact = (v) => update({ contact: typeof v === 'function' ? v(formState.contact) : v });
@@ -157,6 +174,7 @@ export default function ServiceForm({ serviceId }) {
   const setPublicHoliday = (v) => update({ publicHoliday: typeof v === 'function' ? v(publicHoliday) : v });
   const setAdvanceBooking = (v) => update({ advanceBooking: v });
   const setCustomDays = (v) => update({ customDays: v });
+  const setConfirmationHours = (v) => update({ confirmationHours: v });
   const setTermsChecked = (v) => update({ termsChecked: typeof v === 'function' ? v(termsChecked) : v });
 
   // Load existing service for edit
@@ -169,7 +187,7 @@ export default function ServiceForm({ serviceId }) {
       const s = d.service;
       update({
         contact: s.contactInfo || DEFAULT_STATE.contact,
-        biz: { title:s.title||'', category:s.category||'', companyName:s.companyName||'', brandName:s.brandName||'', experienceYears:s.experienceYears||'', description:s.description||'', specialization:s.specialization||'', tags:(s.tags||[]).join(', ') },
+        biz: { title:s.title||'', category:s.category||'', companyName:s.companyName||'', brandName:s.brandName||'', experienceYears:s.experienceYears||'', description:s.description||'', specialization: Array.isArray(s.specialization) ? s.specialization : (s.specialization ? [s.specialization] : []), specializationInput:'', tags:(s.tags||[]).join(', ') },
         addr: { officeAddress:s.officeAddress||'', state:s.state ? { label:s.state, value:s.state, name:s.state } : null, city:s.city ? { label:s.city, value:s.city, name:s.city } : null, area:s.area||'', village:s.village||'', pincode:s.pincode||'', serviceableAreas:(s.serviceableAreas||[]).join(', '), website:s.website||'', instagram:s.instagram||'', facebook:s.facebook||'' },
         pricing: { startingPrice:s.startingPrice||'', minimumOrderPrice:s.minimumOrderPrice||'', packages:s.packages?.length ? s.packages : DEFAULT_STATE.pricing.packages },
         portfolio: { featuredImage:s.featuredImage||'', images:s.images||[], videoLinks:[...(s.videoLinks||[]),...Array(3).fill('')].slice(0,3), previousWorkLinks:[...(s.previousWorkLinks||[]),...Array(3).fill('')].slice(0,3) },
@@ -206,6 +224,10 @@ export default function ServiceForm({ serviceId }) {
     if (step === 3 && !addr.city) { toast.error('City is required'); return false; }
     if (step === 3 && !addr.state) { toast.error('State is required'); return false; }
     if (step === 4 && !pricing.startingPrice) { toast.error('Starting price is required'); return false; }
+    if (step === 6) {
+      const hasDoc = bizDocs.registrationCertificate || bizDocs.gst || bizDocs.pan || bizDocs.msme || bizDocs.tradeLicense || bizDocs.fssai;
+      if (!hasDoc) { toast.error('Please upload at least one business document'); return false; }
+    }
     return true;
   };
 
@@ -239,6 +261,7 @@ export default function ServiceForm({ serviceId }) {
     businessDocs: bizDocs, ownerDocs, bankDetails: bank,
     availability: avail, publicHoliday, advanceBooking,
     customAdvanceDays: advanceBooking === 'custom' ? Number(customDays) : undefined,
+    confirmationHours: Number(confirmationHours) || 3,
     termsAccepted: termsChecked.every(Boolean),
     status: 'pending',
   });
@@ -316,11 +339,53 @@ export default function ServiceForm({ serviceId }) {
             <div><label className={lbl}>Business / Company Name{req}</label><input className={inp} value={biz.companyName} onChange={e=>setBiz(p=>({...p,companyName:e.target.value}))} /></div>
             <div><label className={lbl}>Brand Name (if different)</label><input className={inp} value={biz.brandName} onChange={e=>setBiz(p=>({...p,brandName:e.target.value}))} /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div><label className={lbl}>Category{req}</label><select className={inp} value={biz.category} onChange={e=>setBiz(p=>({...p,category:e.target.value}))}><option value="">Select</option>{CATEGORIES.map(c=><option key={c}>{c}</option>)}</select></div>
+              <div><label className={lbl}>Category{req}</label><select className={inp} value={biz.category} onChange={e=>setBiz(p=>({...p,category:e.target.value}))}><option value="">Select</option>{serviceCategories.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}</select></div>
               <div><label className={lbl}>Years of Experience{req}</label><input type="number" min="0" className={inp} value={biz.experienceYears} onChange={e=>setBiz(p=>({...p,experienceYears:e.target.value}))} /></div>
             </div>
             <div><label className={lbl}>Service Description{req}</label><textarea className={inp} rows={3} value={biz.description} onChange={e=>setBiz(p=>({...p,description:e.target.value}))} placeholder="Describe your service..." /></div>
-            <div><label className={lbl}>Specialization</label><input className={inp} value={biz.specialization} onChange={e=>setBiz(p=>({...p,specialization:e.target.value}))} placeholder="e.g. North Indian, Continental, Live Counters" /></div>
+            <div>
+              <label className={lbl}>Specialization</label>
+              <div className="flex gap-2 mb-2">
+                <input
+                  className={inp}
+                  value={biz.specializationInput}
+                  onChange={e => setBiz(p => ({ ...p, specializationInput: e.target.value }))}
+                  onKeyDown={e => {
+                    if ((e.key === 'Enter' || e.key === ',') && biz.specializationInput.trim()) {
+                      e.preventDefault();
+                      const val = biz.specializationInput.trim().replace(/,$/, '');
+                      if (val && !biz.specialization.includes(val)) {
+                        setBiz(p => ({ ...p, specialization: [...p.specialization, val], specializationInput: '' }));
+                      } else {
+                        setBiz(p => ({ ...p, specializationInput: '' }));
+                      }
+                    }
+                  }}
+                  placeholder="Type & press Enter to add (e.g. North Indian)"
+                />
+                <button type="button"
+                  onClick={() => {
+                    const val = biz.specializationInput.trim();
+                    if (val && !biz.specialization.includes(val)) {
+                      setBiz(p => ({ ...p, specialization: [...p.specialization, val], specializationInput: '' }));
+                    }
+                  }}
+                  className="px-3 py-2 bg-primary-500 text-white rounded-xl text-sm font-semibold hover:bg-primary-600 transition-colors whitespace-nowrap">
+                  Add
+                </button>
+              </div>
+              {biz.specialization.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {biz.specialization.map((s, i) => (
+                    <span key={i} className="flex items-center gap-1 bg-primary-50 border border-primary-200 text-primary-700 text-xs font-semibold px-2.5 py-1 rounded-full">
+                      {s}
+                      <button type="button" onClick={() => setBiz(p => ({ ...p, specialization: p.specialization.filter((_, idx) => idx !== i) }))}
+                        className="ml-1 text-primary-400 hover:text-red-500 transition-colors font-bold">×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>}
 
           {step===3 && <div className="space-y-4">
@@ -412,8 +477,9 @@ export default function ServiceForm({ serviceId }) {
 
           {step===6 && <div className="space-y-5">
             <h2 className="text-base font-bold text-gray-800">Business Documents</h2>
+            <p className="text-xs text-gray-500">Upload any one document — Registration Certificate, GST, PAN, Trade License, MSME, or FSSAI</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[['registrationCertificate','Registration Certificate',true],['msme','MSME Certificate',false],['gst','GST Certificate',false],['pan','PAN Card (Business)',false],['tradeLicense','Trade License',false],['fssai','FSSAI License (Catering)',false]].map(([f,l,r])=>(
+              {[['registrationCertificate','Registration Certificate',false],['msme','MSME Certificate',false],['gst','GST Certificate',false],['pan','PAN Card (Business)',false],['tradeLicense','Trade License',false],['fssai','FSSAI License (Catering)',false]].map(([f,l,r])=>(
                 <FileField key={f} label={l} required={r} value={bizDocs[f]} uploading={uploading[`biz_${f}`]}
                   onUpload={async file=>{const url=await uploadFile(file,`biz_${f}`);if(url)setBizDocs(p=>({...p,[f]:url}));}} />
               ))}
@@ -431,8 +497,8 @@ export default function ServiceForm({ serviceId }) {
             <h2 className="text-base font-bold text-gray-800 mb-2">Bank Details for Payouts</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div><label className={lbl}>Account Holder Name{req}</label><input className={inp} value={bank.accountHolderName} onChange={e=>setBank(p=>({...p,accountHolderName:e.target.value}))} /></div>
-              <div><label className={lbl}>Account Number{req}</label><input className={inp} value={bank.accountNumber} onChange={e=>setBank(p=>({...p,accountNumber:e.target.value}))} /></div>
-              <div><label className={lbl}>IFSC Code{req}</label><input className={inp} value={bank.ifsc} onChange={e=>setBank(p=>({...p,ifsc:e.target.value}))} /></div>
+              <div><label className={lbl}>Account Number{req}</label><input className={inp} inputMode="numeric" value={bank.accountNumber} onChange={e=>setBank(p=>({...p,accountNumber:e.target.value.replace(/\D/g,'').slice(0,18)}))} placeholder="Numeric only" maxLength={18} /></div>
+              <div><label className={lbl}>IFSC Code{req}</label><input className={inp+' uppercase'} value={bank.ifsc} onChange={e=>setBank(p=>({...p,ifsc:e.target.value.replace(/[^A-Za-z0-9]/g,'').slice(0,11).toUpperCase()}))} placeholder="e.g. SBIN0001234" maxLength={11} /></div>
               <div><label className={lbl}>Bank Name{req}</label><input className={inp} value={bank.bankName} onChange={e=>setBank(p=>({...p,bankName:e.target.value}))} /></div>
               <div><label className={lbl}>Branch Name</label><input className={inp} value={bank.branchName} onChange={e=>setBank(p=>({...p,branchName:e.target.value}))} /></div>
               <div><label className={lbl}>Account Type{req}</label><div className="flex gap-4 mt-1">{['savings','current'].map(t=><label key={t} className="flex items-center gap-2 cursor-pointer"><input type="radio" checked={bank.accountType===t} onChange={()=>setBank(p=>({...p,accountType:t}))} className="accent-primary-500" /><span className="text-sm capitalize">{t}</span></label>)}</div></div>
@@ -468,25 +534,89 @@ export default function ServiceForm({ serviceId }) {
                 ))}
               </div>
             </div>
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-              <h3 className="text-sm font-bold text-amber-800 mb-3">Terms & Agreement</h3>
-              <div className="space-y-2">
-                {TERMS.map((t,i)=>(
-                  <label key={i} className="flex items-start gap-2 cursor-pointer">
-                    <input type="checkbox" checked={termsChecked[i]} onChange={e=>{const tc=[...termsChecked];tc[i]=e.target.checked;setTermsChecked(tc);}} className="w-4 h-4 mt-0.5 accent-primary-500 flex-shrink-0" />
-                    <span className="text-xs text-gray-700">{t}</span>
-                  </label>
+
+            <div>
+              <label className={lbl}>Maximum time to confirm a booking request <span className="text-gray-400 font-normal">(max 3 hours)</span></label>
+              <div className="flex gap-3 mt-1">
+                {[1, 2, 3].map(h => (
+                  <button key={h} type="button" onClick={() => setConfirmationHours(h)}
+                    className={`px-5 py-2 rounded-lg border-2 font-semibold text-sm transition-all ${confirmationHours === h ? 'bg-primary-500 border-primary-500 text-white' : 'bg-white border-gray-300 text-gray-700 hover:border-primary-400'}`}>
+                    {h} Hr{h > 1 ? 's' : ''}
+                  </button>
                 ))}
               </div>
-              <p className="text-xs text-amber-700 font-medium mt-3 pt-3 border-t border-amber-200">I declare that the information provided is true and correct. Providing false information may lead to immediate termination of my vendor account.</p>
+              <p className="text-xs text-orange-500 mt-1">Default: 3 hours. Customers will see this on your service page.</p>
             </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <h3 className="text-sm font-bold text-amber-800 mb-3">Terms & Conditions</h3>
+              <div className="bg-white border border-amber-200 rounded-lg p-4 h-64 overflow-y-auto text-xs text-gray-700 space-y-3 leading-relaxed">
+                <p className="font-bold text-gray-800">RentalMeet Vendor Service Agreement</p>
+
+                <p className="font-semibold text-gray-700">1. Platform Fee & Payouts</p>
+                <p>• I/We agree to pay RentalMeet platform fee as per the applicable policy on all confirmed bookings made through the platform.</p>
+                <p>• Platform fee will be deducted before payout. Payouts for services booked through the platform will follow standard billing cycles as communicated by RentalMeet.</p>
+
+                <p className="font-semibold text-gray-700">2. Information Accuracy</p>
+                <p>• I confirm that all information provided during registration — including business details, portfolio, pricing, documents, and bank details — is accurate, truthful, and up to date.</p>
+                <p>• Providing false or misleading information may lead to immediate suspension or termination of my vendor account.</p>
+
+                <p className="font-semibold text-gray-700">3. Service Quality Standards</p>
+                <p>• I will maintain the quality standards as represented in my portfolio and service listing.</p>
+                <p>• I will ensure that the services delivered match the description provided on the platform.</p>
+
+                <p className="font-semibold text-gray-700">4. Booking Commitments</p>
+                <p>• I will respond to booking inquiries within 2 hours of receiving them.</p>
+                <p>• I will honor all confirmed bookings and provide services as promised to the customer.</p>
+                <p>• Cancellation of confirmed bookings without valid reason may result in penalties or account suspension.</p>
+
+                <p className="font-semibold text-gray-700">5. Legal Compliance</p>
+                <p>• I have all necessary licenses, permits, and registrations required to operate my business legally.</p>
+                <p>• I will comply with all applicable local, state, and national laws and regulations.</p>
+
+                <p className="font-semibold text-gray-700">6. Platform Role</p>
+                <p>• I understand that RentalMeet acts as a platform for lead generation and booking facilitation only.</p>
+                <p>• RentalMeet is not responsible for disputes arising from service delivery between vendor and customer.</p>
+
+                <p className="font-semibold text-gray-700">7. Communications</p>
+                <p>• I agree to receive booking notifications, updates, and communications from RentalMeet via email, SMS, and WhatsApp.</p>
+
+                <p className="font-semibold text-gray-700">8. Account Termination</p>
+                <p>• RentalMeet reserves the right to suspend or terminate a vendor account in case of policy violations, fraudulent activity, or repeated customer complaints.</p>
+              </div>
+
+              <label className="flex items-start gap-3 cursor-pointer mt-4 pt-4 border-t border-amber-200">
+                <input
+                  type="checkbox"
+                  checked={termsChecked.every(Boolean)}
+                  onChange={e => setTermsChecked(Array(TERMS.length).fill(e.target.checked))}
+                  className="w-4 h-4 mt-0.5 accent-primary-500 flex-shrink-0"
+                />
+                <span className="text-xs text-gray-700 font-medium">
+                  I declare that all information provided is true and correct. I have read, understood, and agree to all the terms and conditions of the RentalMeet Vendor Service Agreement. I understand that providing false information may lead to immediate termination of my vendor account.
+                </span>
+              </label>
+            </div>
+
             <div className="bg-primary-50 border border-primary-200 rounded-xl p-4">
-              <h3 className="text-sm font-bold text-primary-800 mb-2">What Happens Next?</h3>
-              <div className="space-y-1 text-xs text-primary-700">
-                {[['Application Review','24-48 hours'],['Document Verification','24-48 hours'],['Vendor Approval','3-5 business days'],['Profile Live','3-5 business days']].map(([s,t])=>(
-                  <div key={s} className="flex justify-between"><span>• {s}</span><span className="font-semibold">{t}</span></div>
+              <h3 className="text-sm font-bold text-primary-800 mb-3">What Happens After Submission?</h3>
+              <div className="space-y-2">
+                {[
+                  { step: '1', label: 'Application Received', time: 'Immediately', color: 'bg-blue-100 text-blue-700' },
+                  { step: '2', label: 'Application Review', time: '24–48 hours', color: 'bg-yellow-100 text-yellow-700' },
+                  { step: '3', label: 'Document Verification', time: '24–48 hours', color: 'bg-orange-100 text-orange-700' },
+                  { step: '4', label: 'Vendor Approval', time: '3–5 business days', color: 'bg-purple-100 text-purple-700' },
+                  { step: '5', label: 'Profile Goes Live', time: '3–5 business days', color: 'bg-green-100 text-green-700' },
+                ].map(({ step: s, label, time, color }) => (
+                  <div key={s} className="flex items-center gap-3">
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${color}`}>{s}</span>
+                    <span className="text-xs text-primary-800 flex-1">{label}</span>
+                    <span className="text-xs font-semibold text-primary-700">{time}</span>
+                  </div>
                 ))}
               </div>
+              <p className="text-xs text-primary-600 mt-3 pt-3 border-t border-primary-200">
+                You will receive email/SMS updates at each stage. Our team may contact you for additional information if required.
+              </p>
             </div>
           </div>}
 

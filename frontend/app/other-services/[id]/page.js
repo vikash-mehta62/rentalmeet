@@ -297,23 +297,37 @@ export default function ServiceDetailPage() {
   };
 
   const handleShareService = async () => {
-    try {
-      const shareUrl = typeof window !== 'undefined' ? window.location.href : `${process.env.NEXT_PUBLIC_SITE_URL || ''}/other-services/${id}`;
-      const shareData = {
-        title: svc?.title || 'RentalMeet Service',
-        text: `Check out this service on RentalMeet: ${svc?.title || ''}`,
-        url: shareUrl
-      };
+    const shareUrl = typeof window !== 'undefined' ? window.location.href : `${process.env.NEXT_PUBLIC_SITE_URL || ''}/other-services/${id}`;
+    const shareData = {
+      title: svc?.title || 'RentalMeet Service',
+      text: `Check out this service on RentalMeet: ${svc?.title || ''}`,
+      url: shareUrl
+    };
 
-      if (navigator.share) {
+    if (navigator.share) {
+      try {
         await navigator.share(shareData);
-        return;
+      } catch (err) {
+        // User cancelled share — no error toast needed
+        if (err?.name !== 'AbortError') {
+          // Fallback to clipboard if share fails for other reasons
+          try {
+            await navigator.clipboard.writeText(shareUrl);
+            toast.success('Service link copied to clipboard');
+          } catch {
+            toast.error('Unable to share service');
+          }
+        }
       }
+      return;
+    }
 
+    // Fallback for browsers without Web Share API
+    try {
       await navigator.clipboard.writeText(shareUrl);
-      toast.success('Service link copied');
+      toast.success('Service link copied to clipboard');
     } catch {
-      toast.error('Unable to share service');
+      toast.error('Unable to copy service link');
     }
   };
 
@@ -536,6 +550,16 @@ export default function ServiceDetailPage() {
                   {svc.vendor?.companyName && <span className="text-gray-400">{svc.vendor.companyName}</span>}
                 </div>
                 {svc.description && <p className="text-gray-600 leading-relaxed mb-4">{svc.description}</p>}
+                {svc.specialization?.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Specializations</p>
+                    <div className="flex flex-wrap gap-2">
+                      {svc.specialization.map((s, i) => (
+                        <span key={i} className="px-3 py-1 bg-primary-50 border border-primary-200 text-primary-700 rounded-full text-xs font-semibold">{s}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {svc.tags?.length > 0 && (
                   <div className="flex flex-wrap gap-2">
                     {svc.tags.map(tag => <span key={tag} className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">{tag}</span>)}
@@ -555,11 +579,11 @@ export default function ServiceDetailPage() {
                 {availDays.length === 0 ? (
                   <p className="text-sm text-gray-400">Availability not set</p>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-4 gap-2">
                     {availDays.map(a => (
                       <div key={a.day} className="flex items-center justify-between bg-green-50 border border-green-100 rounded-xl px-3 py-2">
-                        <span className="text-xs font-semibold text-gray-700">{a.day.slice(0,3)}</span>
-                        <span className="text-xs text-gray-500">{a.startTime} – {a.endTime}</span>
+                        <span className="text-xs font-bold text-gray-700">{a.day.slice(0,3)}</span>
+                        <span className="text-xs text-gray-500">{a.startTime}–{a.endTime}</span>
                       </div>
                     ))}
                   </div>

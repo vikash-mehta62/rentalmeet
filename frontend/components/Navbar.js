@@ -51,7 +51,7 @@ export default function Navbar() {
     return roles[user.role] || '/';
   };
 
-  const textColor = 'text-slate-700 dark:text-slate-200';
+  const textColor = 'text-black dark:text-slate-200';
   const linkBase = 'text-[12px] font-bold uppercase tracking-[0.15em] transition-all duration-300';
 
   const navLinks = [

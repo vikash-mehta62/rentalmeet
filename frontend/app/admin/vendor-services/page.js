@@ -7,7 +7,7 @@ import PermissionGuard from '@/components/admin/PermissionGuard';
 import toast from 'react-hot-toast';
 import {
   Search, Eye, X, CheckCircle, XCircle, Package,
-  ChevronDown, ChevronUp, ExternalLink, CreditCard, MapPin, Calendar
+  ChevronDown, ChevronUp, ExternalLink, CreditCard, MapPin, Calendar, Download
 } from 'lucide-react';
 
 const STATUS_STYLE = {
@@ -105,9 +105,34 @@ export default function AdminVendorServices() {
     rejected:     services.filter(s => s.status === 'rejected').length,
   };
 
+  const handleExportCSV = () => {
+    const rows = [
+      ['#', 'Title', 'Company', 'Category', 'Vendor', 'Vendor Email', 'City', 'State', 'Starting Price', 'Status', 'Submitted'],
+      ...filtered.map((s, i) => [
+        i + 1,
+        s.title || '',
+        s.companyName || '',
+        s.category || '',
+        s.vendor?.name || '',
+        s.vendor?.email || '',
+        s.city || '',
+        s.state || '',
+        s.startingPrice || 0,
+        s.status || '',
+        new Date(s.createdAt).toLocaleDateString('en-IN'),
+      ])
+    ];
+    const csv = rows.map(r => r.map(c => `"${c ?? ''}"`).join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+    a.download = `Vendor_Services_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    toast.success('CSV downloaded');
+  };
+
   return (
     <AdminLayout title="Vendor Services" subtitle="All submitted vendor services">
-      <PermissionGuard permission="users">
+      <PermissionGuard permission="vendorServices">
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
@@ -143,6 +168,10 @@ export default function AdminVendorServices() {
             <option value="rejected">Rejected</option>
             <option value="suspended">Suspended</option>
           </select>
+          <button onClick={handleExportCSV} disabled={filtered.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50">
+            <Download className="w-4 h-4" /> CSV
+          </button>
         </div>
 
         {/* Table */}

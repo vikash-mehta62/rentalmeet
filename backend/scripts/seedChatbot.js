@@ -24,7 +24,7 @@ const defaultSettings = {
     },
     {
       question: 'Contact support',
-      answer: "Reach us anytime:\n📞 +91 9425796767\n📧 booking@rentalmeet.in\n📍 G-137, Gautam Nagar, Bhopal\n\nAvailable 24/7!",
+      answer: "Reach us anytime:\n📞 +91 9425796767\n📧 booking@rentalmeet.com\n📍 G-137, Gautam Nagar, Bhopal\n\nAvailable 24/7!",
     },
     {
       question: 'Payment & refund',
