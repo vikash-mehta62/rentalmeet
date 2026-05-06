@@ -261,7 +261,28 @@ export default function ServiceDetailPage() {
   const platformFeeGst = Math.round(platformFee * (platformCgstPct + platformSgstPct) / 100);
   const total = subtotal + serviceCgst + serviceSgst + platformFee + platformFeeGst;
   const hasItems = subtotal > 0;
-  const setQty = (i, delta) => setQuantities(prev => ({ ...prev, [i]: Math.max(0, (prev[i] || 0) + delta) }));
+  const setQty = (i, delta) => {
+    const pkg = packages[i];
+    const min = pkg?.minQty || 0;
+    const max = pkg?.maxQty || null;
+    setQuantities(prev => {
+      const cur = prev[i] || 0;
+      let next = cur + delta;
+      next = Math.max(min, next);
+      if (max !== null) next = Math.min(max, next);
+      return { ...prev, [i]: next };
+    });
+  };
+
+  const setQtyDirect = (i, val) => {
+    const pkg = packages[i];
+    const min = pkg?.minQty || 0;
+    const max = pkg?.maxQty || null;
+    let next = parseInt(val) || 0;
+    next = Math.max(min, next);
+    if (max !== null) next = Math.min(max, next);
+    setQuantities(prev => ({ ...prev, [i]: next }));
+  };
   const toMinutes = (t) => {
     if (!t || !t.includes(':')) return null;
     const [h, m] = t.split(':').map(Number);
@@ -622,20 +643,36 @@ export default function ServiceDetailPage() {
                       <tbody>
                         {packages.map((pkg, i) => {
                           const qty = quantities[i] || 0;
+                          const min = pkg?.minQty || 0;
+                          const max = pkg?.maxQty || null;
                           return (
                             <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                              <td className="px-4 py-2.5 text-gray-800">{pkg.name}</td>
+                              <td className="px-4 py-2.5">
+                                <div className="text-gray-800">{pkg.name}</div>
+                                {(min > 0 || max) && (
+                                  <div className="text-[10px] text-gray-400 mt-0.5">
+                                    {min > 0 && `Min: ${min}`}{min > 0 && max ? ' · ' : ''}{max ? `Max: ${max}` : ''}
+                                  </div>
+                                )}
+                              </td>
                               <td className="px-4 py-2.5 text-right font-semibold text-primary-600">₹{(pkg.price || 0).toLocaleString()}</td>
                               <td className="px-4 py-2.5 text-right text-gray-400 text-xs">{pkg.unit}</td>
                               <td className="px-4 py-2.5">
                                 <div className="flex items-center justify-center gap-1">
-                                  <button type="button" onClick={() => setQty(i, -1)} disabled={qty === 0}
+                                  <button type="button" onClick={() => setQty(i, -1)} disabled={qty <= min}
                                     className="w-7 h-7 border border-gray-300 rounded-lg flex items-center justify-center hover:bg-gray-100 disabled:opacity-40 transition-all">
                                     <Minus className="w-3 h-3" />
                                   </button>
-                                  <span className="w-7 text-center font-bold text-sm">{qty}</span>
-                                  <button type="button" onClick={() => setQty(i, 1)}
-                                    className="w-7 h-7 border border-gray-300 rounded-lg flex items-center justify-center hover:bg-gray-100 transition-all">
+                                  <input
+                                    type="number"
+                                    value={qty}
+                                    min={min}
+                                    max={max || undefined}
+                                    onChange={e => setQtyDirect(i, e.target.value)}
+                                    className="w-12 text-center font-bold text-sm border border-gray-200 rounded-lg py-0.5 focus:ring-1 focus:ring-primary-400 outline-none"
+                                  />
+                                  <button type="button" onClick={() => setQty(i, 1)} disabled={max !== null && qty >= max}
+                                    className="w-7 h-7 border border-gray-300 rounded-lg flex items-center justify-center hover:bg-gray-100 disabled:opacity-40 transition-all">
                                     <Plus className="w-3 h-3" />
                                   </button>
                                 </div>

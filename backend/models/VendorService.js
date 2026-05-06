@@ -41,7 +41,8 @@ const vendorServiceSchema = new mongoose.Schema({
     name:     String,
     price:    Number,
     unit:     String,
-    quantity: Number
+    minQty:   { type: Number, default: 1 },
+    maxQty:   { type: Number, default: null }
   }],
 
   // Step 5 — Portfolio

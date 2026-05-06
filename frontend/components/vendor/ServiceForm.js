@@ -66,7 +66,7 @@ const DEFAULT_STATE = {
   contact: { fullName:'', primaryMobile:'', secondaryMobile:'', role:'owner' },
   biz: { title:'', category:'', companyName:'', brandName:'', experienceYears:'', description:'', specialization:[], specializationInput:'', tags:'' },
   addr: { officeAddress:'', state:null, city:null, area:'', village:'', pincode:'', serviceableAreas:'', website:'', instagram:'', facebook:'' },
-  pricing: { startingPrice:'', minimumOrderPrice:'', packages:[{ sno:1, name:'', price:'', unit:'', quantity:'' }] },
+  pricing: { startingPrice:'', minimumOrderPrice:'', packages:[{ sno:1, name:'', price:'', unit:'', minQty:'', maxQty:'' }] },
   portfolio: { featuredImage:'', images:[], videoLinks:['','',''], previousWorkLinks:['','',''] },
   bizDocs: { registrationCertificate:'', msme:'', gst:'', pan:'', tradeLicense:'', fssai:'' },
   ownerDocs: { aadhaarFront:'', aadhaarBack:'', pan:'', selfie:'' },
@@ -421,7 +421,8 @@ export default function ServiceForm({ serviceId }) {
                     <th className="px-2 py-2 text-left font-semibold text-gray-500">Service</th>
                     <th className="px-2 py-2 text-left font-semibold text-gray-500 w-24">Rate (₹)</th>
                     <th className="px-2 py-2 text-left font-semibold text-gray-500 w-36">Unit</th>
-                    <th className="px-2 py-2 text-left font-semibold text-gray-500 w-16">Qty</th>
+                    <th className="px-2 py-2 text-left font-semibold text-gray-500 w-16">Min Order</th>
+                    <th className="px-2 py-2 text-left font-semibold text-gray-500 w-16">Max Order</th>
                     <th className="px-2 py-2 w-8"></th>
                   </tr></thead>
                   <tbody className="divide-y divide-gray-100">
@@ -431,14 +432,15 @@ export default function ServiceForm({ serviceId }) {
                         <td className="px-2 py-1.5"><input className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs" value={pkg.name} onChange={e=>updatePkg(i,'name',e.target.value)} placeholder="Service name" /></td>
                         <td className="px-2 py-1.5"><input type="number" className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs" value={pkg.price} onChange={e=>updatePkg(i,'price',e.target.value)} /></td>
                         <td className="px-2 py-1.5"><select className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs bg-white" value={pkg.unit} onChange={e=>updatePkg(i,'unit',e.target.value)}><option value="">Select</option>{units.map(u=><option key={u}>{u}</option>)}</select></td>
-                        <td className="px-2 py-1.5"><input type="number" className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs" value={pkg.quantity} onChange={e=>updatePkg(i,'quantity',e.target.value)} /></td>
+                        <td className="px-2 py-1.5"><input type="number" min="0" className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs" value={pkg.minQty||''} onChange={e=>updatePkg(i,'minQty',e.target.value)} placeholder="e.g. 10" /></td>
+                        <td className="px-2 py-1.5"><input type="number" min="0" className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs" value={pkg.maxQty||''} onChange={e=>updatePkg(i,'maxQty',e.target.value)} placeholder="e.g. 100" /></td>
                         <td className="px-2 py-1.5"><button type="button" onClick={()=>setPricing(p=>({...p,packages:p.packages.filter((_,idx)=>idx!==i)}))} className="text-red-400 hover:text-red-600"><X className="w-3.5 h-3.5" /></button></td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <button type="button" onClick={()=>setPricing(p=>({...p,packages:[...p.packages,{sno:p.packages.length+1,name:'',price:'',unit:'',quantity:''}]}))}
+              <button type="button" onClick={()=>setPricing(p=>({...p,packages:[...p.packages,{sno:p.packages.length+1,name:'',price:'',unit:'',minQty:'',maxQty:''}]}))}
                 className="flex items-center gap-1.5 text-xs text-primary-600 font-semibold hover:underline mt-2"><Plus className="w-3.5 h-3.5" /> Add Row</button>
             </div>
           </div>}

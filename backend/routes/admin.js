@@ -197,6 +197,66 @@ router.delete('/expense-heads/:id', protect, authorize('admin'), checkPermission
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
+// ── Liabilities ───────────────────────────────────────────────────────────
+router.get('/liabilities', protect, authorize('admin'), checkPermission('expenses'), async (req, res) => {
+  try {
+    const Liability = require('../models/Liability');
+    const { dateFilter, fyYear, from, to } = req.query;
+    let dateMatch = {};
+    if (dateFilter === 'fy' && fyYear) {
+      const y = parseInt(fyYear);
+      dateMatch = { createdAt: { $gte: new Date(`${y}-04-01T00:00:00`), $lte: new Date(`${y + 1}-03-31T23:59:59`) } };
+    } else if (dateFilter === 'custom' && from && to) {
+      dateMatch = { createdAt: { $gte: new Date(from + 'T00:00:00'), $lte: new Date(to + 'T23:59:59') } };
+    }
+    const liabilities = await Liability.find(dateMatch).populate('createdBy', 'name email role').sort('-createdAt');
+    const totalAmount = liabilities.reduce((s, l) => s + (l.totalAmount || 0), 0);
+    const totalPaid = liabilities.reduce((s, l) => s + (l.paidAmount || 0), 0);
+    const totalPending = totalAmount - totalPaid;
+    res.json({ success: true, liabilities, summary: { totalAmount, totalPaid, totalPending, totalRecords: liabilities.length } });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+router.post('/liabilities', protect, authorize('admin'), checkPermission('expenses'), async (req, res) => {
+  try {
+    const Liability = require('../models/Liability');
+    const { title, totalAmount, paidAmount, payByDate, remark } = req.body;
+    if (!title?.trim()) return res.status(400).json({ success: false, message: 'Title is required' });
+    if (!totalAmount || Number(totalAmount) < 0) return res.status(400).json({ success: false, message: 'Valid total amount required' });
+    const liability = await Liability.create({
+      title: title.trim(), totalAmount: Number(totalAmount),
+      paidAmount: Number(paidAmount || 0), payByDate: payByDate ? new Date(payByDate) : null,
+      remark: (remark || '').trim(), createdBy: req.user.id
+    });
+    const populated = await Liability.findById(liability._id).populate('createdBy', 'name email role');
+    res.status(201).json({ success: true, liability: populated });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+router.put('/liabilities/:id', protect, authorize('admin'), checkPermission('expenses'), async (req, res) => {
+  try {
+    const Liability = require('../models/Liability');
+    const { paidAmount } = req.body;
+    const liability = await Liability.findById(req.params.id);
+    if (!liability) return res.status(404).json({ success: false, message: 'Not found' });
+    const paid = Number(paidAmount || 0);
+    if (paid < 0) return res.status(400).json({ success: false, message: 'Paid amount cannot be negative' });
+    if (paid > liability.totalAmount) return res.status(400).json({ success: false, message: `Paid amount cannot exceed total amount (₹${liability.totalAmount.toLocaleString('en-IN')})` });
+    liability.paidAmount = paid;
+    await liability.save();
+    await liability.populate('createdBy', 'name email role');
+    res.json({ success: true, liability });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+router.delete('/liabilities/:id', protect, authorize('admin'), checkPermission('expenses'), async (req, res) => {
+  try {
+    const Liability = require('../models/Liability');
+    await Liability.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
 // ── Payment Ledger endpoints ──────────────────────────────────────────────
 // Admin: record a manual payment (cash/cheque/bank transfer)
 router.post('/bookings/:id/ledger/payment', protect, authorize('admin'), async (req, res) => {

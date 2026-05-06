@@ -333,7 +333,8 @@ export default function AdminVendorServices() {
                             <th className="px-3 py-2 text-left text-gray-500">Service</th>
                             <th className="px-3 py-2 text-left text-gray-500">Rate</th>
                             <th className="px-3 py-2 text-left text-gray-500">Unit</th>
-                            <th className="px-3 py-2 text-left text-gray-500">Qty</th>
+                            <th className="px-3 py-2 text-left text-gray-500">Min</th>
+                            <th className="px-3 py-2 text-left text-gray-500">Max</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -342,7 +343,8 @@ export default function AdminVendorServices() {
                               <td className="px-3 py-2">{pkg.name}</td>
                               <td className="px-3 py-2 text-green-700 font-semibold">₹{pkg.price?.toLocaleString()}</td>
                               <td className="px-3 py-2">{pkg.unit}</td>
-                              <td className="px-3 py-2">{pkg.quantity}</td>
+                              <td className="px-3 py-2">{pkg.minQty || '—'}</td>
+                              <td className="px-3 py-2">{pkg.maxQty || '—'}</td>
                             </tr>
                           ))}
                         </tbody>

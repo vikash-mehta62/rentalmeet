@@ -33,6 +33,7 @@ export default function AdminRevenuePage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ totalRevenue: 0 });
   const [expenseSummary, setExpenseSummary] = useState({ totalExpenditure: 0, totalRecords: 0 });
+  const [liabilitySummary, setLiabilitySummary] = useState({ totalAmount: 0, totalPaid: 0, totalPending: 0 });
 
   // Date filter state
   const [dateMode, setDateMode] = useState('financial');
@@ -77,20 +78,25 @@ export default function AdminRevenuePage() {
     try {
       const range = getRange();
       const paymentParams = range ? `?${new URLSearchParams(range)}` : '';
-      const [paymentRes, expenseRes] = await Promise.all([
+      const [paymentRes, expenseRes, liabilityRes] = await Promise.all([
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/payments${paymentParams}`, {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/expenses`, {
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/expenses${paymentParams}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/liabilities${paymentParams}`, {
           headers: { Authorization: `Bearer ${token}` }
         })
       ]);
 
       const data = await paymentRes.json();
       const expenseData = await expenseRes.json();
+      const liabilityData = await liabilityRes.json();
       if (data.success) {
         setStats({ totalRevenue: data.stats?.totalRevenue || 0 });
         setExpenseSummary(expenseData?.summary || { totalExpenditure: 0, totalRecords: 0 });
+        setLiabilitySummary(liabilityData?.summary || { totalAmount: 0, totalPaid: 0, totalPending: 0 });
       } else {
         toast.error('Revenue data load failed');
       }
@@ -104,8 +110,9 @@ export default function AdminRevenuePage() {
   const revenue = useMemo(() => {
     const payment = stats.totalRevenue || 0;
     const expenditure = expenseSummary.totalExpenditure || 0;
-    return { payment, expenditure, grossProfit: payment - expenditure };
-  }, [stats, expenseSummary]);
+    const liabilities = liabilitySummary.totalAmount || 0;  // total liability (not just pending)
+    return { payment, expenditure, liabilities, grossProfit: payment - expenditure - liabilities };
+  }, [stats, expenseSummary, liabilitySummary]);
 
   const handleExportCSV = () => {
     const period = dateMode === 'financial'
@@ -119,8 +126,10 @@ export default function AdminRevenuePage() {
       ['Metric', 'Amount'],
       ['Total Payment Received', revenue.payment],
       ['Total Expenditure', revenue.expenditure],
+      ['Total Liabilities (Total)', revenue.liabilities],
       ['Gross Profit', revenue.grossProfit],
       ['Expense Records', expenseSummary.totalRecords || 0],
+      ['Liability Records', liabilitySummary.totalRecords || 0],
     ];
     const csv = rows.map(r => r.map(c => `"${c ?? ''}"`).join(',')).join('\n');
     const a = document.createElement('a');
@@ -169,16 +178,23 @@ export default function AdminRevenuePage() {
           </div>
         ) : (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <StatCard
                 title="Expenditure"
                 value={fmtRs(revenue.expenditure)}
-                note={`Manual expense entries (${expenseSummary.totalRecords || 0})`}
+                note={`Expense entries (${expenseSummary.totalRecords || 0})`}
                 icon={Wallet}
                 tone="bg-rose-50 border-rose-100 text-rose-700"
               />
               <StatCard
-                title="Payment"
+                title="Liabilities (Total)"
+                value={fmtRs(revenue.liabilities)}
+                note={`Paid: ${fmtRs(liabilitySummary.totalPaid)} · Pending: ${fmtRs(liabilitySummary.totalPending)}`}
+                icon={Wallet}
+                tone="bg-orange-50 border-orange-100 text-orange-700"
+              />
+              <StatCard
+                title="Payment Received"
                 value={fmtRs(revenue.payment)}
                 note="Total paid amount received"
                 icon={IndianRupee}
@@ -187,7 +203,7 @@ export default function AdminRevenuePage() {
               <StatCard
                 title="Gross Profit"
                 value={fmtRs(revenue.grossProfit)}
-                note="Payment - Expenditure"
+                note="Payment − Expenditure − Liabilities"
                 icon={TrendingUp}
                 tone="bg-emerald-50 border-emerald-100 text-emerald-700"
               />

@@ -1256,7 +1256,8 @@ export default function AdminUsers() {
                                       <th className="px-2 py-1.5 text-left text-gray-500">Service</th>
                                       <th className="px-2 py-1.5 text-left text-gray-500">Rate</th>
                                       <th className="px-2 py-1.5 text-left text-gray-500">Unit</th>
-                                      <th className="px-2 py-1.5 text-left text-gray-500">Qty</th>
+                                      <th className="px-2 py-1.5 text-left text-gray-500">Min</th>
+                                      <th className="px-2 py-1.5 text-left text-gray-500">Max</th>
                                     </tr></thead>
                                     <tbody className="divide-y divide-gray-100">
                                       {svc.packages.filter(p => p.name).map((pkg, i) => (
@@ -1264,7 +1265,8 @@ export default function AdminUsers() {
                                           <td className="px-2 py-1.5">{pkg.name}</td>
                                           <td className="px-2 py-1.5 text-green-700 font-semibold">₹{pkg.price?.toLocaleString()}</td>
                                           <td className="px-2 py-1.5">{pkg.unit}</td>
-                                          <td className="px-2 py-1.5">{pkg.quantity}</td>
+                                          <td className="px-2 py-1.5">{pkg.minQty || '—'}</td>
+                                          <td className="px-2 py-1.5">{pkg.maxQty || '—'}</td>
                                         </tr>
                                       ))}
                                     </tbody>
