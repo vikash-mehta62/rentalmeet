@@ -308,8 +308,8 @@ export default function CustomerSupportPage() {
                     <span className="text-xs text-slate-400 flex items-center gap-1"><Clock size={10} /> Mon-Sat, 9 AM - 7 PM</span>
                   </div>
                 </div>
-                <a href="tel:+917879884363" className="text-sm text-amber-600 hover:underline">
-                  +91 78798 84363
+                <a href="tel:+916260959428" className="text-sm text-amber-600 hover:underline">
+                  +91 62609 59428
                 </a>
               </div>
 
