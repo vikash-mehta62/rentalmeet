@@ -252,8 +252,8 @@ export default function ServiceDetailPage() {
   const cgstPct = catRate?.cgst ?? platformSettings?.serviceCGST ?? 9;
   const sgstPct = catRate?.sgst ?? platformSettings?.serviceSGST ?? 9;
   const platformFeePct = catRate?.platformFee ?? platformSettings?.servicePlatformFee ?? 5;
-  const platformCgstPct = catRate?.platformCGST ?? platformSettings?.platformCGST ?? 9;
-  const platformSgstPct = catRate?.platformSGST ?? platformSettings?.platformSGST ?? 9;
+  const platformCgstPct = catRate?.platformCGST ?? platformSettings?.servicePlatformCGST ?? platformSettings?.platformCGST ?? 9;
+  const platformSgstPct = catRate?.platformSGST ?? platformSettings?.servicePlatformSGST ?? platformSettings?.platformSGST ?? 9;
 
   const serviceCgst = Math.round(subtotal * cgstPct / 100);
   const serviceSgst = Math.round(subtotal * sgstPct / 100);

@@ -83,7 +83,10 @@ app.get('/api/service-platform-settings', async (req, res) => {
         serviceSGST: settings.serviceSGST,
         serviceHSN: settings.serviceHSN,
         servicePlatformFee: settings.servicePlatformFee,
+        servicePlatformCGST: settings.servicePlatformCGST ?? settings.platformCGST,
+        servicePlatformSGST: settings.servicePlatformSGST ?? settings.platformSGST,
         serviceCategoryRates: settings.serviceCategoryRates || [],
+        // keep legacy fields for backward compat
         platformCGST: settings.platformCGST,
         platformSGST: settings.platformSGST,
       }
@@ -220,13 +223,22 @@ app.post('/api/service-bookings', async (req, res) => {
       customerInfo,
       serviceSnapshot: { title: svc.title, category: svc.category, companyName: svc.companyName, city: svc.city, state: svc.state },
       items,
-      pricing: { ...pricing, discount: discountAmount, total: finalTotal },
+      pricing: {
+        ...pricing,
+        // Normalize field names — store both camelCase and UPPERCASE for compatibility
+        serviceCGST:    pricing.serviceCGST    ?? pricing.serviceCgst    ?? 0,
+        serviceSGST:    pricing.serviceSGST    ?? pricing.serviceSgst    ?? 0,
+        platformFeeGST: pricing.platformFeeGST ?? pricing.platformFeeGst ?? 0,
+        discount: discountAmount,
+        total: finalTotal
+      },
       coupon: appliedCoupon ? { couponId: appliedCoupon._id, code: appliedCoupon.code, discountAmount } : undefined,
       amount: isPaidBooking ? Number(amount || finalTotal) : undefined,
       status: isPaidBooking ? 'confirmed' : (status || 'enquiry'),
       paymentStatus: isPaidBooking ? 'paid' : (paymentStatus || 'pending'),
       paymentDetails: isPaidBooking ? verifiedPaymentDetails : undefined,
     });
+    console.log('[ServiceBooking] Created:', booking.bookingNumber, '| pricing:', JSON.stringify(booking.pricing));
 
     // Bump enquiry count + coupon usage
     await VendorService.findByIdAndUpdate(serviceId, { $inc: { totalEnquiries: 1 } });

@@ -496,13 +496,17 @@ exports.getPublicPlatformSettings = async (req, res) => {
         gstRate: settings.gstRate || 18,
         platformFee: {
           feeType: settings.platformFeeType || 'percentage',
-          feeValue: settings.platformFeeValue || settings.platformFeePercentage || 5
+          feeValue: settings.platformFeePercentage ?? settings.platformFeeValue ?? 5
         },
         venueCGST: settings.venueCGST || 9,
         venueSGST: settings.venueSGST || 9,
         platformCGST: settings.platformCGST || 9,
         platformSGST: settings.platformSGST || 9,
-        commissionRate: 0
+        // Also expose flat fields for BookingForm compatibility
+        platformFeePercentage: settings.platformFeePercentage ?? settings.platformFeeValue ?? 5,
+        commissionRate: 0,
+        gstInvoiceSignature: settings.gstInvoiceSignature || null,
+        platformInvoiceSignature: settings.platformInvoiceSignature || null
       }
     });
   } catch (error) {

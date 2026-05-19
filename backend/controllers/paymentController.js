@@ -69,6 +69,20 @@ exports.verifyPayment = async (req, res) => {
     const booking = await Booking.findById(bookingId);
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
 
+    // Explicitly capture the payment so it can be refunded later if needed
+    try {
+      const razorpay = new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET });
+      const payment = await razorpay.payments.fetch(razorpay_payment_id);
+      console.log(`[PAYMENT] Payment status: ${payment.status} | captured: ${payment.captured}`);
+      if (payment.status === 'authorized' && !payment.captured) {
+        await razorpay.payments.capture(razorpay_payment_id, payment.amount, 'INR');
+        console.log(`[PAYMENT] ✅ Payment captured: ${razorpay_payment_id}`);
+      }
+    } catch (captureErr) {
+      // Non-fatal — log and continue. Payment may already be auto-captured.
+      console.warn(`[PAYMENT] ⚠️  Capture attempt: ${captureErr.error?.description || captureErr.message}`);
+    }
+
     if (!booking.paymentLedger) booking.paymentLedger = { transactions: [], adjustments: [] };
     if (!booking.paymentLedger.transactions) booking.paymentLedger.transactions = [];
 

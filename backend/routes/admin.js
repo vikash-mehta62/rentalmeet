@@ -167,6 +167,31 @@ router.post('/expenses', protect, authorize('admin'), checkPermission('expenses'
   }
 });
 
+router.put('/expenses/:id', protect, authorize('admin'), checkPermission('expenses'), async (req, res) => {
+  try {
+    const Expense = require('../models/Expense');
+    const { head, subHead, amount, remark, expenseDate } = req.body;
+    if (!head?.trim()) return res.status(400).json({ success: false, message: 'Head is required' });
+    if (amount === undefined || amount === null || Number(amount) < 0)
+      return res.status(400).json({ success: false, message: 'Valid amount is required' });
+    const expense = await Expense.findByIdAndUpdate(
+      req.params.id,
+      { head: head.trim(), subHead: (subHead || '').trim(), amount: Number(amount), remark: (remark || '').trim(), expenseDate: expenseDate ? new Date(expenseDate) : new Date() },
+      { new: true }
+    ).populate('createdBy', 'name email role');
+    if (!expense) return res.status(404).json({ success: false, message: 'Expense not found' });
+    res.json({ success: true, expense });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+router.delete('/expenses/:id', protect, authorize('admin'), checkPermission('expenses'), async (req, res) => {
+  try {
+    const Expense = require('../models/Expense');
+    await Expense.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
 // Expense Heads CRUD
 router.get('/expense-heads', protect, authorize('admin'), checkPermission('expenses'), async (req, res) => {
   try {
@@ -236,13 +261,19 @@ router.post('/liabilities', protect, authorize('admin'), checkPermission('expens
 router.put('/liabilities/:id', protect, authorize('admin'), checkPermission('expenses'), async (req, res) => {
   try {
     const Liability = require('../models/Liability');
-    const { paidAmount } = req.body;
+    const { title, totalAmount, paidAmount, payByDate, remark } = req.body;
     const liability = await Liability.findById(req.params.id);
     if (!liability) return res.status(404).json({ success: false, message: 'Not found' });
-    const paid = Number(paidAmount || 0);
+    // Support full edit or just paidAmount update
+    const newTotal = totalAmount !== undefined ? Number(totalAmount) : liability.totalAmount;
+    const paid = Number(paidAmount !== undefined ? paidAmount : liability.paidAmount);
     if (paid < 0) return res.status(400).json({ success: false, message: 'Paid amount cannot be negative' });
-    if (paid > liability.totalAmount) return res.status(400).json({ success: false, message: `Paid amount cannot exceed total amount (₹${liability.totalAmount.toLocaleString('en-IN')})` });
+    if (paid > newTotal) return res.status(400).json({ success: false, message: `Paid amount cannot exceed total amount (₹${newTotal.toLocaleString('en-IN')})` });
+    if (title !== undefined) liability.title = title.trim();
+    if (totalAmount !== undefined) liability.totalAmount = newTotal;
     liability.paidAmount = paid;
+    if (payByDate !== undefined) liability.payByDate = payByDate ? new Date(payByDate) : null;
+    if (remark !== undefined) liability.remark = (remark || '').trim();
     await liability.save();
     await liability.populate('createdBy', 'name email role');
     res.json({ success: true, liability });
@@ -330,6 +361,90 @@ router.post('/bookings/:id/ledger/refund', protect, authorize('admin'), async (r
     await booking.save();
     res.json({ success: true, message: 'Refund recorded', booking });
   } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// Admin: Get all cancellations
+router.get('/cancellations', protect, authorize('admin'), async (req, res) => {
+  try {
+    const Booking = require('../models/Booking');
+    const { type, from, to } = req.query;
+    const match = { status: 'cancelled' };
+    if (type && type !== 'all') match.cancellationType = type;
+    if (from && to) match.updatedAt = { $gte: new Date(from + 'T00:00:00'), $lte: new Date(to + 'T23:59:59') };
+    const cancellations = await Booking.find(match)
+      .populate('venue', 'businessName location sku')
+      .populate('customer', 'name email phone')
+      .populate('cancelledBy', 'name role')
+      .sort('-updatedAt');
+    res.json({ success: true, cancellations });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// Admin: Cancel a booking with Razorpay refund
+router.put('/bookings/:id/cancel', protect, authorize('admin'), async (req, res) => {
+  try {
+    const Razorpay = require('razorpay');
+    const Booking = require('../models/Booking');
+    const { reason } = req.body;
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (!['pending', 'confirmed'].includes(booking.status))
+      return res.status(400).json({ success: false, message: 'Booking cannot be cancelled' });
+
+    console.log(`\n[ADMIN-CANCEL] ── Admin Cancel ──────────────────────────`);
+    console.log(`[ADMIN-CANCEL] Booking   : ${booking.bookingNumber}`);
+    console.log(`[ADMIN-CANCEL] PayStatus : ${booking.paymentStatus}`);
+    console.log(`[ADMIN-CANCEL] PaymentID : ${booking.paymentDetails?.razorpay_payment_id ?? 'NONE'}`);
+    console.log(`[ADMIN-CANCEL] RZP Key   : ${process.env.RAZORPAY_KEY_ID}`);
+
+    const refundAmount = booking.paymentLedger?.totalPaid || booking.amount;
+    let refundResult = { success: false, reason: 'Payment not made' };
+
+    if (booking.paymentStatus === 'paid' && refundAmount > 0 && booking.paymentDetails?.razorpay_payment_id) {
+      try {
+        const razorpay = new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET });
+        const refund = await razorpay.payments.refund(booking.paymentDetails.razorpay_payment_id, {
+          amount: Math.round(refundAmount * 100), speed: 'normal',
+          notes: { bookingNumber: booking.bookingNumber, reason: reason || 'Cancelled by admin' }
+        });
+        console.log(`[ADMIN-CANCEL] ✅ Refund OK — ${refund.id}`);
+        refundResult = { success: true, refundId: refund.id };
+      } catch (err) {
+        console.error(`[ADMIN-CANCEL] ❌ Refund failed: ${err.error?.description || err.message}`);
+        refundResult = { success: false, reason: err.error?.description || err.message };
+      }
+    } else {
+      console.log(`[ADMIN-CANCEL] ⏭️  No refund — payStatus:${booking.paymentStatus} amount:${refundAmount}`);
+    }
+
+    booking.status = 'cancelled';
+    booking.cancellationReason = reason || 'Cancelled by admin';
+    booking.cancelledBy = req.user.id;
+    booking.cancelledByRole = 'admin';
+    booking.cancellationType = 'manual';
+    booking.refundDetails = {
+      refundAmount,
+      refundStatus: booking.paymentStatus !== 'paid' ? 'pending' : refundResult.success ? 'processed' : 'failed',
+      refundId: refundResult.refundId || null,
+      refundedAt: refundResult.success ? new Date() : null,
+      refundReason: 'Full refund — cancelled by admin'
+    };
+    if (refundResult.success) booking.paymentStatus = 'refunded';
+    if (!booking.paymentLedger) booking.paymentLedger = { transactions: [], adjustments: [] };
+    if (refundResult.success) {
+      booking.paymentLedger.transactions.push({
+        txnId: refundResult.refundId, type: 'refund', amount: refundAmount,
+        status: 'completed', note: 'Full refund — cancelled by admin',
+        performedBy: req.user.id, date: new Date()
+      });
+    }
+    await booking.save();
+    console.log(`[ADMIN-CANCEL] ✅ Done — refundStatus:${booking.refundDetails.refundStatus}\n`);
+    res.json({ success: true, message: 'Booking cancelled', refundProcessed: refundResult.success, refundFailReason: !refundResult.success ? refundResult.reason : undefined, booking });
+  } catch (e) {
+    console.error(`[ADMIN-CANCEL] 💥`, e);
     res.status(500).json({ success: false, message: e.message });
   }
 });

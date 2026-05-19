@@ -1,50 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import {
   MessageCircle, Phone, Mail, BookOpen,
-  ChevronDown, Send, Clock, CheckCircle
+  ChevronDown, Send, Clock, CheckCircle, HelpCircle, Building2, Users
 } from 'lucide-react';
 
-const FAQS = [
-  {
-    q: 'How do I book a Home Cleaning service?',
-    a: "Navigate to the 'Book Services' page, select 'Home Cleaning', choose your preferred date/time and service package, then confirm your booking with payment.",
-  },
-  {
-    q: 'Can I hire an Electrician for emergency repairs?',
-    a: "Yes, we offer 'Emergency Service' options for critical repairs like electrical faults. Select the category and specify 'Emergency' in the job description for priority matching.",
-  },
-  {
-    q: 'How can I reschedule or cancel a booking?',
-    a: "You can manage your bookings directly in your User Dashboard. Look for the 'My Bookings' section, where you'll find options to reschedule (up to 24 hours prior) or cancel.",
-  },
-  {
-    q: 'Are there any hidden fees for services?',
-    a: 'All service charges are clearly outlined on the booking page. The total price you see is what you pay. Any material costs are discussed and approved by you upfront.',
-  },
-  {
-    q: 'How do I track my service request?',
-    a: 'Once your booking is confirmed, you\'ll receive real-time updates via SMS and email. You can also track progress in your dashboard.',
-  },
-  {
-    q: 'What if the service provider is late?',
-    a: "If a service provider is running late, you'll be notified immediately. We offer compensation for delays beyond 30 minutes of the scheduled time.",
-  },
-];
+const CATEGORY_LABELS = {
+  venue_seekers: { label: 'For Venue Seekers', icon: Users },
+  venue_owners:  { label: 'For Venue Owners',  icon: Building2 },
+  general:       { label: 'General',            icon: HelpCircle },
+};
 
 const CATEGORIES = [
   'Select a category',
-  'Home Cleaning Support',
-  'Electrician Services',
-  'Plumbing Services',
   'Booking Issues',
   'Payment & Billing',
+  'Venue Related',
   'Technical Issues',
   'General Feedback',
-  'Delete User',
   'Other',
 ];
 
@@ -53,6 +29,20 @@ export default function CustomerSupportPage() {
   const [form, setForm] = useState({ name: '', email: '', subject: '', category: '', message: '' });
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [faqs, setFaqs] = useState([]);
+  const [faqLoading, setFaqLoading] = useState(true);
+  const [activeCategory, setActiveCategory] = useState('all');
+
+  useEffect(() => {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/faqs`)
+      .then(r => r.json())
+      .then(d => { if (d.success) setFaqs(d.faqs); })
+      .catch(() => {})
+      .finally(() => setFaqLoading(false));
+  }, []);
+
+  const faqCategories = ['all', ...Object.keys(CATEGORY_LABELS).filter(c => faqs.some(f => f.category === c))];
+  const filteredFaqs = activeCategory === 'all' ? faqs : faqs.filter(f => f.category === activeCategory);
 
   const toggle = (i) => setOpenIndex(openIndex === i ? null : i);
 
@@ -136,27 +126,58 @@ export default function CustomerSupportPage() {
             <h2 className="text-xl font-black text-slate-900 dark:text-slate-100 text-center mb-2" style={{ fontFamily: 'Georgia, serif' }}>
               Frequently Asked Questions
             </h2>
-            <p className="text-center text-sm text-slate-500 dark:text-slate-400 mb-8">
+            <p className="text-center text-sm text-slate-500 dark:text-slate-400 mb-6">
               Find quick answers to common questions about our services
             </p>
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-              {FAQS.map((faq, i) => (
-                <div key={i} className="border-b border-slate-100 dark:border-slate-700 last:border-b-0">
-                  <button
-                    onClick={() => toggle(i)}
-                    className="w-full flex items-center justify-between px-8 py-5 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
-                  >
-                    <span className="text-[15px] font-bold text-slate-900 dark:text-slate-100 pr-4">{faq.q}</span>
-                    <ChevronDown className={`w-4 h-4 text-slate-400 flex-shrink-0 transition-transform duration-300 ${openIndex === i ? 'rotate-180' : ''}`} />
-                  </button>
-                  {openIndex === i && (
-                    <div className="px-8 pb-6">
-                      <p className="text-[14px] text-slate-500 dark:text-slate-400 leading-relaxed">{faq.a}</p>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+
+            {/* Category tabs */}
+            {faqCategories.length > 1 && (
+              <div className="flex flex-wrap gap-2 justify-center mb-6">
+                {faqCategories.map(cat => {
+                  const meta = CATEGORY_LABELS[cat];
+                  const Icon = meta?.icon;
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => { setActiveCategory(cat); setOpenIndex(null); }}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all border ${
+                        activeCategory === cat
+                          ? 'bg-amber-500 text-white border-amber-500 shadow-md'
+                          : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-amber-400'
+                      }`}
+                    >
+                      {Icon && <Icon size={14} />}
+                      {cat === 'all' ? 'All Questions' : meta?.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {faqLoading ? (
+              <div className="text-center py-10 text-slate-400">Loading FAQs...</div>
+            ) : filteredFaqs.length === 0 ? (
+              <div className="text-center py-10 text-slate-400">No FAQs found.</div>
+            ) : (
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+                {filteredFaqs.map((faq, i) => (
+                  <div key={faq._id || i} className="border-b border-slate-100 dark:border-slate-700 last:border-b-0">
+                    <button
+                      onClick={() => toggle(i)}
+                      className="w-full flex items-center justify-between px-8 py-5 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                    >
+                      <span className="text-[15px] font-bold text-slate-900 dark:text-slate-100 pr-4">{faq.question}</span>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 flex-shrink-0 transition-transform duration-300 ${openIndex === i ? 'rotate-180' : ''}`} />
+                    </button>
+                    {openIndex === i && (
+                      <div className="px-8 pb-6">
+                        <p className="text-[14px] text-slate-500 dark:text-slate-400 leading-relaxed whitespace-pre-line">{faq.answer}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Contact Form */}
@@ -293,8 +314,8 @@ export default function CustomerSupportPage() {
                     <span className="text-xs text-slate-400 flex items-center gap-1"><Clock size={10} /> Response within 24 hours</span>
                   </div>
                 </div>
-                <a href="mailto:booking@rentalmeet.in" className="text-sm text-amber-600 hover:underline break-all">
-                  booking@rentalmeet.in
+                <a href="mailto:booking@rentalmeet.com" className="text-sm text-amber-600 hover:underline break-all">
+                  booking@rentalmeet.com
                 </a>
               </div>
 

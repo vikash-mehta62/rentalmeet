@@ -23,6 +23,18 @@ const staticCategories = [
   { name: 'Marriage Garden',     icon: Flower2,        count: 53, price: 8000 },
 ];
 
+// Alternating color palette — bg, icon bg, icon color, border
+const CARD_COLORS = [
+  { bg: 'bg-orange-50',  iconBg: 'bg-orange-400',  iconColor: 'text-white',      border: 'border-orange-200',  hover: 'hover:border-orange-400' },
+  { bg: 'bg-pink-50',    iconBg: 'bg-pink-100',    iconColor: 'text-pink-500',   border: 'border-pink-200',    hover: 'hover:border-pink-400' },
+  { bg: 'bg-blue-50',    iconBg: 'bg-blue-100',    iconColor: 'text-blue-500',   border: 'border-blue-200',    hover: 'hover:border-blue-400' },
+  { bg: 'bg-purple-50',  iconBg: 'bg-purple-100',  iconColor: 'text-purple-500', border: 'border-purple-200',  hover: 'hover:border-purple-400' },
+  { bg: 'bg-green-50',   iconBg: 'bg-green-100',   iconColor: 'text-green-600',  border: 'border-green-200',   hover: 'hover:border-green-400' },
+  { bg: 'bg-yellow-50',  iconBg: 'bg-yellow-100',  iconColor: 'text-yellow-600', border: 'border-yellow-200',  hover: 'hover:border-yellow-400' },
+  { bg: 'bg-red-50',     iconBg: 'bg-red-100',     iconColor: 'text-red-500',    border: 'border-red-200',     hover: 'hover:border-red-400' },
+  { bg: 'bg-teal-50',    iconBg: 'bg-teal-100',    iconColor: 'text-teal-600',   border: 'border-teal-200',    hover: 'hover:border-teal-400' },
+];
+
 export default function VenueCategoriesSection() {
   const router = useRouter();
   const [categories, setCategories] = useState(staticCategories);
@@ -83,25 +95,26 @@ export default function VenueCategoriesSection() {
             Venue Categories
           </h2>
           <p className="text-sm text-gray-500 dark:text-slate-400 max-w-2xl mx-auto">
-            From intimate meeting halls to grand marriage gardens - find the perfect venue type for your meeting hall and events.
+            From intimate meetings  to grand marriage gardens - find the perfect venue type for your meetings and events.
           </p>
         </div>
 
         {/* Grid */}
         <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-3">
-          {categories.map((cat) => {
+          {categories.map((cat, i) => {
             const Icon = cat.icon;
+            const c = CARD_COLORS[i % CARD_COLORS.length];
             return (
               <button
                 key={cat.name}
                 onClick={() => router.push(`/venues?type=${encodeURIComponent(cat.name)}`)}
-                className="group flex flex-col items-center text-center gap-2 p-3 rounded-xl border border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-primary-300 hover:shadow-md transition-all duration-300 cursor-pointer"
+                className={`group flex flex-col items-center text-center gap-2 p-3 rounded-xl border ${c.border} ${c.bg} ${c.hover} hover:shadow-md transition-all duration-300 cursor-pointer`}
               >
-                <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-primary-500/10 text-primary-500 group-hover:bg-primary-500 group-hover:text-white transition-colors duration-300 flex-shrink-0">
+                <div className={`inline-flex items-center justify-center w-10 h-10 rounded-lg ${c.iconBg} ${c.iconColor} transition-colors duration-300 flex-shrink-0`}>
                   <Icon className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="font-semibold text-xs leading-tight text-gray-800 dark:text-slate-100 group-hover:text-primary-500 transition-colors">{cat.name}</p>
+                  <p className="font-semibold text-xs leading-tight text-gray-800 dark:text-slate-100">{cat.name}</p>
                   <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-0.5">{cat.count} venues</p>
                   <p className="text-[10px] text-primary-500 font-medium mt-0.5">Rs.{cat.price.toLocaleString()}/hr</p>
                 </div>

@@ -281,7 +281,7 @@ export default function QuotationView({
         <table>
           <thead><tr style="background:#7c3aed"><th>Description</th><th>Rate</th><th style="text-align:right">Base Amount</th><th style="text-align:right">Amount</th></tr></thead>
           <tbody>
-            <tr><td><strong>Platform Service Fee</strong><br><span style="font-size:8px;color:#6b7280">Booking facilitation for ${venue.businessName} on ${fmtDate(fd.bookingDate || fd.date)}</span></td><td>${platformInvoice.feePercentage}% of base</td><td style="text-align:right">₹${fmt(venueInvoice.baseAmount)}</td><td style="text-align:right"><strong>₹${fmt(platformInvoice.platformFee)}</strong></td></tr>
+            <tr><td><strong>Platform Service Fee</strong><br><span style="font-size:8px;color:#6b7280">Booking facilitation for ${venue.businessName} on ${fmtDate(fd.bookingDate || fd.date)}</span></td><td>${platformInvoice.feePercentage}% </td><td style="text-align:right">₹${fmt(venueInvoice.baseAmount)}</td><td style="text-align:right"><strong>₹${fmt(platformInvoice.platformFee)}</strong></td></tr>
           </tbody>
         </table>
         <div class="totals" style="background:#faf5ff;border:1px solid #c4b5fd">
@@ -464,7 +464,7 @@ export default function QuotationView({
           <table>
             <thead><tr style="background:#7c3aed"><th>Description</th><th>Rate</th><th class="right">Base Amount</th><th class="right">Amount</th></tr></thead>
             <tbody>
-              <tr><td><strong>Platform Service Fee</strong><br><span style="font-size:8px;color:#6b7280">Booking facilitation for ${venue.businessName} on ${fmtDate(fd.bookingDate || fd.date)}</span></td><td>${platformInvoice.feePercentage}% of base</td><td class="right">₹${fmt(venueInvoice.baseAmount)}</td><td class="right"><strong>₹${fmt(platformInvoice.platformFee)}</strong></td></tr>
+              <tr><td><strong>Platform Service Fee</strong><br><span style="font-size:8px;color:#6b7280">Booking facilitation for ${venue.businessName} on ${fmtDate(fd.bookingDate || fd.date)}</span></td><td>${platformInvoice.feePercentage}% </td><td class="right">₹${fmt(venueInvoice.baseAmount)}</td><td class="right"><strong>₹${fmt(platformInvoice.platformFee)}</strong></td></tr>
             </tbody>
           </table>
           <div class="totals" style="background:#faf5ff;border:1px solid #c4b5fd">
@@ -895,7 +895,7 @@ export default function QuotationView({
                 <div className="flex justify-between items-center">
                   <div>
                     <p className="font-bold text-gray-900">Platform Service Fee</p>
-                    <p className="text-xs text-gray-500">{platformInvoice.feePercentage}% of base amount</p>
+                    <p className="text-xs text-gray-500">{platformInvoice.feePercentage}%  amount</p>
                   </div>
                   <p className="text-xl font-black text-gray-900">
                     ₹{platformInvoice.platformFee.toLocaleString('en-IN')}

@@ -300,4 +300,90 @@ router.delete('/venues/:id/blocked-dates/:dateId', async (req, res) => {
   }
 });
 
+// ─── Owner: Cancel booking with full refund ───────────────────────────────────
+router.put('/bookings/:id/cancel', async (req, res) => {
+  try {
+    const Razorpay = require('razorpay');
+    const { reason } = req.body;
+    const venues = await Venue.find({ owner: req.user._id }).select('_id');
+    const venueIds = venues.map(v => v._id.toString());
+
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (!venueIds.includes(booking.venue.toString()))
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    if (!['pending', 'confirmed'].includes(booking.status))
+      return res.status(400).json({ success: false, message: 'Booking cannot be cancelled' });
+
+    console.log(`\n[OWNER-CANCEL] ── Owner Cancel ──────────────────────────`);
+    console.log(`[OWNER-CANCEL] Booking   : ${booking.bookingNumber}`);
+    console.log(`[OWNER-CANCEL] PayStatus : ${booking.paymentStatus}`);
+    console.log(`[OWNER-CANCEL] PaymentID : ${booking.paymentDetails?.razorpay_payment_id ?? 'NONE'}`);
+    console.log(`[OWNER-CANCEL] RZP Key   : ${process.env.RAZORPAY_KEY_ID}`);
+
+    const refundAmount = booking.paymentLedger?.totalPaid || booking.amount;
+    let refundResult = { success: false, reason: 'Payment not made' };
+
+    if (booking.paymentStatus === 'paid' && refundAmount > 0 && booking.paymentDetails?.razorpay_payment_id) {
+      try {
+        const razorpay = new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET });
+        const refund = await razorpay.payments.refund(booking.paymentDetails.razorpay_payment_id, {
+          amount: Math.round(refundAmount * 100),
+          speed: 'normal',
+          notes: { bookingNumber: booking.bookingNumber, reason: reason || 'Cancelled by venue owner' }
+        });
+        console.log(`[OWNER-CANCEL] ✅ Refund OK — ${refund.id}`);
+        refundResult = { success: true, refundId: refund.id };
+      } catch (err) {
+        console.error(`[OWNER-CANCEL] ❌ Refund failed: ${err.error?.description || err.message}`);
+        refundResult = { success: false, reason: err.error?.description || err.message };
+      }
+    } else {
+      console.log(`[OWNER-CANCEL] ⏭️  No refund — payStatus:${booking.paymentStatus} amount:${refundAmount}`);
+    }
+
+    booking.status = 'cancelled';
+    booking.cancellationReason = reason || 'Cancelled by venue owner';
+    booking.cancelledBy = req.user.id;
+    booking.cancelledByRole = 'owner';
+    booking.cancellationType = 'manual';
+    booking.refundDetails = {
+      refundAmount,
+      refundStatus: booking.paymentStatus !== 'paid' ? 'pending' : refundResult.success ? 'processed' : 'failed',
+      refundId: refundResult.refundId || null,
+      refundedAt: refundResult.success ? new Date() : null,
+      refundReason: 'Full refund — cancelled by venue owner'
+    };
+    if (refundResult.success) booking.paymentStatus = 'refunded';
+    if (!booking.paymentLedger) booking.paymentLedger = { transactions: [], adjustments: [] };
+    if (refundResult.success) {
+      booking.paymentLedger.transactions.push({
+        txnId: refundResult.refundId, type: 'refund', amount: refundAmount,
+        status: 'completed', note: 'Full refund — cancelled by venue owner',
+        performedBy: req.user.id, date: new Date()
+      });
+    }
+    await booking.save();
+    console.log(`[OWNER-CANCEL] ✅ Done — refundStatus:${booking.refundDetails.refundStatus}\n`);
+    res.json({ success: true, message: 'Booking cancelled with full refund', refundProcessed: refundResult.success, refundFailReason: !refundResult.success ? refundResult.reason : undefined, booking });
+  } catch (e) {
+    console.error(`[OWNER-CANCEL] 💥`, e);
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// ─── Owner: Get cancellations for their venues ────────────────────────────────
+router.get('/cancellations', async (req, res) => {
+  try {
+    const venues = await Venue.find({ owner: req.user._id }).select('_id');
+    const venueIds = venues.map(v => v._id);
+    const cancellations = await Booking.find({ venue: { $in: venueIds }, status: 'cancelled' })
+      .populate('venue', 'businessName location sku')
+      .populate('customer', 'name email phone')
+      .populate('cancelledBy', 'name role')
+      .sort('-updatedAt');
+    res.json({ success: true, cancellations });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
 module.exports = router;

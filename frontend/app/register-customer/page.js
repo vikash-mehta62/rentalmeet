@@ -56,24 +56,30 @@ function CustomerRegisterInner() {
         subtitle: 'Register as a Client (User)',
         dashboardPath: '/customer/dashboard',
         heroTitle: 'Client Account',
+        badge: 'Customer Registration',
         heroDescription: 'Book venues faster, track bookings, and manage events easily with RentalMeet.',
-        heroImage: 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=1400&q=80'
+        heroImage: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1400&q=80',
+        features: ['Browse 500+ premium venues', 'Instant booking confirmation', 'Secure payments & easy cancellation']
       },
       venue: {
         role: 'owner',
         subtitle: 'Register as a Venue Owner',
         dashboardPath: '/owner/dashboard',
         heroTitle: 'Venue Owner',
+        badge: 'Venue Owner Registration',
         heroDescription: 'List your spaces and start receiving booking requests from verified customers.',
-        heroImage: 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=1400&q=80'
+        heroImage: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=1400&q=80',
+        features: ['List unlimited venues', 'Get confirmed bookings daily', 'Track earnings in real-time']
       },
       vendor: {
         role: 'vendor',
         subtitle: 'Register as a Vendor Partner',
         dashboardPath: '/vendor/dashboard',
         heroTitle: 'Vendor Partner',
+        badge: 'Vendor Registration',
         heroDescription: 'Grow your business with service leads and direct customer referrals.',
-        heroImage: 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=1400&q=80'
+        heroImage: 'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=1400&q=80',
+        features: ['Reach thousands of event planners', 'Manage bookings & payments', 'Build your brand online']
       }
     };
     return config[targetType] || config.customer;
@@ -229,29 +235,44 @@ function CustomerRegisterInner() {
       <Navbar />
       <main className="w-full h-full pt-[80px]">
         <div className="flex flex-col md:flex-row min-h-[calc(100vh-80px)]">
-          <div className="relative w-full md:w-1/2 bg-dark-900 flex items-center justify-center p-8 lg:p-16 overflow-hidden">
+          <div className="relative w-full md:w-1/2 bg-dark-900 flex items-center justify-center p-8 lg:p-16 overflow-hidden min-h-[320px] md:min-h-0">
             <img
               src={targetConfig.heroImage}
               alt={targetConfig.heroTitle}
-              className="absolute inset-0 w-full h-full object-cover opacity-60 scale-105"
+              className="absolute inset-0 w-full h-full object-cover opacity-50 scale-105 hover:scale-100 transition-transform duration-1000"
             />
-            <div className="absolute inset-0 bg-gradient-to-br from-primary-600/40 to-dark-900/90" />
+            <div className="absolute inset-0 bg-gradient-to-br from-primary-700/60 to-dark-900/90" />
 
-            <div className="relative z-10 max-w-lg">
+            <div className="relative z-10 max-w-lg w-full">
               <Link href="/" className="inline-flex items-center gap-2 text-white/80 hover:text-white mb-8 transition-colors text-sm font-medium">
                 <ArrowLeft className="w-4 h-4" /> Back to Home
               </Link>
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <span className="px-3 py-1 bg-primary-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full">
-                  Registration
+                  {targetConfig.badge}
                 </span>
-                <h2 className="text-4xl lg:text-6xl font-black text-white leading-tight">
+                <h2 className="text-4xl lg:text-5xl font-black text-white leading-tight">
                   Start Your <br />
-                  <span className="text-primary-400">{targetConfig.heroTitle}</span> Journey
+                  <span className="text-primary-400">{targetConfig.heroTitle}</span><br />
+                  <span className="text-white">Journey</span>
                 </h2>
-                <p className="text-lg text-gray-200 font-light max-w-md">
+                <p className="text-base text-gray-200 font-light max-w-md">
                   {targetConfig.heroDescription}
                 </p>
+                {targetConfig.features && (
+                  <ul className="space-y-2.5 pt-2">
+                    {targetConfig.features.map((f, i) => (
+                      <li key={i} className="flex items-center gap-3 text-sm text-white/90">
+                        <span className="w-5 h-5 rounded-full bg-primary-500/30 border border-primary-400 flex items-center justify-center flex-shrink-0">
+                          <svg className="w-3 h-3 text-primary-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </span>
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
           </div>

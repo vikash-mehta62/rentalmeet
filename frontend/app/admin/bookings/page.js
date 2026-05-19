@@ -7,7 +7,7 @@ import PermissionGuard from '@/components/admin/PermissionGuard';
 import {
   BookOpen, Search, Filter, Eye, X, Calendar, Clock, MapPin,
   User, Building2, IndianRupee, CheckCircle, XCircle, AlertCircle,
-  Phone, Mail, CreditCard, Download, ChevronDown
+  Phone, Mail, CreditCard, Download, ChevronDown, Ban, RefreshCw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import InvoiceDownload from '@/components/booking/InvoiceDownload';
@@ -29,6 +29,13 @@ export default function AdminBookings() {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [historyBooking, setHistoryBooking] = useState(null);
+  const [activeMainTab, setActiveMainTab] = useState('bookings');
+  const [cancellations, setCancellations] = useState([]);
+  const [loadingCancellations, setLoadingCancellations] = useState(false);
+  const [cancelTypeFilter, setCancelTypeFilter] = useState('all');
+  const [cancellingBooking, setCancellingBooking] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -76,6 +83,10 @@ export default function AdminBookings() {
   useEffect(() => {
     fetchBookings();
   }, [currentPage, itemsPerPage, statusFilter, selectedVenue, searchQuery, selectedStatsVenue, selectedVenueType]);
+
+  useEffect(() => {
+    if (token && activeMainTab === 'cancellations') fetchCancellations();
+  }, [token, activeMainTab, cancelTypeFilter]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -130,6 +141,40 @@ export default function AdminBookings() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchCancellations = async () => {
+    setLoadingCancellations(true);
+    try {
+      const params = new URLSearchParams({ ...(cancelTypeFilter !== 'all' && { type: cancelTypeFilter }) });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/cancellations?${params}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) setCancellations(data.cancellations || []);
+    } catch { toast.error('Failed to load cancellations'); }
+    finally { setLoadingCancellations(false); }
+  };
+
+  const handleAdminCancel = async () => {
+    if (!cancellingBooking) return;
+    setCancelSubmitting(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/bookings/${cancellingBooking._id}/cancel`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ reason: cancelReason })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(data.refundProcessed ? 'Booking cancelled & refund initiated' : 'Booking cancelled');
+        setCancellingBooking(null);
+        setCancelReason('');
+        fetchBookings();
+        fetchCancellations();
+      } else toast.error(data.message);
+    } catch { toast.error('Failed to cancel'); }
+    finally { setCancelSubmitting(false); }
   };
 
   // Fetch venue types
@@ -396,6 +441,112 @@ export default function AdminBookings() {
   return (
     <AdminLayout title="Bookings Management" subtitle={`Manage all ${totalBookings} bookings`}>
       <PermissionGuard permission="bookings">
+
+        {/* Main Tabs */}
+        <div className="flex gap-1 mb-5 bg-gray-100 rounded-xl p-1 w-fit">
+          {[['bookings', 'Bookings'], ['cancellations', 'Cancellations']].map(([key, label]) => (
+            <button key={key} onClick={() => setActiveMainTab(key)}
+              className={`px-6 py-2 rounded-lg text-sm font-semibold transition-colors ${activeMainTab === key ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* CANCELLATIONS TAB */}
+        {activeMainTab === 'cancellations' && (
+          <div className="space-y-4">
+            {/* Filter bar */}
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-wrap items-center gap-3">
+              <span className="text-sm font-semibold text-gray-700">Type:</span>
+              {[['all','All'],['auto','Auto (System)'],['manual','Manual']].map(([v,l]) => (
+                <button key={v} onClick={() => setCancelTypeFilter(v)}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${cancelTypeFilter === v ? 'bg-primary-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                  {l}
+                </button>
+              ))}
+              <button onClick={fetchCancellations} className="ml-auto flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
+                <RefreshCw className="w-4 h-4" /> Refresh
+              </button>
+            </div>
+
+            {loadingCancellations ? (
+              <div className="flex items-center justify-center py-20"><div className="h-10 w-10 animate-spin rounded-full border-4 border-red-500 border-t-transparent" /></div>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 bg-gray-50 text-xs uppercase text-gray-600">
+                      <th className="px-4 py-3 text-left">Booking #</th>
+                      <th className="px-4 py-3 text-left">Venue</th>
+                      <th className="px-4 py-3 text-left">Customer</th>
+                      <th className="px-4 py-3 text-left">Booking Date</th>
+                      <th className="px-4 py-3 text-right">Amount</th>
+                      <th className="px-4 py-3 text-left">Cancelled By</th>
+                      <th className="px-4 py-3 text-left">Type</th>
+                      <th className="px-4 py-3 text-left">Refund</th>
+                      <th className="px-4 py-3 text-left">Reason</th>
+                      <th className="px-4 py-3 text-left">Cancelled At</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cancellations.length === 0 ? (
+                      <tr><td colSpan={10} className="px-4 py-10 text-center text-gray-400">No cancellations found</td></tr>
+                    ) : cancellations.map(c => {
+                      const refund = c.refundDetails;
+                      const refundBadge = !refund ? null
+                        : refund.refundStatus === 'processed' ? 'bg-green-100 text-green-700'
+                        : refund.refundStatus === 'failed' ? 'bg-red-100 text-red-700'
+                        : 'bg-yellow-100 text-yellow-700';
+                      return (
+                        <tr key={c._id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                          <td className="px-4 py-3 font-mono text-xs text-gray-700">{c.bookingNumber}</td>
+                          <td className="px-4 py-3 text-gray-800 font-semibold">{c.venue?.businessName || '—'}</td>
+                          <td className="px-4 py-3">
+                            <div className="font-semibold text-gray-800">{c.customer?.name || '—'}</div>
+                            <div className="text-xs text-gray-400">{c.customer?.phone || ''}</div>
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">{c.bookingDate ? new Date(c.bookingDate).toLocaleDateString('en-IN') : '—'}</td>
+                          <td className="px-4 py-3 text-right font-bold text-gray-800">₹{(c.amount || 0).toLocaleString('en-IN')}</td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              c.cancelledByRole === 'system' ? 'bg-gray-100 text-gray-600'
+                              : c.cancelledByRole === 'customer' ? 'bg-blue-100 text-blue-700'
+                              : c.cancelledByRole === 'owner' ? 'bg-orange-100 text-orange-700'
+                              : 'bg-purple-100 text-purple-700'
+                            }`}>
+                              {c.cancelledByRole || 'unknown'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${c.cancellationType === 'auto' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'}`}>
+                              {c.cancellationType || 'manual'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            {refund ? (
+                              <div>
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${refundBadge}`}>
+                                  {refund.refundStatus}
+                                </span>
+                                {refund.refundAmount > 0 && <div className="text-xs text-gray-500 mt-0.5">₹{refund.refundAmount?.toLocaleString('en-IN')}</div>}
+                              </div>
+                            ) : <span className="text-gray-400 text-xs">—</span>}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600 text-xs max-w-[180px] truncate">{c.cancellationReason || '—'}</td>
+                          <td className="px-4 py-3 text-gray-500 text-xs">{new Date(c.updatedAt).toLocaleDateString('en-IN')}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* BOOKINGS TAB */}
+        {activeMainTab === 'bookings' && <>
+
         {/* Combined Filters */}
         <div className="bg-white rounded-lg shadow-soft border border-gray-100 p-4 mb-4">
         <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
@@ -885,6 +1036,15 @@ export default function AdminBookings() {
                         >
                           💳
                         </button>
+                        {['pending','confirmed'].includes(booking.status) && (
+                          <button
+                            onClick={() => { setCancellingBooking(booking); setCancelReason(''); }}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-semibold transition-colors"
+                            title="Cancel Booking"
+                          >
+                            <Ban className="w-3 h-3" /> Cancel
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -968,6 +1128,9 @@ export default function AdminBookings() {
           </div>
         )}
       </div>
+
+      {/* Close bookings tab */}
+      </>}
 
       {/* Booking Details Modal */}
       {modalOpen && selectedBooking && (
@@ -1174,6 +1337,16 @@ export default function AdminBookings() {
                               </span>
                             </div>
                           )}
+                          {selectedBooking.priceBreakdown.discount > 0 && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-green-600">
+                                Coupon Discount {selectedBooking.priceBreakdown.couponCode ? `(${selectedBooking.priceBreakdown.couponCode})` : ''}
+                              </span>
+                              <span className="font-semibold text-green-600">
+                                – ₹{selectedBooking.priceBreakdown.discount.toLocaleString()}
+                              </span>
+                            </div>
+                          )}
                         </>
                       );
                     } else {
@@ -1214,7 +1387,7 @@ export default function AdminBookings() {
                   <div className="flex justify-between items-center pt-3 border-t-2 border-primary-300">
                     <span className="text-base font-bold text-gray-900">Total Amount</span>
                     <span className="text-xl font-bold text-primary-600">
-                      ₹{(selectedBooking.priceBreakdown?.total || selectedBooking.amount).toLocaleString()}
+                      ₹{selectedBooking.amount.toLocaleString()}
                     </span>
                   </div>
                 </div>
@@ -1375,6 +1548,40 @@ export default function AdminBookings() {
           }}
         />
       )}
+
+      {/* Admin Cancel Booking Modal */}
+      {cancellingBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-red-100 rounded-lg"><Ban className="w-5 h-5 text-red-600" /></div>
+              <h2 className="text-base font-bold text-gray-800">Cancel Booking</h2>
+            </div>
+            <p className="text-sm text-gray-600 mb-1">Booking: <span className="font-semibold">{cancellingBooking.bookingNumber}</span></p>
+            <p className="text-sm text-gray-600 mb-1">Venue: <span className="font-semibold">{cancellingBooking.venue?.businessName}</span></p>
+            <p className="text-sm text-gray-600 mb-4">Amount: <span className="font-bold text-gray-800">₹{(cancellingBooking.amount || 0).toLocaleString('en-IN')}</span></p>
+            {cancellingBooking.paymentStatus === 'paid' && (
+              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+                Full refund of ₹{(cancellingBooking.paymentLedger?.totalPaid || cancellingBooking.amount || 0).toLocaleString('en-IN')} will be initiated via Razorpay to the original payment source.
+              </div>
+            )}
+            <label className="block text-xs font-semibold text-gray-600 mb-1">Reason</label>
+            <textarea value={cancelReason} onChange={e => setCancelReason(e.target.value)} rows={3}
+              placeholder="Reason for cancellation..." className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-red-400 mb-4" />
+            <div className="flex gap-2">
+              <button onClick={handleAdminCancel} disabled={cancelSubmitting}
+                className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold text-sm disabled:opacity-60">
+                {cancelSubmitting ? 'Cancelling...' : 'Confirm Cancel'}
+              </button>
+              <button onClick={() => { setCancellingBooking(null); setCancelReason(''); }}
+                className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-50">
+                Back
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       </PermissionGuard>
     </AdminLayout>
   );

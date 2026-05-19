@@ -264,25 +264,41 @@ export default function CustomerBookings() {
     }
   };
 
-  const handleCancelBooking = async (bookingId) => {
-    if (!confirm('Are you sure you want to cancel this booking?')) return;
+  const [cancelModal, setCancelModal] = useState(null); // booking object
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelCustomReason, setCancelCustomReason] = useState('');
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
 
+  const CANCEL_REASONS = [
+    'Change of plans',
+    'Found a better venue',
+    'Event postponed',
+    'Budget constraints',
+    'Venue not suitable anymore',
+    'Other',
+  ];
+
+  const handleCancelBooking = async () => {
+    const booking = cancelModal;
+    const finalReason = cancelReason === 'Other' ? cancelCustomReason.trim() : cancelReason;
+    if (!finalReason) return toast.error('Please select a reason');
+
+    setCancelSubmitting(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bookings/${bookingId}/cancel`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bookings/${booking._id}/cancel`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          reason: 'Cancelled by customer'
-        })
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ reason: finalReason })
       });
-
       const data = await response.json();
-
       if (data.success) {
-        toast.success('Booking cancelled successfully');
+        toast.success(data.refundProcessed ? 'Booking cancelled — refund initiated' : 'Booking cancelled');
+        if (!data.refundProcessed && data.refundEligible && data.refundFailReason) {
+          toast.error(`Refund failed: ${data.refundFailReason}`, { duration: 6000 });
+        }
+        setCancelModal(null);
+        setCancelReason('');
+        setCancelCustomReason('');
         fetchBookings();
       } else {
         toast.error(data.message || 'Failed to cancel booking');
@@ -290,6 +306,8 @@ export default function CustomerBookings() {
     } catch (error) {
       console.error('Error cancelling booking:', error);
       toast.error('Something went wrong');
+    } finally {
+      setCancelSubmitting(false);
     }
   };
 
@@ -475,7 +493,7 @@ export default function CustomerBookings() {
                             ✏️ Modify
                           </button>
                           <button
-                            onClick={() => handleCancelBooking(booking._id)}
+                            onClick={() => { setCancelModal(booking); setCancelReason(''); setCancelCustomReason(''); }}
                             className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1"
                           >
                             <XCircle className="w-3.5 h-3.5"/> Cancel
@@ -555,15 +573,19 @@ export default function CustomerBookings() {
                 <div className="space-y-1.5 text-sm">
                   <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">Base Price</span><span className="font-semibold">₹{(selectedBooking.priceBreakdown?.basePrice || 0).toLocaleString()}</span></div>
                   {selectedBooking.amenitiesTotal > 0 && <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">Amenities</span><span className="font-semibold">₹{selectedBooking.amenitiesTotal?.toLocaleString()}</span></div>}
-                  {selectedBooking.priceBreakdown?.gst > 0 && <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">GST</span><span className="font-semibold">₹{selectedBooking.priceBreakdown.gst?.toLocaleString()}</span></div>}
+                  {selectedBooking.priceBreakdown?.gst > 0 && <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">GST ({selectedBooking.priceBreakdown.gstRate || ''}%)</span><span className="font-semibold">₹{selectedBooking.priceBreakdown.gst?.toLocaleString()}</span></div>}
                   {selectedBooking.priceBreakdown?.platformFee > 0 && <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">Platform Fee</span><span className="font-semibold">₹{selectedBooking.priceBreakdown.platformFee?.toLocaleString()}</span></div>}
+                  {selectedBooking.priceBreakdown?.platformFeeGST > 0 && <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">Platform Fee GST</span><span className="font-semibold">₹{selectedBooking.priceBreakdown.platformFeeGST?.toLocaleString()}</span></div>}
                   {selectedBooking.priceBreakdown?.discount > 0 && (
                     <div className="flex justify-between text-green-600">
                       <span>Coupon Discount {selectedBooking.priceBreakdown.couponCode ? `(${selectedBooking.priceBreakdown.couponCode})` : ''}</span>
                       <span className="font-semibold">- ₹{selectedBooking.priceBreakdown.discount?.toLocaleString()}</span>
                     </div>
                   )}
-                  <div className="flex justify-between border-t border-gray-200 dark:border-slate-700 pt-1.5 font-bold text-base"><span>Total</span><span className="text-primary-600">₹{selectedBooking.amount?.toLocaleString()}</span></div>
+                  <div className="flex justify-between border-t border-gray-200 pt-1.5 mt-1">
+                    <span className="font-bold text-gray-800 dark:text-slate-100">Total</span>
+                    <span className="font-black text-primary-600">₹{(selectedBooking.amount || 0).toLocaleString()}</span>
+                  </div>
                 </div>
               </div>
 
@@ -715,17 +737,240 @@ export default function CustomerBookings() {
                 </div>
               )}
 
-              {/* Cancellation info */}
-              {selectedBooking.status === 'cancelled' && selectedBooking.cancellationReason && (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm">
-                  <p className="text-red-800 font-semibold mb-1">Cancellation Reason</p>
-                  <p className="text-red-700 text-xs">{selectedBooking.cancellationReason}</p>
-                </div>
-              )}
+              {/* Cancellation Policy */}
+              {(() => {
+                const b = selectedBooking;
+                const bookingDate = new Date(b.bookingDate);
+                const now = new Date();
+                const hoursUntil = (bookingDate - now) / (1000 * 60 * 60);
+                const paidAmount = b.paymentLedger?.totalPaid || b.amount || 0;
+                const isCancelled = b.status === 'cancelled';
+                const canCancel = ['pending', 'confirmed'].includes(b.status);
+                const refund = b.refundDetails;
+
+                // 3-tier refund policy
+                const tier = hoursUntil >= 48 ? 'full' : hoursUntil >= 24 ? 'half' : 'none';
+                const refundIfCancel = tier === 'full' ? paidAmount : tier === 'half' ? Math.round(paidAmount * 0.5) : 0;
+
+                return (
+                  <div className="rounded-xl border border-gray-200 overflow-hidden">
+                    <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center gap-2">
+                      <span className="text-base">🛡️</span>
+                      <p className="text-xs font-bold text-gray-700">Cancellation Policy</p>
+                    </div>
+
+                    {/* Policy tiers */}
+                    <div className="p-4 space-y-2">
+                      <div className={`flex items-center justify-between rounded-lg px-3 py-2.5 text-sm border ${tier === 'full' && canCancel ? 'bg-green-50 border-green-300' : 'bg-gray-50 border-gray-100'}`}>
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${tier === 'full' && canCancel ? 'bg-green-500' : 'bg-gray-300'}`} />
+                          <span className="text-gray-700 font-medium">Cancel 48+ hours before</span>
+                        </div>
+                        <span className="font-bold text-green-600">100% Refund</span>
+                      </div>
+                      <div className={`flex items-center justify-between rounded-lg px-3 py-2.5 text-sm border ${tier === 'half' && canCancel ? 'bg-yellow-50 border-yellow-300' : 'bg-gray-50 border-gray-100'}`}>
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${tier === 'half' && canCancel ? 'bg-yellow-500' : 'bg-gray-300'}`} />
+                          <span className="text-gray-700 font-medium">Cancel 24–48 hours before</span>
+                        </div>
+                        <span className="font-bold text-yellow-600">50% Refund</span>
+                      </div>
+                      <div className={`flex items-center justify-between rounded-lg px-3 py-2.5 text-sm border ${tier === 'none' && canCancel ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-100'}`}>
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${tier === 'none' && canCancel ? 'bg-red-500' : 'bg-gray-300'}`} />
+                          <span className="text-gray-700 font-medium">Cancel less than 24 hours before</span>
+                        </div>
+                        <span className="font-bold text-red-500">No Refund</span>
+                      </div>
+                    </div>
+
+                    {/* Live eligibility for active bookings */}
+                    {canCancel && b.paymentStatus === 'paid' && (
+                      <div className={`mx-4 mb-4 rounded-lg p-3 text-sm border ${
+                        tier === 'full' ? 'bg-green-50 border-green-200'
+                        : tier === 'half' ? 'bg-yellow-50 border-yellow-200'
+                        : 'bg-red-50 border-red-200'
+                      }`}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className={`font-bold ${tier === 'full' ? 'text-green-700' : tier === 'half' ? 'text-yellow-700' : 'text-red-700'}`}>
+                            {tier === 'full' ? '✅ Full refund eligible' : tier === 'half' ? '⚠️ 50% refund if cancelled now' : '❌ No refund if cancelled now'}
+                          </span>
+                          {refundIfCancel > 0 && (
+                            <span className="font-black text-gray-800">₹{refundIfCancel.toLocaleString('en-IN')}</span>
+                          )}
+                        </div>
+                        <p className={`text-xs ${tier === 'full' ? 'text-green-600' : tier === 'half' ? 'text-yellow-600' : 'text-red-600'}`}>
+                          {tier === 'full'
+                            ? `Cancel now → ₹${refundIfCancel.toLocaleString('en-IN')} back to your original payment source`
+                            : tier === 'half'
+                            ? `Cancel now → ₹${refundIfCancel.toLocaleString('en-IN')} refunded (50% of ₹${paidAmount.toLocaleString('en-IN')})`
+                            : `Booking is ${hoursUntil < 0 ? 'in the past' : `${Math.round(hoursUntil)}h away`} — refund window closed`}
+                        </p>
+                        {tier === 'full' && (
+                          <p className="text-xs text-green-500 mt-1">
+                            50% zone starts {new Date(bookingDate.getTime() - 48 * 60 * 60 * 1000).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        )}
+                        {tier === 'half' && (
+                          <p className="text-xs text-yellow-500 mt-1">
+                            No-refund zone starts {new Date(bookingDate.getTime() - 24 * 60 * 60 * 1000).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Cancel button inside detail modal */}
+                    {canCancel && (
+                      <div className="px-4 pb-4">
+                        <button
+                          onClick={() => { setCancelModal(b); setCancelReason(''); setCancelCustomReason(''); setSelectedBooking(null); }}
+                          className="w-full py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                        >
+                          <XCircle className="w-4 h-4" /> Cancel This Booking
+                        </button>
+                      </div>
+                    )}
+
+                    {/* If already cancelled — show refund outcome */}
+                    {isCancelled && (
+                      <div className="mx-4 mb-4 space-y-2">
+                        {b.cancellationReason && (
+                          <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2.5 text-xs">
+                            <p className="font-bold text-red-700 mb-0.5">Cancellation Reason</p>
+                            <p className="text-red-600">{b.cancellationReason}</p>
+                            {b.cancelledByRole && (
+                              <p className="text-red-400 mt-1">Cancelled by: <span className="font-semibold capitalize">{b.cancelledByRole === 'system' ? 'Auto (timeout)' : b.cancelledByRole}</span></p>
+                            )}
+                          </div>
+                        )}
+                        {refund && (
+                          <div className={`rounded-lg px-3 py-2.5 text-xs border ${refund.refundStatus === 'processed' ? 'bg-green-50 border-green-200' : refund.refundStatus === 'failed' ? 'bg-red-50 border-red-200' : 'bg-yellow-50 border-yellow-200'}`}>
+                            <div className="flex items-center justify-between mb-1">
+                              <p className={`font-bold ${refund.refundStatus === 'processed' ? 'text-green-700' : refund.refundStatus === 'failed' ? 'text-red-700' : 'text-yellow-700'}`}>
+                                {refund.refundStatus === 'processed' ? '✅ Refund Processed' : refund.refundStatus === 'failed' ? '❌ Refund Failed' : '⏳ Refund Pending'}
+                              </p>
+                              {refund.refundAmount > 0 && (
+                                <span className="font-black text-sm text-gray-800">₹{refund.refundAmount.toLocaleString('en-IN')}</span>
+                              )}
+                            </div>
+                            {refund.refundStatus === 'processed' && refund.refundedAt && (
+                              <p className="text-green-600">Refunded on {new Date(refund.refundedAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                            )}
+                            {refund.refundStatus === 'processed' && (
+                              <p className="text-green-500 mt-0.5">Amount will reflect in your original payment source within 5–7 business days</p>
+                            )}
+                            {refund.refundStatus === 'failed' && (
+                              <p className="text-red-600">Refund could not be processed automatically. Please contact support.</p>
+                            )}
+                            {refund.refundStatus === 'pending' && refund.refundAmount === 0 && (
+                              <p className="text-yellow-600">No refund applicable as per cancellation policy.</p>
+                            )}
+                            {refund.refundReason && <p className="text-gray-400 mt-1">{refund.refundReason}</p>}
+                          </div>
+                        )}
+                        {!refund && b.paymentStatus !== 'paid' && (
+                          <div className="rounded-lg bg-gray-50 border border-gray-200 px-3 py-2.5 text-xs text-gray-500">
+                            No payment was made — no refund applicable.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
       )}
+      {/* ── Cancel Booking Modal ── */}
+      {cancelModal && (() => {
+        const b = cancelModal;
+        const bookingDate = new Date(b.bookingDate);
+        const now = new Date();
+        const hoursUntil = (bookingDate - now) / (1000 * 60 * 60);
+        const paidAmount = b.paymentLedger?.totalPaid || b.amount || 0;
+        const tier = hoursUntil >= 48 ? 'full' : hoursUntil >= 24 ? 'half' : 'none';
+        const refundAmt = tier === 'full' ? paidAmount : tier === 'half' ? Math.round(paidAmount * 0.5) : 0;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+              {/* Header */}
+              <div className="bg-red-50 border-b border-red-100 px-5 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <XCircle className="w-5 h-5 text-red-500" />
+                  <h2 className="text-base font-bold text-gray-800">Cancel Booking</h2>
+                </div>
+                <button onClick={() => setCancelModal(null)} className="text-gray-400 hover:text-gray-600 text-xl font-bold leading-none">×</button>
+              </div>
+
+              <div className="p-5 space-y-4">
+                {/* Booking info */}
+                <div className="bg-gray-50 rounded-xl px-4 py-3 text-sm">
+                  <p className="font-semibold text-gray-800">{b.venue?.businessName}</p>
+                  <p className="text-gray-500 text-xs mt-0.5">{new Date(b.bookingDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} · {b.startTime} – {b.endTime}</p>
+                </div>
+
+                {/* Refund info */}
+                {b.paymentStatus === 'paid' && (
+                  <div className={`rounded-xl px-4 py-3 text-sm border ${tier === 'full' ? 'bg-green-50 border-green-200' : tier === 'half' ? 'bg-yellow-50 border-yellow-200' : 'bg-red-50 border-red-200'}`}>
+                    <div className="flex items-center justify-between">
+                      <span className={`font-bold ${tier === 'full' ? 'text-green-700' : tier === 'half' ? 'text-yellow-700' : 'text-red-700'}`}>
+                        {tier === 'full' ? '✅ Full refund' : tier === 'half' ? '⚠️ 50% refund' : '❌ No refund'}
+                      </span>
+                      {refundAmt > 0 && <span className="font-black text-gray-800">₹{refundAmt.toLocaleString('en-IN')}</span>}
+                    </div>
+                    <p className={`text-xs mt-1 ${tier === 'full' ? 'text-green-600' : tier === 'half' ? 'text-yellow-600' : 'text-red-600'}`}>
+                      {tier === 'full' ? `₹${refundAmt.toLocaleString('en-IN')} will be refunded to your original payment source`
+                        : tier === 'half' ? `₹${refundAmt.toLocaleString('en-IN')} will be refunded (50% of ₹${paidAmount.toLocaleString('en-IN')})`
+                        : 'No refund as per cancellation policy'}
+                    </p>
+                  </div>
+                )}
+
+                {/* Reason selector */}
+                <div>
+                  <p className="text-xs font-bold text-gray-700 mb-2">Reason for cancellation <span className="text-red-500">*</span></p>
+                  <div className="space-y-2">
+                    {CANCEL_REASONS.map(r => (
+                      <label key={r} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors ${cancelReason === r ? 'bg-primary-50 border-primary-400' : 'bg-gray-50 border-gray-200 hover:border-gray-300'}`}>
+                        <input type="radio" name="cancelReason" value={r} checked={cancelReason === r}
+                          onChange={() => { setCancelReason(r); setCancelCustomReason(''); }}
+                          className="accent-primary-500" />
+                        <span className="text-sm text-gray-700">{r}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {cancelReason === 'Other' && (
+                    <textarea
+                      value={cancelCustomReason}
+                      onChange={e => setCancelCustomReason(e.target.value)}
+                      placeholder="Please describe your reason..."
+                      rows={3}
+                      className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-primary-400 focus:outline-none"
+                    />
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={handleCancelBooking}
+                    disabled={cancelSubmitting || !cancelReason || (cancelReason === 'Other' && !cancelCustomReason.trim())}
+                    className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold text-sm disabled:opacity-50 transition-colors"
+                  >
+                    {cancelSubmitting ? 'Cancelling...' : 'Confirm Cancellation'}
+                  </button>
+                  <button onClick={() => setCancelModal(null)}
+                    className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-50 transition-colors">
+                    Keep Booking
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── Modify Booking - Full Screen Modal ── */}
       {modifyBooking && (
         <div className="fixed inset-0 z-50 bg-gray-50 overflow-y-auto">

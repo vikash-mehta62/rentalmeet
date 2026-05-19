@@ -65,6 +65,8 @@ const platformSettingsSchema = new mongoose.Schema({
   serviceSGST: { type: Number, default: 9, min: 0, max: 100 },
   serviceHSN:  { type: String, default: '' },
   servicePlatformFee: { type: Number, default: 5, min: 0, max: 100 }, // % of service amount
+  servicePlatformCGST: { type: Number, default: 9, min: 0, max: 100 },
+  servicePlatformSGST: { type: Number, default: 9, min: 0, max: 100 },
 
   // Per-category overrides: [{ category: 'Catering & Food', cgst: 5, sgst: 5, platformFee: 3 }]
   serviceCategoryRates: [{
@@ -110,7 +112,7 @@ platformSettingsSchema.statics.getSettings = async function() {
       gstRate: 18, platformFeeValue: 5, commissionRate: 0,
       gstInvoiceSignature: null, platformInvoiceSignature: null,
       serviceCGST: 9, serviceSGST: 9, serviceHSN: '',
-      servicePlatformFee: 5, serviceCategoryRates: []
+      servicePlatformFee: 5, servicePlatformCGST: 9, servicePlatformSGST: 9, serviceCategoryRates: []
     });
   }
   return settings;

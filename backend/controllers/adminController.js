@@ -346,7 +346,7 @@ exports.updatePlatformSettings = async (req, res) => {
       gstRate, platformFeeType, platformFeeValue, platformFeePercentage, commissionRate,
       venueCGST, venueSGST, venueHSN, platformCGST, platformSGST,
       // Service fields
-      serviceCGST, serviceSGST, serviceHSN, servicePlatformFee, serviceCategoryRates
+      serviceCGST, serviceSGST, serviceHSN, servicePlatformFee, servicePlatformCGST, servicePlatformSGST, serviceCategoryRates
     } = req.body;
     
     const feeValue = platformFeeValue !== undefined ? platformFeeValue : platformFeePercentage;
@@ -368,6 +368,8 @@ exports.updatePlatformSettings = async (req, res) => {
       if (serviceSGST !== undefined) settings.serviceSGST = serviceSGST;
       if (serviceHSN !== undefined) settings.serviceHSN = serviceHSN;
       if (servicePlatformFee !== undefined) settings.servicePlatformFee = servicePlatformFee;
+      if (servicePlatformCGST !== undefined) settings.servicePlatformCGST = servicePlatformCGST;
+      if (servicePlatformSGST !== undefined) settings.servicePlatformSGST = servicePlatformSGST;
       if (serviceCategoryRates !== undefined) settings.serviceCategoryRates = typeof serviceCategoryRates === 'string' ? JSON.parse(serviceCategoryRates) : serviceCategoryRates;
       
       if (req.files) {
@@ -391,6 +393,7 @@ exports.updatePlatformSettings = async (req, res) => {
         platformCGST: platformCGST || 9, platformSGST: platformSGST || 9,
         serviceCGST: serviceCGST || 9, serviceSGST: serviceSGST || 9,
         serviceHSN: serviceHSN || '', servicePlatformFee: servicePlatformFee || 5,
+        servicePlatformCGST: servicePlatformCGST || 9, servicePlatformSGST: servicePlatformSGST || 9,
         serviceCategoryRates: serviceCategoryRates ? (typeof serviceCategoryRates === 'string' ? JSON.parse(serviceCategoryRates) : serviceCategoryRates) : [],
         updatedBy: req.user.id
       };
@@ -474,6 +477,14 @@ exports.getDashboardStats = async (req, res) => {
     const totalVendorServices = await VendorService.countDocuments();
     const pendingVendorServices = await VendorService.countDocuments({ status: 'pending' });
     const approvedVendorServices = await VendorService.countDocuments({ status: 'approved' });
+    const totalVendors = await User.countDocuments({ role: 'vendor' });
+    const cancelledBookings = await Booking.countDocuments({ status: 'cancelled' });
+    const totalServiceQuotationDownloads = await (async () => {
+      try {
+        const ServiceQuotationDownload = require('../models/ServiceQuotationDownload');
+        return await ServiceQuotationDownload.countDocuments();
+      } catch { return 0; }
+    })();
 
     const revenueData = await Booking.aggregate([
       { $match: { status: { $in: ['completed', 'confirmed'] } } },
@@ -485,9 +496,9 @@ exports.getDashboardStats = async (req, res) => {
       success: true,
       stats: {
         totalVenues, pendingVenues, approvedVenues,
-        totalUsers, totalOwners, totalCustomers,
-        totalBookings, pendingBookings, confirmedBookings, completedBookings,
-        totalRevenue, totalQuotationDownloads,
+        totalUsers, totalOwners, totalCustomers, totalVendors,
+        totalBookings, pendingBookings, confirmedBookings, completedBookings, cancelledBookings,
+        totalRevenue, totalQuotationDownloads, totalServiceQuotationDownloads,
         totalServiceBookings, serviceBookingEnquiries,
         totalVendorServices, pendingVendorServices, approvedVendorServices
       }

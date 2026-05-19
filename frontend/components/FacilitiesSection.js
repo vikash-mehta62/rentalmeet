@@ -11,6 +11,17 @@ import {
   Coffee
 } from 'lucide-react';
 
+const FACILITY_COLORS = [
+  { bg: 'bg-orange-50',  iconColor: 'text-orange-500',  border: 'border-orange-100' },
+  { bg: 'bg-blue-50',    iconColor: 'text-blue-500',    border: 'border-blue-100' },
+  { bg: 'bg-green-50',   iconColor: 'text-green-600',   border: 'border-green-100' },
+  { bg: 'bg-pink-50',    iconColor: 'text-pink-500',    border: 'border-pink-100' },
+  { bg: 'bg-purple-50',  iconColor: 'text-purple-500',  border: 'border-purple-100' },
+  { bg: 'bg-yellow-50',  iconColor: 'text-yellow-600',  border: 'border-yellow-100' },
+  { bg: 'bg-teal-50',    iconColor: 'text-teal-600',    border: 'border-teal-100' },
+  { bg: 'bg-red-50',     iconColor: 'text-red-500',     border: 'border-red-100' },
+];
+
 export default function FacilitiesSection() {
 
   const facilities = [
@@ -98,14 +109,14 @@ className="font-serif text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 da
 
           {facilities.map((facility, index) => {
             const Icon = facility.icon;
-
+            const c = FACILITY_COLORS[index % FACILITY_COLORS.length];
             return (
               <div
                 key={index}
-                className="bg-[#f9f8f5] dark:bg-slate-900 rounded-xl p-4 hover:shadow-md transition-all duration-300 border shadow-sm border-gray-200 dark:border-slate-800 text-center"
+                className={`${c.bg} dark:bg-slate-900 rounded-xl p-4 hover:shadow-md transition-all duration-300 border shadow-sm ${c.border} dark:border-slate-800 text-center`}
               >
-                <div className="w-10 h-10 bg-orange-50 rounded-lg flex items-center justify-center mb-2 mx-auto">
-                  <Icon className="w-5 h-5 text-orange-500" />
+                <div className={`w-10 h-10 ${c.bg} rounded-lg flex items-center justify-center mb-2 mx-auto border ${c.border}`}>
+                  <Icon className={`w-5 h-5 ${c.iconColor}`} />
                 </div>
                 <h3 className="font-semibold text-sm text-gray-900 dark:text-slate-100 mb-1">
                   {facility.title}
@@ -113,7 +124,6 @@ className="font-serif text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 da
                 <p className="text-xs text-gray-600 dark:text-slate-300 leading-relaxed">
                   {facility.description}
                 </p>
-
               </div>
             );
           })}

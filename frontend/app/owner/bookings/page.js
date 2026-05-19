@@ -5,11 +5,12 @@ import { useAuthStore } from '@/lib/store';
 import Link from 'next/link';
 import {
   Building2, Calendar, IndianRupee, Clock, MapPin, User,
-  Phone, Mail, CheckCircle2, XCircle, Eye, Search, Download, Users, ChevronDown
+  Phone, Mail, CheckCircle2, XCircle, Eye, Search, Download, Users, ChevronDown, Ban, RefreshCw
 } from 'lucide-react';
 import OwnerLayout from '@/components/owner/OwnerLayout';
 import InvoiceDownload from '@/components/booking/InvoiceDownload';
 import PaymentHistoryModal from '@/components/admin/PaymentHistoryModal';
+import toast from 'react-hot-toast';
 
 export default function OwnerBookings() {
   const { token } = useAuthStore();
@@ -21,6 +22,12 @@ export default function OwnerBookings() {
   const [expandedAmenities, setExpandedAmenities] = useState({});
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [historyBooking, setHistoryBooking] = useState(null);
+  const [activeTab, setActiveTab] = useState('bookings');
+  const [cancellations, setCancellations] = useState([]);
+  const [loadingCancellations, setLoadingCancellations] = useState(false);
+  const [cancellingBooking, setCancellingBooking] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
 
   useEffect(() => {
     if (token) {
@@ -29,27 +36,55 @@ export default function OwnerBookings() {
   }, [token]);
 
   useEffect(() => {
+    if (token && activeTab === 'cancellations') fetchCancellations();
+  }, [token, activeTab]);
+
+  useEffect(() => {
     filterBookings();
   }, [bookings, statusFilter, searchQuery]);
 
   const fetchBookings = async () => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bookings`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-      
+      if (data.success) { setBookings(data.bookings); setFilteredBookings(data.bookings); }
+    } catch (error) { console.error('Error fetching bookings:', error); }
+    finally { setLoading(false); }
+  };
+
+  const fetchCancellations = async () => {
+    setLoadingCancellations(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/owner/cancellations`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) setCancellations(data.cancellations || []);
+    } catch { toast.error('Failed to load cancellations'); }
+    finally { setLoadingCancellations(false); }
+  };
+
+  const handleOwnerCancel = async () => {
+    if (!cancellingBooking) return;
+    setCancelSubmitting(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/owner/bookings/${cancellingBooking._id}/cancel`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ reason: cancelReason })
+      });
+      const data = await res.json();
       if (data.success) {
-        setBookings(data.bookings);
-        setFilteredBookings(data.bookings);
-      }
-    } catch (error) {
-      console.error('Error fetching bookings:', error);
-    } finally {
-      setLoading(false);
-    }
+        toast.success(data.refundProcessed ? 'Booking cancelled & full refund initiated' : 'Booking cancelled');
+        setCancellingBooking(null);
+        setCancelReason('');
+        fetchBookings();
+        fetchCancellations();
+      } else toast.error(data.message);
+    } catch { toast.error('Failed to cancel'); }
+    finally { setCancelSubmitting(false); }
   };
 
   const filterBookings = () => {
@@ -136,6 +171,98 @@ export default function OwnerBookings() {
 
   return (
     <OwnerLayout title="My Bookings" subtitle={`${filteredBookings.length} booking(s) found`}>
+
+      {/* Main Tabs */}
+      <div className="flex gap-1 mb-5 bg-gray-100 rounded-xl p-1 w-fit">
+        {[['bookings','Bookings'],['cancellations','Cancellations']].map(([key,label]) => (
+          <button key={key} onClick={() => setActiveTab(key)}
+            className={`px-6 py-2 rounded-lg text-sm font-semibold transition-colors ${activeTab === key ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* CANCELLATIONS TAB */}
+      {activeTab === 'cancellations' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-500">All cancellations for your venues</p>
+            <button onClick={fetchCancellations} className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
+              <RefreshCw className="w-4 h-4" /> Refresh
+            </button>
+          </div>
+          {loadingCancellations ? (
+            <div className="flex items-center justify-center py-20"><div className="h-10 w-10 animate-spin rounded-full border-4 border-red-500 border-t-transparent" /></div>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50 text-xs uppercase text-gray-600">
+                    <th className="px-4 py-3 text-left">Booking #</th>
+                    <th className="px-4 py-3 text-left">Venue</th>
+                    <th className="px-4 py-3 text-left">Customer</th>
+                    <th className="px-4 py-3 text-left">Booking Date</th>
+                    <th className="px-4 py-3 text-right">Amount</th>
+                    <th className="px-4 py-3 text-left">Cancelled By</th>
+                    <th className="px-4 py-3 text-left">Type</th>
+                    <th className="px-4 py-3 text-left">Refund</th>
+                    <th className="px-4 py-3 text-left">Reason</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cancellations.length === 0 ? (
+                    <tr><td colSpan={9} className="px-4 py-10 text-center text-gray-400">No cancellations found</td></tr>
+                  ) : cancellations.map(c => {
+                    const refund = c.refundDetails;
+                    const refundBadge = !refund ? null
+                      : refund.refundStatus === 'processed' ? 'bg-green-100 text-green-700'
+                      : refund.refundStatus === 'failed' ? 'bg-red-100 text-red-700'
+                      : 'bg-yellow-100 text-yellow-700';
+                    return (
+                      <tr key={c._id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                        <td className="px-4 py-3 font-mono text-xs text-gray-700">{c.bookingNumber}</td>
+                        <td className="px-4 py-3 font-semibold text-gray-800">{c.venue?.businessName || '—'}</td>
+                        <td className="px-4 py-3">
+                          <div className="font-semibold text-gray-800">{c.customer?.name || '—'}</div>
+                          <div className="text-xs text-gray-400">{c.customer?.phone || ''}</div>
+                        </td>
+                        <td className="px-4 py-3 text-gray-600">{c.bookingDate ? new Date(c.bookingDate).toLocaleDateString('en-IN') : '—'}</td>
+                        <td className="px-4 py-3 text-right font-bold text-gray-800">₹{(c.amount || 0).toLocaleString('en-IN')}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            c.cancelledByRole === 'system' ? 'bg-gray-100 text-gray-600'
+                            : c.cancelledByRole === 'customer' ? 'bg-blue-100 text-blue-700'
+                            : c.cancelledByRole === 'owner' ? 'bg-orange-100 text-orange-700'
+                            : 'bg-purple-100 text-purple-700'
+                          }`}>{c.cancelledByRole || 'unknown'}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${c.cancellationType === 'auto' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'}`}>
+                            {c.cancellationType || 'manual'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {refund ? (
+                            <div>
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${refundBadge}`}>{refund.refundStatus}</span>
+                              {refund.refundAmount > 0 && <div className="text-xs text-gray-500 mt-0.5">₹{refund.refundAmount?.toLocaleString('en-IN')}</div>}
+                            </div>
+                          ) : <span className="text-gray-400 text-xs">—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-gray-600 text-xs max-w-[180px] truncate">{c.cancellationReason || '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* BOOKINGS TAB */}
+      {activeTab === 'bookings' && <>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <button
@@ -285,9 +412,10 @@ export default function OwnerBookings() {
                             {booking.approveSoonUsed ? 'Soon Used' : 'Approve Soon'}
                           </button>
                           <button
-                            onClick={() => handleUpdateStatus(booking._id, 'cancelled')}
+                            onClick={() => { setCancellingBooking(booking); setCancelReason(''); }}
                             className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1"
                           >
+                            <Ban className="w-3.5 h-3.5" /> Cancel
                             <XCircle className="w-3.5 h-3.5" />
                             Reject
                           </button>
@@ -667,8 +795,9 @@ export default function OwnerBookings() {
                 <div className="space-y-1.5 text-sm">
                   <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">Base Price</span><span className="font-semibold">₹{(selectedBooking.priceBreakdown?.basePrice || 0).toLocaleString()}</span></div>
                   {selectedBooking.amenitiesTotal > 0 && <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">Amenities</span><span className="font-semibold">₹{selectedBooking.amenitiesTotal?.toLocaleString()}</span></div>}
-                  {selectedBooking.priceBreakdown?.gst > 0 && <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">GST</span><span className="font-semibold">₹{selectedBooking.priceBreakdown.gst?.toLocaleString()}</span></div>}
+                  {selectedBooking.priceBreakdown?.gst > 0 && <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">GST ({selectedBooking.priceBreakdown.gstRate || ''}%)</span><span className="font-semibold">₹{selectedBooking.priceBreakdown.gst?.toLocaleString()}</span></div>}
                   {selectedBooking.priceBreakdown?.platformFee > 0 && <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">Platform Fee</span><span className="font-semibold">₹{selectedBooking.priceBreakdown.platformFee?.toLocaleString()}</span></div>}
+                  {selectedBooking.priceBreakdown?.platformFeeGST > 0 && <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">Platform Fee GST</span><span className="font-semibold">₹{selectedBooking.priceBreakdown.platformFeeGST?.toLocaleString()}</span></div>}
                   {selectedBooking.priceBreakdown?.discount > 0 && (
                     <div className="flex justify-between text-green-600">
                       <span>Coupon Discount {selectedBooking.priceBreakdown.couponCode ? `(${selectedBooking.priceBreakdown.couponCode})` : ''}</span>
@@ -709,6 +838,40 @@ export default function OwnerBookings() {
           }}
         />
       )}
+
+      {/* Owner Cancel Booking Modal */}
+      {cancellingBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-red-100 rounded-lg"><Ban className="w-5 h-5 text-red-600" /></div>
+              <h2 className="text-base font-bold text-gray-800">Cancel Booking</h2>
+            </div>
+            <p className="text-sm text-gray-600 mb-1">Booking: <span className="font-semibold">{cancellingBooking.bookingNumber}</span></p>
+            <p className="text-sm text-gray-600 mb-4">Amount: <span className="font-bold text-gray-800">₹{(cancellingBooking.amount || 0).toLocaleString('en-IN')}</span></p>
+            {cancellingBooking.paymentStatus === 'paid' && (
+              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+                Full refund of ₹{(cancellingBooking.paymentLedger?.totalPaid || cancellingBooking.amount || 0).toLocaleString('en-IN')} will be initiated via Razorpay to the customer.
+              </div>
+            )}
+            <label className="block text-xs font-semibold text-gray-600 mb-1">Reason</label>
+            <textarea value={cancelReason} onChange={e => setCancelReason(e.target.value)} rows={3}
+              placeholder="Reason for cancellation..." className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-red-400 mb-4" />
+            <div className="flex gap-2">
+              <button onClick={handleOwnerCancel} disabled={cancelSubmitting}
+                className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold text-sm disabled:opacity-60">
+                {cancelSubmitting ? 'Cancelling...' : 'Confirm Cancel'}
+              </button>
+              <button onClick={() => { setCancellingBooking(null); setCancelReason(''); }}
+                className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-50">
+                Back
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      </>}
     </OwnerLayout>
   );
 }

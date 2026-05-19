@@ -186,6 +186,18 @@ const bookingSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
+  // Who initiated the cancellation
+  cancelledByRole: {
+    type: String,
+    enum: ['customer', 'owner', 'vendor', 'admin', 'system'],
+    default: null
+  },
+  // How it was cancelled
+  cancellationType: {
+    type: String,
+    enum: ['auto', 'manual'],
+    default: 'manual'
+  },
   // Auto-cancel deadline: set at booking creation based on venue's confirmationHours
   confirmationDeadline: {
     type: Date

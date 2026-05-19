@@ -165,7 +165,7 @@ exports.createBooking = async (req, res) => {
             discountAmount = Math.min(coupon.discountValue, applicableAmount);
           }
           discountAmount = Math.round(discountAmount);
-          finalAmount = Math.max(0, amount - discountAmount);
+          finalAmount = Math.max(1, amount - discountAmount); // minimum ₹1
           appliedCoupon = coupon;
         }
       }
@@ -499,30 +499,176 @@ exports.modifyBooking = async (req, res) => {
 exports.cancelBooking = async (req, res) => {
   try {
     const { reason } = req.body;
-    
+    const Razorpay = require('razorpay');
+
     const booking = await Booking.findById(req.params.id);
-    
-    if (!booking) {
-      return res.status(404).json({
-        success: false,
-        message: 'Booking not found'
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+
+    console.log(`\n[CANCEL] ── Booking Cancel Request ──────────────────────`);
+    console.log(`[CANCEL] Booking     : ${booking.bookingNumber} (${booking._id})`);
+    console.log(`[CANCEL] Status      : ${booking.status}`);
+    console.log(`[CANCEL] PayStatus   : ${booking.paymentStatus}`);
+    console.log(`[CANCEL] Amount      : ₹${booking.amount}`);
+    console.log(`[CANCEL] LedgerPaid  : ₹${booking.paymentLedger?.totalPaid ?? 'N/A'}`);
+    console.log(`[CANCEL] PaymentID   : ${booking.paymentDetails?.razorpay_payment_id ?? 'NONE'}`);
+    console.log(`[CANCEL] OrderID     : ${booking.paymentDetails?.razorpay_order_id ?? 'NONE'}`);
+    console.log(`[CANCEL] Requested by: ${req.user.role} (${req.user.id})`);
+    console.log(`[CANCEL] Reason      : ${reason || '(none)'}`);
+
+    if (!['pending', 'confirmed'].includes(booking.status)) {
+      console.log(`[CANCEL] ❌ Cannot cancel — status is "${booking.status}"`);
+      return res.status(400).json({ success: false, message: 'Booking cannot be cancelled in its current state' });
+    }
+
+    const role = req.user.role;
+    const isCustomer = role === 'customer';
+
+    if (isCustomer && booking.customer.toString() !== req.user.id) {
+      console.log(`[CANCEL] ❌ Unauthorized — customer mismatch`);
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    // Refund policy
+    const bookingDateTime = new Date(booking.bookingDate);
+    const now = new Date();
+    const hoursUntilBooking = (bookingDateTime - now) / (1000 * 60 * 60);
+    console.log(`[CANCEL] BookingDate : ${bookingDateTime.toISOString()}`);
+    console.log(`[CANCEL] HoursUntil  : ${hoursUntilBooking.toFixed(2)}h`);
+
+    let refundAmount = 0;
+    let refundEligible = false;
+    let refundPolicy = '';
+
+    if (isCustomer) {
+      const totalPaid = booking.paymentLedger?.totalPaid || booking.amount;
+      if (hoursUntilBooking >= 48) {
+        refundEligible = true;
+        refundAmount = totalPaid;
+        refundPolicy = 'Full refund (cancelled 48+ hours before booking)';
+      } else if (hoursUntilBooking >= 24) {
+        refundEligible = true;
+        refundAmount = Math.round(totalPaid * 0.5);
+        refundPolicy = '50% refund (cancelled 24–48 hours before booking)';
+      } else {
+        refundEligible = false;
+        refundAmount = 0;
+        refundPolicy = 'No refund (cancelled less than 24 hours before booking)';
+      }
+    } else {
+      refundEligible = true;
+      refundAmount = booking.paymentLedger?.totalPaid || booking.amount;
+      refundPolicy = 'Full refund (cancelled by venue owner/admin)';
+    }
+
+    console.log(`[CANCEL] Policy      : ${refundPolicy}`);
+    console.log(`[CANCEL] RefundAmt   : ₹${refundAmount}`);
+    console.log(`[CANCEL] Eligible    : ${refundEligible}`);
+
+    // Process Razorpay refund
+    let refundResult = { success: false, reason: 'No refund applicable' };
+
+    if (refundEligible && booking.paymentStatus === 'paid' && refundAmount > 0) {
+      if (!booking.paymentDetails?.razorpay_payment_id) {
+        console.log(`[CANCEL] ⚠️  No razorpay_payment_id stored — cannot auto-refund`);
+        refundResult = { success: false, reason: 'No Razorpay payment ID stored on booking' };
+      } else {
+        console.log(`[CANCEL] 🔄 Initiating Razorpay refund...`);
+        console.log(`[CANCEL] RZP Key     : ${process.env.RAZORPAY_KEY_ID}`);
+        console.log(`[CANCEL] Payment ID  : ${booking.paymentDetails.razorpay_payment_id}`);
+        console.log(`[CANCEL] Refund paise: ${Math.round(refundAmount * 100)}`);
+        try {
+          const razorpay = new Razorpay({
+            key_id: process.env.RAZORPAY_KEY_ID,
+            key_secret: process.env.RAZORPAY_KEY_SECRET
+          });
+
+          // Fetch payment first to verify its status before attempting refund
+          let payment;
+          try {
+            payment = await razorpay.payments.fetch(booking.paymentDetails.razorpay_payment_id);
+            console.log(`[CANCEL] Payment status  : ${payment.status}`);
+            console.log(`[CANCEL] Payment amount  : ${payment.amount} paise (₹${payment.amount / 100})`);
+            console.log(`[CANCEL] Payment captured: ${payment.captured}`);
+            console.log(`[CANCEL] Payment method  : ${payment.method}`);
+            console.log(`[CANCEL] Payment key_id  : ${payment.key_id || 'N/A'}`);
+          } catch (fetchErr) {
+            console.error(`[CANCEL] ⚠️  Could not fetch payment: ${fetchErr.message}`);
+          }
+
+          // Guard: only refund if payment is captured
+          if (payment && !payment.captured) {
+            console.log(`[CANCEL] ⚠️  Payment not captured (status: ${payment.status}) — cannot refund`);
+            refundResult = { success: false, reason: `Payment not captured (status: ${payment.status})` };
+          } else {
+            const refund = await razorpay.payments.refund(
+              booking.paymentDetails.razorpay_payment_id,
+              {
+                amount: Math.round(refundAmount * 100),
+                speed: 'normal',
+                notes: { bookingNumber: booking.bookingNumber, reason: reason || refundPolicy }
+              }
+            );
+            console.log(`[CANCEL] ✅ Refund success — ID: ${refund.id} | Speed: ${refund.speed}`);
+            refundResult = { success: true, refundId: refund.id };
+          }
+        } catch (err) {
+          console.error(`[CANCEL] ❌ Razorpay refund error:`);
+          console.error(`[CANCEL]    Code   : ${err.error?.code || err.statusCode || 'N/A'}`);
+          console.error(`[CANCEL]    Message: ${err.error?.description || err.message}`);
+          console.error(`[CANCEL]    Field  : ${err.error?.field || 'N/A'}`);
+          console.error(`[CANCEL]    Full   :`, JSON.stringify(err.error || err, null, 2));
+          // Common causes:
+          // BAD_REQUEST_ERROR "invalid request" → payment belongs to a different Razorpay key
+          // BAD_REQUEST_ERROR "already refunded" → refund already processed
+          // BAD_REQUEST_ERROR "amount greater than" → refund amount exceeds captured amount
+          refundResult = { success: false, reason: err.error?.description || err.message };
+        }
+      }
+    } else {
+      console.log(`[CANCEL] ⏭️  Skipping refund — eligible:${refundEligible} payStatus:${booking.paymentStatus} amount:${refundAmount}`);
+    }
+
+    booking.status = 'cancelled';
+    booking.cancellationReason = reason || refundPolicy;
+    booking.cancelledBy = req.user.id;
+    booking.cancelledByRole = role;
+    booking.cancellationType = 'manual';
+    booking.refundDetails = {
+      refundAmount,
+      refundStatus: !refundEligible || booking.paymentStatus !== 'paid'
+        ? 'pending'
+        : refundResult.success ? 'processed' : 'failed',
+      refundId: refundResult.refundId || null,
+      refundedAt: refundResult.success ? new Date() : null,
+      refundReason: refundPolicy
+    };
+
+    if (refundResult.success) booking.paymentStatus = 'refunded';
+
+    if (!booking.paymentLedger) booking.paymentLedger = { transactions: [], adjustments: [] };
+    if (refundResult.success) {
+      booking.paymentLedger.transactions.push({
+        txnId: refundResult.refundId, type: 'refund', amount: refundAmount,
+        status: 'completed', note: refundPolicy, performedBy: req.user.id, date: new Date()
       });
     }
-    
-    booking.status = 'cancelled';
-    booking.cancellationReason = reason;
-    booking.cancelledBy = req.user.id;
+
     await booking.save();
-    
+    console.log(`[CANCEL] ✅ Booking saved — status:cancelled refundStatus:${booking.refundDetails.refundStatus}`);
+    console.log(`[CANCEL] ─────────────────────────────────────────────────\n`);
+
     res.json({
       success: true,
       message: 'Booking cancelled',
+      refundEligible,
+      refundAmount,
+      refundPolicy,
+      refundProcessed: refundResult.success,
+      refundFailReason: !refundResult.success ? refundResult.reason : undefined,
       booking
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    console.error(`[CANCEL] 💥 Unexpected error:`, error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };

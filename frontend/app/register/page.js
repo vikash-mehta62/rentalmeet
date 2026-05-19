@@ -173,12 +173,16 @@ function RegisterInner() {
     ? {
         title: 'Vendor Partner',
         subtitle: 'Grow your service business with RentalMeet leads.',
-        image: 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=1400&q=80'
+        image: 'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=1400&q=80',
+        badge: 'Vendor Registration',
+        features: ['Reach thousands of event planners', 'Manage bookings & payments', 'Build your brand online']
       }
     : {
         title: 'Venue Owner',
         subtitle: 'List your spaces and start receiving bookings quickly.',
-        image: 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=1400&q=80'
+        image: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=1400&q=80',
+        badge: 'Venue Owner Registration',
+        features: ['List unlimited venues', 'Get confirmed bookings daily', 'Track earnings in real-time']
       };
 
   return (
@@ -188,30 +192,43 @@ function RegisterInner() {
       <main className="w-full h-full pt-[80px]">
         <div className="flex flex-col md:flex-row min-h-[calc(100vh-80px)]">
           
-          {/* Left Side: Visual & Content (Full Width on Mobile, 50% on Desktop) */}
-          <div className="relative w-full md:w-1/2 bg-dark-900 flex items-center justify-center p-8 lg:p-16 overflow-hidden">
+          {/* Left Side: Visual & Content */}
+          <div className="relative w-full md:w-1/2 bg-dark-900 flex items-center justify-center p-8 lg:p-16 overflow-hidden min-h-[320px] md:min-h-0">
             <img 
               src={targetMeta.image} 
               alt={targetMeta.title} 
-              className="absolute inset-0 w-full h-full object-cover opacity-60 scale-105 hover:scale-100 transition-transform duration-1000" 
+              className="absolute inset-0 w-full h-full object-cover opacity-50 scale-105 hover:scale-100 transition-transform duration-1000" 
             />
-            <div className="absolute inset-0 bg-gradient-to-br from-primary-600/40 to-dark-900/90" />
+            <div className="absolute inset-0 bg-gradient-to-br from-primary-700/60 to-dark-900/90" />
             
-            <div className="relative z-10 max-w-lg">
+            <div className="relative z-10 max-w-lg w-full">
               <Link href="/" className="inline-flex items-center gap-2 text-white/80 hover:text-white mb-8 transition-colors text-sm font-medium">
                 <ArrowLeft className="w-4 h-4" /> Back to Home
               </Link>
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <span className="px-3 py-1 bg-primary-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full">
-                  Registration
+                  {targetMeta.badge}
                 </span>
-                <h2 className="text-4xl lg:text-6xl font-black text-white leading-tight">
+                <h2 className="text-4xl lg:text-5xl font-black text-white leading-tight">
                   Start Your <br />
-                  <span className="text-primary-400">{targetMeta.title}</span> Journey
+                  <span className="text-primary-400">{targetMeta.title}</span><br />
+                  <span className="text-white">Journey</span>
                 </h2>
-                <p className="text-lg text-gray-200 font-light max-w-md">
+                <p className="text-base text-gray-200 font-light max-w-md">
                   {targetMeta.subtitle} Join hundreds of professionals already earning on RentalMeet.
                 </p>
+                <ul className="space-y-2.5 pt-2">
+                  {targetMeta.features.map((f, i) => (
+                    <li key={i} className="flex items-center gap-3 text-sm text-white/90">
+                      <span className="w-5 h-5 rounded-full bg-primary-500/30 border border-primary-400 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-3 h-3 text-primary-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </span>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
           </div>
@@ -220,10 +237,14 @@ function RegisterInner() {
           <div className="w-full md:w-1/2 bg-white flex flex-col items-center justify-start p-8 lg:p-20 overflow-y-auto">
             <div className="w-full max-w-md">
               <div className="mb-10">
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Account</h1>
-                <p className="text-gray-500">
-                  Registering as <span className="text-primary-600 font-semibold uppercase text-sm tracking-wider">{isVendor ? 'Vendor' : 'Owner'}</span>
-                </p>
+                <h1 className="text-3xl font-bold text-gray-900 mb-3">Create Account</h1>
+                <div className="inline-flex items-center gap-2 bg-primary-50 border border-primary-200 rounded-full px-4 py-1.5">
+                  <span className="w-2 h-2 rounded-full bg-primary-500 animate-pulse" />
+                  <span className="text-sm text-gray-600">Registering as</span>
+                  <span className="text-sm font-black text-primary-600 uppercase tracking-widest">
+                    {isVendor ? 'Vendor' : 'Venue Owner'}
+                  </span>
+                </div>
               </div>
 
               {error && (

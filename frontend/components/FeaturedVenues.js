@@ -107,6 +107,17 @@ Featured Venues at RentalMeet
                       </span>
                     </div>
                   )}
+
+                  {/* Coupon Badge — bottom-left overlay */}
+                  {venue.activeCoupons?.length > 0 && (
+                    <div className="absolute bottom-3 left-3">
+                      <span className="inline-flex items-center gap-1 bg-green-500 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-md">
+                        🏷️ Save {venue.activeCoupons[0].discountType === 'percentage'
+                          ? `${venue.activeCoupons[0].discountValue}%${venue.activeCoupons[0].maxDiscount ? ` (max ₹${venue.activeCoupons[0].maxDiscount})` : ''}`
+                          : `₹${venue.activeCoupons[0].discountValue}`} off
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Content */}
@@ -131,15 +142,6 @@ Featured Venues at RentalMeet
                   <p className="text-xs text-gray-500 dark:text-slate-400 mb-2 line-clamp-1">
                     {[venue.location?.area, venue.location?.city, venue.location?.state].filter(Boolean).join(', ') || venue.location?.address || 'Address not available'}
                   </p>
-                  {venue.activeCoupons?.length > 0 && (
-                    <div className="mb-2">
-                      <span className="inline-flex items-center gap-1 bg-green-50 border border-green-200 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                        Save {venue.activeCoupons[0].discountType === 'percentage'
-                          ? `${venue.activeCoupons[0].discountValue}%${venue.activeCoupons[0].maxDiscount ? ` (max Rs.${venue.activeCoupons[0].maxDiscount})` : ''}`
-                          : `Rs.${venue.activeCoupons[0].discountValue}`} off
-                      </span>
-                    </div>
-                  )}
 
                   {/* Amenities Icons */}
                   <div className="flex items-center gap-2 mb-3 text-gray-500 dark:text-slate-400">
@@ -160,7 +162,7 @@ Featured Venues at RentalMeet
                     <div>
                       <p className="text-xs text-gray-500 dark:text-slate-400 mb-0.5">Starting from</p>
                       <p className="text-lg font-bold text-[#F59F0A]">
-                        {venue.pricing?.perHour?.weekday?.toLocaleString('en-IN') || 0}
+                        ₹{venue.pricing?.perHour?.weekday?.toLocaleString('en-IN') || 0}
                         <span className="text-xs font-normal text-gray-500 dark:text-slate-400"></span>
                       </p>
                     </div>

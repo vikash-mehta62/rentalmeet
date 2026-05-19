@@ -5,6 +5,7 @@ import {
   X, Download, Printer, CheckCircle2, Clock, XCircle,
   Tag, CreditCard, Calendar, MapPin, User, Briefcase, Package
 } from 'lucide-react';
+import ServiceInvoiceDownload from '@/components/service/ServiceInvoiceDownload';
 
 const STATUS_STYLE = {
   enquiry:   { cls: 'bg-yellow-100 text-yellow-700', icon: Clock,        label: 'Enquiry' },
@@ -25,8 +26,8 @@ export default function ServiceBookingDetailModal({ booking: b, onClose, onStatu
   const st = STATUS_STYLE[b.status] || STATUS_STYLE.enquiry;
   const Icon = st.icon;
 
-  const svcTotal = (b.pricing?.subtotal || 0) + (b.pricing?.serviceCGST || 0) + (b.pricing?.serviceSGST || 0);
-  const platTotal = (b.pricing?.platformFee || 0) + (b.pricing?.platformFeeGST || 0);
+  const svcTotal = (b.pricing?.subtotal || 0) + (b.pricing?.serviceCGST || b.pricing?.serviceCgst || 0) + (b.pricing?.serviceSGST || b.pricing?.serviceSgst || 0);
+  const platTotal = (b.pricing?.platformFee || 0) + (b.pricing?.platformFeeGST || b.pricing?.platformFeeGst || 0);
   const grandTotal = b.pricing?.total || 0;
 
   const handlePrint = () => {
@@ -85,12 +86,6 @@ export default function ServiceBookingDetailModal({ booking: b, onClose, onStatu
             <code className="text-xs font-mono text-primary-600 bg-white px-2 py-0.5 rounded border border-primary-200 mt-0.5 inline-block">{bNum}</code>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={handlePrint} className="flex items-center gap-1.5 px-3 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-xs font-semibold transition-colors">
-              <Printer className="w-3.5 h-3.5" /> Print
-            </button>
-            <button onClick={handleDownloadPDF} className="flex items-center gap-1.5 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-semibold transition-colors">
-              <Download className="w-3.5 h-3.5" /> PDF
-            </button>
             <button onClick={onClose} className="p-2 hover:bg-white/80 rounded-xl transition-colors">
               <X className="w-5 h-5 text-gray-500" />
             </button>
@@ -206,8 +201,8 @@ export default function ServiceBookingDetailModal({ booking: b, onClose, onStatu
               <div className="bg-blue-50 rounded-xl p-4 border border-blue-100 text-xs space-y-1.5">
                 <p className="font-bold text-blue-800 mb-2">📄 Service Invoice</p>
                 <div className="flex justify-between text-gray-600"><span>Service Amount</span><span>₹{(b.pricing.subtotal || 0).toLocaleString()}</span></div>
-                <div className="flex justify-between text-gray-600"><span>CGST ({b.pricing.cgstPct || 0}%)</span><span>₹{(b.pricing.serviceCGST || 0).toLocaleString()}</span></div>
-                <div className="flex justify-between text-gray-600"><span>SGST ({b.pricing.sgstPct || 0}%)</span><span>₹{(b.pricing.serviceSGST || 0).toLocaleString()}</span></div>
+                <div className="flex justify-between text-gray-600"><span>CGST ({b.pricing.cgstPct || 0}%)</span><span>₹{(b.pricing.serviceCGST || b.pricing.serviceCgst || 0).toLocaleString()}</span></div>
+                <div className="flex justify-between text-gray-600"><span>SGST ({b.pricing.sgstPct || 0}%)</span><span>₹{(b.pricing.serviceSGST || b.pricing.serviceSgst || 0).toLocaleString()}</span></div>
                 <div className="flex justify-between font-bold text-blue-900 border-t border-blue-200 pt-1.5 mt-1">
                   <span>Service Total</span><span>₹{svcTotal.toLocaleString()}</span>
                 </div>
@@ -215,13 +210,19 @@ export default function ServiceBookingDetailModal({ booking: b, onClose, onStatu
               <div className="bg-purple-50 rounded-xl p-4 border border-purple-100 text-xs space-y-1.5">
                 <p className="font-bold text-purple-800 mb-2">📄 Platform Invoice</p>
                 <div className="flex justify-between text-gray-600"><span>Platform Fee ({b.pricing.platformFeePct || 0}%)</span><span>₹{(b.pricing.platformFee || 0).toLocaleString()}</span></div>
-                <div className="flex justify-between text-gray-600"><span>Platform GST</span><span>₹{(b.pricing.platformFeeGST || 0).toLocaleString()}</span></div>
+                <div className="flex justify-between text-gray-600"><span>Platform GST</span><span>₹{(b.pricing.platformFeeGST || b.pricing.platformFeeGst || 0).toLocaleString()}</span></div>
                 <div className="flex justify-between font-bold text-purple-900 border-t border-purple-200 pt-1.5 mt-1">
                   <span>Platform Total</span><span>₹{platTotal.toLocaleString()}</span>
                 </div>
               </div>
             </div>
           )}
+
+          {/* Invoice Download */}
+          <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3 border border-gray-100">
+            <p className="text-xs font-semibold text-gray-600">Download Invoice</p>
+            <ServiceInvoiceDownload booking={b} userRole={b.customer ? 'customer' : 'admin'} />
+          </div>
 
           {/* Coupon + Grand Total */}
           <div className="bg-gradient-to-r from-primary-50 to-orange-50 rounded-xl p-4 border border-primary-200">

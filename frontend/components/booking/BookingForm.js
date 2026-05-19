@@ -63,6 +63,7 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues/platform-settings/public`);
       const data = await response.json();
       if (data.success && data.settings) {
+        const pfv = parseFloat(data.settings.platformFeePercentage) || parseFloat(data.settings.platformFee?.feeValue) || 5;
         setPlatformSettings({
           gstRate: parseFloat(data.settings.gstRate) || 18,
           venueCGST: parseFloat(data.settings.venueCGST) || 9,
@@ -70,7 +71,7 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
           platformCGST: parseFloat(data.settings.platformCGST) || 9,
           platformSGST: parseFloat(data.settings.platformSGST) || 9,
           platformFeeType: data.settings.platformFee?.feeType || 'percentage',
-          platformFeeValue: parseFloat(data.settings.platformFee?.feeValue) || 5
+          platformFeeValue: pfv
         });
       }
     } catch (error) {
@@ -493,7 +494,8 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
-                bookingId: bookingId
+                bookingId: bookingId,
+                paidAmount: amount
               })
             });
 
@@ -608,10 +610,16 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
         startTime: formData.startTime,
         endTime: formData.endTime,
         bookingType: formData.bookingType,
-        amount: calculatedPrice.total,
+        // Send pre-coupon total — backend will apply coupon and compute finalAmount
+        amount: calculatedPrice.subtotal + calculatedPrice.gst + calculatedPrice.platformFeeTotal,
         amenitiesTotal: calculatedPrice.amenitiesTotal,
         selectedAmenities: amenitiesWithDetails,
-        priceBreakdown: calculatedPrice,
+        priceBreakdown: {
+          ...calculatedPrice,
+          // Store the actual discount and final total for reference
+          discount: calculatedPrice.discount || 0,
+          total: calculatedPrice.total
+        },
         couponCode: appliedCoupon?.code || null,
         customerDetails: {
           name: formData.customerName,
@@ -636,8 +644,9 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
 
       if (result.success) {
         // Booking created successfully, now initiate payment
+        // Use the finalAmount from backend (after coupon applied correctly)
         setSubmitting(false);
-        await handlePayment(result.booking._id, calculatedPrice.total);
+        await handlePayment(result.booking._id, result.booking.amount);
       } else {
         toast.error(result.message || 'Failed to create booking');
         setSubmitting(false);

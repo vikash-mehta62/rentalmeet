@@ -22,9 +22,9 @@ const SOCIAL_DEFS = [
 ];
 
 const quickLinks = [
-  { name: 'Home',               href: '/'               },
-  { name: 'Browse Venues',      href: '/venues'         },
-  { name: 'Premium Services',   href: '/other-services' },
+  // { name: 'Home',               href: '/'               },
+  // { name: 'Browse Venues',      href: '/venues'         },
+  // { name: 'Premium Services',   href: '/other-services' },
   { name: 'How to Use',         href: '/faqs'           },
   { name: 'About Us',           href: '/about'          },
   { name: 'FAQs',               href: '/faqs'           },
@@ -75,11 +75,13 @@ export default function Footer() {
                 className="h-12 sm:h-16 lg:h-20 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
               />
             </Link>
-            <p className="text-sm text-gray-500 dark:text-slate-400 leading-relaxed mb-6 relative px-4">
-              <span className="absolute -top-2 left-0 text-4xl text-primary-300 dark:text-primary-700 font-serif leading-none select-none">"</span>
-              Premium meeting spaces and event venues for every occasion. Experience luxury venues with world-class facilities for your corporate events, meetings, and celebrations.
-              <span className="absolute -bottom-4 right-0 text-4xl text-primary-300 dark:text-primary-700 font-serif leading-none select-none">"</span>
-            </p>
+            <div className="mb-8 flex gap-2">
+              <span className="text-7xl text-primary-300 dark:text-primary-700 font-serif leading-[0.8] select-none flex-shrink-0 self-start -mt-3">&ldquo;</span>
+              <p className="text-sm text-gray-500 dark:text-slate-400 leading-relaxed flex-1 self-center">
+                Premium meeting spaces and event venues for every occasion. Experience luxury venues with world-class facilities for your corporate events, meetings, and celebrations.
+              </p>
+              <span className="text-7xl text-primary-300 dark:text-primary-700 font-serif leading-[0.8] select-none flex-shrink-0 self-end -mb-3">&rdquo;</span>
+            </div>
 
             {/* Social links */}
             <div className="mt-2">

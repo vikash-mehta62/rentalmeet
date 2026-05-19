@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
 import PermissionGuard from '@/components/admin/PermissionGuard';
-import { Plus, Wallet, Download, Trash2, Settings, AlertCircle } from 'lucide-react';
+import { Plus, Wallet, Download, Trash2, Settings, Pencil, IndianRupee, TrendingUp } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import toast from 'react-hot-toast';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -33,6 +33,7 @@ export default function AdminExpensesPage() {
   const [newHeadName, setNewHeadName] = useState('');
   const [headSaving, setHeadSaving] = useState(false);
   const [expForm, setExpForm] = useState({ head: '', subHead: '', amount: '', remark: '', expenseDate: new Date().toISOString().slice(0, 10) });
+  const [editingExp, setEditingExp] = useState(null);
 
   // Liabilities state
   const [loadingLib, setLoadingLib] = useState(true);
@@ -42,6 +43,12 @@ export default function AdminExpensesPage() {
   const [showAddLib, setShowAddLib] = useState(false);
   const [libForm, setLibForm] = useState({ title: '', totalAmount: '', paidAmount: '', payByDate: '', remark: '' });
   const [editingLib, setEditingLib] = useState(null);
+
+  // Revenue state
+  const [loadingRev, setLoadingRev] = useState(true);
+  const [revStats, setRevStats] = useState({ totalRevenue: 0 });
+  const [revExpSummary, setRevExpSummary] = useState({ totalExpenditure: 0, totalRecords: 0 });
+  const [revLibSummary, setRevLibSummary] = useState({ totalAmount: 0, totalPaid: 0, totalPending: 0 });
 
   useEffect(() => {
     const years = [];
@@ -55,14 +62,13 @@ export default function AdminExpensesPage() {
     setSelectedFY(years[0].value);
   }, []);
 
-  useEffect(() => {
-    if (token) { fetchHeads(); }
-  }, [token]);
+  useEffect(() => { if (token) fetchHeads(); }, [token]);
 
   useEffect(() => {
     if (token && (selectedFY || (startDate && endDate))) {
       fetchExpenses();
       fetchLiabilities();
+      fetchRevenue();
     }
   }, [token, selectedFY, startDate, endDate, dateMode]);
 
@@ -95,6 +101,23 @@ export default function AdminExpensesPage() {
       if (data.success) { setLiabilities(data.liabilities || []); setLibSummary(data.summary || {}); }
     } catch { toast.error('Failed to load liabilities'); }
     finally { setLoadingLib(false); }
+  };
+
+  const fetchRevenue = async () => {
+    setLoadingRev(true);
+    try {
+      const p = getParams();
+      const [payRes, expRes, libRes] = await Promise.all([
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/payments${p}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/expenses${p}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/liabilities${p}`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      const [payData, expData, libData] = await Promise.all([payRes.json(), expRes.json(), libRes.json()]);
+      if (payData.success) setRevStats({ totalRevenue: payData.stats?.totalRevenue || 0 });
+      if (expData.success) setRevExpSummary(expData.summary || {});
+      if (libData.success) setRevLibSummary(libData.summary || {});
+    } catch { toast.error('Failed to load revenue'); }
+    finally { setLoadingRev(false); }
   };
 
   const fetchHeads = async () => {
@@ -144,6 +167,30 @@ export default function AdminExpensesPage() {
     finally { setSavingExp(false); }
   };
 
+  const handleEditExpense = async (e) => {
+    e.preventDefault();
+    if (!editingExp.head) return toast.error('Head is required');
+    const amountNum = Number(editingExp.amount);
+    if (Number.isNaN(amountNum) || amountNum < 0) return toast.error('Valid amount required');
+    setSavingExp(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/expenses/${editingExp._id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ head: editingExp.head, subHead: editingExp.subHead, amount: amountNum, remark: editingExp.remark, expenseDate: editingExp.expenseDate })
+      });
+      const data = await res.json();
+      if (data.success) { toast.success('Expense updated'); setEditingExp(null); fetchExpenses(); }
+      else toast.error(data.message);
+    } catch { toast.error('Failed'); }
+    finally { setSavingExp(false); }
+  };
+
+  const handleDeleteExpense = async (id) => {
+    if (!confirm('Delete this expense?')) return;
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/expenses/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    fetchExpenses();
+  };
+
   const handleAddLiability = async (e) => {
     e.preventDefault();
     if (!libForm.title.trim()) return toast.error('Title is required');
@@ -161,16 +208,23 @@ export default function AdminExpensesPage() {
     finally { setSavingLib(false); }
   };
 
-  const handleUpdatePaid = async (id, paidAmount) => {
+  const handleEditLiability = async (e) => {
+    e.preventDefault();
+    if (!editingLib.title?.trim()) return toast.error('Title is required');
+    if (!editingLib.totalAmount || Number(editingLib.totalAmount) < 0) return toast.error('Valid total amount required');
+    const paid = Number(editingLib.paidAmount || 0);
+    if (paid > Number(editingLib.totalAmount)) return toast.error('Paid amount cannot exceed total');
+    setSavingLib(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/liabilities/${id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/liabilities/${editingLib._id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ paidAmount: Number(paidAmount) })
+        body: JSON.stringify({ title: editingLib.title, totalAmount: Number(editingLib.totalAmount), paidAmount: paid, payByDate: editingLib.payByDate || null, remark: editingLib.remark })
       });
       const data = await res.json();
-      if (data.success) { toast.success('Updated'); setEditingLib(null); fetchLiabilities(); }
+      if (data.success) { toast.success('Liability updated'); setEditingLib(null); fetchLiabilities(); }
       else toast.error(data.message);
     } catch { toast.error('Failed'); }
+    finally { setSavingLib(false); }
   };
 
   const handleDeleteLiability = async (id) => {
@@ -179,36 +233,41 @@ export default function AdminExpensesPage() {
     fetchLiabilities();
   };
 
+  const revenue = useMemo(() => {
+    const payment = revStats.totalRevenue || 0;
+    const expenditure = revExpSummary.totalExpenditure || 0;
+    const liab = revLibSummary.totalAmount || 0;
+    return { payment, expenditure, liab, grossProfit: payment - expenditure - liab };
+  }, [revStats, revExpSummary, revLibSummary]);
+
   const handleExportCSV = () => {
     const period = dateMode === 'financial' ? selectedFY : `${startDate?.toLocaleDateString('en-IN')} to ${endDate?.toLocaleDateString('en-IN')}`;
+    let rows, filename;
     if (activeTab === 'expenses') {
-      const rows = [
-        ['#', 'Date', 'Head', 'Sub Head', 'Amount', 'Added By', 'Role', 'Remark'],
-        ...expenses.map((item, i) => [i+1, new Date(item.expenseDate||item.createdAt).toLocaleDateString('en-IN'), item.head||'', item.subHead||'', item.amount||0, item.createdBy?.name||'', item.createdBy?.role||'', item.remark||''])
-      ];
-      const csv = rows.map(r => r.map(c => `"${c??''}"`).join(',')).join('\n');
-      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' })); a.download = `Expenses_${period.replace(/\s/g,'_')}.csv`; a.click();
+      rows = [['#','Date','Head','Sub Head','Amount','Added By','Role','Remark'], ...expenses.map((x,i) => [i+1, new Date(x.expenseDate||x.createdAt).toLocaleDateString('en-IN'), x.head||'', x.subHead||'', x.amount||0, x.createdBy?.name||'', x.createdBy?.role||'', x.remark||''])];
+      filename = `Expenses_${period.replace(/\s/g,'_')}.csv`;
+    } else if (activeTab === 'liabilities') {
+      rows = [['#','Title','Total','Paid','Pending','Pay By','Remark'], ...liabilities.map((l,i) => [i+1, l.title||'', l.totalAmount||0, l.paidAmount||0, (l.totalAmount||0)-(l.paidAmount||0), l.payByDate?new Date(l.payByDate).toLocaleDateString('en-IN'):'', l.remark||''])];
+      filename = `Liabilities_${period.replace(/\s/g,'_')}.csv`;
     } else {
-      const rows = [
-        ['#', 'Title', 'Total Amount', 'Paid Amount', 'Pending', 'Pay By Date', 'Added By', 'Remark'],
-        ...liabilities.map((l, i) => [i+1, l.title||'', l.totalAmount||0, l.paidAmount||0, (l.totalAmount||0)-(l.paidAmount||0), l.payByDate?new Date(l.payByDate).toLocaleDateString('en-IN'):'', l.createdBy?.name||'', l.remark||''])
-      ];
-      const csv = rows.map(r => r.map(c => `"${c??''}"`).join(',')).join('\n');
-      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' })); a.download = `Liabilities_${period.replace(/\s/g,'_')}.csv`; a.click();
+      rows = [['Metric','Amount'],['Payment Received', revenue.payment],['Expenditure', revenue.expenditure],['Liabilities', revenue.liab],['Gross Profit', revenue.grossProfit]];
+      filename = `Revenue_${period.replace(/\s/g,'_')}.csv`;
     }
+    const csv = rows.map(r => r.map(c => `"${c??''}"`).join(',')).join('\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' })); a.download = filename; a.click();
     toast.success('CSV downloaded');
   };
 
   const inp = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500';
 
   return (
-    <AdminLayout title="Expense Management" subtitle="Track expenses and liabilities">
+    <AdminLayout title="Finance" subtitle="Expenses, Liabilities & Revenue">
       <PermissionGuard permission="payments">
 
         {/* Filter Bar */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-5 flex flex-wrap items-center gap-3">
           <div className="flex gap-2">
-            {['financial', 'custom'].map(m => (
+            {['financial','custom'].map(m => (
               <button key={m} onClick={() => setDateMode(m)}
                 className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${dateMode === m ? 'bg-primary-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
                 {m === 'financial' ? 'Financial Year' : 'Custom Range'}
@@ -227,8 +286,8 @@ export default function AdminExpensesPage() {
               <DatePicker selected={endDate} onChange={setEndDate} minDate={startDate} maxDate={new Date()} dateFormat="dd/MM/yyyy" placeholderText="To" className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-32" />
             </div>
           )}
-          <button onClick={handleExportCSV} disabled={activeTab === 'expenses' ? expenses.length === 0 : liabilities.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50">
+          <button onClick={handleExportCSV}
+            className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-semibold">
             <Download className="w-4 h-4" /> CSV
           </button>
           <div className="ml-auto flex gap-2">
@@ -252,7 +311,7 @@ export default function AdminExpensesPage() {
 
         {/* Tabs */}
         <div className="flex gap-1 mb-5 bg-gray-100 rounded-xl p-1 w-fit">
-          {[['expenses', 'Expenses'], ['liabilities', 'Liabilities']].map(([key, label]) => (
+          {[['expenses','Expenses'],['liabilities','Liabilities'],['revenue','Revenue']].map(([key, label]) => (
             <button key={key} onClick={() => setActiveTab(key)}
               className={`px-6 py-2 rounded-lg text-sm font-semibold transition-colors ${activeTab === key ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
               {label}
@@ -275,21 +334,28 @@ export default function AdminExpensesPage() {
               <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
                 <table className="w-full text-sm">
                   <thead><tr className="border-b border-gray-200 bg-gray-50 text-xs uppercase text-gray-600">
-                    <th className="px-4 py-3 text-left">#</th><th className="px-4 py-3 text-left">Date</th><th className="px-4 py-3 text-left">Head</th><th className="px-4 py-3 text-left">Sub Head</th><th className="px-4 py-3 text-right">Amount</th><th className="px-4 py-3 text-left">Added By</th><th className="px-4 py-3 text-left">Remark</th>
+                    <th className="px-4 py-3 text-left">#</th><th className="px-4 py-3 text-left">Date</th><th className="px-4 py-3 text-left">Head</th><th className="px-4 py-3 text-left">Sub Head</th><th className="px-4 py-3 text-right">Amount</th><th className="px-4 py-3 text-left">Added By</th><th className="px-4 py-3 text-left">Remark</th><th className="px-4 py-3 text-left">Actions</th>
                   </tr></thead>
                   <tbody>
-                    {expenses.length === 0 ? <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">No expenses found</td></tr>
-                    : expenses.map((item, i) => (
-                      <tr key={item._id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
-                        <td className="px-4 py-3 text-xs text-gray-400">{i+1}</td>
-                        <td className="px-4 py-3 text-gray-700">{new Date(item.expenseDate||item.createdAt).toLocaleDateString('en-IN')}</td>
-                        <td className="px-4 py-3 font-semibold text-gray-800">{item.head}</td>
-                        <td className="px-4 py-3 text-gray-600">{item.subHead||'—'}</td>
-                        <td className="px-4 py-3 text-right font-bold text-rose-600">{fmtRs(item.amount)}</td>
-                        <td className="px-4 py-3 text-gray-700"><div className="font-semibold">{item.createdBy?.name||'Unknown'}</div><div className="text-xs text-gray-400">{item.createdBy?.role||'-'}</div></td>
-                        <td className="px-4 py-3 text-gray-600">{item.remark||'—'}</td>
-                      </tr>
-                    ))}
+                    {expenses.length === 0
+                      ? <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">No expenses found</td></tr>
+                      : expenses.map((item, i) => (
+                        <tr key={item._id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                          <td className="px-4 py-3 text-xs text-gray-400">{i+1}</td>
+                          <td className="px-4 py-3 text-gray-700">{new Date(item.expenseDate||item.createdAt).toLocaleDateString('en-IN')}</td>
+                          <td className="px-4 py-3 font-semibold text-gray-800">{item.head}</td>
+                          <td className="px-4 py-3 text-gray-600">{item.subHead||'—'}</td>
+                          <td className="px-4 py-3 text-right font-bold text-rose-600">{fmtRs(item.amount)}</td>
+                          <td className="px-4 py-3 text-gray-700"><div className="font-semibold">{item.createdBy?.name||'Unknown'}</div><div className="text-xs text-gray-400">{item.createdBy?.role||'-'}</div></td>
+                          <td className="px-4 py-3 text-gray-600">{item.remark||'—'}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex gap-2">
+                              <button onClick={() => setEditingExp({ ...item, expenseDate: new Date(item.expenseDate||item.createdAt).toISOString().slice(0,10) })} className="p-1 text-blue-400 hover:text-blue-600"><Pencil className="w-4 h-4" /></button>
+                              <button onClick={() => handleDeleteExpense(item._id)} className="p-1 text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
                   </tbody>
                 </table>
               </div>
@@ -312,31 +378,32 @@ export default function AdminExpensesPage() {
                     <th className="px-4 py-3 text-left">#</th><th className="px-4 py-3 text-left">Title</th><th className="px-4 py-3 text-right">Total</th><th className="px-4 py-3 text-right">Paid</th><th className="px-4 py-3 text-right">Pending</th><th className="px-4 py-3 text-left">Pay By</th><th className="px-4 py-3 text-left">Remark</th><th className="px-4 py-3 text-left">Actions</th>
                   </tr></thead>
                   <tbody>
-                    {liabilities.length === 0 ? <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">No liabilities found</td></tr>
-                    : liabilities.map((l, i) => {
-                      const pending = (l.totalAmount||0) - (l.paidAmount||0);
-                      const isOverdue = l.payByDate && new Date(l.payByDate) < new Date() && pending > 0;
-                      return (
-                        <tr key={l._id} className={`border-b border-gray-100 last:border-0 hover:bg-gray-50 ${isOverdue ? 'bg-red-50' : ''}`}>
-                          <td className="px-4 py-3 text-xs text-gray-400">{i+1}</td>
-                          <td className="px-4 py-3 font-semibold text-gray-800">
-                            {l.title}
-                            {isOverdue && <span className="ml-2 text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-bold">OVERDUE</span>}
-                          </td>
-                          <td className="px-4 py-3 text-right font-semibold text-gray-800">{fmtRs(l.totalAmount)}</td>
-                          <td className="px-4 py-3 text-right text-green-600 font-semibold">{fmtRs(l.paidAmount)}</td>
-                          <td className="px-4 py-3 text-right font-bold text-red-600">{fmtRs(pending)}</td>
-                          <td className="px-4 py-3 text-gray-600">{l.payByDate ? new Date(l.payByDate).toLocaleDateString('en-IN') : '—'}</td>
-                          <td className="px-4 py-3 text-gray-600">{l.remark||'—'}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex gap-2">
-                              <button onClick={() => setEditingLib(l)} className="px-2 py-1 bg-blue-500 text-white rounded text-xs font-semibold hover:bg-blue-600">Update Paid</button>
-                              <button onClick={() => handleDeleteLiability(l._id)} className="p-1 text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {liabilities.length === 0
+                      ? <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">No liabilities found</td></tr>
+                      : liabilities.map((l, i) => {
+                          const pending = (l.totalAmount||0) - (l.paidAmount||0);
+                          const isOverdue = l.payByDate && new Date(l.payByDate) < new Date() && pending > 0;
+                          return (
+                            <tr key={l._id} className={`border-b border-gray-100 last:border-0 hover:bg-gray-50 ${isOverdue ? 'bg-red-50' : ''}`}>
+                              <td className="px-4 py-3 text-xs text-gray-400">{i+1}</td>
+                              <td className="px-4 py-3 font-semibold text-gray-800">
+                                {l.title}
+                                {isOverdue && <span className="ml-2 text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-bold">OVERDUE</span>}
+                              </td>
+                              <td className="px-4 py-3 text-right font-semibold text-gray-800">{fmtRs(l.totalAmount)}</td>
+                              <td className="px-4 py-3 text-right text-green-600 font-semibold">{fmtRs(l.paidAmount)}</td>
+                              <td className="px-4 py-3 text-right font-bold text-red-600">{fmtRs(pending)}</td>
+                              <td className="px-4 py-3 text-gray-600">{l.payByDate ? new Date(l.payByDate).toLocaleDateString('en-IN') : '—'}</td>
+                              <td className="px-4 py-3 text-gray-600">{l.remark||'—'}</td>
+                              <td className="px-4 py-3">
+                                <div className="flex gap-2">
+                                  <button onClick={() => setEditingLib({ ...l, payByDate: l.payByDate ? new Date(l.payByDate).toISOString().slice(0,10) : '' })} className="p-1 text-blue-400 hover:text-blue-600"><Pencil className="w-4 h-4" /></button>
+                                  <button onClick={() => handleDeleteLiability(l._id)} className="p-1 text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                   </tbody>
                 </table>
               </div>
@@ -344,7 +411,41 @@ export default function AdminExpensesPage() {
           )
         )}
 
-        {/* Add Expense Modal */}
+        {/* REVENUE TAB */}
+        {activeTab === 'revenue' && (
+          loadingRev ? <div className="flex items-center justify-center py-20"><div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" /></div> : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="rounded-xl border border-rose-100 bg-rose-50 p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div><p className="text-xs font-semibold uppercase tracking-wide text-rose-600">Expenditure</p><p className="mt-2 text-3xl font-black text-rose-700">{fmtRs(revenue.expenditure)}</p><p className="mt-1 text-xs text-rose-500">Entries: {revExpSummary.totalRecords || 0}</p></div>
+                  <div className="rounded-lg bg-white/70 p-2"><Wallet className="h-5 w-5 text-rose-400" /></div>
+                </div>
+              </div>
+              <div className="rounded-xl border border-orange-100 bg-orange-50 p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div><p className="text-xs font-semibold uppercase tracking-wide text-orange-600">Liabilities</p><p className="mt-2 text-3xl font-black text-orange-700">{fmtRs(revenue.liab)}</p><p className="mt-1 text-xs text-orange-500">Paid: {fmtRs(revLibSummary.totalPaid)} · Pending: {fmtRs(revLibSummary.totalPending)}</p></div>
+                  <div className="rounded-lg bg-white/70 p-2"><Wallet className="h-5 w-5 text-orange-400" /></div>
+                </div>
+              </div>
+              <div className="rounded-xl border border-blue-100 bg-blue-50 p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div><p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Payment Received</p><p className="mt-2 text-3xl font-black text-blue-700">{fmtRs(revenue.payment)}</p><p className="mt-1 text-xs text-blue-500">Total paid amount received</p></div>
+                  <div className="rounded-lg bg-white/70 p-2"><IndianRupee className="h-5 w-5 text-blue-400" /></div>
+                </div>
+              </div>
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div><p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Gross Profit</p><p className={`mt-2 text-3xl font-black ${revenue.grossProfit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>{fmtRs(revenue.grossProfit)}</p><p className="mt-1 text-xs text-emerald-500">Payment − Expenditure − Liabilities</p></div>
+                  <div className="rounded-lg bg-white/70 p-2"><TrendingUp className="h-5 w-5 text-emerald-400" /></div>
+                </div>
+              </div>
+            </div>
+          )
+        )}
+
+        {/* ── MODALS ── */}
+
+        {/* Add Expense */}
         {showAddExp && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
             <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
@@ -375,7 +476,35 @@ export default function AdminExpensesPage() {
           </div>
         )}
 
-        {/* Add Liability Modal */}
+        {/* Edit Expense */}
+        {editingExp && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+              <div className="mb-5 flex items-center justify-between"><h2 className="text-base font-bold text-gray-800">Edit Expense</h2><button onClick={() => setEditingExp(null)} className="text-gray-400 hover:text-gray-600 text-xl font-bold">×</button></div>
+              <form onSubmit={handleEditExpense} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Head <span className="text-red-500">*</span></label>
+                  <select value={editingExp.head} onChange={e => setEditingExp(p => ({ ...p, head: e.target.value }))} className={`w-full ${inp} bg-white`}>
+                    <option value="">Select Head</option>
+                    {heads.map(h => <option key={h._id} value={h.name}>{h.name}</option>)}
+                  </select>
+                </div>
+                <div><label className="block text-xs font-semibold text-gray-600 mb-1">Sub Head</label><input type="text" value={editingExp.subHead||''} onChange={e => setEditingExp(p => ({ ...p, subHead: e.target.value }))} className={inp} /></div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="block text-xs font-semibold text-gray-600 mb-1">Amount <span className="text-red-500">*</span></label><input type="number" value={editingExp.amount} onChange={e => setEditingExp(p => ({ ...p, amount: e.target.value }))} className={inp} /></div>
+                  <div><label className="block text-xs font-semibold text-gray-600 mb-1">Date</label><input type="date" value={editingExp.expenseDate} onChange={e => setEditingExp(p => ({ ...p, expenseDate: e.target.value }))} className={inp} /></div>
+                </div>
+                <div><label className="block text-xs font-semibold text-gray-600 mb-1">Remark</label><textarea value={editingExp.remark||''} onChange={e => setEditingExp(p => ({ ...p, remark: e.target.value }))} rows={2} className={inp} /></div>
+                <div className="flex gap-2 pt-1">
+                  <button type="submit" disabled={savingExp} className="flex-1 py-2.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-bold text-sm disabled:opacity-60">{savingExp ? 'Saving...' : 'Save Changes'}</button>
+                  <button type="button" onClick={() => setEditingExp(null)} className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-50">Cancel</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Add Liability */}
         {showAddLib && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
             <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
@@ -397,40 +526,29 @@ export default function AdminExpensesPage() {
           </div>
         )}
 
-        {/* Update Paid Modal */}
+        {/* Edit Liability */}
         {editingLib && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
-              <h2 className="text-base font-bold text-gray-800 mb-4">Update Paid Amount</h2>
-              <p className="text-sm text-gray-600 mb-1">{editingLib.title}</p>
-              <p className="text-xs text-gray-400 mb-3">Total: {fmtRs(editingLib.totalAmount)} · Max payable: {fmtRs(editingLib.totalAmount)}</p>
-              <input
-                type="number" id="editPaidAmt"
-                defaultValue={editingLib.paidAmount}
-                min={0} max={editingLib.totalAmount}
-                className={inp + ' mb-1'}
-                placeholder="Paid amount"
-                onChange={e => {
-                  const val = Number(e.target.value);
-                  if (val > editingLib.totalAmount) e.target.value = editingLib.totalAmount;
-                  if (val < 0) e.target.value = 0;
-                }}
-              />
-              <p className="text-xs text-orange-500 mb-4">Cannot exceed total amount ({fmtRs(editingLib.totalAmount)})</p>
-              <div className="flex gap-2">
-                <button onClick={() => {
-                  const val = Number(document.getElementById('editPaidAmt').value);
-                  if (val > editingLib.totalAmount) { toast.error(`Paid amount cannot exceed total (${fmtRs(editingLib.totalAmount)})`); return; }
-                  if (val < 0) { toast.error('Paid amount cannot be negative'); return; }
-                  handleUpdatePaid(editingLib._id, val);
-                }} className="flex-1 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-bold text-sm">Update</button>
-                <button onClick={() => setEditingLib(null)} className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-50">Cancel</button>
-              </div>
+            <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+              <div className="mb-5 flex items-center justify-between"><h2 className="text-base font-bold text-gray-800">Edit Liability</h2><button onClick={() => setEditingLib(null)} className="text-gray-400 hover:text-gray-600 text-xl font-bold">×</button></div>
+              <form onSubmit={handleEditLiability} className="space-y-4">
+                <div><label className="block text-xs font-semibold text-gray-600 mb-1">Title <span className="text-red-500">*</span></label><input type="text" value={editingLib.title||''} onChange={e => setEditingLib(p => ({ ...p, title: e.target.value }))} className={inp} /></div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="block text-xs font-semibold text-gray-600 mb-1">Total Amount <span className="text-red-500">*</span></label><input type="number" value={editingLib.totalAmount||''} onChange={e => setEditingLib(p => ({ ...p, totalAmount: e.target.value }))} className={inp} /></div>
+                  <div><label className="block text-xs font-semibold text-gray-600 mb-1">Paid Amount</label><input type="number" value={editingLib.paidAmount||''} onChange={e => setEditingLib(p => ({ ...p, paidAmount: e.target.value }))} className={inp} /></div>
+                </div>
+                <div><label className="block text-xs font-semibold text-gray-600 mb-1">Pay By Date</label><input type="date" value={editingLib.payByDate||''} onChange={e => setEditingLib(p => ({ ...p, payByDate: e.target.value }))} className={inp} /></div>
+                <div><label className="block text-xs font-semibold text-gray-600 mb-1">Remark</label><textarea value={editingLib.remark||''} onChange={e => setEditingLib(p => ({ ...p, remark: e.target.value }))} rows={2} className={inp} /></div>
+                <div className="flex gap-2 pt-1">
+                  <button type="submit" disabled={savingLib} className="flex-1 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-bold text-sm disabled:opacity-60">{savingLib ? 'Saving...' : 'Save Changes'}</button>
+                  <button type="button" onClick={() => setEditingLib(null)} className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-50">Cancel</button>
+                </div>
+              </form>
             </div>
           </div>
         )}
 
-        {/* Manage Heads Modal */}
+        {/* Manage Heads */}
         {showHeadsModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
             <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
@@ -439,16 +557,16 @@ export default function AdminExpensesPage() {
                 <input type="text" placeholder="New head name..." value={newHeadName} onChange={e => setNewHeadName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddHead()} className={`flex-1 ${inp}`} />
                 <button onClick={handleAddHead} disabled={headSaving} className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50">{headSaving ? '...' : 'Add'}</button>
               </div>
-              <div className="space-y-2 max-h-72 overflow-y-auto">
-                {heads.length === 0 ? <p className="text-sm text-gray-400 text-center py-4">No heads added yet</p>
-                : heads.map(h => (
-                  <div key={h._id} className="flex items-center justify-between px-3 py-2.5 bg-gray-50 rounded-lg border border-gray-200">
-                    <span className="text-sm font-semibold text-gray-800">{h.name}</span>
-                    <button onClick={() => handleDeleteHead(h._id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4" /></button>
-                  </div>
-                ))}
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {heads.length === 0 ? <p className="text-sm text-gray-400 text-center py-4">No heads yet</p>
+                  : heads.map(h => (
+                    <div key={h._id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 border border-gray-100">
+                      <span className="text-sm font-semibold text-gray-700">{h.name}</span>
+                      <button onClick={() => handleDeleteHead(h._id)} className="p-1 text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                    </div>
+                  ))}
               </div>
-              <button onClick={() => setShowHeadsModal(false)} className="mt-5 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">Done</button>
+              <button onClick={() => setShowHeadsModal(false)} className="mt-5 w-full py-2.5 border border-gray-300 text-gray-700 rounded-lg font-semibold text-sm hover:bg-gray-50">Close</button>
             </div>
           </div>
         )}

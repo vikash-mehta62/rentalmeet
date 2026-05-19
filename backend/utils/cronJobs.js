@@ -10,8 +10,14 @@ const User = require('../models/User');
  */
 const processRefund = async (booking) => {
   if (!booking.paymentDetails?.razorpay_payment_id) {
+    console.log(`[CRON-REFUND] ⚠️  No payment ID for booking ${booking.bookingNumber}`);
     return { success: false, reason: 'No Razorpay payment ID found' };
   }
+
+  console.log(`[CRON-REFUND] 🔄 Processing refund for ${booking.bookingNumber}`);
+  console.log(`[CRON-REFUND] Payment ID : ${booking.paymentDetails.razorpay_payment_id}`);
+  console.log(`[CRON-REFUND] Amount     : ₹${booking.amount} (${Math.round(booking.amount * 100)} paise)`);
+  console.log(`[CRON-REFUND] RZP Key    : ${process.env.RAZORPAY_KEY_ID}`);
 
   try {
     const razorpay = new Razorpay({
@@ -19,12 +25,11 @@ const processRefund = async (booking) => {
       key_secret: process.env.RAZORPAY_KEY_SECRET
     });
 
-    // Full refund to original payment source
     const refund = await razorpay.payments.refund(
       booking.paymentDetails.razorpay_payment_id,
       {
-        amount: Math.round(booking.amount * 100), // convert to paise
-        speed: 'normal', // normal = 5-7 days, optimum = instant if supported
+        amount: Math.round(booking.amount * 100),
+        speed: 'normal',
         notes: {
           bookingNumber: booking.bookingNumber,
           reason: 'Auto-cancelled: owner did not confirm within the required time'
@@ -32,10 +37,13 @@ const processRefund = async (booking) => {
       }
     );
 
+    console.log(`[CRON-REFUND] ✅ Success — refund ID: ${refund.id} | speed: ${refund.speed}`);
     return { success: true, refundId: refund.id, speed: refund.speed };
   } catch (err) {
-    console.error(`[CRON] Razorpay refund failed for booking ${booking.bookingNumber}:`, err.message);
-    return { success: false, reason: err.message };
+    console.error(`[CRON-REFUND] ❌ Failed for ${booking.bookingNumber}:`);
+    console.error(`[CRON-REFUND]    Code   : ${err.error?.code || err.statusCode || 'N/A'}`);
+    console.error(`[CRON-REFUND]    Message: ${err.error?.description || err.message}`);
+    return { success: false, reason: err.error?.description || err.message };
   }
 };
 
@@ -67,6 +75,8 @@ const startAutoCancelCron = () => {
 
         booking.status = 'cancelled';
         booking.cancellationReason = 'Auto-cancelled: owner did not confirm within the required time';
+        booking.cancelledByRole = 'system';
+        booking.cancellationType = 'auto';
 
         booking.refundDetails = {
           refundAmount: booking.paymentStatus === 'paid' ? booking.amount : 0,

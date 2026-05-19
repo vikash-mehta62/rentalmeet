@@ -7,9 +7,10 @@ import PermissionGuard from '@/components/admin/PermissionGuard';
 import { Percent, Save, Settings as SettingsIcon, Calculator, Upload, X, Building2, Briefcase, Plus, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { serviceCategories } from '@/data/serviceData';
+import InvoiceDownload from '@/components/booking/InvoiceDownload';
 
 const DEFAULT_VENUE = { venueCGST: 9, venueSGST: 9, venueHSN: '', platformFeePercentage: 5, platformCGST: 9, platformSGST: 9 };
-const DEFAULT_SVC   = { serviceCGST: 9, serviceSGST: 9, serviceHSN: '', servicePlatformFee: 5, serviceCategoryRates: [] };
+const DEFAULT_SVC   = { serviceCGST: 9, serviceSGST: 9, serviceHSN: '', servicePlatformFee: 5, servicePlatformCGST: 9, servicePlatformSGST: 9, serviceCategoryRates: [] };
 
 export default function PlatformSettings() {
   const { token } = useAuthStore();
@@ -47,6 +48,8 @@ export default function PlatformSettings() {
           serviceSGST: data.settings.serviceSGST ?? 9,
           serviceHSN: data.settings.serviceHSN ?? '',
           servicePlatformFee: data.settings.servicePlatformFee ?? 5,
+          servicePlatformCGST: data.settings.servicePlatformCGST ?? data.settings.platformCGST ?? 9,
+          servicePlatformSGST: data.settings.servicePlatformSGST ?? data.settings.platformSGST ?? 9,
           serviceCategoryRates: data.settings.serviceCategoryRates ?? [],
         });
       }
@@ -65,6 +68,8 @@ export default function PlatformSettings() {
       formData.append('serviceSGST', svc.serviceSGST);
       formData.append('serviceHSN', svc.serviceHSN);
       formData.append('servicePlatformFee', svc.servicePlatformFee);
+      formData.append('servicePlatformCGST', svc.servicePlatformCGST);
+      formData.append('servicePlatformSGST', svc.servicePlatformSGST);
       formData.append('serviceCategoryRates', JSON.stringify(svc.serviceCategoryRates));
       if (gstSignatureFile) formData.append('gstInvoiceSignature', gstSignatureFile);
       if (platformSignatureFile) formData.append('platformInvoiceSignature', platformSignatureFile);
@@ -114,8 +119,8 @@ export default function PlatformSettings() {
     const cgst = amt * (rate?.cgst ?? svc.serviceCGST) / 100;
     const sgst = amt * (rate?.sgst ?? svc.serviceSGST) / 100;
     const pFee = amt * (rate?.platformFee ?? svc.servicePlatformFee) / 100;
-    const pCgstPct = rate?.platformCGST ?? venue.platformCGST;
-    const pSgstPct = rate?.platformSGST ?? venue.platformSGST;
+    const pCgstPct = rate?.platformCGST ?? svc.servicePlatformCGST;
+    const pSgstPct = rate?.platformSGST ?? svc.servicePlatformSGST;
     const pCgst = pFee * (pCgstPct || 0) / 100;
     const pSgst = pFee * (pSgstPct || 0) / 100;
     return { amt, cgst, sgst, svcTotal: amt + cgst + sgst, pFee, pCgst, pSgst, pTotal: pFee + pCgst + pSgst, total: amt + cgst + sgst + pFee + pCgst + pSgst };
@@ -223,6 +228,44 @@ export default function PlatformSettings() {
                   <span className="font-bold text-green-900">Customer Pays</span>
                   <span className="text-2xl font-black text-green-900">₹{ve.total.toLocaleString()}</span>
                 </div>
+
+                {/* Sample Invoice Download */}
+                <div className="border-t border-gray-100 pt-3">
+                  <p className="text-xs font-semibold text-gray-500 mb-2">Download Sample Invoice</p>
+                  <InvoiceDownload booking={{
+                    bookingNumber: 'SAMPLE-001',
+                    status: 'confirmed',
+                    paymentStatus: 'paid',
+                    bookingDate: new Date().toISOString(),
+                    startTime: '09:00 AM',
+                    endTime: '05:00 PM',
+                    bookingType: 'fullday',
+                    amount: ve.total,
+                    createdAt: new Date().toISOString(),
+                    venue: { businessName: 'Sample Venue', location: { city: 'Bhopal', area: 'MP Nagar' }, documents: {} },
+                    customer: { name: 'Sample Customer', email: 'customer@example.com' },
+                    customerDetails: { phone: '9999999999', eventType: 'Corporate Meeting', guestCount: 50 },
+                    paymentDetails: { razorpay_payment_id: 'pay_sample123', razorpay_order_id: 'order_sample123', paidAt: new Date().toISOString() },
+                    priceBreakdown: {
+                      basePrice: ve.amt,
+                      subtotal: ve.amt,
+                      venueCGST: ve.cgst,
+                      venueSGST: ve.sgst,
+                      venueCGSTRate: venue.venueCGST,
+                      venueSGSTRate: venue.venueSGST,
+                      gst: ve.cgst + ve.sgst,
+                      platformFee: ve.pFee,
+                      platformFeeRate: venue.platformFeePercentage,
+                      platformFeeCGST: ve.pCgst,
+                      platformFeeSGST: ve.pSgst,
+                      platformFeeGST: ve.pCgst + ve.pSgst,
+                      platformFeeTotal: ve.pTotal,
+                      discount: 0,
+                      total: ve.total
+                    },
+                    selectedAmenities: { basic: [], beverages: [], refreshmentFood: [], lunchThalis: [], additional: [] }
+                  }} userRole="admin" />
+                </div>
               </div>
             </div>
           </div>
@@ -249,10 +292,10 @@ export default function PlatformSettings() {
                 <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Platform Fee (on service amount)</p>
                 <div className="grid grid-cols-3 gap-3">
                   <div><label className="block text-xs font-semibold text-gray-600 mb-1">Platform Fee %</label><input type="number" min="0" max="100" step="0.1" value={svc.servicePlatformFee} onChange={e => setSvc(p => ({ ...p, servicePlatformFee: parseFloat(e.target.value) || 0 }))} className={inp} /></div>
-                  <div><label className="block text-xs font-semibold text-gray-600 mb-1">CGST on Fee %</label><input type="number" min="0" max="100" step="0.1" value={venue.platformCGST} onChange={e => setVenue(p => ({ ...p, platformCGST: parseFloat(e.target.value) || 0 }))} className={inp} /></div>
-                  <div><label className="block text-xs font-semibold text-gray-600 mb-1">SGST on Fee %</label><input type="number" min="0" max="100" step="0.1" value={venue.platformSGST} onChange={e => setVenue(p => ({ ...p, platformSGST: parseFloat(e.target.value) || 0 }))} className={inp} /></div>
+                  <div><label className="block text-xs font-semibold text-gray-600 mb-1">CGST on Fee %</label><input type="number" min="0" max="100" step="0.1" value={svc.servicePlatformCGST} onChange={e => setSvc(p => ({ ...p, servicePlatformCGST: parseFloat(e.target.value) || 0 }))} className={inp} /></div>
+                  <div><label className="block text-xs font-semibold text-gray-600 mb-1">SGST on Fee %</label><input type="number" min="0" max="100" step="0.1" value={svc.servicePlatformSGST} onChange={e => setSvc(p => ({ ...p, servicePlatformSGST: parseFloat(e.target.value) || 0 }))} className={inp} /></div>
                 </div>
-                <p className="text-[10px] text-gray-400 mt-2">CGST/SGST on platform fee is shared with Venues tab</p>
+                <p className="text-[10px] text-gray-400 mt-2">These rates are independent from venue platform fee rates</p>
               </div>
 
               {/* Per-category overrides */}
@@ -324,7 +367,7 @@ export default function PlatformSettings() {
                 </div>
                 <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
                   <p className="text-xs font-bold text-purple-800 mb-2">📄 Platform Invoice</p>
-                  {[[`Platform Fee (${svc.servicePlatformFee}%)`, se.pFee], [`CGST (${venue.platformCGST}%)`, se.pCgst], [`SGST (${venue.platformSGST}%)`, se.pSgst]].map(([l, v]) => (
+                  {[[`Platform Fee (${svc.servicePlatformFee}%)`, se.pFee], [`CGST (${svc.servicePlatformCGST}%)`, se.pCgst], [`SGST (${svc.servicePlatformSGST}%)`, se.pSgst]].map(([l, v]) => (
                     <div key={l} className="flex justify-between text-sm text-gray-700"><span>{l}</span><span>₹{Math.round(v).toLocaleString()}</span></div>
                   ))}
                   <div className="flex justify-between font-bold text-purple-900 border-t border-purple-200 pt-2 mt-2"><span>Platform Total</span><span>₹{Math.round(se.pTotal).toLocaleString()}</span></div>
