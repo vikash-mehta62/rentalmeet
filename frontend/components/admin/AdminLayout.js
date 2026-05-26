@@ -55,6 +55,7 @@ export default function AdminLayout({ children, title, subtitle }) {
     { name: 'Employees', href: '/admin/employees', icon: Users, permission: 'employees', section: 'System' },
     { name: 'SubAdmins', href: '/admin/subadmins', icon: Shield, permission: 'subadmins', section: 'System' },
     { name: 'FAQ Management', href: '/admin/faqs', icon: HelpCircle, permission: 'faqs', section: 'System' },
+    { name: 'Blog', href: '/admin/blogs', icon: FileText, permission: 'faqs', section: 'System' },
     { name: 'Chatbot Settings', href: '/admin/chatbot', icon: MessageSquare, permission: 'chatbot', section: 'System' },
     { name: 'Finance', href: '/admin/expenses', icon: Wallet, permission: 'expenses', section: 'System' },
     { name: 'Reports', href: '/admin/reports', icon: BarChart3, permission: 'reports', section: 'System' },
