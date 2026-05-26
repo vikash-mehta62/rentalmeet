@@ -188,20 +188,26 @@ export default function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-12 pt-8 border-t border-gray-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-gray-400 dark:text-slate-500">
-            &copy; {year} RentalMeet. All rights reserved.
-          </p>
-          
-          <div className="flex gap-6">
-            <Link href="/privacy" className="text-sm text-gray-400 dark:text-slate-500 hover:text-primary-500 transition-colors">
-              Privacy Policy
-            </Link>
-            <Link href="/terms" className="text-sm text-gray-400 dark:text-slate-500 hover:text-primary-500 transition-colors">
-              Terms of Service
-            </Link>
-          </div>
-        </div>
+      {/* Bottom bar */}
+<div className="mt-12 pt-8 border-t border-gray-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4">
+  <p className="text-sm text-gray-400 dark:text-slate-500">
+    &copy; {year} RentalMeet. All rights reserved.
+  </p>
+
+  {/* Add this line */}
+  <p className="text-sm text-gray-400 dark:text-slate-500 text-center">
+    RentalMeet owned and managed by Yuwaka EduTech Private Limited
+  </p>
+  
+  <div className="flex gap-6">
+    <Link href="/privacy" className="text-sm text-gray-400 dark:text-slate-500 hover:text-primary-500 transition-colors">
+      Privacy Policy
+    </Link>
+    <Link href="/terms" className="text-sm text-gray-400 dark:text-slate-500 hover:text-primary-500 transition-colors">
+      Terms of Service
+    </Link>
+  </div>
+</div>
 
       </div>
     </footer>
