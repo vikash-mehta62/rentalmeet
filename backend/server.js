@@ -19,7 +19,6 @@ startAutoDeleteCron();
 
 // Security middleware
 app.use(helmet({
-  // Relax CSP so Swagger UI assets load correctly
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
@@ -28,19 +27,90 @@ app.use(helmet({
       imgSrc: ["'self'", 'data:', 'https:'],
     },
   },
+  // Prevent clickjacking
+  frameguard: { action: 'deny' },
+  // Force HTTPS in production
+  hsts: process.env.NODE_ENV === 'production' ? { maxAge: 31536000, includeSubDomains: true } : false,
 }));
-app.use(cors());
 
-// Increase payload limit for large requests (images, etc.)
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// CORS — only allow known origins
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002',
+  process.env.FRONTEND_URL,
+].filter(Boolean);
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS: origin ${origin} not allowed`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
+// Request timing logger — logs method, path, status, and response time
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const ms = Date.now() - start;
+    const color = ms < 200 ? '\x1b[32m' : ms < 1000 ? '\x1b[33m' : '\x1b[31m';
+    console.log(`${color}[${new Date().toISOString()}] ${req.method} ${req.originalUrl} → ${res.statusCode} (${ms}ms)\x1b[0m`);
+  });
+  next();
 });
-// app.use('/api/', limiter);
+
+// Body parsers — normal routes get 1mb, upload routes get 50mb
+app.use((req, res, next) => {
+  const isUpload = req.path.startsWith('/api/upload') || req.path.startsWith('/api/vendor/upload');
+  express.json({ limit: isUpload ? '50mb' : '1mb' })(req, res, next);
+});
+app.use((req, res, next) => {
+  const isUpload = req.path.startsWith('/api/upload') || req.path.startsWith('/api/vendor/upload');
+  express.urlencoded({ extended: true, limit: isUpload ? '50mb' : '1mb' })(req, res, next);
+});
+
+// NoSQL injection protection — strip $ operators from req.body, query, params
+app.use((req, res, next) => {
+  const sanitize = (obj) => {
+    if (obj && typeof obj === 'object') {
+      Object.keys(obj).forEach(key => {
+        if (key.startsWith('$')) {
+          delete obj[key];
+        } else {
+          sanitize(obj[key]);
+        }
+      });
+    }
+    return obj;
+  };
+  if (req.body) sanitize(req.body);
+  if (req.query) sanitize(req.query);
+  if (req.params) sanitize(req.params);
+  next();
+});
+
+// Rate limiting — apply strictly to auth routes to prevent brute force
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 400, // 4x increase from 100
+  message: { success: false, message: 'Too many requests, please try again later.' }
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 80, // 4x increase from 20
+  message: { success: false, message: 'Too many authentication attempts, please try again after 15 minutes.' }
+});
+
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+app.use('/api/auth/forgotpassword', authLimiter);
+app.use('/api/', limiter);
 
 //Swagger API Documentation only for developement not for Production
 if (process.env.NODE_ENV !== 'production') {
@@ -135,6 +205,7 @@ app.get('/api/vendor-services', async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const [services, total] = await Promise.all([
       VendorService.find(filter)
+        .select('-bankDetails -ownerDocs -businessDocs')
         .populate('vendor', 'name companyName vendorCategory city state')
         .sort('-createdAt').skip(skip).limit(parseInt(limit)),
       VendorService.countDocuments(filter)
@@ -147,7 +218,8 @@ app.get('/api/vendor-services/:id', async (req, res) => {
   try {
     const VendorService = require('./models/VendorService');
     const service = await VendorService.findOne({ _id: req.params.id, status: 'approved' })
-      .populate('vendor', 'name companyName vendorCategory city state phone email');
+      .select('-bankDetails -ownerDocs -businessDocs')
+      .populate('vendor', 'name companyName vendorCategory city state');
     if (!service) return res.status(404).json({ success: false, message: 'Not found' });
     res.json({ success: true, service });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
@@ -333,6 +405,28 @@ app.patch('/api/service-bookings/:id/downloaded', async (req, res) => {
 
     if (!booking) return res.status(404).json({ success: false, message: 'Not found' });
 
+    // Light ownership check — verify caller knows the booking email (guest) or is authenticated owner
+    const callerEmail = req.body.callerEmail || '';
+    const jwt = require('jsonwebtoken');
+    const authHeader = req.headers.authorization;
+    let isAuthorized = false;
+
+    if (authHeader) {
+      try {
+        const decoded = jwt.verify(authHeader.split(' ')[1], process.env.JWT_SECRET);
+        const User = require('./models/User');
+        const user = await User.findById(decoded.id).select('email role');
+        if (user && (user.role === 'admin' || user.email === booking.customerInfo?.email)) {
+          isAuthorized = true;
+        }
+      } catch {}
+    }
+    // Guest: must provide matching email
+    if (!isAuthorized && callerEmail && callerEmail.toLowerCase() === booking.customerInfo?.email?.toLowerCase()) {
+      isAuthorized = true;
+    }
+    if (!isAuthorized) return res.status(403).json({ success: false, message: 'Not authorized' });
+
     // Update downloadedAt on booking
     booking.downloadedAt = new Date();
     await booking.save();
@@ -388,6 +482,9 @@ app.get('/api/contact-settings', getPublicContactSettings);
 // FAQ routes
 app.use('/api/faqs', require('./routes/faqs'));
 
+// Blog routes
+app.use('/api/blogs', require('./routes/blog'));
+
 // Chatbot routes
 app.use('/api/chatbot', require('./routes/chatbot'));
 
@@ -396,12 +493,17 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date() });
 });
 
-// Error handler
+// Global error handler — never leak stack traces in production
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  const isDev = process.env.NODE_ENV !== 'production';
+  if (isDev) console.error(err.stack);
+  else console.error(`[ERROR] ${req.method} ${req.originalUrl} → ${err.message}`);
+
+  // Don't expose internal error details in production
   res.status(err.status || 500).json({
     success: false,
-    message: err.message || 'Internal Server Error'
+    message: isDev ? err.message : 'Something went wrong. Please try again.',
+    ...(isDev && { stack: err.stack })
   });
 });
 

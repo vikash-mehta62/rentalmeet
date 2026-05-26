@@ -1,19 +1,43 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { serviceCategories, categoryIconMap } from '@/data/serviceData';
 import {
   Filter, X, Search, MapPin,
-  Package, User,
-  BadgeCheck,
-  ChevronLeft, ChevronRight
+  Package, User, BadgeCheck, AlertCircle
 } from 'lucide-react';
 
 const BUDGET_MIN = 0;
 const BUDGET_MAX = 1000000;
+const LIMIT = 30;
+const DEBOUNCE_MS = 400;
+
+// ── Skeleton Card ─────────────────────────────────────────────────────────────
+function ServiceCardSkeleton() {
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden flex flex-col sm:flex-row animate-pulse">
+      <div className="w-full sm:w-80 h-52 sm:h-56 bg-slate-200 flex-shrink-0" />
+      <div className="flex-1 p-5 space-y-3">
+        <div className="h-5 bg-slate-200 rounded w-3/4" />
+        <div className="h-4 bg-slate-200 rounded w-1/2" />
+        <div className="h-4 bg-slate-200 rounded w-2/3" />
+        <div className="flex gap-2 pt-1">
+          {[...Array(3)].map((_, i) => <div key={i} className="h-5 bg-slate-200 rounded-full w-16" />)}
+        </div>
+        <div className="flex justify-between items-end pt-6">
+          <div className="h-8 bg-slate-200 rounded w-28" />
+          <div className="flex gap-2">
+            <div className="h-9 bg-slate-200 rounded w-24" />
+            <div className="h-9 bg-slate-200 rounded w-20" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // â”€â”€ Vendor Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function VendorCard({ svc }) {
@@ -24,15 +48,16 @@ function VendorCard({ svc }) {
   const hasSideImages = serviceImages.length > 1;
 
   return (
-    <div className="group bg-white rounded-lg border border-slate-200 overflow-hidden flex flex-col sm:flex-row hover:shadow-lg transition-all duration-300">
-      {/* Image Section with Gallery */}
+    <div className="group bg-white rounded-xl border border-slate-200 overflow-hidden flex flex-col sm:flex-row hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300">
       <div className="w-full sm:w-80 flex-shrink-0">
         <div className="flex gap-1 h-52 sm:h-56">
-          <div className="flex-1 relative overflow-hidden bg-slate-100">
+          <div className="flex-1 relative overflow-hidden bg-slate-200">
             {serviceImages[0] ? (
               <img
                 src={serviceImages[0]}
                 alt={svc.title}
+                loading="lazy"
+                decoding="async"
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               />
             ) : (
@@ -50,12 +75,9 @@ function VendorCard({ svc }) {
           {hasSideImages && (
             <div className="w-20 flex flex-col gap-1">
               {serviceImages.slice(1, 3).map((img, idx) => (
-                <div key={idx} className="flex-1 relative overflow-hidden bg-slate-100 rounded">
-                  <img
-                    src={img}
-                    alt={`${svc.title} ${idx + 2}`}
-                    className="w-full h-full object-cover"
-                  />
+                <div key={idx} className="flex-1 relative overflow-hidden bg-slate-200 rounded">
+                  <img src={img} alt={`${svc.title} ${idx + 2}`} loading="lazy" decoding="async"
+                    className="w-full h-full object-cover" />
                 </div>
               ))}
               {serviceImages.length > 3 && (
@@ -148,36 +170,37 @@ function VendorCard({ svc }) {
     </div>
   );
 }
-function FilterPanel({ search, setSearch, citySearch, setCitySearch, budgetRange, setBudgetRange, formatBudget, onReset, selectedCategory, setSelectedCategory }) {
+function FilterPanel({ searchInput, setSearchInput, citySearch, setCitySearch, budgetRange, setBudgetRange, formatBudget, onReset, selectedCategory, setSelectedCategory }) {
   return (
     <div className="space-y-5">
       <div>
-        <label className="block text-sm font-semibold text-gray-700 mb-1">Search</label>
+        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Search</label>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input placeholder="Search vendors..." value={search} onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+          <input placeholder="Search vendors..." value={searchInput} onChange={e => setSearchInput(e.target.value)}
+            className="w-full pl-9 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+          {searchInput && <button onClick={() => setSearchInput('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X className="w-3.5 h-3.5" /></button>}
         </div>
       </div>
       <div>
-        <label className="block text-sm font-semibold text-gray-700 mb-1">City</label>
+        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">City</label>
         <div className="relative">
           <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input placeholder="e.g. Bhopal, Mumbai..." value={citySearch} onChange={e => setCitySearch(e.target.value)}
-            className="w-full pl-9 pr-8 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
-          {citySearch && <button onClick={() => setCitySearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>}
+            className="w-full pl-9 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+          {citySearch && <button onClick={() => setCitySearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>}
         </div>
       </div>
       <div>
-        <label className="block text-sm font-semibold text-gray-700 mb-1">Budget</label>
-        <p className="text-xs text-gray-500 mb-2">{formatBudget(budgetRange[0])} - {formatBudget(budgetRange[1])}</p>
+        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+          Budget {budgetRange[1] < BUDGET_MAX ? `· ${formatBudget(budgetRange[1])}` : ''}
+        </label>
         <input type="range" min={0} max={1000000} step={10000} value={budgetRange[1]}
-          onChange={e => setBudgetRange([0, parseInt(e.target.value)])}
-          className="w-full accent-primary-500" />
+          onChange={e => setBudgetRange([0, parseInt(e.target.value)])} className="w-full accent-primary-500" />
         <div className="flex justify-between text-[10px] text-gray-400 mt-1"><span>₹0</span><span>₹10L+</span></div>
       </div>
       <div>
-        <label className="block text-sm font-semibold text-gray-700 mb-2">Service Category</label>
+        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Category</label>
         <div className="space-y-1">
           <button onClick={() => setSelectedCategory('')}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors text-left ${!selectedCategory ? 'bg-primary-50 text-primary-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}>
@@ -198,7 +221,7 @@ function FilterPanel({ search, setSearch, citySearch, setCitySearch, budgetRange
           })}
         </div>
       </div>
-      <button onClick={onReset} className="w-full flex items-center justify-center gap-2 px-4 py-2 border-2 border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:border-red-300 hover:text-red-500 transition-all">
+      <button onClick={onReset} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:border-red-300 hover:text-red-500 transition-all">
         <X className="w-4 h-4" />Reset Filters
       </button>
     </div>
@@ -207,45 +230,93 @@ function FilterPanel({ search, setSearch, citySearch, setCitySearch, budgetRange
 
 // â”€â”€ Main Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function OtherServicesPage() {
+  const searchParams = useSearchParams();
   const [services, setServices] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const LIMIT = 12;
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState(null);
+  const [hasMore, setHasMore] = useState(true);
+  const pageRef = useRef(1);
 
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [citySearch, setCitySearch] = useState('');
   const [budgetRange, setBudgetRange] = useState([BUDGET_MIN, BUDGET_MAX]);
   const [filterOpen, setFilterOpen] = useState(false);
 
-  // Debounced fetch
-  const fetchServices = useCallback(async () => {
-    setLoading(true);
+  // Auto-apply ?location= param
+  useEffect(() => {
+    const loc = searchParams.get('location');
+    if (loc) setCitySearch(loc.charAt(0).toUpperCase() + loc.slice(1));
+  }, [searchParams]);
+
+  const sentinelRef = useRef(null);
+  const abortRef = useRef(null);
+  const isFetchingRef = useRef(false);
+
+  // Debounce search
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput), DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  const fetchServices = useCallback(async (pageNum, reset) => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+    if (abortRef.current) abortRef.current.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    if (reset) { setLoading(true); setError(null); } else setLoadingMore(true);
     try {
-      const params = new URLSearchParams({ limit: LIMIT, page });
+      const params = new URLSearchParams({ limit: LIMIT, page: pageNum });
       if (selectedCategory) params.set('category', selectedCategory);
       if (search) params.set('search', search);
       if (citySearch) params.set('city', citySearch);
       if (budgetRange[1] < BUDGET_MAX) params.set('maxPrice', budgetRange[1]);
-
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/vendor-services?${params}`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/vendor-services?${params}`, { signal: controller.signal });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      if (data.success) { setServices(data.services); setTotal(data.total); }
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  }, [selectedCategory, search, citySearch, budgetRange, page]);
+      if (data.success) {
+        setServices(prev => reset ? data.services : [...prev, ...data.services]);
+        setTotal(data.total || 0);
+        const totalPgs = data.totalPages || Math.ceil((data.total || 0) / LIMIT);
+        setHasMore(pageNum < totalPgs);
+        pageRef.current = pageNum;
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') setError('Failed to load services. Please try again.');
+    } finally {
+      isFetchingRef.current = false;
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, [selectedCategory, search, citySearch, budgetRange]);
 
+  // Filter change → reset
   useEffect(() => {
-    const t = setTimeout(fetchServices, 300);
-    return () => clearTimeout(t);
+    pageRef.current = 1;
+    setServices([]);
+    setHasMore(true);
+    fetchServices(1, true);
   }, [fetchServices]);
 
-  // Reset page on filter change
-  useEffect(() => { setPage(1); }, [selectedCategory, search, citySearch, budgetRange]);
+  // IntersectionObserver — 300px lookahead
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && hasMore && !loadingMore && !loading) {
+        fetchServices(pageRef.current + 1, false);
+      }
+    }, { rootMargin: '300px', threshold: 0 });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, loading, fetchServices]);
 
-  const hasActiveFilters = selectedCategory || search || citySearch || budgetRange[1] < BUDGET_MAX;
-  const handleReset = () => { setSelectedCategory(''); setSearch(''); setCitySearch(''); setBudgetRange([BUDGET_MIN, BUDGET_MAX]); };
+  const hasActiveFilters = !!(selectedCategory || search || citySearch || budgetRange[1] < BUDGET_MAX);
+  const handleReset = () => { setSearchInput(''); setSearch(''); setCitySearch(''); setSelectedCategory(''); setBudgetRange([BUDGET_MIN, BUDGET_MAX]); };
 
   const formatBudget = (val) => {
     if (val >= 1000000) return '₹10L+';
@@ -253,8 +324,6 @@ export default function OtherServicesPage() {
     if (val >= 1000) return `₹${(val / 1000).toFixed(0)}K`;
     return `₹${val}`;
   };
-
-  const totalPages = Math.ceil(total / LIMIT);
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] dark:bg-slate-950">
@@ -311,7 +380,7 @@ export default function OtherServicesPage() {
                   <Filter className="w-4 h-4" />Filters
                   {hasActiveFilters && <span className="ml-auto text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">Active</span>}
                 </h3>
-                <FilterPanel search={search} setSearch={setSearch} citySearch={citySearch} setCitySearch={setCitySearch}
+                <FilterPanel searchInput={searchInput} setSearchInput={setSearchInput} citySearch={citySearch} setCitySearch={setCitySearch}
                   budgetRange={budgetRange} setBudgetRange={setBudgetRange} formatBudget={formatBudget}
                   onReset={handleReset} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} />
               </div>
@@ -320,9 +389,11 @@ export default function OtherServicesPage() {
             {/* List */}
             <div className="flex-1">
               <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
-                <p className="text-sm text-gray-500">
-                  Showing <span className="font-bold text-gray-900">{services.length}</span> of {total} vendors
-                </p>
+                {!loading && (
+                  <p className="text-sm text-gray-500">
+                    <span className="font-bold text-gray-900">{services.length}</span> of {total} vendors
+                  </p>
+                )}
                 <button onClick={() => setFilterOpen(!filterOpen)}
                   className="lg:hidden flex items-center gap-2 px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:border-primary-500 transition-all">
                   <Filter className="w-4 h-4" />Filters {hasActiveFilters && <span className="w-2 h-2 bg-primary-500 rounded-full inline-block" />}
@@ -332,19 +403,30 @@ export default function OtherServicesPage() {
               {/* Mobile filter */}
               {filterOpen && (
                 <div className="lg:hidden bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-5">
-                  <FilterPanel search={search} setSearch={setSearch} citySearch={citySearch} setCitySearch={setCitySearch}
+                  <FilterPanel searchInput={searchInput} setSearchInput={setSearchInput} citySearch={citySearch} setCitySearch={setCitySearch}
                     budgetRange={budgetRange} setBudgetRange={setBudgetRange} formatBudget={formatBudget}
                     onReset={handleReset} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} />
                 </div>
               )}
 
-              {loading ? (
-                <div className="flex flex-col gap-4">
-                  {[...Array(4)].map((_, i) => (
-                    <div key={i} className="bg-gray-100 rounded-2xl h-52 animate-pulse" />
-                  ))}
+              {/* Error */}
+              {error && (
+                <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 mb-4">
+                  <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                  <span className="text-sm">{error}</span>
+                  <button onClick={() => fetchServices(1, true)} className="ml-auto text-xs font-semibold underline">Retry</button>
                 </div>
-              ) : services.length === 0 ? (
+              )}
+
+              {/* Initial skeleton */}
+              {loading && (
+                <div className="flex flex-col gap-4">
+                  {[...Array(4)].map((_, i) => <ServiceCardSkeleton key={i} />)}
+                </div>
+              )}
+
+              {/* Empty */}
+              {!loading && !error && services.length === 0 && (
                 <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
                   <Search className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                   <h3 className="font-bold text-gray-700 mb-2">No vendors found</h3>
@@ -355,39 +437,30 @@ export default function OtherServicesPage() {
                     </button>
                   )}
                 </div>
-              ) : (
-                <>
-                  <div className="flex flex-col gap-4">
-                    {services.map(svc => (
-                      <VendorCard key={svc._id} svc={svc} />
-                    ))}
-                  </div>
+              )}
 
-                  {/* Pagination */}
-                  {totalPages > 1 && (
-                    <div className="flex items-center justify-center gap-2 mt-8">
-                      <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                        className="p-2 border border-gray-300 rounded-xl hover:bg-gray-50 disabled:opacity-40 transition-colors">
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-                      {[...Array(totalPages)].map((_, i) => {
-                        const p = i + 1;
-                        if (p === 1 || p === totalPages || (p >= page - 1 && p <= page + 1)) return (
-                          <button key={p} onClick={() => setPage(p)}
-                            className={`w-9 h-9 rounded-xl text-sm font-semibold transition-colors ${page === p ? 'bg-primary-500 text-white' : 'border border-gray-300 hover:bg-gray-50'}`}>
-                            {p}
-                          </button>
-                        );
-                        if (p === page - 2 || p === page + 2) return <span key={p} className="text-gray-400">...</span>;
-                        return null;
-                      })}
-                      <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                        className="p-2 border border-gray-300 rounded-xl hover:bg-gray-50 disabled:opacity-40 transition-colors">
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )}
-                </>
+              {/* Cards */}
+              {!loading && (
+                <div className="flex flex-col gap-4">
+                  {services.map(svc => <VendorCard key={svc._id} svc={svc} />)}
+                </div>
+              )}
+
+              {/* Sentinel — 300px lookahead */}
+              <div ref={sentinelRef} className="h-1 mt-4" />
+
+              {/* Loading more skeletons */}
+              {loadingMore && (
+                <div className="flex flex-col gap-4 mt-4">
+                  {[...Array(3)].map((_, i) => <ServiceCardSkeleton key={i} />)}
+                </div>
+              )}
+
+              {/* End */}
+              {!loading && !loadingMore && !hasMore && services.length > 0 && (
+                <div className="text-center py-8 mt-4 border-t border-gray-100">
+                  <p className="text-sm text-gray-400">You've seen all <span className="font-semibold">{total}</span> services</p>
+                </div>
               )}
             </div>
           </div>

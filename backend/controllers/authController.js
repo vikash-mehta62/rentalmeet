@@ -46,6 +46,23 @@ exports.register = async (req, res) => {
   try {
     const { name, email, phone, password, role, referralCode, city, state, accountType, companyName, gstNumber, panNumber, vendorCategory } = req.body;
     
+    // Validate required fields
+    if (!name?.trim() || !email?.trim() || !phone?.trim() || !password) {
+      return res.status(400).json({ success: false, message: 'Name, email, phone and password are required' });
+    }
+    // Email format
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ success: false, message: 'Invalid email format' });
+    }
+    // Password min length
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    }
+    // Phone validation (10 digits)
+    if (!/^\d{10}$/.test(phone)) {
+      return res.status(400).json({ success: false, message: 'Phone must be 10 digits' });
+    }
+
     // Check if user exists
     const userExists = await User.findOne({ $or: [{ email }, { phone }] });
     if (userExists) {
@@ -169,6 +186,22 @@ exports.login = async (req, res) => {
         message: 'Invalid credentials'
       });
     }
+
+    // Check if account is deleted
+    if (user.isDeleted) {
+      return res.status(401).json({
+        success: false,
+        message: 'This account has been deleted'
+      });
+    }
+
+    // Check if account is active
+    if (user.isActive === false) {
+      return res.status(401).json({
+        success: false,
+        message: 'Your account is deactivated. Please contact support.'
+      });
+    }
     
     const token = generateToken(user._id);
     
@@ -197,18 +230,13 @@ exports.login = async (req, res) => {
 exports.getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id)
-      .populate('referrals.user', 'name email role')
-      .populate('referredBy', 'name email referralCode');
+      .select('-password -resetPasswordToken -resetPasswordExpire')
+      .populate('referrals.user', 'name role')
+      .populate('referredBy', 'name referralCode');
     
-    res.json({
-      success: true,
-      user
-    });
+    res.json({ success: true, user });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -229,12 +257,6 @@ exports.updateProfile = async (req, res) => {
       companyName,
       panNumber
     } = req.body;
-    
-    console.log('=== UPDATE PROFILE REQUEST ===');
-    console.log('User ID:', req.user.id);
-    console.log('GST Number:', gstNumber);
-    console.log('Company Name:', companyName);
-    console.log('PAN Number:', panNumber);
     
     // Check if email is being changed and if it's already taken
     if (email && email !== req.user.email) {
@@ -268,17 +290,15 @@ exports.updateProfile = async (req, res) => {
       });
     }
     
-    console.log('Before update - GST:', currentUser.gstNumber, 'Company:', currentUser.companyName, 'PAN:', currentUser.panNumber);
-    
     // Update basic fields
-    currentUser.name = name || currentUser.name;
-    currentUser.email = email || currentUser.email;
-    currentUser.phone = phone || currentUser.phone;
-    currentUser.address = address || currentUser.address;
-    currentUser.city = city || currentUser.city;
-    currentUser.state = state || currentUser.state;
-    currentUser.pincode = pincode || currentUser.pincode;
-    currentUser.profilePicture = profilePicture || currentUser.profilePicture;
+    if (name) currentUser.name = name;
+    if (email) currentUser.email = email;
+    if (phone) currentUser.phone = phone;
+    if (address !== undefined) currentUser.address = address;
+    if (city !== undefined) currentUser.city = city;
+    if (state !== undefined) currentUser.state = state;
+    if (pincode !== undefined) currentUser.pincode = pincode;
+    if (profilePicture !== undefined) currentUser.profilePicture = profilePicture;
 
     // Employee-specific editable fields
     if (currentUser.role === 'employee') {
@@ -290,27 +310,14 @@ exports.updateProfile = async (req, res) => {
       if (bloodGroup !== undefined) currentUser.employeeDetails.bloodGroup = bloodGroup;
       if (emergencyContact !== undefined) currentUser.employeeDetails.emergencyContact = emergencyContact;
     }
-    
+
     // Update GST & Business details (root level fields)
-    if (gstNumber !== undefined) {
-      currentUser.gstNumber = gstNumber;
-      console.log('Setting GST Number to:', gstNumber);
-    }
-    if (companyName !== undefined) {
-      currentUser.companyName = companyName;
-      console.log('Setting Company Name to:', companyName);
-    }
-    if (panNumber !== undefined) {
-      currentUser.panNumber = panNumber;
-      console.log('Setting PAN Number to:', panNumber);
-    }
-    
-    console.log('After update - GST:', currentUser.gstNumber, 'Company:', currentUser.companyName, 'PAN:', currentUser.panNumber);
+    if (gstNumber !== undefined) currentUser.gstNumber = gstNumber;
+    if (companyName !== undefined) currentUser.companyName = companyName;
+    if (panNumber !== undefined) currentUser.panNumber = panNumber;
     
     // Save the user
     const savedUser = await currentUser.save();
-    
-    console.log('After save - GST:', savedUser.gstNumber, 'Company:', savedUser.companyName, 'PAN:', savedUser.panNumber);
     
     // Remove password from response
     const user = savedUser.toObject();
@@ -681,22 +688,13 @@ exports.getReferrerByCode = async (req, res) => {
       });
     }
 
-    const referrer = await User.findOne({ referralCode: code }).select('name email role referralCode');
+    const referrer = await User.findOne({ referralCode: code }).select('name role referralCode');
     if (!referrer) {
-      return res.status(404).json({
-        success: false,
-        message: 'Invalid referral code'
-      });
+      return res.status(404).json({ success: false, message: 'Invalid referral code' });
     }
-
     return res.json({
       success: true,
-      referrer: {
-        name: referrer.name,
-        email: referrer.email,
-        role: referrer.role,
-        referralCode: referrer.referralCode
-      }
+      referrer: { name: referrer.name, role: referrer.role, referralCode: referrer.referralCode }
     });
   } catch (error) {
     return res.status(500).json({

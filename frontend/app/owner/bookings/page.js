@@ -19,6 +19,7 @@ export default function OwnerBookings() {
   const [filteredBookings, setFilteredBookings] = useState([]);
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [expandedAmenities, setExpandedAmenities] = useState({});
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [historyBooking, setHistoryBooking] = useState(null);
@@ -28,12 +29,27 @@ export default function OwnerBookings() {
   const [cancellingBooking, setCancellingBooking] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalBookings, setTotalBookings] = useState(0);
+  const [stats, setStats] = useState({ total: 0, pending: 0, confirmed: 0, completed: 0, cancelled: 0 });
+  const LIMIT = 12;
 
   useEffect(() => {
     if (token) {
-      fetchBookings();
+      fetchBookings(1);
     }
   }, [token]);
+
+  useEffect(() => {
+    if (token && activeTab === 'bookings') { setCurrentPage(1); fetchBookings(1); }
+  }, [statusFilter, searchQuery]);
+
+  // Debounced search
+  useEffect(() => {
+    const t = setTimeout(() => setSearchQuery(searchInput), 400);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
   useEffect(() => {
     if (token && activeTab === 'cancellations') fetchCancellations();
@@ -43,15 +59,30 @@ export default function OwnerBookings() {
     filterBookings();
   }, [bookings, statusFilter, searchQuery]);
 
-  const fetchBookings = async () => {
+  const fetchBookings = async (page = 1) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bookings`, {
+      const params = new URLSearchParams({ page, limit: LIMIT });
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+      if (searchQuery) params.set('search', searchQuery);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bookings?${params}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-      if (data.success) { setBookings(data.bookings); setFilteredBookings(data.bookings); }
+      if (data.success) {
+        setBookings(data.bookings);
+        setFilteredBookings(data.bookings);
+        setTotalPages(data.totalPages || 1);
+        setTotalBookings(data.total || 0);
+        if (data.stats) setStats(data.stats);
+      }
     } catch (error) { console.error('Error fetching bookings:', error); }
     finally { setLoading(false); }
+  };
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    fetchBookings(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const fetchCancellations = async () => {
@@ -80,7 +111,7 @@ export default function OwnerBookings() {
         toast.success(data.refundProcessed ? 'Booking cancelled & full refund initiated' : 'Booking cancelled');
         setCancellingBooking(null);
         setCancelReason('');
-        fetchBookings();
+        fetchBookings(currentPage);
         fetchCancellations();
       } else toast.error(data.message);
     } catch { toast.error('Failed to cancel'); }
@@ -88,21 +119,8 @@ export default function OwnerBookings() {
   };
 
   const filterBookings = () => {
-    let filtered = [...bookings];
-
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(b => b.status === statusFilter);
-    }
-
-    if (searchQuery) {
-      filtered = filtered.filter(b => 
-        b.venue?.businessName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        b.customer?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        b.venue?.location?.city?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    setFilteredBookings(filtered);
+    // Server-side filtering — bookings already filtered
+    setFilteredBookings(bookings);
   };
 
   const handleUpdateStatus = async (bookingId, newStatus) => {
@@ -119,7 +137,7 @@ export default function OwnerBookings() {
       const data = await response.json();
       
       if (data.success) {
-        fetchBookings();
+        fetchBookings(currentPage);
       }
     } catch (error) {
       console.error('Error updating booking status:', error);
@@ -137,7 +155,7 @@ export default function OwnerBookings() {
       });
       const data = await response.json();
       if (data.success) {
-        fetchBookings();
+        fetchBookings(currentPage);
         const deadline = new Date(data.confirmationDeadline).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
         alert(`Deadline extended! New deadline: ${deadline}`);
       } else {
@@ -146,14 +164,6 @@ export default function OwnerBookings() {
     } catch (error) {
       console.error('Error extending deadline:', error);
     }
-  };
-
-  const stats = {
-    total: bookings.length,
-    pending: bookings.filter(b => b.status === 'pending').length,
-    confirmed: bookings.filter(b => b.status === 'confirmed').length,
-    completed: bookings.filter(b => b.status === 'completed').length,
-    cancelled: bookings.filter(b => b.status === 'cancelled').length,
   };
 
   if (loading) {
@@ -170,7 +180,7 @@ export default function OwnerBookings() {
   }
 
   return (
-    <OwnerLayout title="My Bookings" subtitle={`${filteredBookings.length} booking(s) found`}>
+    <OwnerLayout title="My Bookings" subtitle={`${totalBookings} booking(s) found`}>
 
       {/* Main Tabs */}
       <div className="flex gap-1 mb-5 bg-gray-100 rounded-xl p-1 w-fit">
@@ -329,8 +339,8 @@ export default function OwnerBookings() {
           <input
             type="text"
             placeholder="Search by venue name, customer name, or city..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
           />
         </div>
@@ -734,11 +744,46 @@ export default function OwnerBookings() {
         </div>
       )}
 
-      {/* Booking Detail Modal */}
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white rounded-xl border border-gray-100 shadow-soft px-6 py-4">
+          <p className="text-sm text-gray-600">
+            Showing {(currentPage - 1) * LIMIT + 1}–{Math.min(currentPage * LIMIT, totalBookings)} of {totalBookings} bookings
+          </p>
+          <div className="flex items-center gap-2">
+            <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}
+              className="px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium">
+              Previous
+            </button>
+            <div className="flex gap-1">
+              {[...Array(totalPages)].map((_, i) => {
+                const page = i + 1;
+                if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+                  return (
+                    <button key={page} onClick={() => handlePageChange(page)}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium ${currentPage === page ? 'bg-primary-500 text-white' : 'border border-gray-300 hover:bg-gray-50'}`}>
+                      {page}
+                    </button>
+                  );
+                } else if (page === currentPage - 2 || page === currentPage + 2) {
+                  return <span key={page} className="px-2 text-gray-400">...</span>;
+                }
+                return null;
+              })}
+            </div>
+            <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}
+              className="px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium">
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Booking Detail Modal — clean design matching customer view */}
       {selectedBooking && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setSelectedBooking(null)}>
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            {/* Modal Header */}
+            {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-slate-700">
               <div>
                 <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">{selectedBooking.venue?.businessName}</h2>
@@ -758,11 +803,11 @@ export default function OwnerBookings() {
             </div>
 
             <div className="p-5 space-y-4">
-              {/* Key Info Grid */}
+              {/* Key Info — Location / Date / Time / Amount */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="bg-gray-50 dark:bg-slate-800 rounded-xl p-3">
-                  <p className="text-[10px] text-gray-500 mb-1 flex items-center gap-1"><User className="w-3 h-3"/>Customer</p>
-                  <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{selectedBooking.customer?.name}</p>
+                  <p className="text-[10px] text-gray-500 mb-1 flex items-center gap-1"><MapPin className="w-3 h-3"/>Location</p>
+                  <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{selectedBooking.venue?.location?.city}</p>
                 </div>
                 <div className="bg-gray-50 dark:bg-slate-800 rounded-xl p-3">
                   <p className="text-[10px] text-gray-500 mb-1 flex items-center gap-1"><Calendar className="w-3 h-3"/>Date</p>
@@ -778,20 +823,31 @@ export default function OwnerBookings() {
                 </div>
               </div>
 
-              {/* Customer Contact */}
+              {/* Customer Details */}
               <div className="bg-blue-50 dark:bg-slate-800 rounded-xl p-4">
-                <p className="text-xs font-bold text-blue-700 dark:text-blue-400 mb-2">Customer Details</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                  <p className="flex items-center gap-2 text-gray-700 dark:text-slate-300"><Mail className="w-3.5 h-3.5 text-blue-500"/>{selectedBooking.customer?.email}</p>
-                  <p className="flex items-center gap-2 text-gray-700 dark:text-slate-300"><Phone className="w-3.5 h-3.5 text-blue-500"/>{selectedBooking.customerDetails?.phone || selectedBooking.customer?.phone}</p>
-                  {selectedBooking.customerDetails?.eventType && <p className="text-gray-700 dark:text-slate-300"><span className="font-semibold">Event:</span> {selectedBooking.customerDetails.eventType}</p>}
-                  {selectedBooking.customerDetails?.guestCount && <p className="text-gray-700 dark:text-slate-300"><span className="font-semibold">Guests:</span> {selectedBooking.customerDetails.guestCount}</p>}
+                <p className="text-xs font-bold text-blue-700 dark:text-blue-400 mb-3">Customer Details</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                  <p className="flex items-center gap-2 text-gray-700 dark:text-slate-300">
+                    <Mail className="w-3.5 h-3.5 text-blue-500 flex-shrink-0"/>{selectedBooking.customer?.email}
+                  </p>
+                  <p className="flex items-center gap-2 text-gray-700 dark:text-slate-300">
+                    <Phone className="w-3.5 h-3.5 text-blue-500 flex-shrink-0"/>{selectedBooking.customerDetails?.phone || selectedBooking.customer?.phone}
+                  </p>
+                  {selectedBooking.customerDetails?.eventType && (
+                    <p className="text-gray-700 dark:text-slate-300"><span className="font-semibold">Event:</span> {selectedBooking.customerDetails.eventType}</p>
+                  )}
+                  {selectedBooking.customerDetails?.guestCount && (
+                    <p className="text-gray-700 dark:text-slate-300"><span className="font-semibold">Guests:</span> {selectedBooking.customerDetails.guestCount}</p>
+                  )}
+                  {selectedBooking.customerDetails?.specialRequirements && (
+                    <p className="col-span-2 text-gray-700 dark:text-slate-300"><span className="font-semibold">Special Requirements:</span> {selectedBooking.customerDetails.specialRequirements}</p>
+                  )}
                 </div>
               </div>
 
               {/* Price Breakdown */}
               <div className="bg-gray-50 dark:bg-slate-800 rounded-xl p-4">
-                <p className="text-xs font-bold text-gray-700 dark:text-slate-300 mb-2">Price Breakdown</p>
+                <p className="text-xs font-bold text-gray-700 dark:text-slate-300 mb-3">Price Breakdown</p>
                 <div className="space-y-1.5 text-sm">
                   <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">Base Price</span><span className="font-semibold">₹{(selectedBooking.priceBreakdown?.basePrice || 0).toLocaleString()}</span></div>
                   {selectedBooking.amenitiesTotal > 0 && <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">Amenities</span><span className="font-semibold">₹{selectedBooking.amenitiesTotal?.toLocaleString()}</span></div>}
@@ -804,25 +860,121 @@ export default function OwnerBookings() {
                       <span className="font-semibold">- ₹{selectedBooking.priceBreakdown.discount?.toLocaleString()}</span>
                     </div>
                   )}
-                  <div className="flex justify-between border-t border-gray-200 dark:border-slate-700 pt-1.5 font-bold text-base"><span>Total</span><span className="text-primary-600">₹{selectedBooking.amount?.toLocaleString()}</span></div>
+                  <div className="flex justify-between border-t border-gray-200 dark:border-slate-700 pt-2 mt-1">
+                    <span className="font-bold text-gray-800 dark:text-slate-100">Total</span>
+                    <span className="font-black text-primary-600">₹{(selectedBooking.amount || 0).toLocaleString()}</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Invoice Download — only for confirmed/completed */}
+              {/* Payment Summary + Transaction History */}
+              {(() => {
+                const ledger = selectedBooking.paymentLedger;
+                const currentDue = selectedBooking.amount || 0;
+                const totalPaid = ledger?.transactions
+                  ? ledger.transactions.filter(t => ['payment','manual_payment'].includes(t.type) && t.status === 'completed').reduce((s, t) => s + (t.amount || 0), 0)
+                  : 0;
+                const totalRefunded = ledger?.transactions
+                  ? ledger.transactions.filter(t => ['refund','manual_refund'].includes(t.type) && t.status === 'completed').reduce((s, t) => s + (t.amount || 0), 0)
+                  : 0;
+                const netPaid = totalPaid - totalRefunded;
+                const balance = currentDue - netPaid;
+                const amountDue = balance > 0 ? balance : 0;
+                const refundDue = balance < 0 ? Math.abs(balance) : 0;
+                const txns = ledger?.transactions || [];
+
+                return (
+                  <div className="rounded-xl border-2 border-gray-200 dark:border-slate-700 overflow-hidden">
+                    {/* Balance Bar */}
+                    <div className="grid grid-cols-3 divide-x divide-gray-200 dark:divide-slate-700">
+                      <div className="p-3 text-center bg-white dark:bg-slate-800">
+                        <p className="text-[10px] text-gray-500 mb-0.5">Total Due</p>
+                        <p className="text-base font-black text-gray-900 dark:text-slate-100">₹{currentDue.toLocaleString()}</p>
+                      </div>
+                      <div className="p-3 text-center bg-green-50 dark:bg-slate-800">
+                        <p className="text-[10px] text-gray-500 mb-0.5">Paid</p>
+                        <p className="text-base font-black text-green-600">₹{netPaid.toLocaleString()}</p>
+                      </div>
+                      <div className={`p-3 text-center ${refundDue > 0 ? 'bg-blue-50' : amountDue > 0 ? 'bg-red-50' : 'bg-green-50'} dark:bg-slate-800`}>
+                        <p className="text-[10px] text-gray-500 mb-0.5">
+                          {refundDue > 0 ? 'Refund Due' : amountDue > 0 ? 'Balance Due' : 'Settled'}
+                        </p>
+                        <p className={`text-base font-black ${refundDue > 0 ? 'text-blue-600' : amountDue > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          {refundDue > 0 ? `₹${refundDue.toLocaleString()}` : amountDue > 0 ? `₹${amountDue.toLocaleString()}` : '✓ Clear'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Transaction History */}
+                    {txns.length > 0 && (
+                      <div className="border-t border-gray-200 dark:border-slate-700 p-4 bg-white dark:bg-slate-800">
+                        <p className="text-xs font-bold text-gray-700 dark:text-slate-300 mb-3">Transaction History</p>
+                        <div className="space-y-2.5">
+                          {txns.filter(t => t.type !== 'adjustment').map((txn, i) => {
+                            const isPay = ['payment','manual_payment'].includes(txn.type);
+                            const isRefund = ['refund','manual_refund'].includes(txn.type);
+                            return (
+                              <div key={i} className={`flex items-start gap-3 text-xs p-2.5 rounded-lg border ${isPay ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 font-bold ${isPay ? 'bg-green-200 text-green-700' : 'bg-red-200 text-red-700'}`}>
+                                  {isPay ? '↑' : '↓'}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-semibold text-gray-800 dark:text-slate-200">
+                                    {txn.type === 'payment' ? 'Online Payment' : txn.type === 'manual_payment' ? 'Manual Payment' : txn.type === 'refund' ? 'Refund' : 'Manual Refund'}
+                                  </p>
+                                  <p className="text-gray-500 truncate">{txn.note || (isPay ? `Booking created — ₹${txn.amount?.toLocaleString()} due` : `Refund processed`)}</p>
+                                  {txn.date && <p className="text-gray-400 mt-0.5">{new Date(txn.date).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>}
+                                </div>
+                                <span className={`font-black text-sm flex-shrink-0 ${isPay ? 'text-green-600' : 'text-red-600'}`}>
+                                  {isPay ? '+' : '-'}₹{txn.amount?.toLocaleString()}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Owner Earnings */}
+              {selectedBooking.ownerEarnings > 0 && (
+                <div className="bg-green-50 dark:bg-slate-800 rounded-xl p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-green-700 dark:text-green-400">Your Earnings</p>
+                    <p className="text-xs text-green-600 mt-0.5">After platform fee deduction</p>
+                  </div>
+                  <p className="text-2xl font-black text-green-600">₹{selectedBooking.ownerEarnings?.toLocaleString()}</p>
+                </div>
+              )}
+
+              {/* Refund failed — owner can only see, admin handles it */}
+              {selectedBooking.refundDetails?.refundStatus === 'failed' && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                  <p className="text-xs font-bold text-red-700 mb-1">❌ Refund Failed</p>
+                  <p className="text-xs text-red-600">
+                    Razorpay could not process ₹{(selectedBooking.refundDetails?.refundAmount || selectedBooking.amount || 0).toLocaleString('en-IN')} automatically.
+                    Please contact admin to process this refund manually.
+                  </p>
+                </div>
+              )}
+
+              {/* Invoice Download */}
               {(selectedBooking.status === 'confirmed' || selectedBooking.status === 'completed') && (
                 <div>
                   <p className="text-xs font-bold text-gray-700 dark:text-slate-300 mb-2">Download Invoice</p>
                   <InvoiceDownload booking={selectedBooking} userRole="owner" />
                 </div>
               )}
-              <div>
-                <button
-                  onClick={() => { setHistoryBooking(selectedBooking); setSelectedBooking(null); }}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold text-sm transition-colors"
-                >
-                  💳 View Payment History
-                </button>
-              </div>
+
+              {/* Payment History button */}
+              <button
+                onClick={() => { setHistoryBooking(selectedBooking); setSelectedBooking(null); }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold text-sm transition-colors"
+              >
+                💳 View Full Payment History
+              </button>
             </div>
           </div>
         </div>

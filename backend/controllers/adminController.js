@@ -512,11 +512,37 @@ exports.getDashboardStats = async (req, res) => {
 // @route   GET /api/admin/users
 exports.getAllUsers = async (req, res) => {
   try {
-    const users = await User.find()
-      .select('-password')
-      .populate('referredBy', 'name email')
-      .populate('referrals.user', 'name email')
-      .sort('-createdAt');
+    const { role, status, search, page = 1, limit = 12 } = req.query;
+    const query = {};
+    if (role && role !== 'all') query.role = role;
+    if (status === 'active') query.isActive = true;
+    else if (status === 'inactive') query.isActive = false;
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { phone: { $regex: search, $options: 'i' } },
+        { userId: { $regex: search, $options: 'i' } },
+      ];
+    }
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const [users, total] = await Promise.all([
+      User.find(query)
+        .select('-password -kyc -employeeDetails.bankDetails -employeeDetails.documents -gstNumber -panNumber')
+        .populate('referredBy', 'name email')
+        .sort('-createdAt')
+        .skip(skip)
+        .limit(parseInt(limit)),
+      User.countDocuments(query)
+    ]);
+
+    // Stats (always full dataset)
+    const [totalCustomers, activeCustomers, totalOwners, activeOwners] = await Promise.all([
+      User.countDocuments({ role: 'customer' }),
+      User.countDocuments({ role: 'customer', isActive: true }),
+      User.countDocuments({ role: 'owner' }),
+      User.countDocuments({ role: 'owner', isActive: true }),
+    ]);
 
     // Get booking counts per user in one query
     const bookingCounts = await Booking.aggregate([
@@ -547,7 +573,11 @@ exports.getAllUsers = async (req, res) => {
     res.json({
       success: true,
       count: usersWithStats.length,
-      users: usersWithStats
+      total,
+      totalPages: Math.ceil(total / parseInt(limit)),
+      currentPage: parseInt(page),
+      users: usersWithStats,
+      globalStats: { totalCustomers, activeCustomers, totalOwners, activeOwners }
     });
   } catch (error) {
     res.status(500).json({
@@ -561,7 +591,7 @@ exports.getAllUsers = async (req, res) => {
 // @route   GET /api/admin/users/:id
 exports.getUser = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select('-password');
+    const user = await User.findById(req.params.id).select('-password -kyc -employeeDetails.bankDetails -employeeDetails.documents');
     
     if (!user) {
       return res.status(404).json({

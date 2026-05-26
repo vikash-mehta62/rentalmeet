@@ -151,6 +151,9 @@ exports.uploadImages = async (req, res) => {
   }
 };
 
+// Fields to NEVER expose on public routes
+const PUBLIC_VENUE_EXCLUDE = '-documents -bankDetails -ownerInfo.gstNumber -ownerInfo.panNumber -ownerInfo.fullName';
+
 // @desc    Get all venues (with filters and pagination)
 // @route   GET /api/venues
 exports.getVenues = async (req, res) => {
@@ -215,6 +218,7 @@ exports.getVenues = async (req, res) => {
     
     // Get venues with pagination
     const venues = await Venue.find(query)
+      .select(PUBLIC_VENUE_EXCLUDE)
       .populate('owner', 'name email phone')
       .sort('-createdAt')
       .skip(skip)
@@ -335,6 +339,7 @@ exports.getLocations = async (req, res) => {
 exports.getVenueBySKU = async (req, res) => {
   try {
     const venue = await Venue.findOne({ sku: req.params.sku })
+      .select(PUBLIC_VENUE_EXCLUDE)
       .populate('owner', 'name email phone');
     
     if (!venue) {
@@ -361,6 +366,7 @@ exports.getVenueBySKU = async (req, res) => {
 exports.getVenue = async (req, res) => {
   try {
     const venue = await Venue.findById(req.params.id)
+      .select(PUBLIC_VENUE_EXCLUDE)
       .populate('owner', 'name email phone');
     
     if (!venue) {

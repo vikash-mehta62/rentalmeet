@@ -21,7 +21,12 @@ export default function CustomerBookings() {
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalBookings, setTotalBookings] = useState(0);
+  const LIMIT = 12;
   const [modifyBooking, setModifyBooking] = useState(null);       // booking object
   const [modifyVenue, setModifyVenue] = useState(null);           // full venue with amenities
   const [modifyVenueLoading, setModifyVenueLoading] = useState(false);
@@ -36,24 +41,33 @@ export default function CustomerBookings() {
       router.push('/login');
       return;
     }
-    fetchBookings();
+    fetchBookings(1);
   }, [token, user]);
 
   useEffect(() => {
-    filterBookings();
-  }, [bookings, filterStatus, searchQuery]);
+    if (token) { setCurrentPage(1); fetchBookings(1); }
+  }, [filterStatus, searchQuery]);
 
-  const fetchBookings = async () => {
+  // Debounced search
+  useEffect(() => {
+    const t = setTimeout(() => setSearchQuery(searchInput), 400);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  const fetchBookings = async (page = 1) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bookings`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      const params = new URLSearchParams({ page, limit: LIMIT });
+      if (filterStatus !== 'all') params.set('status', filterStatus);
+      if (searchQuery) params.set('search', searchQuery);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bookings?${params}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-
       if (data.success) {
         setBookings(data.bookings);
+        setFilteredBookings(data.bookings);
+        setTotalPages(data.totalPages || 1);
+        setTotalBookings(data.total || 0);
       }
     } catch (error) {
       console.error('Error fetching bookings:', error);
@@ -64,20 +78,14 @@ export default function CustomerBookings() {
   };
 
   const filterBookings = () => {
-    let filtered = [...bookings];
+    // Server-side filtering
+    setFilteredBookings(bookings);
+  };
 
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter(b => b.status === filterStatus);
-    }
-
-    if (searchQuery) {
-      filtered = filtered.filter(b =>
-        b.venue?.businessName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        b.venue?.location?.city?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    setFilteredBookings(filtered);
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    fetchBookings(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Fetch platform settings once
@@ -299,7 +307,7 @@ export default function CustomerBookings() {
         setCancelModal(null);
         setCancelReason('');
         setCancelCustomReason('');
-        fetchBookings();
+        fetchBookings(currentPage);
       } else {
         toast.error(data.message || 'Failed to cancel booking');
       }
@@ -363,8 +371,8 @@ export default function CustomerBookings() {
               <input
                 type="text"
                 placeholder="Search by venue name or city..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 className="input-field"
               />
             </div>
@@ -507,6 +515,41 @@ export default function CustomerBookings() {
             ))}
           </div>
         )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white rounded-2xl border border-gray-100 shadow-soft px-6 py-4">
+            <p className="text-sm text-gray-600">
+              Showing {(currentPage - 1) * LIMIT + 1}–{Math.min(currentPage * LIMIT, totalBookings)} of {totalBookings} bookings
+            </p>
+            <div className="flex items-center gap-2">
+              <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium">
+                Previous
+              </button>
+              <div className="flex gap-1">
+                {[...Array(totalPages)].map((_, i) => {
+                  const page = i + 1;
+                  if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+                    return (
+                      <button key={page} onClick={() => handlePageChange(page)}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium ${currentPage === page ? 'bg-primary-500 text-white' : 'border border-gray-300 hover:bg-gray-50'}`}>
+                        {page}
+                      </button>
+                    );
+                  } else if (page === currentPage - 2 || page === currentPage + 2) {
+                    return <span key={page} className="px-2 text-gray-400">...</span>;
+                  }
+                  return null;
+                })}
+              </div>
+              <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium">
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Booking Detail Modal */}
@@ -610,8 +653,11 @@ export default function CustomerBookings() {
 
                 const netPaid = totalPaid - totalRefunded;
                 const balance = currentDue - netPaid;
+                const isCancelledBooking = selectedBooking.status === 'cancelled';
+                // Overpaid = paid more than current due (due to modification) but booking is still active
+                const isOverpaid = balance < 0 && !isCancelledBooking;
                 const amountDue = balance > 0 ? balance : 0;
-                const refundDue = balance < 0 ? Math.abs(balance) : 0;
+                const refundDue = balance < 0 && isCancelledBooking ? Math.abs(balance) : 0;
                 const isSettled = balance === 0;
 
                 const txns = ledger?.transactions || [];
@@ -629,12 +675,12 @@ export default function CustomerBookings() {
                         <p className="text-[10px] text-gray-500 mb-0.5">Paid</p>
                         <p className="text-base font-black text-green-600">₹{netPaid.toLocaleString()}</p>
                       </div>
-                      <div className={`p-3 text-center ${refundDue > 0 ? 'bg-blue-50' : amountDue > 0 ? 'bg-red-50' : 'bg-green-50'} dark:bg-slate-800`}>
+                      <div className={`p-3 text-center ${refundDue > 0 ? 'bg-blue-50' : isOverpaid ? 'bg-orange-50' : amountDue > 0 ? 'bg-red-50' : 'bg-green-50'} dark:bg-slate-800`}>
                         <p className="text-[10px] text-gray-500 mb-0.5">
-                          {refundDue > 0 ? 'Refund Due' : amountDue > 0 ? 'Balance Due' : 'Settled'}
+                          {refundDue > 0 ? 'Refund Due' : isOverpaid ? 'Overpaid' : amountDue > 0 ? 'Balance Due' : 'Settled'}
                         </p>
-                        <p className={`text-base font-black ${refundDue > 0 ? 'text-blue-600' : amountDue > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          {refundDue > 0 ? `₹${refundDue.toLocaleString()}` : amountDue > 0 ? `₹${amountDue.toLocaleString()}` : '✓ Clear'}
+                        <p className={`text-base font-black ${refundDue > 0 ? 'text-blue-600' : isOverpaid ? 'text-orange-500' : amountDue > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          {refundDue > 0 ? `₹${refundDue.toLocaleString()}` : isOverpaid ? `₹${Math.abs(balance).toLocaleString()}` : amountDue > 0 ? `₹${amountDue.toLocaleString()}` : '✓ Clear'}
                         </p>
                       </div>
                     </div>
@@ -643,6 +689,11 @@ export default function CustomerBookings() {
                     {refundDue > 0 && (
                       <div className="bg-blue-50 border-t border-blue-200 px-4 py-2.5 text-xs text-blue-800 font-semibold flex items-center gap-2">
                         💰 Refund of ₹{refundDue.toLocaleString()} is due — admin will process it shortly.
+                      </div>
+                    )}
+                    {isOverpaid && (
+                      <div className="bg-orange-50 border-t border-orange-200 px-4 py-2.5 text-xs text-orange-800 font-semibold flex items-center gap-2">
+                        ℹ️ You overpaid by ₹{Math.abs(balance).toLocaleString()} after modifying amenities. This will be settled after your booking is completed.
                       </div>
                     )}
                     {amountDue > 0 && netPaid > 0 && (

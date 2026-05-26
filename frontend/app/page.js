@@ -9,6 +9,7 @@ import PremiumServicesSection from '@/components/PremiumServicesSection';
 import FacilitiesSection from '@/components/FacilitiesSection';
 import TestimonialsSection from '@/components/TestimonialsSection';
 import CTASection from '@/components/CTASection';
+import LatestBlogsSection from '@/components/LatestBlogsSection';
 import Footer from '@/components/Footer';
 
 
@@ -47,6 +48,9 @@ export default function Home() {
 
         {/* Testimonials Section */}
         <TestimonialsSection />
+
+        {/* Latest Blog Posts */}
+        <LatestBlogsSection />
 
         {/* CTA Section */}
         <CTASection />

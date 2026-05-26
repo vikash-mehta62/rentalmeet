@@ -30,36 +30,50 @@ export default function AdminVendors() {
   const [filtered, setFiltered] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selected, setSelected] = useState(null); // vendor detail modal
   const [services, setServices] = useState([]);
   const [rejectModal, setRejectModal] = useState({ open: false, type: '', id: '', reason: '' });
   const [actionLoading, setActionLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const LIMIT = 12;
 
-  const fetchVendors = async () => {
+  const fetchVendors = async (page = 1) => {
     setLoading(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/vendors`, {
+      const params = new URLSearchParams({ page, limit: LIMIT });
+      if (search) params.set('search', search);
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/vendors?${params}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
-      if (data.success) { setVendors(data.vendors); setFiltered(data.vendors); }
+      if (data.success) {
+        setVendors(data.vendors);
+        setFiltered(data.vendors);
+        setTotalPages(data.totalPages || 1);
+        setTotalCount(data.total || data.vendors.length);
+      }
     } catch (e) { toast.error('Failed to load vendors'); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { if (token) fetchVendors(); }, [token]);
+  useEffect(() => { if (token) { setCurrentPage(1); fetchVendors(1); } }, [token, statusFilter, search]);
 
+  // Debounced search
   useEffect(() => {
-    let f = [...vendors];
-    if (search) f = f.filter(v =>
-      v.name?.toLowerCase().includes(search.toLowerCase()) ||
-      v.email?.toLowerCase().includes(search.toLowerCase()) ||
-      v.companyName?.toLowerCase().includes(search.toLowerCase())
-    );
-    if (statusFilter !== 'all') f = f.filter(v => (v.profile?.status || 'incomplete') === statusFilter);
-    setFiltered(f);
-  }, [vendors, search, statusFilter]);
+    const t = setTimeout(() => setSearch(searchInput), 400);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    fetchVendors(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const openVendor = async (vendor) => {
     setSelected(vendor);
@@ -81,7 +95,7 @@ export default function AdminVendors() {
       const data = await res.json();
       if (data.success) {
         toast.success(data.message);
-        fetchVendors();
+        fetchVendors(currentPage);
         setSelected(prev => prev ? { ...prev, profile: data.profile } : null);
         setRejectModal({ open: false, type: '', id: '', reason: '' });
       } else toast.error(data.message);
@@ -108,7 +122,7 @@ export default function AdminVendors() {
   };
 
   const stats = {
-    total:    vendors.length,
+    total:    totalCount,
     pending:  vendors.filter(v => v.profile?.status === 'pending').length,
     approved: vendors.filter(v => v.profile?.status === 'approved').length,
     rejected: vendors.filter(v => v.profile?.status === 'rejected').length,
@@ -137,8 +151,8 @@ export default function AdminVendors() {
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-5 flex flex-col md:flex-row gap-3">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input type="text" placeholder="Search by name, email, company..." value={search}
-              onChange={e => setSearch(e.target.value)}
+            <input type="text" placeholder="Search by name, email, company..." value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
               className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500" />
           </div>
           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
@@ -222,6 +236,37 @@ export default function AdminVendors() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white rounded-xl border border-gray-100 shadow-sm px-6 py-4">
+            <p className="text-sm text-gray-600">
+              Showing {(currentPage - 1) * LIMIT + 1}–{Math.min(currentPage * LIMIT, totalCount)} of {totalCount} vendors
+            </p>
+            <div className="flex items-center gap-2">
+              <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm font-medium">Previous</button>
+              <div className="flex gap-1">
+                {[...Array(totalPages)].map((_, i) => {
+                  const page = i + 1;
+                  if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+                    return (
+                      <button key={page} onClick={() => handlePageChange(page)}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium ${currentPage === page ? 'bg-primary-500 text-white' : 'border border-gray-300 hover:bg-gray-50'}`}>
+                        {page}
+                      </button>
+                    );
+                  } else if (page === currentPage - 2 || page === currentPage + 2) {
+                    return <span key={page} className="px-2 text-gray-400">...</span>;
+                  }
+                  return null;
+                })}
+              </div>
+              <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm font-medium">Next</button>
+            </div>
+          </div>
+        )}
 
         {/* Vendor Detail Modal */}
         {selected && (

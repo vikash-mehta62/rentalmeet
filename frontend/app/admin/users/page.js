@@ -17,13 +17,16 @@ export default function AdminUsers() {
   const [allUsers, setAllUsers] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [activeTab, setActiveTab] = useState('customers'); // customers, owners, vendors
-  const [filteredUsers, setFilteredUsers] = useState([]);
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [globalStats, setGlobalStats] = useState({ totalCustomers: 0, activeCustomers: 0, totalOwners: 0, activeOwners: 0 });
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const ITEMS_PER_PAGE = 12;
   const [newPassword, setNewPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [pwdLoading, setPwdLoading] = useState(false);
@@ -37,22 +40,33 @@ export default function AdminUsers() {
 
   useEffect(() => {
     if (token) {
-      fetchUsers();
       fetchVendors();
     }
   }, [token]);
 
   useEffect(() => {
-    filterUsers();
-  }, [allUsers, activeTab, statusFilter, searchQuery]);
+    if (token) fetchUsers();
+  }, [token, activeTab, statusFilter, searchQuery, currentPage]);
 
   const fetchUsers = async () => {
+    if (activeTab === 'vendors') return;
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users`, {
+      const params = new URLSearchParams({ page: currentPage, limit: ITEMS_PER_PAGE });
+      if (activeTab !== 'vendors') params.set('role', activeTab === 'customers' ? 'customer' : 'owner');
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+      if (searchQuery) params.set('search', searchQuery);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users?${params}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-      if (data.success) setAllUsers(data.users);
+      if (data.success) {
+        setAllUsers(data.users);
+        setTotalPages(data.totalPages || 1);
+        setTotalCount(data.total || 0);
+        if (data.globalStats) {
+          setGlobalStats(data.globalStats);
+        }
+      }
     } catch (error) {
       console.error('Error fetching users:', error);
       toast.error('Failed to load users');
@@ -70,6 +84,15 @@ export default function AdminUsers() {
       if (data.success) setVendors(data.vendors);
     } catch (e) { console.error('Error fetching vendors:', e); }
   };
+
+  // Debounced search
+  useEffect(() => {
+    const t = setTimeout(() => { setSearchQuery(searchInput); setCurrentPage(1); }, 400);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  // Reset page when tab/filter changes
+  useEffect(() => { setCurrentPage(1); }, [activeTab, statusFilter]);
 
   const openVendorModal = async (vendor) => {
     setSelectedVendor(vendor);
@@ -105,39 +128,6 @@ export default function AdminUsers() {
     finally { setServiceActionLoading(false); }
   };
 
-  const filterUsers = () => {
-    let filtered = [...allUsers];
-
-    // Filter by active tab
-    if (activeTab === 'customers') {
-      filtered = filtered.filter(u => u.role === 'customer');
-    } else if (activeTab === 'owners') {
-      filtered = filtered.filter(u => u.role === 'owner');
-    } else if (activeTab === 'vendors') {
-      // vendors handled separately
-      return;
-    }
-
-    // Filter by status
-    if (statusFilter !== 'all') {
-      const isActive = statusFilter === 'active';
-      filtered = filtered.filter(u => u.isActive === isActive);
-    }
-
-    // Filter by search query
-    if (searchQuery) {
-      filtered = filtered.filter(u =>
-        u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.phone?.includes(searchQuery) ||
-        u.userId?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    setFilteredUsers(filtered);
-    setCurrentPage(1);
-  };
-
   const handleStatusToggle = async (userId, currentStatus) => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${userId}/status`, {
@@ -164,62 +154,60 @@ export default function AdminUsers() {
     }
   };
 
-  const exportToCSV = () => {
-    let headers, rows;
+  const [exporting, setExporting] = useState(false);
 
-    if (activeTab === 'customers') {
-      headers = ['S.No', 'User ID', 'Name', 'Email', 'Phone', 'Role', 'City', 'State', 'Status', 'Referral Code', 'Joined Date', 'No. of Bookings', 'No. of Referrals'];
-      rows = filteredUsers.map((user, index) => [
-        index + 1,
-        user.userId || `RM-${user._id.slice(-8).toUpperCase()}`,
-        user.name,
-        user.email,
-        user.phone,
-        user.role,
-        user.city || 'N/A',
-        user.state || 'N/A',
-        user.isActive ? 'Active' : 'Inactive',
-        user.referralCode || 'N/A',
-        new Date(user.createdAt).toLocaleDateString('en-IN'),
-        user.bookingCount || 0,
-        user.referralCount || 0
-      ]);
-    } else {
-      headers = ['S.No', 'User ID', 'Name', 'Email', 'Phone', 'Role', 'City', 'State', 'No. of Venues', 'Status', 'Referral Code', 'No. of Referrals', 'Joined Date'];
-      rows = filteredUsers.map((user, index) => [
-        index + 1,
-        user.userId || `RM-${user._id.slice(-8).toUpperCase()}`,
-        user.name,
-        user.email,
-        user.phone,
-        user.role,
-        user.city || 'N/A',
-        user.state || 'N/A',
-        user.venueCount || 0,
-        user.isActive ? 'Active' : 'Inactive',
-        user.referralCode || 'N/A',
-        user.referralCount || 0,
-        new Date(user.createdAt).toLocaleDateString('en-IN')
-      ]);
-    }
+  const exportToCSV = async () => {
+    setExporting(true);
+    try {
+      // Fetch ALL records for export (no pagination limit)
+      const params = new URLSearchParams({ page: 1, limit: 10000 });
+      if (activeTab !== 'vendors') params.set('role', activeTab === 'customers' ? 'customer' : 'owner');
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+      if (searchQuery) params.set('search', searchQuery);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users?${params}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!data.success) { toast.error('Export failed'); return; }
+      const exportUsers = data.users;
 
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
+      let headers, rows;
+      if (activeTab === 'customers') {
+        headers = ['S.No','User ID','Name','Email','Phone','City','State','Status','Referral Code','Joined Date','No. of Bookings','No. of Referrals'];
+        rows = exportUsers.map((user, i) => [
+          i+1, user.userId || `RM-${user._id.slice(-8).toUpperCase()}`,
+          user.name, user.email, user.phone,
+          user.city||'N/A', user.state||'N/A',
+          user.isActive ? 'Active' : 'Inactive',
+          user.referralCode||'N/A',
+          new Date(user.createdAt).toLocaleDateString('en-IN'),
+          user.bookingCount||0, user.referralCount||0
+        ]);
+      } else {
+        headers = ['S.No','User ID','Name','Email','Phone','City','State','No. of Venues','Status','Referral Code','No. of Referrals','Joined Date'];
+        rows = exportUsers.map((user, i) => [
+          i+1, user.userId || `RM-${user._id.slice(-8).toUpperCase()}`,
+          user.name, user.email, user.phone,
+          user.city||'N/A', user.state||'N/A',
+          user.venueCount||0,
+          user.isActive ? 'Active' : 'Inactive',
+          user.referralCode||'N/A',
+          user.referralCount||0,
+          new Date(user.createdAt).toLocaleDateString('en-IN')
+        ]);
+      }
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    
-    link.setAttribute('href', url);
-    link.setAttribute('download', `${activeTab}_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    toast.success('CSV exported successfully!');
+      const csvContent = [headers.join(','), ...rows.map(r => r.map(c => `"${c}"`).join(','))].join('\n');
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }));
+      link.download = `${activeTab}_${new Date().toISOString().split('T')[0]}.csv`;
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success(`Exported ${exportUsers.length} ${activeTab}!`);
+    } catch { toast.error('Export failed'); }
+    finally { setExporting(false); }
   };
 
   const openModal = (user) => {
@@ -269,12 +257,12 @@ export default function AdminUsers() {
 
   const stats = {
     customers: {
-      total: allUsers.filter(u => u.role === 'customer').length,
-      active: allUsers.filter(u => u.role === 'customer' && u.isActive).length,
+      total: globalStats.totalCustomers,
+      active: globalStats.activeCustomers,
     },
     owners: {
-      total: allUsers.filter(u => u.role === 'owner').length,
-      active: allUsers.filter(u => u.role === 'owner' && u.isActive).length,
+      total: globalStats.totalOwners,
+      active: globalStats.activeOwners,
     },
     vendors: {
       total: vendors.length,
@@ -282,11 +270,9 @@ export default function AdminUsers() {
     }
   };
 
-  // Pagination calculations
-  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
+  // Pagination — server-side, allUsers is already the current page
+  const paginatedUsers = allUsers;
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
@@ -294,8 +280,7 @@ export default function AdminUsers() {
   };
 
   const handleItemsPerPageChange = (value) => {
-    setItemsPerPage(Number(value));
-    setCurrentPage(1);
+    // fixed at ITEMS_PER_PAGE for server-side pagination
   };
 
   if (loading) {
@@ -381,8 +366,8 @@ export default function AdminUsers() {
             <input
               type="text"
               placeholder="Search by name, email, phone, or user ID..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
             />
           </div>
@@ -404,11 +389,11 @@ export default function AdminUsers() {
           {/* Export Button */}
           <button
             onClick={exportToCSV}
-            disabled={filteredUsers.length === 0}
+            disabled={exporting || allUsers.length === 0}
             className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download className="w-4 h-4" />
-            Export CSV
+            {exporting ? 'Exporting...' : `Export CSV (${totalCount})`}
           </button>
         </div>
       </div>
@@ -542,23 +527,12 @@ export default function AdminUsers() {
         </div>
 
         {/* Pagination Controls */}
-        {filteredUsers.length > 0 && (
+        {allUsers.length > 0 && (
           <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-            {/* Items per page selector */}
+            {/* Info */}
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">Show</span>
-              <select
-                value={itemsPerPage}
-                onChange={(e) => handleItemsPerPageChange(e.target.value)}
-                className="px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white text-sm"
-              >
-                <option value="10">10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-              </select>
               <span className="text-sm text-gray-600">
-                entries (Showing {startIndex + 1}-{Math.min(endIndex, filteredUsers.length)} of {filteredUsers.length})
+                Showing {startIndex + 1}–{Math.min(startIndex + ITEMS_PER_PAGE, totalCount)} of {totalCount} {activeTab}
               </span>
             </div>
 
@@ -1323,3 +1297,4 @@ export default function AdminUsers() {
     </AdminLayout>
   );
 }
+

@@ -139,9 +139,9 @@ router.post('/images', protect, upload.array('images', 20), async (req, res) => 
   }
 });
 
-// @desc    Upload document to Cloudinary (PDF, DOC, etc.) - Public Access
+// @desc    Upload document to Cloudinary (PDF, DOC, etc.)
 // @route   POST /api/upload/document
-router.post('/document', (req, res, next) => {
+router.post('/document', protect, (req, res, next) => {
   // Skip multer if content-type is application/json (base64)
   if (req.headers['content-type']?.includes('application/json')) {
     return next();

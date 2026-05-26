@@ -58,6 +58,7 @@ export default function Navbar() {
     { name: 'Home', href: '/' },
     { name: 'Venues', href: '/venues' },
     { name: 'Premium Services', href: '/other-services' },
+    { name: 'Blog', href: '/blog' },
   ];
 
   return (

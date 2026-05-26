@@ -18,22 +18,37 @@ export default function AdminServiceBookings() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selected, setSelected] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const LIMIT = 12;
 
-  const fetchBookings = async () => {
+  const fetchBookings = async (page = 1) => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ status: statusFilter });
+      const params = new URLSearchParams({ status: statusFilter, page, limit: LIMIT });
       if (search) params.set('search', search);
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/service-bookings?${params}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
-      if (data.success) { setBookings(data.bookings); setStats(data.stats); }
+      if (data.success) {
+        setBookings(data.bookings);
+        setStats(data.stats);
+        setTotalPages(data.totalPages || 1);
+        setTotalCount(data.total || data.bookings.length);
+      }
     } catch { toast.error('Failed to load'); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { if (token) fetchBookings(); }, [token, statusFilter]);
+  useEffect(() => { if (token) { setCurrentPage(1); fetchBookings(1); } }, [token, statusFilter]);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    fetchBookings(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const handleStatusChange = async (id, status) => {
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/service-bookings/${id}/status`, {
@@ -76,7 +91,7 @@ export default function AdminServiceBookings() {
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input type="text" placeholder="Search by booking no, customer, service, vendor..."
-              value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => e.key === 'Enter' && fetchBookings()}
+              value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => e.key === 'Enter' && fetchBookings(1)}
               className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500" />
           </div>
           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
@@ -122,6 +137,37 @@ export default function AdminServiceBookings() {
             </table>
           </div>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white rounded-xl border border-gray-100 shadow-sm px-6 py-4">
+            <p className="text-sm text-gray-600">
+              Showing {(currentPage - 1) * LIMIT + 1}–{Math.min(currentPage * LIMIT, totalCount)} of {totalCount} bookings
+            </p>
+            <div className="flex items-center gap-2">
+              <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm font-medium">Previous</button>
+              <div className="flex gap-1">
+                {[...Array(totalPages)].map((_, i) => {
+                  const page = i + 1;
+                  if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+                    return (
+                      <button key={page} onClick={() => handlePageChange(page)}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium ${currentPage === page ? 'bg-primary-500 text-white' : 'border border-gray-300 hover:bg-gray-50'}`}>
+                        {page}
+                      </button>
+                    );
+                  } else if (page === currentPage - 2 || page === currentPage + 2) {
+                    return <span key={page} className="px-2 text-gray-400">...</span>;
+                  }
+                  return null;
+                })}
+              </div>
+              <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm font-medium">Next</button>
+            </div>
+          </div>
+        )}
       </PermissionGuard>
 
       {selected && (

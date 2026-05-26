@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import InvoiceDownload from '@/components/booking/InvoiceDownload';
+import RetryRefundButton from '@/components/booking/RetryRefundButton';
 import PaymentHistoryModal from '@/components/admin/PaymentHistoryModal';
 
 export default function AdminBookings() {
@@ -529,6 +530,16 @@ export default function AdminBookings() {
                                   {refund.refundStatus}
                                 </span>
                                 {refund.refundAmount > 0 && <div className="text-xs text-gray-500 mt-0.5">₹{refund.refundAmount?.toLocaleString('en-IN')}</div>}
+                                {refund.refundStatus === 'failed' && (
+                                  <RetryRefundButton
+                                    booking={c}
+                                    token={token}
+                                    role="admin"
+                                    onSuccess={(updated) => {
+                                      setCancellations(prev => prev.map(x => x._id === updated._id ? updated : x));
+                                    }}
+                                  />
+                                )}
                               </div>
                             ) : <span className="text-gray-400 text-xs">—</span>}
                           </td>
@@ -1531,6 +1542,28 @@ export default function AdminBookings() {
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+
+              {/* Retry Refund — shown when refund failed */}
+              {selectedBooking.refundDetails?.refundStatus === 'failed' && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <h3 className="text-sm font-bold text-red-700 mb-1 flex items-center gap-2">
+                    ❌ Refund Failed
+                  </h3>
+                  <p className="text-xs text-red-600 mb-3">
+                    Razorpay could not automatically process ₹{(selectedBooking.refundDetails?.refundAmount || selectedBooking.amount || 0).toLocaleString('en-IN')} to the customer.
+                    You can retry the Razorpay refund or record a manual refund via Payment History.
+                  </p>
+                  <RetryRefundButton
+                    booking={selectedBooking}
+                    token={token}
+                    role="admin"
+                    onSuccess={(updated) => {
+                      setSelectedBooking(updated);
+                      setBookings(prev => prev.map(b => b._id === updated._id ? updated : b));
+                    }}
+                  />
                 </div>
               )}
             </div>

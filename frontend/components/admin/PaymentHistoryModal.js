@@ -45,6 +45,12 @@ export default function PaymentHistoryModal({ booking, token, onClose, onUpdate 
   const totalDue = booking.amount || 0;
   const balance  = totalDue - (totalPaid - totalRefunded);
 
+  // For active (non-cancelled) bookings, negative balance means overpaid due to modification
+  // — not a refund due. Refund only applies after cancellation.
+  const isCancelled = booking.status === 'cancelled';
+  const isOverpaid = balance < 0 && !isCancelled;
+  const isRefundDue = balance < 0 && isCancelled;
+
   const timeline = [
     ...rawTxns.map(t => ({ ...t, _kind: 'txn' })),
     ...rawAdj.map(a  => ({ ...a, _kind: 'adj', type: 'adjustment' }))
@@ -110,11 +116,21 @@ export default function PaymentHistoryModal({ booking, token, onClose, onUpdate 
               { label: 'Total Paid',  val: totalPaid,      cls: 'bg-green-50 border-green-200 text-green-600' },
               { label: 'Refunded',    val: totalRefunded,  cls: 'bg-red-50 border-red-200 text-red-500' },
               {
-                label: balance < 0 ? 'Refund Due' : balance > 0 ? 'Balance Due' : 'Settled',
+                label: isRefundDue
+                  ? 'Refund Due'
+                  : isOverpaid
+                  ? 'Overpaid'
+                  : balance > 0
+                  ? 'Balance Due'
+                  : 'Settled',
                 val: Math.abs(balance),
-                cls: balance < 0 ? 'bg-blue-50 border-blue-200 text-blue-600'
-                   : balance > 0 ? 'bg-orange-50 border-orange-200 text-orange-600'
-                   : 'bg-green-50 border-green-200 text-green-600',
+                cls: isRefundDue
+                  ? 'bg-blue-50 border-blue-200 text-blue-600'
+                  : isOverpaid
+                  ? 'bg-orange-50 border-orange-200 text-orange-600'
+                  : balance > 0
+                  ? 'bg-orange-50 border-orange-200 text-orange-600'
+                  : 'bg-green-50 border-green-200 text-green-600',
                 override: balance === 0 ? '✓ Clear' : null
               }
             ].map(({ label, val, cls, override }) => (
@@ -126,6 +142,17 @@ export default function PaymentHistoryModal({ booking, token, onClose, onUpdate 
               </div>
             ))}
           </div>
+
+          {/* Overpaid notice for active modified bookings */}
+          {isOverpaid && (
+            <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 text-xs text-orange-800">
+              <p className="font-bold mb-1">ℹ️ Overpaid by ₹{Math.abs(balance).toLocaleString()} — Booking Active</p>
+              <p className="text-orange-700">
+                Customer modified the booking and reduced amenities. The extra ₹{Math.abs(balance).toLocaleString()} will be settled
+                after the booking is completed. No refund is due while the booking is active.
+              </p>
+            </div>
+          )}
 
           {/* Booking strip */}
           <div className="flex flex-wrap items-center gap-3 bg-gray-50 rounded-xl px-4 py-3 text-xs text-gray-600 border border-gray-200">
@@ -151,14 +178,28 @@ export default function PaymentHistoryModal({ booking, token, onClose, onUpdate 
               }`}>
               <Plus className="w-4 h-4" /> Record Payment
             </button>
-            <button onClick={() => setAction(action === 'refund' ? null : 'refund')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
-                action === 'refund'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
-              }`}>
-              <RefreshCw className="w-4 h-4" /> Record Refund
-            </button>
+            {/* Only show Record Refund for cancelled bookings or when there's an actual refund to process */}
+            {(isCancelled || totalRefunded > 0 || balance > 0) && (
+              <button onClick={() => setAction(action === 'refund' ? null : 'refund')}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                  action === 'refund'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
+                }`}>
+                <RefreshCw className="w-4 h-4" /> Record Refund
+              </button>
+            )}
+            {/* For active overpaid bookings, show manual refund option with warning */}
+            {isOverpaid && (
+              <button onClick={() => setAction(action === 'refund' ? null : 'refund')}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                  action === 'refund'
+                    ? 'bg-orange-600 text-white'
+                    : 'bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200'
+                }`}>
+                <RefreshCw className="w-4 h-4" /> Refund Overpaid Amount
+              </button>
+            )}
           </div>
 
           {/* Form */}
@@ -170,6 +211,12 @@ export default function PaymentHistoryModal({ booking, token, onClose, onUpdate 
                 {action === 'payment' && balance > 0 &&
                   <span className="ml-2 text-xs font-normal text-gray-500">Balance due: ₹{balance.toLocaleString()}</span>}
               </p>
+              {/* Warning for active booking refund */}
+              {action === 'refund' && isOverpaid && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 text-xs text-orange-800">
+                  ℹ️ Booking is active — only ledger entry will be recorded. Booking & payment status will NOT change.
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">Amount (₹) *</label>

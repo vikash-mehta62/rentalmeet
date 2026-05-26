@@ -237,6 +237,56 @@ const doc = {
                 },
             },
 
+            // ── Blog ─────────────────────────────────────────────────────────────
+            BlogCreate: {
+                type: 'object',
+                required: ['title', 'slug'],
+                properties: {
+                    title:            { type: 'string', example: 'Top 10 Venue Booking Tips' },
+                    slug:             { type: 'string', example: 'top-10-venue-booking-tips' },
+                    category:         { type: 'string', example: 'Venue Tips' },
+                    tags:             { type: 'array', items: { type: 'string' }, example: ['venues', 'tips'] },
+                    shortDescription: { type: 'string', example: 'A quick guide to booking the perfect venue.' },
+                    content:          { type: 'string', description: 'HTML content from Tiptap editor' },
+                    author:           { type: 'string', example: 'Admin' },
+                    status:           { type: 'string', enum: ['draft', 'published', 'archived'], example: 'draft' },
+                    featuredImage:    { type: 'string', example: 'https://res.cloudinary.com/...' },
+                    featuredImageAlt: { type: 'string', example: 'Venue booking tips' },
+                    seo: {
+                        type: 'object',
+                        properties: {
+                            focusKeyword:    { type: 'string', example: 'venue booking' },
+                            metaTitle:       { type: 'string', example: 'Top 10 Venue Booking Tips | RentalMeet' },
+                            metaDescription: { type: 'string', example: 'Discover the top 10 tips for booking the perfect venue for your event.' },
+                            canonicalUrl:    { type: 'string', example: 'https://rentalmeet.com/blog/top-10-venue-booking-tips' },
+                            ogTitle:         { type: 'string' },
+                            ogDescription:   { type: 'string' },
+                            ogImage:         { type: 'string' },
+                            noIndex:         { type: 'boolean', example: false },
+                        },
+                    },
+                    schemaMarkup: {
+                        type: 'object',
+                        properties: {
+                            article:   { type: 'boolean', example: true },
+                            faqPage:   { type: 'boolean', example: false },
+                            breadcrumb:{ type: 'boolean', example: true },
+                        },
+                    },
+                    faqs: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                question: { type: 'string', example: 'How do I book a venue?' },
+                                answer:   { type: 'string', example: 'Visit RentalMeet and search for venues in your city.' },
+                            },
+                        },
+                    },
+                },
+            },
+            BlogUpdate: { $ref: '#/components/schemas/BlogCreate' },
+
             // ── Upload ───────────────────────────────────────────────────────────
             UploadBase64: {
                 type: 'object',
@@ -261,6 +311,7 @@ const doc = {
         { name: 'Admin', description: 'Admin panel operations' },
         { name: 'Payment', description: 'Payment processing' },
         { name: 'Reviews', description: 'Venue & service reviews' },
+        { name: 'Blog', description: 'Blog CMS — public & admin' },
         { name: 'FAQs', description: 'Frequently asked questions' },
         { name: 'Chatbot', description: 'Chatbot interactions' },
         { name: 'Upload', description: 'File / image uploads' },
@@ -287,6 +338,7 @@ const TAG_MAP = [
     { prefix: '/api/admin', tag: 'Admin' },
     { prefix: '/api/auth', tag: 'Auth' },
     { prefix: '/api/faqs', tag: 'FAQs' },
+    { prefix: '/api/blogs', tag: 'Blog' },
     { prefix: '/api/chatbot', tag: 'Chatbot' },
     { prefix: '/api/terms', tag: 'Venues' },
     { prefix: '/api/hero-slides', tag: 'Admin' },
@@ -343,6 +395,12 @@ function augmentSpec(outputFile) {
         'get /api/contact-settings',
         'get /api/faqs',
         'get /health',
+
+        // Blog (public)
+        'get /api/blogs',
+        'get /api/blogs/categories',
+        'get /api/blogs/sitemap',
+        'get /api/blogs/{slug}',
     ]);
 
     // ── Operation summaries & request bodies ─────────────────────────────────
@@ -399,6 +457,25 @@ function augmentSpec(outputFile) {
         'get /api/hero-slides': { summary: 'Get active hero/banner slides (public)' },
         'get /api/contact-settings': { summary: 'Get public contact settings' },
         'get /health': { summary: 'Health check' },
+
+        // Blog — public
+        'get /api/blogs':            { summary: 'List published blogs (paginated, filterable)' },
+        'get /api/blogs/categories': { summary: 'Get all blog categories (published only)' },
+        'get /api/blogs/sitemap':    { summary: 'Get blog slugs for sitemap generation' },
+        'get /api/blogs/{slug}':     { summary: 'Get single published blog by slug (increments views)' },
+
+        // Blog — admin
+        'get /api/blogs/admin/all':  { summary: 'List all blogs — all statuses (admin)' },
+        'get /api/blogs/admin/{id}': { summary: 'Get single blog by ID (admin)' },
+        'post /api/blogs': {
+            summary: 'Create new blog post (admin)',
+            requestBody: { $ref: '#/components/schemas/BlogCreate' },
+        },
+        'put /api/blogs/{id}': {
+            summary: 'Update blog post (admin)',
+            requestBody: { $ref: '#/components/schemas/BlogUpdate' },
+        },
+        'delete /api/blogs/{id}': { summary: 'Delete blog post (admin)' },
     };
 
     for (const [path, methods] of Object.entries(spec.paths || {})) {

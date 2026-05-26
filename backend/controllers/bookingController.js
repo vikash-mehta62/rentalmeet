@@ -245,7 +245,8 @@ exports.createBooking = async (req, res) => {
 exports.getBookings = async (req, res) => {
   try {
     let query = {};
-    
+    const { status, search, page = 1, limit = 12 } = req.query;
+
     // Filter by role
     if (req.user.role === 'customer') {
       query.customer = req.user.id;
@@ -254,16 +255,43 @@ exports.getBookings = async (req, res) => {
       const venueIds = venues.map(v => v._id);
       query.venue = { $in: venueIds };
     }
-    
-    const bookings = await Booking.find(query)
-      .populate('venue', 'businessName location sku images')
-      .populate('customer', 'name email phone')
-      .sort('-createdAt');
-    
+
+    if (status && status !== 'all') query.status = status;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const [bookings, total] = await Promise.all([
+      Booking.find(query)
+        .populate('venue', 'businessName location sku images')
+        .populate('customer', 'name email phone')
+        .sort('-createdAt')
+        .skip(skip)
+        .limit(parseInt(limit)),
+      Booking.countDocuments(query)
+    ]);
+
+    // Stats (always full for this user)
+    const baseQuery = {};
+    if (req.user.role === 'customer') baseQuery.customer = req.user.id;
+    else if (req.user.role === 'owner') {
+      const allVenues = await Venue.find({ owner: req.user.id });
+      baseQuery.venue = { $in: allVenues.map(v => v._id) };
+    }
+    const [totalAll, pending, confirmed, completed, cancelled] = await Promise.all([
+      Booking.countDocuments(baseQuery),
+      Booking.countDocuments({ ...baseQuery, status: 'pending' }),
+      Booking.countDocuments({ ...baseQuery, status: 'confirmed' }),
+      Booking.countDocuments({ ...baseQuery, status: 'completed' }),
+      Booking.countDocuments({ ...baseQuery, status: 'cancelled' }),
+    ]);
+
     res.json({
       success: true,
       count: bookings.length,
-      bookings
+      total,
+      totalPages: Math.ceil(total / parseInt(limit)),
+      currentPage: parseInt(page),
+      bookings,
+      stats: { total: totalAll, pending, confirmed, completed, cancelled }
     });
   } catch (error) {
     res.status(500).json({
@@ -278,8 +306,9 @@ exports.getBookings = async (req, res) => {
 exports.getBooking = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id)
-      .populate('venue')
-      .populate('customer', 'name email phone');
+      .populate('venue', 'businessName location sku images amenities pricing venueType capacity')
+      .populate('customer', 'name email phone')
+      .select('-paymentDetails.razorpay_signature');
     
     if (!booking) {
       return res.status(404).json({
@@ -432,6 +461,10 @@ exports.modifyBooking = async (req, res) => {
       customerDetails
     } = req.body;
 
+    // ── Record price adjustment in ledger ──────────────────────────────────
+    // Capture oldAmount BEFORE updating booking.amount
+    const oldAmount = booking.amount;
+
     // Update fields if provided
     if (bookingDate) booking.bookingDate = bookingDate;
     if (startTime) booking.startTime = startTime;
@@ -443,13 +476,13 @@ exports.modifyBooking = async (req, res) => {
     if (amount !== undefined) booking.amount = amount;
     if (customerDetails) booking.customerDetails = { ...booking.customerDetails, ...customerDetails };
 
-    // Recalculate ownerEarnings from new subtotal
+    // Recalculate ownerEarnings from new subtotal (base + amenities, before platform fee)
     if (priceBreakdown?.subtotal) {
       booking.ownerEarnings = priceBreakdown.subtotal;
     }
 
-    // ── Record price adjustment in ledger ──────────────────────────────────
-    const oldAmount = booking.amount;
+    // paymentStatus must NOT change on modification — booking is still active
+    // Only record the adjustment in ledger for tracking purposes
     if (amount !== undefined && amount !== oldAmount) {
       if (!booking.paymentLedger) booking.paymentLedger = { transactions: [], adjustments: [] };
       if (!booking.paymentLedger.adjustments) booking.paymentLedger.adjustments = [];
@@ -465,17 +498,17 @@ exports.modifyBooking = async (req, res) => {
         date: new Date()
       });
 
-      // Also log as an 'adjustment' transaction for the timeline
       booking.paymentLedger.transactions.push({
         type: 'adjustment',
         amount: diff,
         status: 'completed',
         note: diff > 0
-          ? `Booking modified — ₹${diff} additional amount due`
-          : `Booking modified — ₹${Math.abs(diff)} refund due to customer`,
+          ? `Booking modified — ₹${Math.abs(diff).toFixed(2)} additional amount due`
+          : `Booking modified — ₹${Math.abs(diff).toFixed(2)} overpaid (will be settled after completion)`,
         performedBy: req.user.id,
         date: new Date()
       });
+      // paymentStatus intentionally NOT changed — booking remains active
     }
 
     await booking.save();

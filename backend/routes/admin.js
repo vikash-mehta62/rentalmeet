@@ -80,18 +80,48 @@ router.route('/subadmins/:id')
 router.put('/subadmins/:id/status', protect, authorize('admin'), toggleSubAdminStatus);
 
 // Venue routes
-// Admin: Get ALL venues (all statuses) — protected
+// Admin: Get ALL venues (all statuses) — protected, with pagination + search + filter
 router.get('/venues', protect, authorize('admin', 'subadmin'), checkPermission('venues'), async (req, res) => {
   try {
     const Venue = require('../models/Venue');
-    const { status, limit = 1000 } = req.query;
+    const { status, search, venueType, page = 1, limit = 12 } = req.query;
     const query = {};
     if (status && status !== 'all') query.status = status;
-    const venues = await Venue.find(query)
-      .populate('owner', 'name email phone')
-      .sort('-createdAt')
-      .limit(parseInt(limit));
-    res.json({ success: true, count: venues.length, venues });
+    if (venueType && venueType !== 'all') query.venueType = venueType;
+    if (search) {
+      query.$or = [
+        { businessName: { $regex: search, $options: 'i' } },
+        { 'location.city': { $regex: search, $options: 'i' } },
+        { 'location.area': { $regex: search, $options: 'i' } },
+      ];
+    }
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const [venues, total] = await Promise.all([
+      Venue.find(query)
+        .populate('owner', 'name email phone')
+        .sort('-createdAt')
+        .skip(skip)
+        .limit(parseInt(limit)),
+      Venue.countDocuments(query)
+    ]);
+    // Stats always on full dataset (no filters for stats)
+    const [totalAll, approved, pending, rejected, resubmitted, suspended] = await Promise.all([
+      Venue.countDocuments({}),
+      Venue.countDocuments({ status: 'approved' }),
+      Venue.countDocuments({ status: 'pending' }),
+      Venue.countDocuments({ status: 'rejected' }),
+      Venue.countDocuments({ status: 'resubmitted' }),
+      Venue.countDocuments({ status: 'suspended' }),
+    ]);
+    res.json({
+      success: true,
+      count: venues.length,
+      total,
+      totalPages: Math.ceil(total / parseInt(limit)),
+      currentPage: parseInt(page),
+      venues,
+      stats: { total: totalAll, approved, pending, rejected, resubmitted, suspended }
+    });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }
@@ -348,15 +378,19 @@ router.post('/bookings/:id/ledger/refund', protect, authorize('admin'), async (r
       date: new Date()
     });
 
-    booking.paymentStatus = 'refunded';
-    // Also update legacy refundDetails
-    booking.refundDetails = {
-      refundId: txnId || `REFUND-${Date.now()}`,
-      refundAmount: Number(amount),
-      refundStatus: 'processed',
-      refundedAt: new Date(),
-      refundReason: note || 'Refund processed by admin'
-    };
+    // Only change paymentStatus to 'refunded' if booking is cancelled
+    // For active bookings (overpaid due to modification), just record in ledger
+    if (booking.status === 'cancelled') {
+      booking.paymentStatus = 'refunded';
+      booking.refundDetails = {
+        refundId: txnId || `REFUND-${Date.now()}`,
+        refundAmount: Number(amount),
+        refundStatus: 'processed',
+        refundedAt: new Date(),
+        refundReason: note || 'Refund processed by admin'
+      };
+    }
+    // For active bookings — no status change, just ledger entry
 
     await booking.save();
     res.json({ success: true, message: 'Refund recorded', booking });
@@ -446,6 +480,81 @@ router.put('/bookings/:id/cancel', protect, authorize('admin'), async (req, res)
   } catch (e) {
     console.error(`[ADMIN-CANCEL] 💥`, e);
     res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// Admin: Retry failed Razorpay refund
+router.post('/bookings/:id/retry-refund', protect, authorize('admin'), async (req, res) => {
+  try {
+    const Razorpay = require('razorpay');
+    const Booking = require('../models/Booking');
+    const booking = await Booking.findById(req.params.id)
+      .populate('customer', 'name email')
+      .populate('venue', 'businessName');
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+
+    // Must be cancelled with a failed refund
+    if (booking.status !== 'cancelled')
+      return res.status(400).json({ success: false, message: 'Booking is not cancelled' });
+    if (booking.refundDetails?.refundStatus === 'processed')
+      return res.status(400).json({ success: false, message: 'Refund already processed' });
+    if (!booking.paymentDetails?.razorpay_payment_id)
+      return res.status(400).json({ success: false, message: 'No Razorpay payment ID found — use manual refund instead' });
+
+    const refundAmount = booking.refundDetails?.refundAmount || booking.amount;
+    if (!refundAmount || refundAmount <= 0)
+      return res.status(400).json({ success: false, message: 'No refund amount to process' });
+
+    console.log(`\n[RETRY-REFUND] Booking: ${booking.bookingNumber} | Amount: ₹${refundAmount}`);
+
+    const razorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET
+    });
+
+    const refund = await razorpay.payments.refund(booking.paymentDetails.razorpay_payment_id, {
+      amount: Math.round(refundAmount * 100),
+      speed: 'normal',
+      notes: {
+        bookingNumber: booking.bookingNumber,
+        reason: 'Retry refund by admin',
+        retriedBy: req.user.id
+      }
+    });
+
+    console.log(`[RETRY-REFUND] ✅ Refund OK — ${refund.id}`);
+
+    // Update booking
+    booking.refundDetails = {
+      ...booking.refundDetails,
+      refundStatus: 'processed',
+      refundId: refund.id,
+      refundedAt: new Date(),
+      refundReason: (booking.refundDetails?.refundReason || '') + ' (Retried by admin)'
+    };
+    // Only change paymentStatus if booking is cancelled
+    if (booking.status === 'cancelled') {
+      booking.paymentStatus = 'refunded';
+    }
+
+    if (!booking.paymentLedger) booking.paymentLedger = { transactions: [], adjustments: [] };
+    if (!booking.paymentLedger.transactions) booking.paymentLedger.transactions = [];
+    booking.paymentLedger.transactions.push({
+      txnId: refund.id,
+      type: 'refund',
+      amount: refundAmount,
+      status: 'completed',
+      note: `Refund retried by admin — ₹${refundAmount.toLocaleString('en-IN')}`,
+      performedBy: req.user.id,
+      date: new Date()
+    });
+
+    await booking.save();
+    res.json({ success: true, message: `Refund of ₹${refundAmount.toLocaleString('en-IN')} processed successfully`, refundId: refund.id, booking });
+  } catch (err) {
+    console.error(`[RETRY-REFUND] ❌`, err);
+    const msg = err.error?.description || err.message || 'Razorpay refund failed';
+    res.status(500).json({ success: false, message: msg });
   }
 });
 
@@ -569,16 +678,32 @@ const VendorProfile = require('../models/VendorProfile');
 // Get all vendors
 router.get('/vendors', protect, authorize('admin'), checkPermission('vendorServices'), async (req, res) => {
   try {
-    const vendors = await require('../models/User').find({ role: 'vendor' })
-      .select('-password').sort('-createdAt');
+    const { search, status, page = 1, limit = 12 } = req.query;
+    const query = { role: 'vendor' };
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { companyName: { $regex: search, $options: 'i' } },
+      ];
+    }
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const [allVendors, total] = await Promise.all([
+      require('../models/User').find(query).select('-password').sort('-createdAt').skip(skip).limit(parseInt(limit)),
+      require('../models/User').countDocuments(query)
+    ]);
     // Attach profile + service counts
-    const result = await Promise.all(vendors.map(async v => {
+    let result = await Promise.all(allVendors.map(async v => {
       const profile = await VendorProfile.findOne({ user: v._id }).select('status onboardingStep businessInfo');
       const serviceCount = await VendorService.countDocuments({ vendor: v._id });
       const pendingCount = await VendorService.countDocuments({ vendor: v._id, status: 'pending' });
       return { ...v.toObject(), profile, serviceCount, pendingCount };
     }));
-    res.json({ success: true, vendors: result });
+    // Filter by profile status if requested
+    if (status && status !== 'all') {
+      result = result.filter(v => (v.profile?.status || 'incomplete') === status);
+    }
+    res.json({ success: true, vendors: result, total, totalPages: Math.ceil(total / parseInt(limit)), currentPage: parseInt(page) });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
@@ -741,32 +866,35 @@ router.get('/service-quotation-downloads', protect, authorize('admin'), checkPer
 router.get('/service-bookings', protect, authorize('admin'), checkPermission('serviceBookings'), async (req, res) => {
   try {
     const ServiceBooking = require('../models/ServiceBooking');
-    const { status, search } = req.query;
+    const { status, search, page = 1, limit = 12 } = req.query;
     const baseFilter = { bookingNumber: { $exists: true, $ne: null, $not: /^SQ-/i } };
     const filter = { ...baseFilter };
     if (status && status !== 'all') filter.status = status;
-    let bookings = await ServiceBooking.find(filter)
-      .populate('service', 'title category city state')
-      .populate('vendor', 'name email companyName')
-      .sort('-createdAt');
     if (search) {
-      const q = search.toLowerCase();
-      bookings = bookings.filter(b =>
-        b.bookingNumber?.toLowerCase().includes(q) ||
-        b.customerInfo?.name?.toLowerCase().includes(q) ||
-        b.customerInfo?.email?.toLowerCase().includes(q) ||
-        b.serviceSnapshot?.title?.toLowerCase().includes(q) ||
-        b.vendor?.name?.toLowerCase().includes(q)
-      );
+      filter.$or = [
+        { bookingNumber: { $regex: search, $options: 'i' } },
+        { 'customerInfo.name': { $regex: search, $options: 'i' } },
+        { 'customerInfo.email': { $regex: search, $options: 'i' } },
+        { 'serviceSnapshot.title': { $regex: search, $options: 'i' } },
+      ];
     }
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const [bookings, total] = await Promise.all([
+      ServiceBooking.find(filter)
+        .populate('service', 'title category city state')
+        .populate('vendor', 'name email companyName')
+        .sort('-createdAt')
+        .skip(skip)
+        .limit(parseInt(limit)),
+      ServiceBooking.countDocuments(filter)
+    ]);
     const stats = {
       total:     await ServiceBooking.countDocuments(baseFilter),
       enquiry:   await ServiceBooking.countDocuments({ ...baseFilter, status: 'enquiry' }),
       confirmed: await ServiceBooking.countDocuments({ ...baseFilter, status: 'confirmed' }),
       cancelled: await ServiceBooking.countDocuments({ ...baseFilter, status: 'cancelled' }),
-      downloaded: await ServiceBooking.countDocuments({ ...baseFilter, downloadedAt: { $exists: true, $ne: null } }),
     };
-    res.json({ success: true, bookings, stats });
+    res.json({ success: true, bookings, stats, total, totalPages: Math.ceil(total / parseInt(limit)), currentPage: parseInt(page) });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
