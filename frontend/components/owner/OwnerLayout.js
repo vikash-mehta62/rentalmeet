@@ -6,7 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
   Building2, Calendar, User, LogOut, Menu, X, 
-  Home, Plus, ChevronLeft, ChevronRight, Bell, Tag, FileText
+  Home, Plus, ChevronLeft, ChevronRight, Bell, Tag, FileText, IndianRupee
 } from 'lucide-react';
 
 export default function OwnerLayout({ children, title, subtitle }) {
@@ -38,6 +38,7 @@ export default function OwnerLayout({ children, title, subtitle }) {
     { href: '/owner/dashboard', icon: Home, label: 'Dashboard' },
     { href: '/owner/venues', icon: Building2, label: 'My Venues' },
     { href: '/owner/bookings', icon: Calendar, label: 'Bookings' },
+    { href: '/owner/payments', icon: IndianRupee, label: 'Payments' },
     { href: '/owner/quotation-downloads', icon: FileText, label: 'Quotations' },
     { href: '/owner/coupons', icon: Tag, label: 'Coupons' },
     { href: '/register-venue', icon: Plus, label: 'Add New Venue' },

@@ -372,6 +372,43 @@ router.put('/bookings/:id/cancel', async (req, res) => {
   }
 });
 
+// ─── Owner: Get payments summary for their venues ────────────────────────────
+router.get('/payments', async (req, res) => {
+  try {
+    const venues = await Venue.find({ owner: req.user._id }).select('_id businessName');
+    const venueIds = venues.map(v => v._id);
+
+    const { status, venueId, page = 1, limit = 20 } = req.query;
+    const filter = { venue: { $in: venueIds } };
+    if (status && status !== 'all') filter.paymentStatus = status;
+    if (venueId) filter.venue = venueId;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const [bookings, total] = await Promise.all([
+      Booking.find(filter)
+        .populate('venue', 'businessName sku location')
+        .populate('customer', 'name email phone')
+        .select('bookingNumber bookingDate amount paymentStatus paymentLedger paymentDetails status createdAt customerDetails venue customer priceBreakdown coupon')
+        .sort('-createdAt')
+        .skip(skip)
+        .limit(parseInt(limit)),
+      Booking.countDocuments(filter)
+    ]);
+
+    // Aggregate stats
+    const allBookings = await Booking.find({ venue: { $in: venueIds } }).select('paymentStatus amount paymentLedger');
+    const stats = {
+      totalRevenue: allBookings.filter(b => b.paymentStatus === 'paid').reduce((s, b) => s + (b.paymentLedger?.totalPaid || b.amount || 0), 0),
+      totalRefunded: allBookings.filter(b => b.paymentStatus === 'refunded').reduce((s, b) => s + (b.paymentLedger?.totalPaid || b.amount || 0), 0),
+      paid: allBookings.filter(b => b.paymentStatus === 'paid').length,
+      pending: allBookings.filter(b => b.paymentStatus === 'pending').length,
+      refunded: allBookings.filter(b => b.paymentStatus === 'refunded').length,
+    };
+
+    res.json({ success: true, bookings, total, totalPages: Math.ceil(total / parseInt(limit)), stats, venues });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
 // ─── Owner: Get cancellations for their venues ────────────────────────────────
 router.get('/cancellations', async (req, res) => {
   try {

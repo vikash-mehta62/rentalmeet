@@ -1048,6 +1048,7 @@ export default function AdminBookings() {
                           💳
                         </button>
                         {['pending','confirmed'].includes(booking.status) && (
+                          /* Phase 2: Admin cancel — temporarily disabled
                           <button
                             onClick={() => { setCancellingBooking(booking); setCancelReason(''); }}
                             className="flex items-center gap-1 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-semibold transition-colors"
@@ -1055,6 +1056,8 @@ export default function AdminBookings() {
                           >
                             <Ban className="w-3 h-3" /> Cancel
                           </button>
+                          */
+                          null
                         )}
                       </div>
                     </td>

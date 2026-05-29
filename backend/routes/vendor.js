@@ -182,6 +182,36 @@ router.get('/service-bookings', async (req, res) => {
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
+// GET vendor's payment summary for service bookings
+router.get('/payments', async (req, res) => {
+  try {
+    const ServiceBooking = require('../models/ServiceBooking');
+    const { status, page = 1, limit = 20 } = req.query;
+    const filter = { vendor: req.user.id };
+    if (status && status !== 'all') filter.paymentStatus = status;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const [bookings, total] = await Promise.all([
+      ServiceBooking.find(filter)
+        .populate('service', 'title category')
+        .sort('-createdAt')
+        .skip(skip)
+        .limit(parseInt(limit)),
+      ServiceBooking.countDocuments(filter)
+    ]);
+
+    const allBookings = await ServiceBooking.find({ vendor: req.user.id }).select('paymentStatus pricing amount');
+    const stats = {
+      totalRevenue: allBookings.filter(b => b.paymentStatus === 'paid').reduce((s, b) => s + (b.pricing?.total || b.amount || 0), 0),
+      paid: allBookings.filter(b => b.paymentStatus === 'paid').length,
+      pending: allBookings.filter(b => b.paymentStatus === 'pending').length,
+      failed: allBookings.filter(b => b.paymentStatus === 'failed').length,
+    };
+
+    res.json({ success: true, bookings, total, totalPages: Math.ceil(total / parseInt(limit)), stats });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
 // GET vendor's service quotation downloads
 router.get('/service-quotation-downloads', async (req, res) => {
   try {

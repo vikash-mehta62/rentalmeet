@@ -17,6 +17,7 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
   const { user, token } = useAuthStore();
   const [submitting, setSubmitting] = useState(false);
   const [showQuotation, setShowQuotation] = useState(false);
+  const [bookingSuccess, setBookingSuccess] = useState(null); // { bookingNumber, bookingId }
   const [terms, setTerms] = useState(null);
   const [bookedDates, setBookedDates] = useState([]);
   const [platformSettings, setPlatformSettings] = useState({
@@ -504,8 +505,10 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
             if (verifyData.success) {
               toast.success('Payment successful! Booking confirmed 🎉');
               localStorage.removeItem('pendingBooking');
-              onClose();
-              router.push('/customer/bookings');
+              setBookingSuccess({
+                bookingNumber: verifyData.booking?.bookingNumber || '',
+                bookingId: bookingId
+              });
             } else {
               toast.error('Payment verification failed');
             }
@@ -627,7 +630,9 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
           phone: formData.customerPhone,
           eventType: formData.eventType,
           guestCount: Number(formData.guestCount),
-          specialRequirements: formData.specialRequirements
+          specialRequirements: formData.specialRequirements,
+          gstNumber: user?.gstNumber || '',
+          companyName: user?.companyName || ''
         }
       };
 
@@ -647,6 +652,11 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
         // Use the finalAmount from backend (after coupon applied correctly)
         setSubmitting(false);
         await handlePayment(result.booking._id, result.booking.amount);
+      } else if (result.kycRequired) {
+        toast.error('Please complete your KYC verification to book a venue.');
+        setSubmitting(false);
+        onClose();
+        router.push('/customer/profile?tab=kyc');
       } else {
         toast.error(result.message || 'Failed to create booking');
         setSubmitting(false);
@@ -658,6 +668,38 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
       setSubmitting(false);
     }
   };
+
+  if (bookingSuccess) {
+    return (
+      <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm text-center p-8">
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
+            <CheckCircle className="w-11 h-11 text-green-600" />
+          </div>
+          <h2 className="text-2xl font-black text-gray-900 mb-2">Booking Confirmed!</h2>
+          <p className="text-sm text-gray-500 mb-1">Your booking number is</p>
+          <p className="text-xl font-black text-primary-600 bg-primary-50 rounded-xl px-4 py-2 inline-block mb-4 tracking-wider">
+            {bookingSuccess.bookingNumber}
+          </p>
+          <p className="text-xs text-gray-400 mb-6">Payment successful. The venue owner will confirm your booking shortly.</p>
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={() => { onClose(); router.push('/customer/bookings'); }}
+              className="w-full py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-bold text-sm transition-colors"
+            >
+              Manage Bookings
+            </button>
+            <button
+              onClick={onClose}
+              className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-sm transition-colors"
+            >
+              Back to Venue
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (showQuotation) {
     return (

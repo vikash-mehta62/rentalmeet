@@ -5,12 +5,11 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 export const uploadToCloudinary = async (file, folder = 'venues') => {
   try {
-    // Convert file to base64
     const base64 = await fileToBase64(file);
     
-    // Get token from localStorage
-    const authData = localStorage.getItem('auth-storage');
-    const token = authData ? JSON.parse(authData).state.token : null;
+    // Token is stored in sessionStorage (see lib/store.js)
+    const authData = sessionStorage.getItem('auth-storage');
+    const token = authData ? JSON.parse(authData).state?.token : null;
     
     if (!token) {
       throw new Error('Authentication required');
@@ -51,9 +50,8 @@ export const uploadToCloudinary = async (file, folder = 'venues') => {
 
 export const deleteFromCloudinary = async (publicId) => {
   try {
-    // Get token from localStorage
-    const authData = localStorage.getItem('auth-storage');
-    const token = authData ? JSON.parse(authData).state.token : null;
+    const authData = sessionStorage.getItem('auth-storage');
+    const token = authData ? JSON.parse(authData).state?.token : null;
     
     if (!token) {
       throw new Error('Authentication required');
@@ -83,12 +81,10 @@ export const deleteFromCloudinary = async (publicId) => {
 // Upload document (PDF, images, etc.)
 export const uploadDocument = async (file, folder = 'documents') => {
   try {
-    // Convert file to base64
     const base64 = await fileToBase64(file);
     
-    // Get token from localStorage
-    const authData = localStorage.getItem('auth-storage');
-    const token = authData ? JSON.parse(authData).state.token : null;
+    const authData = sessionStorage.getItem('auth-storage');
+    const token = authData ? JSON.parse(authData).state?.token : null;
     
     if (!token) {
       throw new Error('Authentication required');

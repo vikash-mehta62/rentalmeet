@@ -60,13 +60,20 @@ exports.createBooking = async (req, res) => {
     // KYC validation — customers must have ID proof + selfie uploaded
     if (req.user.role === 'customer') {
       const User = require('../models/User');
-      const customer = await User.findById(req.user.id).select('kyc');
+      const customer = await User.findById(req.user.id).select('kyc gstNumber companyName');
       if (!customer?.kyc?.idProof || !customer?.kyc?.selfie) {
         return res.status(403).json({
           success: false,
           message: 'Profile incomplete. Please upload your ID proof and selfie to book a venue.',
           kycRequired: true
         });
+      }
+      // Attach customer GST/company to customerDetails if not already provided
+      if (customer.gstNumber && !req.body.customerDetails?.gstNumber) {
+        req.body.customerDetails = { ...(req.body.customerDetails || {}), gstNumber: customer.gstNumber };
+      }
+      if (customer.companyName && !req.body.customerDetails?.companyName) {
+        req.body.customerDetails = { ...(req.body.customerDetails || {}), companyName: customer.companyName };
       }
     }
 
@@ -261,8 +268,8 @@ exports.getBookings = async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const [bookings, total] = await Promise.all([
       Booking.find(query)
-        .populate('venue', 'businessName location sku images')
-        .populate('customer', 'name email phone')
+        .populate('venue', 'businessName location sku images ownerInfo documents')
+        .populate('customer', 'name email phone gstNumber companyName')
         .sort('-createdAt')
         .skip(skip)
         .limit(parseInt(limit)),
@@ -306,8 +313,8 @@ exports.getBookings = async (req, res) => {
 exports.getBooking = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id)
-      .populate('venue', 'businessName location sku images amenities pricing venueType capacity')
-      .populate('customer', 'name email phone')
+      .populate('venue', 'businessName location sku images amenities pricing venueType capacity ownerInfo documents')
+      .populate('customer', 'name email phone gstNumber companyName')
       .select('-paymentDetails.razorpay_signature');
     
     if (!booking) {

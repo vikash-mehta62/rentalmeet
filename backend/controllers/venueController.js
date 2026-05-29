@@ -388,8 +388,40 @@ exports.getVenue = async (req, res) => {
   }
 };
 
-// @desc    Update venue
-// @route   PUT /api/venues/:id
+// @desc    Get single venue by ID — full data for edit (owner/admin only)
+// @route   GET /api/venues/:id/edit
+exports.getVenueForEdit = async (req, res) => {
+  try {
+    const venue = await Venue.findById(req.params.id)
+      .populate('owner', 'name email phone');
+
+    if (!venue) {
+      return res.status(404).json({ success: false, message: 'Venue not found' });
+    }
+
+    // Only owner or admin can access full data
+    if (venue.owner._id.toString() !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'subadmin') {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    const venueObj = venue.toObject();
+
+    // Decrypt bank account number if encrypted
+    if (venueObj.bankDetails?.accountNumber) {
+      try {
+        const { decrypt } = require('../utils/encryption');
+        const decrypted = decrypt(venueObj.bankDetails.accountNumber);
+        if (decrypted) venueObj.bankDetails.accountNumber = decrypted;
+      } catch {
+        // If decryption fails, leave as-is (may already be plain)
+      }
+    }
+
+    res.json({ success: true, venue: venueObj });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 exports.updateVenue = async (req, res) => {
   try {
     let venue = await Venue.findById(req.params.id);

@@ -149,20 +149,26 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
 
       if (type === 'venue') {
         // ── BILLED TO + SUPPLIER cards ──────────────────────────────────────
-        const cardH = 38;
         const cardW = (CW - 4) / 2;
+
+        // Left card — BILLED TO
+        const custName    = booking?.customer?.name    || booking?.customerDetails?.name    || 'N/A';
+        const custEmail   = booking?.customer?.email   || booking?.customerDetails?.email   || 'N/A';
+        const custPhone   = booking?.customerDetails?.phone || booking?.customer?.phone     || 'N/A';
+        const eventType   = booking?.customerDetails?.eventType || '';
+        const guests      = booking?.customerDetails?.guestCount || '';
+        const custGST     = booking?.customerDetails?.gstNumber  || booking?.customer?.gstNumber  || '';
+        const custCompany = booking?.customerDetails?.companyName || booking?.customer?.companyName || '';
+
+        // Calculate dynamic card height based on fields
+        const billedRows = 3 + (eventType ? 1 : 0) + (guests ? 1 : 0) + (custGST ? 1 : 0) + (custCompany ? 1 : 0);
+        const cardH = 10 + billedRows * 4.5 + 2;
 
         // Left card
         rect(M, y, cardW, cardH, [255, 251, 235], [253, 230, 138]);
         setFont('bold', 7, [146, 64, 14]);
         doc.text('BILLED TO', M + 3, y + 5);
         line(M + 3, y + 6.5, M + cardW - 3, y + 6.5, [253, 230, 138], 0.3);
-
-        const custName  = booking?.customer?.name  || booking?.customerDetails?.name  || 'N/A';
-        const custEmail = booking?.customer?.email || booking?.customerDetails?.email || 'N/A';
-        const custPhone = booking?.customerDetails?.phone || booking?.customer?.phone || 'N/A';
-        const eventType = booking?.customerDetails?.eventType || '';
-        const guests    = booking?.customerDetails?.guestCount || '';
 
         let cy = y + 10;
         const kvLine = (label, val, yy) => {
@@ -172,10 +178,12 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
         kvLine('Customer', custName,  cy); cy += 4.5;
         kvLine('Email',    custEmail, cy); cy += 4.5;
         kvLine('Phone',    custPhone, cy); cy += 4.5;
-        if (eventType) { kvLine('Event Type', eventType, cy); cy += 4.5; }
-        if (guests)    { kvLine('Guests',     guests,    cy); }
+        if (custCompany) { kvLine('Company',  custCompany, cy); cy += 4.5; }
+        if (custGST)     { kvLine('GSTIN',    custGST,     cy); cy += 4.5; }
+        if (eventType)   { kvLine('Event Type', eventType, cy); cy += 4.5; }
+        if (guests)      { kvLine('Guests',   guests,      cy); }
 
-        // Right card
+        // Right card — SUPPLIER (VENUE)
         const rx = M + cardW + 4;
         rect(rx, y, cardW, cardH, [255, 251, 235], [253, 230, 138]);
         setFont('bold', 7, [146, 64, 14]);
@@ -186,7 +194,7 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
         const city      = booking?.venue?.location?.city || '';
         const area      = booking?.venue?.location?.area || '';
         const location  = city + (area ? ', ' + area : '');
-        const gstin     = booking?.venue?.documents?.gstNumber || 'Not Available';
+        const gstin     = booking?.venue?.ownerInfo?.gstNumber || booking?.venue?.documents?.gstNumber || 'Not Available';
 
         let ry = y + 10;
         const rkvLine = (label, val, yy) => {
@@ -196,13 +204,10 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
         rkvLine('Venue',        venueName,                    ry); ry += 4.5;
         rkvLine('Location',     location,                     ry); ry += 4.5;
         rkvLine('GSTIN',        gstin,                        ry); ry += 4.5;
-        rkvLine('HSN Code',     '9973',                       ry); ry += 4.5;
         rkvLine('Booking Date', fmtD(booking?.bookingDate),   ry); ry += 4.5;
         rkvLine('Time Slot',    (booking?.startTime || '') + ' - ' + (booking?.endTime || '') + ' (' + (booking?.bookingType || '') + ')', ry);
 
         y += cardH + 6;
-
-        // ── items table ─────────────────────────────────────────────────────
         const cols = [CW * 0.44, CW * 0.14, CW * 0.21, CW * 0.21];
         const colX = [M, M + cols[0], M + cols[0] + cols[1], M + cols[0] + cols[1] + cols[2]];
 
@@ -315,24 +320,31 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
 
       } else {
         // ── PLATFORM INVOICE ─────────────────────────────────────────────────
-        const cardH = 30;
         const cardW = (CW - 4) / 2;
+
+        // Dynamic card height based on customer fields
+        const pCustName    = booking?.customer?.name    || booking?.customerDetails?.name    || 'N/A';
+        const pCustEmail   = booking?.customer?.email   || booking?.customerDetails?.email   || 'N/A';
+        const pCustPhone   = booking?.customerDetails?.phone || booking?.customer?.phone     || 'N/A';
+        const pCustGST     = booking?.customerDetails?.gstNumber  || booking?.customer?.gstNumber  || '';
+        const pCustCompany = booking?.customerDetails?.companyName || booking?.customer?.companyName || '';
+        const pBilledRows  = 3 + (pCustCompany ? 1 : 0) + (pCustGST ? 1 : 0);
+        const cardH        = 10 + pBilledRows * 4.5 + 2;
 
         rect(M, y, cardW, cardH, [240, 249, 255], [186, 230, 253]);
         setFont('bold', 7, [12, 74, 110]);
         doc.text('BILLED TO', M + 3, y + 5);
         line(M + 3, y + 6.5, M + cardW - 3, y + 6.5, [186, 230, 253], 0.3);
-        const custName  = booking?.customer?.name  || booking?.customerDetails?.name  || 'N/A';
-        const custEmail = booking?.customer?.email || booking?.customerDetails?.email || 'N/A';
-        const custPhone = booking?.customerDetails?.phone || booking?.customer?.phone || 'N/A';
         let cy = y + 10;
         const kvL = (label, val, yy) => {
           setFont('normal', 7.5, [107, 114, 128]); doc.text(label, M + 3, yy);
           setFont('bold',   7.5, [17, 24, 39]);    doc.text(String(val || ''), M + 22, yy);
         };
-        kvL('Customer', custName,  cy); cy += 4.5;
-        kvL('Email',    custEmail, cy); cy += 4.5;
-        kvL('Phone',    custPhone, cy);
+        kvL('Customer', pCustName,  cy); cy += 4.5;
+        kvL('Email',    pCustEmail, cy); cy += 4.5;
+        kvL('Phone',    pCustPhone, cy); cy += 4.5;
+        if (pCustCompany) { kvL('Company', pCustCompany, cy); cy += 4.5; }
+        if (pCustGST)     { kvL('GSTIN',   pCustGST,    cy); }
 
         const rx = M + cardW + 4;
         rect(rx, y, cardW, cardH, [240, 249, 255], [186, 230, 253]);
@@ -345,9 +357,8 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
           setFont('normal', 7.5, [107, 114, 128]); doc.text(label, rx + 3, yy);
           setFont('bold',   7.5, [17, 24, 39]);    doc.text(String(val || ''), rx + 22, yy);
         };
-        rkvL('Company',     'RentalMeet Technologies', ry); ry += 4.5;
-        rkvL('GSTIN',       'Not Available',           ry); ry += 4.5;
-        rkvL('HSN Code',    '999799',                  ry);
+        rkvL('Company', 'YUWAKA EDUTECH',   ry); ry += 4.5;
+        rkvL('GSTIN',   '23AABCY6855D1ZC', ry);
         y += cardH + 6;
 
         // table header

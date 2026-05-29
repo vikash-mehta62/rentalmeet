@@ -479,6 +479,8 @@ exports.getDashboardStats = async (req, res) => {
     const approvedVendorServices = await VendorService.countDocuments({ status: 'approved' });
     const totalVendors = await User.countDocuments({ role: 'vendor' });
     const cancelledBookings = await Booking.countDocuments({ status: 'cancelled' });
+    const cancelledServiceBookings = await ServiceBooking.countDocuments({ status: 'cancelled' });
+    const confirmedServiceBookings = await ServiceBooking.countDocuments({ status: 'confirmed' });
     const totalServiceQuotationDownloads = await (async () => {
       try {
         const ServiceQuotationDownload = require('../models/ServiceQuotationDownload');
@@ -497,9 +499,9 @@ exports.getDashboardStats = async (req, res) => {
       stats: {
         totalVenues, pendingVenues, approvedVenues,
         totalUsers, totalOwners, totalCustomers, totalVendors,
-        totalBookings, pendingBookings, confirmedBookings, completedBookings, cancelledBookings,
+        totalBookings, pendingBookings, confirmedBookings, completedBookings, cancelledBookings, cancelledServiceBookings,
         totalRevenue, totalQuotationDownloads, totalServiceQuotationDownloads,
-        totalServiceBookings, serviceBookingEnquiries,
+        totalServiceBookings, serviceBookingEnquiries, confirmedServiceBookings,
         totalVendorServices, pendingVendorServices, approvedVendorServices
       }
     });

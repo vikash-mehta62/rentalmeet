@@ -204,18 +204,15 @@ exports.login = async (req, res) => {
     }
     
     const token = generateToken(user._id);
-    
+
+    // Fetch full user (with kyc) for the response — avoids stale store on client
+    const fullUser = await User.findById(user._id)
+      .select('-password -resetPasswordToken -resetPasswordExpire');
+
     res.json({
       success: true,
       token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        permissions: user.permissions // Include permissions for subadmins
-      }
+      user: fullUser
     });
   } catch (error) {
     res.status(500).json({

@@ -161,12 +161,27 @@ export default function AdminVenues() {
     } catch { toast.error(`Failed to ${action} venue`); }
   };
 
-  const openModal = (venue) => {
-    setSelectedVenue(venue);
-    setCustomSettings({
-      customPlatformFee: venue.customPlatformFee || { enabled: false, feeType: 'fixed', feeValue: 0 },
-      customGST: venue.customGST || { enabled: false, rate: 18 }
-    });
+  const openModal = async (venue) => {
+    // Fetch full venue data (with documents/bankDetails) via edit route
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues/${venue._id}/edit`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      const fullVenue = data.success ? data.venue : venue;
+      setSelectedVenue(fullVenue);
+      setCustomSettings({
+        customPlatformFee: fullVenue.customPlatformFee || { enabled: false, feeType: 'fixed', feeValue: 0 },
+        customGST: fullVenue.customGST || { enabled: false, rate: 18 }
+      });
+    } catch {
+      // Fallback to list data if fetch fails
+      setSelectedVenue(venue);
+      setCustomSettings({
+        customPlatformFee: venue.customPlatformFee || { enabled: false, feeType: 'fixed', feeValue: 0 },
+        customGST: venue.customGST || { enabled: false, rate: 18 }
+      });
+    }
     setModalOpen(true);
   };
 

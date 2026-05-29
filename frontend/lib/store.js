@@ -15,7 +15,15 @@ export const useAuthStore = create(
           document.cookie = 'auth-present=1; path=/; SameSite=Strict';
         }
       },
-      updateUser: (user) => set((state) => ({ user: { ...state.user, ...user } })),
+      updateUser: (user) => set((state) => ({
+        user: {
+          ...state.user,
+          ...user,
+          // Deep merge nested objects so kyc/permissions aren't wiped by shallow spread
+          kyc: user.kyc !== undefined ? user.kyc : state.user?.kyc,
+          permissions: user.permissions !== undefined ? user.permissions : state.user?.permissions,
+        }
+      })),
       logout: () => {
         set({ user: null, token: null });
         // Clear auth signal cookie and sessionStorage

@@ -494,12 +494,14 @@ export default function CustomerBookings() {
                       </button>
                       {booking.status === 'pending' && (
                         <>
+                          {/* Phase 2: Modify button — temporarily disabled
                           <button
                             onClick={() => openModify(booking)}
                             className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1"
                           >
                             ✏️ Modify
                           </button>
+                          */}
                           <button
                             onClick={() => { setCancelModal(booking); setCancelReason(''); setCancelCustomReason(''); }}
                             className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1"
@@ -668,11 +670,11 @@ export default function CustomerBookings() {
                     {/* Balance Bar */}
                     <div className="grid grid-cols-3 divide-x divide-gray-200 dark:divide-slate-700">
                       <div className="p-3 text-center bg-white dark:bg-slate-800">
-                        <p className="text-[10px] text-gray-500 mb-0.5">Total Due</p>
+                        <p className="text-[10px] text-gray-500 mb-0.5">Booking Total</p>
                         <p className="text-base font-black text-gray-900 dark:text-slate-100">₹{currentDue.toLocaleString()}</p>
                       </div>
                       <div className="p-3 text-center bg-green-50 dark:bg-slate-800">
-                        <p className="text-[10px] text-gray-500 mb-0.5">Paid</p>
+                        <p className="text-[10px] text-gray-500 mb-0.5">{totalRefunded > 0 ? 'Paid' : netPaid >= currentDue ? 'Paid ✓' : 'Paid'}</p>
                         <p className="text-base font-black text-green-600">₹{netPaid.toLocaleString()}</p>
                       </div>
                       <div className={`p-3 text-center ${refundDue > 0 ? 'bg-blue-50' : isOverpaid ? 'bg-orange-50' : amountDue > 0 ? 'bg-red-50' : 'bg-green-50'} dark:bg-slate-800`}>
@@ -754,7 +756,7 @@ export default function CustomerBookings() {
                               </div>
                             </div>
                           ))}
-                          {txns.filter(t => t.type !== 'adjustment').map((txn, i) => (
+                          {txns.filter(t => t.type !== 'adjustment' && t.status !== 'pending').map((txn, i) => (
                             <div key={`txn-${i}`} className={`flex items-start gap-3 text-xs p-2.5 rounded-lg border ${['payment','manual_payment'].includes(txn.type) ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
                               <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${['payment','manual_payment'].includes(txn.type) ? 'bg-green-200' : 'bg-red-200'}`}>
                                 {['payment','manual_payment'].includes(txn.type)

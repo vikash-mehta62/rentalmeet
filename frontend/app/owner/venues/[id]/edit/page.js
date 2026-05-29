@@ -42,35 +42,22 @@ export default function EditVenue() {
 
   const fetchVenueData = async () => {
     try {
-      console.log('Fetching venue data for ID:', params.id);
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues/${params.id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues/${params.id}/edit`, {
+        headers: { 'Authorization': `Bearer ${token}` }
       });
 
-      if (!response.ok) {
-        console.error('Response not OK:', response.status);
-        throw new Error('Failed to fetch venue');
-      }
+      if (!response.ok) throw new Error('Failed to fetch venue');
 
       const data = await response.json();
-      console.log('Venue data received:', data);
-      
-      // Check if response has success and venue
-      const venue = data.success ? data.venue : data;
-      
-      if (!venue) {
-        throw new Error('No venue data found');
-      }
-      
-      // Populate form with existing venue data
+      const venue = data.venue;
+
+      if (!venue) throw new Error('No venue data found');
+
       setFormData({
-        step: 1, // Start from step 1
-        venueId: venue._id, // Store venue ID for update
-        isEditMode: true, // Flag to indicate edit mode
-        
-        // Step 1: Basic Info
+        step: 1,
+        venueId: venue._id,
+        isEditMode: true,
+
         basicInfo: {
           businessName: venue.businessName || '',
           venueType: venue.venueType || [],
@@ -78,14 +65,11 @@ export default function EditVenue() {
           capacity: venue.capacity || '',
           areaSqft: venue.areaSqft || ''
         },
-        
-        // Step 2: Location
+
         location: venue.location || {},
-        
-        // Step 3: Amenities
+
         amenities: venue.amenities || {},
-        
-        // Step 4: Pricing
+
         pricing: {
           ...venue.pricing,
           openingTime: venue.availability?.openingTime || '09:00',
@@ -94,17 +78,36 @@ export default function EditVenue() {
           advanceBookingRule: venue.availability?.advanceBookingRule || 'Same day allowed',
           confirmationHours: venue.availability?.confirmationHours || 3
         },
-        
-        // Step 5: Images
+
         images: venue.images || [],
-        
-        // Step 6: Documents
+
         ownerInfo: venue.ownerInfo || {},
-        documents: venue.documents || {},
-        bankDetails: venue.bankDetails || {}
+        documents: {
+          idProof: {
+            type: venue.documents?.idProof?.type || 'Aadhaar',
+            number: venue.documents?.idProof?.number || '',
+            frontUrl: venue.documents?.idProof?.frontUrl || '',
+            backUrl: venue.documents?.idProof?.backUrl || '',
+          },
+          selfieUrl: venue.documents?.selfieUrl || '',
+          businessProof: {
+            type: venue.documents?.businessProof?.type || '',
+            documentUrl: venue.documents?.businessProof?.documentUrl || '',
+            otherSpecify: venue.documents?.businessProof?.otherSpecify || '',
+          },
+          verified: venue.documents?.verified || false,
+        },
+        bankDetails: {
+          accountHolderName: venue.bankDetails?.accountHolderName || '',
+          accountNumber: venue.bankDetails?.accountNumber || '',
+          ifscCode: venue.bankDetails?.ifscCode || '',
+          bankName: venue.bankDetails?.bankName || '',
+          branchName: venue.bankDetails?.branchName || '',
+          accountType: venue.bankDetails?.accountType || '',
+          bankProofUrl: venue.bankDetails?.bankProofUrl || '',
+          bankProofPublicId: venue.bankDetails?.bankProofPublicId || '',
+        }
       });
-      
-      console.log('Form data populated successfully');
     } catch (error) {
       console.error('Error fetching venue:', error);
       toast.error('Failed to load venue data');

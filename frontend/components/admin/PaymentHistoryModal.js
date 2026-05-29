@@ -116,7 +116,9 @@ export default function PaymentHistoryModal({ booking, token, onClose, onUpdate 
               { label: 'Total Paid',  val: totalPaid,      cls: 'bg-green-50 border-green-200 text-green-600' },
               { label: 'Refunded',    val: totalRefunded,  cls: 'bg-red-50 border-red-200 text-red-500' },
               {
-                label: isRefundDue
+                label: isCancelled && totalRefunded >= totalPaid && totalPaid > 0
+                  ? 'Refund Done'
+                  : isRefundDue
                   ? 'Refund Due'
                   : isOverpaid
                   ? 'Overpaid'
@@ -124,14 +126,16 @@ export default function PaymentHistoryModal({ booking, token, onClose, onUpdate 
                   ? 'Balance Due'
                   : 'Settled',
                 val: Math.abs(balance),
-                cls: isRefundDue
+                cls: isCancelled && totalRefunded >= totalPaid && totalPaid > 0
+                  ? 'bg-green-50 border-green-200 text-green-600'
+                  : isRefundDue
                   ? 'bg-blue-50 border-blue-200 text-blue-600'
                   : isOverpaid
                   ? 'bg-orange-50 border-orange-200 text-orange-600'
                   : balance > 0
                   ? 'bg-orange-50 border-orange-200 text-orange-600'
                   : 'bg-green-50 border-green-200 text-green-600',
-                override: balance === 0 ? '✓ Clear' : null
+                override: (balance === 0 || (isCancelled && totalRefunded >= totalPaid && totalPaid > 0)) ? '✓ Clear' : null
               }
             ].map(({ label, val, cls, override }) => (
               <div key={label} className={`rounded-xl p-3 text-center border ${cls}`}>
@@ -168,7 +172,8 @@ export default function PaymentHistoryModal({ booking, token, onClose, onUpdate 
             }`}>{booking.paymentStatus}</span>
           </div>
 
-          {/* Action Buttons */}
+          {/* Action Buttons — Phase 2: Record Payment & Record Refund disabled */}
+          {/* 
           <div className="flex gap-2">
             <button onClick={() => setAction(action === 'payment' ? null : 'payment')}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
@@ -178,7 +183,6 @@ export default function PaymentHistoryModal({ booking, token, onClose, onUpdate 
               }`}>
               <Plus className="w-4 h-4" /> Record Payment
             </button>
-            {/* Only show Record Refund for cancelled bookings or when there's an actual refund to process */}
             {(isCancelled || totalRefunded > 0 || balance > 0) && (
               <button onClick={() => setAction(action === 'refund' ? null : 'refund')}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
@@ -189,7 +193,6 @@ export default function PaymentHistoryModal({ booking, token, onClose, onUpdate 
                 <RefreshCw className="w-4 h-4" /> Record Refund
               </button>
             )}
-            {/* For active overpaid bookings, show manual refund option with warning */}
             {isOverpaid && (
               <button onClick={() => setAction(action === 'refund' ? null : 'refund')}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
@@ -201,6 +204,7 @@ export default function PaymentHistoryModal({ booking, token, onClose, onUpdate 
               </button>
             )}
           </div>
+          */}
 
           {/* Form */}
           {action && (

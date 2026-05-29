@@ -4,6 +4,7 @@ const {
   getVenues,
   getVenue,
   getVenueBySKU,
+  getVenueForEdit,
   updateVenue,
   deleteVenue,
   uploadImages,
@@ -48,6 +49,9 @@ router.get('/generate-quotation-number', async (req, res) => {
 
 // Public: get valid coupons for a venue
 router.get('/:id/coupons', getVenueCoupons);
+
+// Edit route — full data with decrypted bank details (owner/admin only)
+router.get('/:id/edit', protect, getVenueForEdit);
 
 router.route('/:id')
   .get(getVenue)

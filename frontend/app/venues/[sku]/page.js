@@ -352,7 +352,7 @@ export default function VenueDetail() {
   };
 
   // Handle Book Now button click
-  const handleBookNowClick = () => {
+  const handleBookNowClick = async () => {
     if (!token) {
       // Save current booking state to localStorage
       const pendingBooking = {
@@ -371,8 +371,28 @@ export default function VenueDetail() {
       router.push(`/login?redirect=/venues/${venue.sku}`);
       return;
     }
+
+    // Only check KYC for customers
+    if (user?.role === 'customer') {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          const kyc = data.user?.kyc || {};
+          if (!kyc.idProof || !kyc.selfie) {
+            toast.error('Please complete your KYC (ID proof + selfie) to book a venue.');
+            router.push('/customer/profile?tab=kyc');
+            return;
+          }
+        }
+      } catch {
+        // If fetch fails, let backend handle the check
+      }
+    }
     
-    // User is logged in, open booking form
+    // User is logged in and KYC is done, open booking form
     setBookingFormOpen(true);
   };
 

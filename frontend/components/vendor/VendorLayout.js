@@ -5,13 +5,14 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
 import {
-  LayoutDashboard, Briefcase, LogOut, Menu, X, ChevronLeft, ChevronRight, Bell, BookOpen, Tag, FileText
+  LayoutDashboard, Briefcase, LogOut, Menu, X, ChevronLeft, ChevronRight, Bell, BookOpen, Tag, FileText, IndianRupee
 } from 'lucide-react';
 
 const NAV = [
   { href: '/vendor/dashboard',           label: 'Dashboard',           icon: LayoutDashboard },
   { href: '/vendor/services',            label: 'My Services',         icon: Briefcase },
   { href: '/vendor/bookings',            label: 'Bookings',            icon: BookOpen },
+  { href: '/vendor/payments',            label: 'Payments',            icon: IndianRupee },
   { href: '/vendor/quotation-downloads', label: 'Quotation Downloads', icon: FileText },
   { href: '/vendor/coupons',             label: 'Service Coupons',     icon: Tag },
 ];

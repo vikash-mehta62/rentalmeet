@@ -129,24 +129,27 @@ export default function Step6OwnerDocs() {
   // Sync uploaded file states when formData loads (edit mode)
   useEffect(() => {
     if (formData.documents) {
-      setIdProofFiles(prev => {
-        const updated = { ...prev };
-        if (formData.documents.idProof?.frontUrl && !updated.front) {
+      setIdProofFiles(() => {
+        const updated = {};
+        if (formData.documents.idProof?.frontUrl) {
           updated.front = { url: formData.documents.idProof.frontUrl, name: 'ID Proof Front', format: 'image' };
         }
-        if (formData.documents.idProof?.backUrl && !updated.back) {
+        if (formData.documents.idProof?.backUrl) {
           updated.back = { url: formData.documents.idProof.backUrl, name: 'ID Proof Back', format: 'image' };
         }
-        if (formData.documents.idProof?.type === 'PAN' && formData.documents.idProof?.frontUrl && !updated.pan) {
+        if (formData.documents.idProof?.type === 'PAN' && formData.documents.idProof?.frontUrl) {
           updated.pan = { url: formData.documents.idProof.frontUrl, name: 'PAN Card', format: 'image' };
         }
-        if (formData.documents.idProof?.type) setIdProofType(formData.documents.idProof.type);
+        if (formData.documents.idProof?.gstDocUrl) {
+          updated.gstDoc = { url: formData.documents.idProof.gstDocUrl, name: 'GST Certificate', format: 'image' };
+        }
         return updated;
       });
-      if (formData.documents.selfieUrl && !selfie) {
+      if (formData.documents.idProof?.type) setIdProofType(formData.documents.idProof.type);
+      if (formData.documents.selfieUrl) {
         setSelfie({ url: formData.documents.selfieUrl, name: 'Selfie', format: 'image' });
       }
-      if (formData.documents.businessProof?.documentUrl && !businessDoc) {
+      if (formData.documents.businessProof?.documentUrl) {
         setBusinessDoc({ url: formData.documents.businessProof.documentUrl, name: 'Business Document', format: 'pdf' });
       }
     }

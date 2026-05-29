@@ -162,7 +162,9 @@ const bookingSchema = new mongoose.Schema({
     phone: String,
     eventType: String,
     guestCount: Number,
-    specialRequirements: String
+    specialRequirements: String,
+    gstNumber: String,
+    companyName: String
   },
   status: {
     type: String,

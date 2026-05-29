@@ -63,9 +63,9 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState({
     totalVenues: 0, pendingVenues: 0, approvedVenues: 0,
     totalUsers: 0, totalOwners: 0, totalCustomers: 0, totalVendors: 0,
-    totalBookings: 0, pendingBookings: 0, confirmedBookings: 0, completedBookings: 0, cancelledBookings: 0,
+    totalBookings: 0, pendingBookings: 0, confirmedBookings: 0, completedBookings: 0, cancelledBookings: 0, cancelledServiceBookings: 0,
     totalRevenue: 0, totalQuotationDownloads: 0, totalServiceQuotationDownloads: 0,
-    totalServiceBookings: 0, serviceBookingEnquiries: 0,
+    totalServiceBookings: 0, serviceBookingEnquiries: 0, confirmedServiceBookings: 0,
     totalVendorServices: 0, pendingVendorServices: 0, approvedVendorServices: 0
   });
 
@@ -105,25 +105,27 @@ export default function AdminDashboard() {
 
         {/* ── VENUES ─────────────────────────────────────────────────── */}
         <Section icon={Building2} title="Venues" iconColor="text-blue-500">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <StatCard label="Total Venues"   value={stats.totalVenues}              sub={`${stats.approvedVenues} approved`}   color="blue"   onClick={() => go('/admin/venues')} />
-            <StatCard label="Approved"       value={stats.approvedVenues}           sub="Live on platform"                     color="green"  onClick={() => go('/admin/venues')} />
-            <StatCard label="Pending"        value={stats.pendingVenues}            sub="Awaiting approval"                    color="yellow" onClick={() => go('/admin/venues')} />
-            <StatCard label="Venue Bookings" value={stats.totalBookings}            sub={`${stats.pendingBookings} pending`}   color="violet" onClick={() => go('/admin/bookings')} />
-            <StatCard label="Completed"      value={stats.completedBookings}        sub="Bookings done"                        color="teal"   onClick={() => go('/admin/bookings')} />
-            <StatCard label="Quotation DLs"  value={stats.totalQuotationDownloads}  sub="Downloaded"                           color="indigo" onClick={() => go('/admin/quotation-downloads')} />
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+            <StatCard label="Total Venues"    value={stats.totalVenues}             sub={`${stats.approvedVenues} approved`}   color="blue"   onClick={() => go('/admin/venues')} />
+            <StatCard label="Approved"        value={stats.approvedVenues}          sub="Live on platform"                     color="green"  onClick={() => go('/admin/venues')} />
+            <StatCard label="Pending"         value={stats.pendingVenues}           sub="Awaiting approval"                    color="yellow" onClick={() => go('/admin/venues')} />
+            <StatCard label="Venue Bookings"  value={stats.totalBookings}           sub={`${stats.pendingBookings} pending`}   color="violet" onClick={() => go('/admin/bookings')} />
+            <StatCard label="Completed"       value={stats.completedBookings}       sub="Bookings done"                        color="teal"   onClick={() => go('/admin/bookings')} />
+            <StatCard label="Cancelled"       value={stats.cancelledBookings || 0}  sub="Venue bookings"                       color="red"    onClick={() => go('/admin/bookings')} />
+            <StatCard label="Quotation DLs"   value={stats.totalQuotationDownloads} sub="Downloaded"                           color="indigo" onClick={() => go('/admin/quotation-downloads')} />
           </div>
         </Section>
 
         {/* ── VENDORS ────────────────────────────────────────────────── */}
         <Section icon={Briefcase} title="Vendors & Services" iconColor="text-purple-500">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <StatCard label="Total Vendors"      value={stats.totalVendors || 0}              sub="Registered vendors"                           color="purple" onClick={() => go('/admin/vendors')} />
-            <StatCard label="Vendor Services"    value={stats.totalVendorServices}            sub={`${stats.approvedVendorServices} approved`}   color="indigo" onClick={() => go('/admin/vendor-services')} />
-            <StatCard label="Pending Services"   value={stats.pendingVendorServices}          sub="Awaiting approval"                            color="amber"  onClick={() => go('/admin/vendor-services')} />
-            <StatCard label="Service Bookings"   value={stats.totalServiceBookings}           sub={`${stats.serviceBookingEnquiries} enquiries`} color="rose"   onClick={() => go('/admin/service-bookings')} />
-            <StatCard label="Service Quotations" value={stats.totalServiceQuotationDownloads || 0} sub="Downloaded"                              color="orange" onClick={() => go('/admin/service-quotation-downloads')} />
-            <StatCard label="Cancelled"          value={stats.cancelledBookings || 0}         sub="All bookings"                                 color="red"    onClick={() => go('/admin/bookings')} />
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+            <StatCard label="Total Vendors"      value={stats.totalVendors || 0}                   sub="Registered vendors"                           color="purple" onClick={() => go('/admin/vendors')} />
+            <StatCard label="Approved Services"  value={stats.approvedVendorServices}              sub="Live on platform"                             color="green"  onClick={() => go('/admin/vendor-services')} />
+            <StatCard label="Pending Services"   value={stats.pendingVendorServices}               sub="Awaiting approval"                            color="amber"  onClick={() => go('/admin/vendor-services')} />
+            <StatCard label="Service Bookings"   value={stats.totalServiceBookings}                sub={`${stats.serviceBookingEnquiries} enquiries`} color="rose"   onClick={() => go('/admin/service-bookings')} />
+            <StatCard label="Confirmed"          value={stats.confirmedServiceBookings || 0}       sub="Bookings done"                                color="teal"   onClick={() => go('/admin/service-bookings')} />
+            <StatCard label="Cancelled"          value={stats.cancelledServiceBookings || 0}       sub="Service bookings"                             color="red"    onClick={() => go('/admin/service-bookings')} />
+            <StatCard label="Service Quotations" value={stats.totalServiceQuotationDownloads || 0} sub="Downloaded"                                   color="indigo" onClick={() => go('/admin/service-quotation-downloads')} />
           </div>
         </Section>
 
