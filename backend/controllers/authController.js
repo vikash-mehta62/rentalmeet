@@ -425,7 +425,9 @@ exports.login = async (req, res) => {
 
     // Fetch full user (with kyc) for the response — avoids stale store on client
     const fullUser = await User.findById(user._id)
-      .select('-password -resetPasswordToken -resetPasswordExpire');
+      .select('-password -resetPasswordToken -resetPasswordExpire')
+      .populate('referrals.user', 'name email role')
+      .populate('referredBy', 'name referralCode');
 
     res.json({
       success: true,
@@ -446,7 +448,7 @@ exports.getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id)
       .select('-password -resetPasswordToken -resetPasswordExpire')
-      .populate('referrals.user', 'name role')
+      .populate('referrals.user', 'name email role')
       .populate('referredBy', 'name referralCode');
     
     res.json({ success: true, user });
@@ -533,6 +535,10 @@ exports.updateProfile = async (req, res) => {
     
     // Save the user
     const savedUser = await currentUser.save();
+    await savedUser.populate([
+      { path: 'referrals.user', select: 'name email role' },
+      { path: 'referredBy', select: 'name referralCode' }
+    ]);
     
     // Remove password from response
     const user = savedUser.toObject();
@@ -766,6 +772,10 @@ exports.employeeSelfUpdate = async (req, res) => {
     }
 
     await employee.save({ validateBeforeSave: false });
+    await employee.populate([
+      { path: 'referrals.user', select: 'name email role' },
+      { path: 'referredBy', select: 'name referralCode' }
+    ]);
 
     const userData = employee.toObject();
     delete userData.password;

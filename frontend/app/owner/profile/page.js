@@ -1,17 +1,33 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuthStore } from '@/lib/store';
 import {
   Camera, Save, Lock, Eye, EyeOff, User, Copy, Users, Gift
 } from 'lucide-react';
 import OwnerLayout from '@/components/owner/OwnerLayout';
+import { State, City } from 'country-state-city';
 
 export default function OwnerProfile() {
   const { user, token, updateUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('profile');
   const [message, setMessage] = useState({ type: '', text: '' });
+
+  // Fetch fresh user data on mount to ensure referrals and other fields are fully populated
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success) {
+          updateUser(data.user);
+        }
+      })
+      .catch((err) => console.error('Failed to fetch user data:', err));
+  }, [token, updateUser]);
 
   // Profile Form
   const [profileData, setProfileData] = useState({
@@ -40,6 +56,12 @@ export default function OwnerProfile() {
 
   const [profilePictureFile, setProfilePictureFile] = useState(null);
   const [profilePicturePreview, setProfilePicturePreview] = useState('');
+  const [selectedStateCode, setSelectedStateCode] = useState('');
+  const stateOptions = useMemo(() => State.getStatesOfCountry('IN'), []);
+  const cityOptions = useMemo(
+    () => (selectedStateCode ? City.getCitiesOfState('IN', selectedStateCode) : []),
+    [selectedStateCode]
+  );
 
   useEffect(() => {
     if (user) {
@@ -56,6 +78,11 @@ export default function OwnerProfile() {
       setProfilePicturePreview(user.profilePicture || '');
     }
   }, [user]);
+
+  useEffect(() => {
+    const matchedState = stateOptions.find((s) => s.name === profileData.state);
+    setSelectedStateCode(matchedState?.isoCode || '');
+  }, [profileData.state, stateOptions]);
 
   const handleProfilePictureChange = (e) => {
     const file = e.target.files[0];
@@ -313,26 +340,44 @@ export default function OwnerProfile() {
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      City
+                      State
                     </label>
-                    <input
-                      type="text"
-                      value={profileData.city}
-                      onChange={(e) => setProfileData({ ...profileData, city: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-                    />
+                    <select
+                      value={selectedStateCode}
+                      onChange={(e) => {
+                        const code = e.target.value;
+                        const selected = stateOptions.find((s) => s.isoCode === code);
+                        setSelectedStateCode(code);
+                        setProfileData((p) => ({ ...p, state: selected?.name || '', city: '' }));
+                      }}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none bg-white"
+                    >
+                      <option value="">Select State</option>
+                      {stateOptions.map((s) => (
+                        <option key={s.isoCode} value={s.isoCode}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      State
+                      City
                     </label>
-                    <input
-                      type="text"
-                      value={profileData.state}
-                      onChange={(e) => setProfileData({ ...profileData, state: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-                    />
+                    <select
+                      value={profileData.city}
+                      onChange={(e) => setProfileData({ ...profileData, city: e.target.value })}
+                      disabled={!selectedStateCode}
+                      className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none ${!selectedStateCode ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white'}`}
+                    >
+                      <option value="">{selectedStateCode ? 'Select City' : 'Select State First'}</option>
+                      {cityOptions.map((c) => (
+                        <option key={c.name} value={c.name}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>

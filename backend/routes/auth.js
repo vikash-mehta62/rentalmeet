@@ -15,6 +15,7 @@ router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 router.get('/referrer/:code', getReferrerByCode);
 router.get('/me', protect, getMe);
+router.put('/update-profile', protect, updateProfile);
 router.put('/change-password', protect, changePassword);
 router.delete('/delete-account', protect, deleteAccount);
 router.put('/deactivate-account', protect, deactivateAccount);

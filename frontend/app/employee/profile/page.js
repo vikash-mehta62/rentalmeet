@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
 import EmployeeLayout from '@/components/employee/EmployeeLayout';
@@ -9,6 +9,7 @@ import {
   Users, Copy, CheckCircle, AlertCircle, Upload, ExternalLink, Gift, Share2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { State, City } from 'country-state-city';
 
 const TABS = [
   { id: 'info',       label: 'My Info' },
@@ -38,6 +39,12 @@ export default function EmployeeProfile() {
   const [showPassword, setShowPassword] = useState(false);
   const [uploading, setUploading] = useState({});
   const [uploadedUrls, setUploadedUrls] = useState({});
+  const [selectedStateCode, setSelectedStateCode] = useState('');
+  const stateOptions = useMemo(() => State.getStatesOfCountry('IN'), []);
+  const cityOptions = useMemo(
+    () => (selectedStateCode ? City.getCitiesOfState('IN', selectedStateCode) : []),
+    [selectedStateCode]
+  );
 
   // Form state — all editable fields
   const [form, setForm] = useState({
@@ -108,6 +115,11 @@ export default function EmployeeProfile() {
     if (!token || user?.role !== 'employee') { router.push('/login'); return; }
     fetchProfile().finally(() => setFetching(false));
   }, [token]);
+
+  useEffect(() => {
+    const matchedState = stateOptions.find((s) => s.name === form.state);
+    setSelectedStateCode(matchedState?.isoCode || '');
+  }, [form.state, stateOptions]);
 
   const handleChange = (e) => setForm(p => ({ ...p, [e.target.name]: e.target.value }));
 
@@ -432,8 +444,44 @@ export default function EmployeeProfile() {
                   <p className={sec}>Address</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2"><label className={lbl}>Address</label><input name="address" value={form.address} onChange={handleChange} className={inp} /></div>
-                    <div><label className={lbl}>City</label><input name="city" value={form.city} onChange={handleChange} className={inp} /></div>
-                    <div><label className={lbl}>State</label><input name="state" value={form.state} onChange={handleChange} className={inp} /></div>
+                    <div>
+                      <label className={lbl}>State</label>
+                      <select
+                        name="state"
+                        value={selectedStateCode}
+                        onChange={(e) => {
+                          const code = e.target.value;
+                          const selected = stateOptions.find((s) => s.isoCode === code);
+                          setSelectedStateCode(code);
+                          setForm((p) => ({ ...p, state: selected?.name || '', city: '' }));
+                        }}
+                        className={inp + ' bg-white'}
+                      >
+                        <option value="">Select State</option>
+                        {stateOptions.map((s) => (
+                          <option key={s.isoCode} value={s.isoCode}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={lbl}>City</label>
+                      <select
+                        name="city"
+                        value={form.city}
+                        onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))}
+                        disabled={!selectedStateCode}
+                        className={`${inp} ${!selectedStateCode ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white'}`}
+                      >
+                        <option value="">{selectedStateCode ? 'Select City' : 'Select State First'}</option>
+                        {cityOptions.map((c) => (
+                          <option key={c.name} value={c.name}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                     <div><label className={lbl}>Pincode</label><input name="pincode" value={form.pincode} onChange={handleChange} maxLength="6" className={inp} /></div>
                   </div>
                 </div>

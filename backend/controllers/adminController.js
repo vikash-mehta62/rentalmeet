@@ -544,6 +544,7 @@ exports.getAllUsers = async (req, res) => {
       const users = await User.find(query)
         .select('-password -kyc -employeeDetails.bankDetails -employeeDetails.documents -gstNumber -panNumber')
         .populate('referredBy', 'name email')
+        .populate('referrals.user', 'name email role')
         .sort('-createdAt');
       
       const bookingCounts = await Booking.aggregate([
@@ -578,6 +579,7 @@ exports.getAllUsers = async (req, res) => {
       User.find(query)
         .select('-password -kyc -employeeDetails.bankDetails -employeeDetails.documents -gstNumber -panNumber')
         .populate('referredBy', 'name email')
+        .populate('referrals.user', 'name email role')
         .sort('-createdAt')
         .skip(skip)
         .limit(parseInt(limit)),
@@ -639,7 +641,10 @@ exports.getAllUsers = async (req, res) => {
 // @route   GET /api/admin/users/:id
 exports.getUser = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select('-password -kyc -employeeDetails.bankDetails -employeeDetails.documents');
+    const user = await User.findById(req.params.id)
+      .select('-password -kyc -employeeDetails.bankDetails -employeeDetails.documents')
+      .populate('referredBy', 'name email')
+      .populate('referrals.user', 'name email role');
     
     if (!user) {
       return res.status(404).json({

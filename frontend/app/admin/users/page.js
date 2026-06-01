@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
 import PermissionGuard from '@/components/admin/PermissionGuard';
@@ -27,6 +27,15 @@ export default function AdminUsers() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const ITEMS_PER_PAGE = 12;
+
+  const filteredVendors = useMemo(() => {
+    return vendors.filter(v => {
+      const q = searchQuery.toLowerCase();
+      const matchesSearch = !q || v.name?.toLowerCase().includes(q) || v.email?.toLowerCase().includes(q) || v.phone?.includes(q);
+      const matchesStatus = statusFilter === 'all' || (statusFilter === 'active' ? v.isActive : !v.isActive);
+      return matchesSearch && matchesStatus;
+    });
+  }, [vendors, searchQuery, statusFilter]);
   const [newPassword, setNewPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [pwdLoading, setPwdLoading] = useState(false);
@@ -77,7 +86,7 @@ export default function AdminUsers() {
 
   const fetchVendors = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/vendors`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/vendors?limit=10000`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -159,42 +168,58 @@ export default function AdminUsers() {
   const exportToCSV = async () => {
     setExporting(true);
     try {
-      // Fetch ALL records for export (no pagination limit)
-      const params = new URLSearchParams({ page: 1, limit: 10000 });
-      if (activeTab !== 'vendors') params.set('role', activeTab === 'customers' ? 'customer' : 'owner');
-      if (statusFilter !== 'all') params.set('status', statusFilter);
-      if (searchQuery) params.set('search', searchQuery);
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users?${params}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (!data.success) { toast.error('Export failed'); return; }
-      const exportUsers = data.users;
-
       let headers, rows;
-      if (activeTab === 'customers') {
-        headers = ['S.No','User ID','Name','Email','Phone','City','State','Status','Referral Code','Joined Date','No. of Bookings','No. of Referrals'];
-        rows = exportUsers.map((user, i) => [
-          i+1, user.userId || `RM-${user._id.slice(-8).toUpperCase()}`,
-          user.name, user.email, user.phone,
-          user.city||'N/A', user.state||'N/A',
-          user.isActive ? 'Active' : 'Inactive',
-          user.referralCode||'N/A',
-          new Date(user.createdAt).toLocaleDateString('en-IN'),
-          user.bookingCount||0, user.referralCount||0
+      if (activeTab === 'vendors') {
+        headers = ['S.No', 'Vendor ID', 'Name', 'Email', 'Phone', 'Category', 'Services', 'Pending Services', 'Status', 'Joined Date'];
+        rows = filteredVendors.map((vendor, i) => [
+          i + 1,
+          vendor.userId || `RM-${vendor._id.slice(-8).toUpperCase()}`,
+          vendor.name,
+          vendor.email,
+          vendor.phone,
+          vendor.vendorCategory || 'N/A',
+          vendor.serviceCount || 0,
+          vendor.pendingCount || 0,
+          vendor.isActive ? 'Active' : 'Inactive',
+          new Date(vendor.createdAt).toLocaleDateString('en-IN')
         ]);
       } else {
-        headers = ['S.No','User ID','Name','Email','Phone','City','State','No. of Venues','Status','Referral Code','No. of Referrals','Joined Date'];
-        rows = exportUsers.map((user, i) => [
-          i+1, user.userId || `RM-${user._id.slice(-8).toUpperCase()}`,
-          user.name, user.email, user.phone,
-          user.city||'N/A', user.state||'N/A',
-          user.venueCount||0,
-          user.isActive ? 'Active' : 'Inactive',
-          user.referralCode||'N/A',
-          user.referralCount||0,
-          new Date(user.createdAt).toLocaleDateString('en-IN')
-        ]);
+        // Fetch ALL records for export (no pagination limit)
+        const params = new URLSearchParams({ page: 1, limit: 10000 });
+        if (activeTab !== 'vendors') params.set('role', activeTab === 'customers' ? 'customer' : 'owner');
+        if (statusFilter !== 'all') params.set('status', statusFilter);
+        if (searchQuery) params.set('search', searchQuery);
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users?${params}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (!data.success) { toast.error('Export failed'); return; }
+        const exportUsers = data.users;
+
+        if (activeTab === 'customers') {
+          headers = ['S.No','User ID','Name','Email','Phone','City','State','Status','Referral Code','Joined Date','No. of Bookings','No. of Referrals'];
+          rows = exportUsers.map((user, i) => [
+            i+1, user.userId || `RM-${user._id.slice(-8).toUpperCase()}`,
+            user.name, user.email, user.phone,
+            user.city||'N/A', user.state||'N/A',
+            user.isActive ? 'Active' : 'Inactive',
+            user.referralCode||'N/A',
+            new Date(user.createdAt).toLocaleDateString('en-IN'),
+            user.bookingCount||0, user.referralCount||0
+          ]);
+        } else {
+          headers = ['S.No','User ID','Name','Email','Phone','City','State','No. of Venues','Status','Referral Code','No. of Referrals','Joined Date'];
+          rows = exportUsers.map((user, i) => [
+            i+1, user.userId || `RM-${user._id.slice(-8).toUpperCase()}`,
+            user.name, user.email, user.phone,
+            user.city||'N/A', user.state||'N/A',
+            user.venueCount||0,
+            user.isActive ? 'Active' : 'Inactive',
+            user.referralCode||'N/A',
+            user.referralCount||0,
+            new Date(user.createdAt).toLocaleDateString('en-IN')
+          ]);
+        }
       }
 
       const csvContent = [headers.join(','), ...rows.map(r => r.map(c => `"${c}"`).join(','))].join('\n');
@@ -205,7 +230,7 @@ export default function AdminUsers() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      toast.success(`Exported ${exportUsers.length} ${activeTab}!`);
+      toast.success(`Exported ${rows.length} ${activeTab}!`);
     } catch { toast.error('Export failed'); }
     finally { setExporting(false); }
   };
@@ -389,11 +414,11 @@ export default function AdminUsers() {
           {/* Export Button */}
           <button
             onClick={exportToCSV}
-            disabled={exporting || allUsers.length === 0}
+            disabled={exporting || (activeTab === 'vendors' ? filteredVendors.length === 0 : allUsers.length === 0)}
             className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download className="w-4 h-4" />
-            {exporting ? 'Exporting...' : `Export CSV (${totalCount})`}
+            {exporting ? 'Exporting...' : `Export CSV (${activeTab === 'vendors' ? filteredVendors.length : totalCount})`}
           </button>
         </div>
       </div>
@@ -608,15 +633,9 @@ export default function AdminUsers() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {vendors.filter(v => {
-                  const q = searchQuery.toLowerCase();
-                  return !q || v.name?.toLowerCase().includes(q) || v.email?.toLowerCase().includes(q) || v.phone?.includes(q);
-                }).length === 0 ? (
+                {filteredVendors.length === 0 ? (
                   <tr><td colSpan={9} className="px-6 py-8 text-center text-gray-500">No vendors found</td></tr>
-                ) : vendors.filter(v => {
-                  const q = searchQuery.toLowerCase();
-                  return !q || v.name?.toLowerCase().includes(q) || v.email?.toLowerCase().includes(q) || v.phone?.includes(q);
-                }).map((vendor, index) => (
+                ) : filteredVendors.map((vendor, index) => (
                   <tr key={vendor._id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-xs font-semibold text-gray-700">{index + 1}</td>
                     <td className="px-4 py-3">

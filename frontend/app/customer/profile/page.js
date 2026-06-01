@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useRef, Suspense, useMemo } from 'react';
 import { useAuthStore } from '@/lib/store';
@@ -23,6 +23,21 @@ function CustomerProfileInner() {
   useEffect(() => {
     if (searchParams?.get('tab') === 'kyc') setActiveTab('kyc');
   }, [searchParams]);
+
+  // Fetch fresh user data on mount to ensure referrals and other fields are fully populated
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success) {
+          updateUser(data.user);
+        }
+      })
+      .catch((err) => console.error('Failed to fetch user data:', err));
+  }, [token, updateUser]);
 
   // Profile Form
   const [profileData, setProfileData] = useState({
