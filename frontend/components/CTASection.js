@@ -1,6 +1,7 @@
 'use client';
 
 import { Smartphone } from 'lucide-react';
+import Image from 'next/image';
 
 export default function CTASection() {
   return (
@@ -27,7 +28,7 @@ export default function CTASection() {
               Download for iOS
             </a>
             <a
-              href="https://example.com/android-app"
+              href="https://play.google.com/store/apps/details?id=com.rentalmeetapp"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 bg-white hover:bg-gray-100 text-gray-900 font-bold px-5 py-3 rounded-xl transition-all duration-300 shadow-lg"
@@ -39,21 +40,25 @@ export default function CTASection() {
         </div>
 
         {/* Right Side: QR + Download Links */}
-        <div id="app-download" className="w-full md:w-auto grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white/20 p-5 rounded-2xl backdrop-blur-sm border border-white/30">
-          <div className="flex flex-col items-center gap-2">
-            <div className="bg-white p-2 rounded-xl shadow-lg">
-              <div className="w-24 h-24 bg-gray-200 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-400">
+        <div id="app-download" className="w-full md:w-auto grid grid-cols-2 gap-6 bg-white/20 px-6 py-5 rounded-2xl backdrop-blur-sm border border-white/30">
+          <div className="flex flex-col items-center gap-3">
+            <div className="bg-white p-3 rounded-xl shadow-lg">
+              <div className="w-28 h-28 bg-gray-200 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-400">
                 <span className="text-[9px] text-gray-500 font-bold uppercase">iOS QR</span>
               </div>
             </div>
             <p className="text-sm font-semibold text-gray-900">Scan for iOS</p>
           </div>
 
-          <div className="flex flex-col items-center gap-2">
-            <div className="bg-white p-2 rounded-xl shadow-lg">
-              <div className="w-24 h-24 bg-gray-200 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-400">
-                <span className="text-[9px] text-gray-500 font-bold uppercase">Android QR</span>
-              </div>
+          <div className="flex flex-col items-center gap-3">
+            <div className="bg-white p-3 rounded-xl shadow-lg">
+              <Image
+                src="/android-qr-code.png"
+                alt="Android QR Code"
+                width={112}
+                height={112}
+                className="rounded-lg"
+              />
             </div>
             <p className="text-sm font-semibold text-gray-900">Scan for Android</p>
           </div>
