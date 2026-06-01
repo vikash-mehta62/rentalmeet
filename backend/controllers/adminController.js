@@ -108,8 +108,13 @@ exports.approveVenue = async (req, res) => {
     await venue.save();
     
     // Send approval email
-    // TODO: Enable in production
-    // await sendVenueApprovalEmail(venue.owner.email, venue.businessName);
+    try {
+      if (venue.owner?.email) {
+        await sendVenueApprovalEmail(venue.owner.email, venue.businessName);
+      }
+    } catch (emailError) {
+      console.error('[EMAIL] Failed to send venue approval email:', emailError.message);
+    }
     
     res.json({
       success: true,
@@ -146,8 +151,13 @@ exports.rejectVenue = async (req, res) => {
     await venue.save();
     
     // Send rejection email
-    // TODO: Enable in production
-    // await sendVenueRejectionEmail(venue.owner.email, venue.businessName, reason);
+    try {
+      if (venue.owner?.email) {
+        await sendVenueRejectionEmail(venue.owner.email, venue.businessName, reason);
+      }
+    } catch (emailError) {
+      console.error('[EMAIL] Failed to send venue rejection email:', emailError.message);
+    }
     
     res.json({
       success: true,
@@ -472,6 +482,8 @@ exports.getDashboardStats = async (req, res) => {
     const totalQuotationDownloads = await QuotationDownload.countDocuments();
     const totalServiceBookings = await ServiceBooking.countDocuments();
     const serviceBookingEnquiries = await ServiceBooking.countDocuments({ status: 'enquiry' });
+    const pendingServiceBookings = await ServiceBooking.countDocuments({ status: 'pending' });
+    const completedServiceBookings = await ServiceBooking.countDocuments({ status: 'completed' });
 
     // Vendor service stats
     const totalVendorServices = await VendorService.countDocuments();
@@ -501,7 +513,7 @@ exports.getDashboardStats = async (req, res) => {
         totalUsers, totalOwners, totalCustomers, totalVendors,
         totalBookings, pendingBookings, confirmedBookings, completedBookings, cancelledBookings, cancelledServiceBookings,
         totalRevenue, totalQuotationDownloads, totalServiceQuotationDownloads,
-        totalServiceBookings, serviceBookingEnquiries, confirmedServiceBookings,
+        totalServiceBookings, serviceBookingEnquiries, confirmedServiceBookings, pendingServiceBookings, completedServiceBookings,
         totalVendorServices, pendingVendorServices, approvedVendorServices
       }
     });
@@ -514,7 +526,7 @@ exports.getDashboardStats = async (req, res) => {
 // @route   GET /api/admin/users
 exports.getAllUsers = async (req, res) => {
   try {
-    const { role, status, search, page = 1, limit = 12 } = req.query;
+    const { role, status, search, page = 1, limit = 12, export: isExport } = req.query;
     const query = {};
     if (role && role !== 'all') query.role = role;
     if (status === 'active') query.isActive = true;
@@ -527,6 +539,40 @@ exports.getAllUsers = async (req, res) => {
         { userId: { $regex: search, $options: 'i' } },
       ];
     }
+
+    if (isExport === 'true') {
+      const users = await User.find(query)
+        .select('-password -kyc -employeeDetails.bankDetails -employeeDetails.documents -gstNumber -panNumber')
+        .populate('referredBy', 'name email')
+        .sort('-createdAt');
+      
+      const bookingCounts = await Booking.aggregate([
+        { $group: { _id: '$customer', count: { $sum: 1 } } }
+      ]);
+      const bookingCountMap = {};
+      bookingCounts.forEach(b => {
+        if (b._id) bookingCountMap[b._id.toString()] = b.count;
+      });
+
+      const Venue = require('../models/Venue');
+      const venueCounts = await Venue.aggregate([
+        { $group: { _id: '$owner', count: { $sum: 1 } } }
+      ]);
+      const venueCountMap = {};
+      venueCounts.forEach(v => {
+        if (v._id) venueCountMap[v._id.toString()] = v.count;
+      });
+
+      const usersWithStats = users.map(u => {
+        const obj = u.toObject();
+        obj.bookingCount = bookingCountMap[u._id.toString()] || 0;
+        obj.venueCount = venueCountMap[u._id.toString()] || 0;
+        return obj;
+      });
+
+      return res.json({ success: true, users: usersWithStats });
+    }
+
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const [users, total] = await Promise.all([
       User.find(query)
@@ -688,7 +734,8 @@ exports.getAllBookings = async (req, res) => {
       venue, 
       search,
       statsVenue, // Separate venue filter for stats
-      venueType // Venue type filter
+      venueType, // Venue type filter
+      export: isExport
     } = req.query;
 
     // Build query for bookings
@@ -730,9 +777,25 @@ exports.getAllBookings = async (req, res) => {
       }).select('_id');
       
       query.$or = [
+        { bookingNumber: { $regex: search, $options: 'i' } },
         { customer: { $in: customers.map(c => c._id) } },
         { venue: { $in: venues.map(v => v._id) } }
       ];
+    }
+
+    if (isExport === 'true') {
+      const bookings = await Booking.find(query)
+        .populate('venue', 'businessName location images owner venueType')
+        .populate('customer', 'name email phone')
+        .populate({
+          path: 'venue',
+          populate: {
+            path: 'owner',
+            select: 'name email phone'
+          }
+        })
+        .sort('-createdAt');
+      return res.json({ success: true, bookings });
     }
 
     // Get total count for pagination
@@ -840,7 +903,7 @@ exports.getBooking = async (req, res) => {
 // @route   GET /api/admin/payments?status=&dateFilter=&from=&to=&fyYear=&year=&search=
 exports.getAllPayments = async (req, res) => {
   try {
-    const { status, dateFilter, from, to, fyYear, year, search } = req.query;
+    const { status, dateFilter, from, to, fyYear, year, search, page = 1, limit = 10, export: isExport } = req.query;
 
     // ── Build date range ──────────────────────────────────────────────────────
     let dateMatch = {};
@@ -938,10 +1001,33 @@ exports.getAllPayments = async (req, res) => {
       refunded:      payments.filter(p => p.paymentStatus === 'refunded').length,
       totalRevenue:  payments.filter(p => p.paymentStatus === 'paid').reduce((s, p) => s + (p.amount || 0), 0),
       ownerEarnings: payments.filter(p => p.paymentStatus === 'paid').reduce((s, p) => s + (p.ownerEarnings || 0), 0),
+      totalPlatformFee: payments.filter(p => p.paymentStatus === 'paid').reduce((s, p) => s + (p.priceBreakdown?.platformFee || p.platformInvoice?.platformFee || 0), 0),
+      totalPlatformGST: payments.filter(p => p.paymentStatus === 'paid').reduce((s, p) => s + (p.priceBreakdown?.platformFeeGST || (p.platformInvoice ? (p.platformInvoice.cgst || 0) + (p.platformInvoice.sgst || 0) : 0) || 0), 0),
+      totalPlatformRevenue: payments.filter(p => p.paymentStatus === 'paid').reduce((s, p) => s + (p.priceBreakdown?.platformFeeTotal || p.platformInvoice?.total || 0), 0),
     };
 
+    if (isExport === 'true') {
+      res.set('Cache-Control', 'no-store');
+      return res.json({ success: true, count: payments.length, payments, stats });
+    }
+
+    const limitNum = parseInt(limit || 10);
+    const pageNum = parseInt(page || 1);
+    const skip = (pageNum - 1) * limitNum;
+
+    const total = payments.length;
+    const paginatedPayments = payments.slice(skip, skip + limitNum);
+
     res.set('Cache-Control', 'no-store');
-    res.json({ success: true, count: payments.length, payments, stats });
+    res.json({
+      success: true,
+      count: paginatedPayments.length,
+      payments: paginatedPayments,
+      total,
+      totalPages: Math.ceil(total / limitNum),
+      currentPage: pageNum,
+      stats
+    });
 
   } catch (error) {
     console.error('getAllPayments error:', error);

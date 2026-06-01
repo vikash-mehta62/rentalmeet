@@ -5,10 +5,10 @@ import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
 import PermissionGuard from '@/components/admin/PermissionGuard';
 import toast from 'react-hot-toast';
-import { Search, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { Search, CheckCircle2, Clock, XCircle, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import ServiceBookingDetailModal from '@/components/service/ServiceBookingDetailModal';
 
-const PAY_STYLE = { paid: 'bg-green-100 text-green-700', pending: 'bg-yellow-100 text-yellow-700', failed: 'bg-red-100 text-red-700' };
+const PAY_STYLE = { paid: 'bg-green-100 text-green-700', pending: 'bg-yellow-100 text-yellow-700', failed: 'bg-red-100 text-red-700', refunded: 'bg-purple-100 text-purple-700' };
 
 export default function AdminServiceBookings() {
   const { token } = useAuthStore();
@@ -21,7 +21,78 @@ export default function AdminServiceBookings() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [exportingCSV, setExportingCSV] = useState(false);
   const LIMIT = 12;
+
+  const handleExportCSV = async () => {
+    setExportingCSV(true);
+    try {
+      const params = new URLSearchParams({ export: 'true' });
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+      if (search) params.set('search', search);
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/service-bookings?${params}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!data.success) {
+        toast.error('Export failed');
+        return;
+      }
+
+      const allBookings = data.bookings;
+      const headers = [
+        'S.No', 'Booking Number', 'Quotation Number', 'Customer Name', 'Customer Email', 'Customer Phone',
+        'Service Title', 'Service Category', 'Vendor Name', 'Vendor Company',
+        'Booked On', 'Event Date', 'Subtotal', 'Tax (CGST+SGST)', 'Platform Fee', 'Platform GST', 'Grand Total',
+        'Booking Status', 'Payment Status'
+      ];
+
+      const rows = allBookings.map((b, i) => [
+        i + 1,
+        b.bookingNumber || '—',
+        b.quotationNumber || '—',
+        b.customerInfo?.name || '—',
+        b.customerInfo?.email || '—',
+        b.customerInfo?.phone || '—',
+        b.serviceSnapshot?.title || '—',
+        b.serviceSnapshot?.category || '—',
+        b.vendor?.name || '—',
+        b.vendor?.companyName || '—',
+        new Date(b.createdAt).toLocaleDateString('en-IN'),
+        b.eventDate ? new Date(b.eventDate).toLocaleDateString('en-IN') : '—',
+        b.pricing?.subtotal || 0,
+        (b.pricing?.serviceCGST || 0) + (b.pricing?.serviceSGST || 0),
+        b.pricing?.platformFee || 0,
+        b.pricing?.platformFeeGST || 0,
+        b.pricing?.total || b.amount || 0,
+        b.status || '—',
+        b.paymentStatus || '—'
+      ]);
+
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${cell ?? ''}"`).join(','))
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `service_bookings_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success(`${allBookings.length} service bookings exported successfully`);
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Failed to export service bookings');
+    } finally {
+      setExportingCSV(false);
+    }
+  };
 
   const fetchBookings = async (page = 1) => {
     setLoading(true);
@@ -98,9 +169,19 @@ export default function AdminServiceBookings() {
             className="px-4 py-2 border border-gray-300 rounded-lg text-sm bg-white">
             <option value="all">All Status</option>
             <option value="enquiry">Enquiry</option>
+            <option value="pending">Pending</option>
             <option value="confirmed">Confirmed</option>
             <option value="cancelled">Cancelled</option>
+            <option value="completed">Completed</option>
           </select>
+          <button
+            onClick={handleExportCSV}
+            disabled={exportingCSV || bookings.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+          >
+            <Download className="w-4 h-4" />
+            {exportingCSV ? 'Exporting...' : 'Export CSV'}
+          </button>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
@@ -108,14 +189,14 @@ export default function AdminServiceBookings() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  {['#','Booking No','Customer','Service','Vendor','Event Date','Total','Payment','Actions'].map(h => (
+                  {['#','Booking No','Customer','Service','Vendor','Booked On','Event Date','Total','Payment','Actions'].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {loading ? <tr><td colSpan={9} className="text-center py-12 text-gray-400">Loading...</td></tr>
-                : filtered.length === 0 ? <tr><td colSpan={9} className="text-center py-12 text-gray-400">No bookings found</td></tr>
+                {loading ? <tr><td colSpan={10} className="text-center py-12 text-gray-400">Loading...</td></tr>
+                : filtered.length === 0 ? <tr><td colSpan={10} className="text-center py-12 text-gray-400">No bookings found</td></tr>
                 : filtered.map((b, i) => {
                   return (
                     <tr key={b._id} className="hover:bg-gray-50">
@@ -124,7 +205,11 @@ export default function AdminServiceBookings() {
                       <td className="px-4 py-3"><p className="text-xs font-semibold">{b.customerInfo?.name}</p><p className="text-xs text-gray-400">{b.customerInfo?.email}</p><p className="text-xs text-gray-400">{b.customerInfo?.phone}</p></td>
                       <td className="px-4 py-3"><p className="text-xs font-semibold">{b.serviceSnapshot?.title}</p><p className="text-xs text-gray-400">{b.serviceSnapshot?.category}</p></td>
                       <td className="px-4 py-3"><p className="text-xs font-semibold">{b.vendor?.name}</p><p className="text-xs text-gray-400">{b.vendor?.companyName}</p></td>
-                      <td className="px-4 py-3 text-xs text-gray-600">{b.eventDate ? new Date(b.eventDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td>
+                      <td className="px-4 py-3 text-xs text-gray-600">
+                        <p>{new Date(b.createdAt).toLocaleDateString('en-IN')}</p>
+                        <p className="text-[10px] text-gray-400">{new Date(b.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-600 font-semibold">{b.eventDate ? new Date(b.eventDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td>
                       <td className="px-4 py-3 text-xs font-bold text-primary-600">{b.pricing?.total ? `₹${b.pricing.total.toLocaleString()}` : '—'}{b.coupon?.code && <p className="text-[10px] text-green-600 font-normal">Coupon: {b.coupon.code}</p>}</td>
                       <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${PAY_STYLE[b.paymentStatus] || PAY_STYLE.pending}`}>{b.paymentStatus || 'pending'}</span></td>
                       <td className="px-4 py-3">
@@ -176,6 +261,7 @@ export default function AdminServiceBookings() {
           onClose={() => setSelected(null)}
           onStatusChange={handleStatusChange}
           canChangeStatus={true}
+          isAdmin={true}
         />
       )}
     </AdminLayout>

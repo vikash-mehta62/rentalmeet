@@ -64,10 +64,9 @@ exports.createVenue = async (req, res) => {
     console.log('   - Bank details encrypted:', !!venue.bankDetails?.accountNumber);
     
     // Send confirmation email
-    // TODO: Enable in production
     try {
-      // await sendVenueSubmissionEmail(req.user.email, venueData.businessName);
-      console.log('14. Confirmation email skipped (commented for production)');
+      await sendVenueSubmissionEmail(req.user.email, venueData.businessName);
+      console.log('14. Confirmation email sent');
     } catch (emailError) {
       console.log('14. Email send failed (non-critical):', emailError.message);
     }

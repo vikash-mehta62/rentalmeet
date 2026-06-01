@@ -50,12 +50,38 @@ const serviceBookingSchema = new mongoose.Schema({
     total:          Number,
   },
 
-  status: { type: String, enum: ['enquiry', 'confirmed', 'cancelled'], default: 'enquiry' },
-  paymentStatus: { type: String, enum: ['pending', 'paid', 'failed'], default: 'pending' },
+  status: { type: String, enum: ['enquiry', 'pending', 'confirmed', 'cancelled', 'completed'], default: 'enquiry' },
+  paymentStatus: { type: String, enum: ['pending', 'paid', 'failed', 'refunded'], default: 'pending' },
   paymentDetails: { razorpay_order_id: String, razorpay_payment_id: String, razorpay_signature: String, paidAt: Date },
   amount: Number,
   coupon: { couponId: { type: mongoose.Schema.Types.ObjectId, ref: 'Coupon' }, code: String, discountAmount: Number },
   downloadedAt: Date,
+
+  cancellationReason: String,
+  cancelledBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  cancelledByRole: {
+    type: String,
+    enum: ['customer', 'owner', 'vendor', 'admin', 'system'],
+    default: null
+  },
+  cancellationType: {
+    type: String,
+    enum: ['auto', 'manual'],
+    default: 'manual'
+  },
+  confirmationDeadline: {
+    type: Date
+  },
+  refundDetails: {
+    refundId: String,
+    refundAmount: Number,
+    refundStatus: { type: String, enum: ['pending', 'processed', 'failed'] },
+    refundedAt: Date,
+    refundReason: String
+  },
 }, { timestamps: true });
 
 // Auto-generate separate booking and quotation numbers

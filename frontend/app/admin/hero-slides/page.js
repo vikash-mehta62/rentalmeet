@@ -177,7 +177,7 @@ export default function HeroSlidesPage() {
 
   if (loading) {
     return (
-      <AdminLayout>
+      <AdminLayout title="Hero Slides" subtitle="Loading...">
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
         </div>
@@ -186,15 +186,11 @@ export default function HeroSlidesPage() {
   }
 
   return (
-    <AdminLayout>
+    <AdminLayout title="Hero Slides" subtitle="Manage homepage hero section slides">
       <PermissionGuard permission="heroSlides">
         <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Hero Slides</h1>
-            <p className="text-gray-600 mt-1">Manage homepage hero section slides</p>
-          </div>
+        {/* Header Button */}
+        <div className="flex justify-end">
           <button
             onClick={() => {
               resetForm();

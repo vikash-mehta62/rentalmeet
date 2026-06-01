@@ -165,7 +165,7 @@ export default function AdminSettings() {
   return (
     <AdminLayout title="Settings" subtitle="Configure platform settings">
       <PermissionGuard permission="settings">
-        <div className="max-w-5xl mx-auto space-y-6">
+        <div className="w-full space-y-6">
 
           {/* Tabs */}
           <div className="flex gap-2 border-b border-gray-200">

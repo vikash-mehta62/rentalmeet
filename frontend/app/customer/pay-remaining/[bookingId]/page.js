@@ -137,7 +137,7 @@ export default function PayRemainingPage() {
   };
 
   if (loading) return (
-    <CustomerLayout activePage="bookings">
+    <CustomerLayout activePage="bookings" title="Pay Remaining Amount" subtitle="Loading booking details...">
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
       </div>
@@ -149,7 +149,7 @@ export default function PayRemainingPage() {
   const newBalance = calcBalance(booking);
 
   return (
-    <CustomerLayout activePage="bookings">
+    <CustomerLayout activePage="bookings" title="Pay Remaining Amount" subtitle={`Booking #${booking.bookingNumber}`}>
       <div className="max-w-lg mx-auto px-4 py-8">
 
         {/* Back */}

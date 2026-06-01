@@ -4,7 +4,7 @@ import React from 'react';
 import { FileText } from 'lucide-react';
 
 export default function ServiceInvoiceDownload({ booking: b, userRole = 'customer' }) {
-  if (!b) return null;
+  if (!b || b.status !== 'completed') return null;
 
   const [settings, setSettings] = React.useState(null);
   const [loading, setLoading] = React.useState({ service: false, platform: false });

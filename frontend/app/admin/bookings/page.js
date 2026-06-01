@@ -37,14 +37,11 @@ export default function AdminBookings() {
   const [cancellingBooking, setCancellingBooking] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
-  
-  // Pagination states
+  const [exportingCSV, setExportingCSV] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [totalBookings, setTotalBookings] = useState(0);
-  
-  // Venue filter states
   const [venues, setVenues] = useState([]);
   const [venueSearchQuery, setVenueSearchQuery] = useState('');
   const [selectedVenue, setSelectedVenue] = useState(null);
@@ -309,14 +306,26 @@ export default function AdminBookings() {
     setModalOpen(false);
   };
 
-  // Export bookings to CSV
-  const exportToCSV = () => {
-    if (bookings.length === 0) {
-      toast.error('No bookings to export');
-      return;
-    }
-
+  const exportToCSV = async () => {
+    setExportingCSV(true);
     try {
+      const params = new URLSearchParams({ export: 'true' });
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+      if (searchQuery) params.set('search', searchQuery);
+      if (selectedVenue) params.set('venue', selectedVenue._id);
+      if (selectedStatsVenue) params.set('statsVenue', selectedStatsVenue._id);
+      if (selectedVenueType && selectedVenueType !== 'all') params.set('venueType', selectedVenueType);
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/bookings?${params}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!data.success) {
+        toast.error('Export failed');
+        return;
+      }
+
+      const allBookings = data.bookings;
       const headers = [
         'S.No', 'Booking Number', 'Venue Name', 'Venue Location',
         'Customer Name', 'Customer Email', 'Customer Phone',
@@ -329,7 +338,7 @@ export default function AdminBookings() {
         'Booking Status', 'Payment Status'
       ];
 
-      const rows = bookings.map((booking, index) => {
+      const rows = allBookings.map((booking, index) => {
         const pb = booking.priceBreakdown || {};
         const basePrice    = pb.basePrice || 0;
         const amenities    = pb.amenitiesTotal || booking.amenitiesTotal || 0;
@@ -378,7 +387,7 @@ export default function AdminBookings() {
 
       const csvContent = [
         headers.join(','),
-        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+        ...rows.map(row => row.map(cell => `"${cell ?? ''}"`).join(','))
       ].join('\n');
 
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -391,10 +400,12 @@ export default function AdminBookings() {
       link.click();
       document.body.removeChild(link);
 
-      toast.success(`${bookings.length} bookings exported successfully`);
+      toast.success(`${allBookings.length} bookings exported successfully`);
     } catch (error) {
       console.error('Export error:', error);
       toast.error('Failed to export bookings');
+    } finally {
+      setExportingCSV(false);
     }
   };
 
@@ -922,8 +933,7 @@ export default function AdminBookings() {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Venue</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Customer</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Booked On</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Booking Date</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Time Slot</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Booking Date & Time</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Event</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Guests</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase bg-yellow-50">Venue Rental</th>
@@ -985,14 +995,12 @@ export default function AdminBookings() {
                       <p className="text-xs text-gray-700">{new Date(booking.createdAt).toLocaleDateString('en-IN')}</p>
                       <p className="text-xs text-gray-500">{new Date(booking.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
                     </td>
-                    <td className="px-4 py-3 bg-yellow-50">
-                      <p className="text-xs text-gray-700 flex items-center gap-1">
+                    <td className="px-4 py-3 bg-yellow-50 min-w-[140px]">
+                      <p className="text-xs text-gray-700 flex items-center gap-1 font-semibold">
                         <Calendar className="w-3 h-3 text-gray-400" />
                         {new Date(booking.bookingDate).toLocaleDateString('en-IN')}
                       </p>
-                    </td>
-                    <td className="px-4 py-3 bg-yellow-50">
-                      <p className="text-xs text-gray-700 flex items-center gap-1">
+                      <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
                         <Clock className="w-3 h-3 text-gray-400" />
                         {booking.startTime} - {booking.endTime}
                       </p>
@@ -1257,35 +1265,106 @@ export default function AdminBookings() {
                 )}
               </div>
 
+              {/* Cancellation & Refund Details */}
+              {selectedBooking.status === 'cancelled' && (
+                <div className="bg-red-50 rounded-xl p-4 border border-red-200 text-xs">
+                  <p className="font-bold text-red-800 mb-2 flex items-center gap-1.5 font-sans">
+                    <XCircle className="w-4 h-4 text-red-600" /> Cancellation & Refund Details
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-gray-500 text-xs">Cancelled By</p>
+                      <p className="font-semibold text-gray-900 capitalize">
+                        {selectedBooking.cancelledByRole || 'system'} 
+                        {selectedBooking.cancellationType ? ` (${selectedBooking.cancellationType})` : ''}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500 text-xs">Cancellation Reason</p>
+                      <p className="font-semibold text-gray-900">
+                        {selectedBooking.cancellationReason || 'No reason provided'}
+                      </p>
+                    </div>
+                    {selectedBooking.paymentStatus === 'refunded' || selectedBooking.refundDetails?.refundStatus ? (
+                      <>
+                        <div>
+                          <p className="text-gray-500 text-xs">Refund Status</p>
+                          <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold capitalize mt-0.5 ${
+                            selectedBooking.refundDetails?.refundStatus === 'processed' || selectedBooking.paymentStatus === 'refunded'
+                              ? 'bg-purple-100 text-purple-700'
+                              : selectedBooking.refundDetails?.refundStatus === 'failed'
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {selectedBooking.refundDetails?.refundStatus || (selectedBooking.paymentStatus === 'refunded' ? 'processed' : 'pending')}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-gray-500 text-xs">Refund Amount</p>
+                          <p className="font-semibold text-gray-900">
+                            ₹{(selectedBooking.refundDetails?.refundAmount || 0).toLocaleString()}
+                          </p>
+                        </div>
+                        {selectedBooking.refundDetails?.refundId && (
+                          <div>
+                            <p className="text-gray-500 text-xs">Refund ID</p>
+                            <code className="font-mono text-xs bg-white border px-1 rounded">
+                              {selectedBooking.refundDetails.refundId}
+                            </code>
+                          </div>
+                        )}
+                        {selectedBooking.refundDetails?.refundedAt && (
+                          <div>
+                            <p className="text-gray-500 text-xs">Refunded At</p>
+                            <p className="font-semibold text-gray-900">
+                              {new Date(selectedBooking.refundDetails.refundedAt).toLocaleString('en-IN')}
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="col-span-2">
+                        <p className="text-xs text-gray-500 italic">No refund processed (Booking was unpaid or pending at cancellation)</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Booking Details */}
               <div>
                 <h3 className="text-lg font-semibold mb-3">Booking Information</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-gray-600">Booking Date</p>
-                    <p className="font-semibold text-gray-900">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                  <div className="col-span-2 md:col-span-1 bg-yellow-50/50 p-3 rounded-lg border border-yellow-100">
+                    <p className="text-gray-500 text-xs font-semibold">Booking Date & Time</p>
+                    <p className="font-bold text-gray-900 mt-1 flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-primary-500" />
                       {new Date(selectedBooking.bookingDate).toLocaleDateString('en-IN', {
                         day: 'numeric',
-                        month: 'long',
+                        month: 'short',
                         year: 'numeric'
                       })}
                     </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600">Time Slot</p>
-                    <p className="font-semibold text-gray-900">
+                    <p className="text-xs text-gray-600 mt-0.5 flex items-center gap-1 font-medium">
+                      <Clock className="w-3.5 h-3.5 text-primary-500" />
                       {selectedBooking.startTime} - {selectedBooking.endTime}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-gray-600">Booking Type</p>
-                    <p className="font-semibold text-gray-900 capitalize">{selectedBooking.bookingType}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600">Created On</p>
-                    <p className="font-semibold text-gray-900">
-                      {new Date(selectedBooking.createdAt).toLocaleDateString()}
+                  <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                    <p className="text-gray-500 text-xs font-semibold">Booked On (Creation Date)</p>
+                    <p className="font-bold text-gray-955 mt-1">
+                      {new Date(selectedBooking.createdAt).toLocaleString('en-IN', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
                     </p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                    <p className="text-gray-500 text-xs font-semibold">Booking Type</p>
+                    <p className="font-bold text-gray-955 mt-1 capitalize">{selectedBooking.bookingType}</p>
                   </div>
                 </div>
               </div>

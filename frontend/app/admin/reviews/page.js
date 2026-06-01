@@ -207,7 +207,7 @@ export default function AdminReviews() {
   return (
     <AdminLayout title="Reviews" subtitle="Manage customer testimonials">
       <PermissionGuard permission="reviews">
-        <div className="max-w-6xl mx-auto">
+        <div className="w-full">
         {/* Header Actions */}
         <div className="flex justify-between items-center mb-6">
           <div>

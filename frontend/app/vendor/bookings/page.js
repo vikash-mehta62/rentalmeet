@@ -9,19 +9,21 @@ import ServiceBookingDetailModal from '@/components/service/ServiceBookingDetail
 
 const STATUS_STYLE = {
   enquiry:   'bg-yellow-100 text-yellow-700',
+  pending:   'bg-orange-100 text-orange-700',
   confirmed: 'bg-green-100 text-green-700',
   cancelled: 'bg-red-100 text-red-700',
+  completed: 'bg-blue-100 text-blue-700',
 };
 
 export default function VendorBookings() {
   const { token } = useAuthStore();
   const [bookings, setBookings] = useState([]);
-  const [stats, setStats] = useState({ total: 0, enquiry: 0, confirmed: 0 });
+  const [stats, setStats] = useState({ total: 0, enquiry: 0, pending: 0, confirmed: 0, cancelled: 0 });
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(null);
   const [selectedBooking, setSelectedBooking] = useState(null);
 
-  useEffect(() => {
+  const fetchBookings = () => {
     if (!token) return;
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/vendor/service-bookings`, {
       headers: { Authorization: `Bearer ${token}` }
@@ -29,7 +31,93 @@ export default function VendorBookings() {
       if (d.success) { setBookings(d.bookings); setStats(d.stats); }
     }).catch(() => toast.error('Failed to load'))
     .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchBookings();
   }, [token]);
+
+  const handleConfirmBooking = async (bookingId) => {
+    if (!confirm('Are you sure you want to confirm this service booking?')) return;
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/service-bookings/${bookingId}/confirm`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Booking confirmed successfully!');
+        fetchBookings();
+        if (selectedBooking?._id === bookingId && data.booking) {
+          setSelectedBooking(data.booking);
+        }
+      } else {
+        toast.error(data.message || 'Failed to confirm booking');
+      }
+    } catch {
+      toast.error('Something went wrong');
+    }
+  };
+
+  const handleCompleteBooking = async (bookingId) => {
+    if (!confirm('Are you sure you want to mark this booking as completed?')) return;
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/service-bookings/${bookingId}/complete`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Booking marked as completed successfully!');
+        fetchBookings();
+        if (selectedBooking?._id === bookingId && data.booking) {
+          setSelectedBooking(data.booking);
+        }
+      } else {
+        toast.error(data.message || 'Failed to complete booking');
+      }
+    } catch {
+      toast.error('Something went wrong');
+    }
+  };
+
+  const handleCancelBooking = async (bookingId) => {
+    const reason = prompt('Please enter a reason for cancelling/rejecting this booking:');
+    if (reason === null) return;
+    if (!reason.trim()) return toast.error('Cancellation reason is required');
+
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/service-bookings/${bookingId}/cancel`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ reason })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(data.refundProcessed ? 'Booking cancelled and refund initiated!' : 'Booking cancelled successfully!');
+        fetchBookings();
+        if (selectedBooking?._id === bookingId && data.booking) {
+          setSelectedBooking(data.booking);
+        }
+      } else {
+        toast.error(data.message || 'Failed to cancel booking');
+      }
+    } catch {
+      toast.error('Something went wrong');
+    }
+  };
+
+  const handleStatusChange = async (bookingId, newStatus) => {
+    if (newStatus === 'confirmed') {
+      await handleConfirmBooking(bookingId);
+    } else if (newStatus === 'cancelled') {
+      await handleCancelBooking(bookingId);
+    } else if (newStatus === 'completed') {
+      await handleCompleteBooking(bookingId);
+    } else {
+      toast.error('Invalid status change for vendor');
+    }
+  };
 
   if (loading) return (
     <VendorLayout title="Service Bookings" subtitle="Loading...">
@@ -44,11 +132,12 @@ export default function VendorBookings() {
     <VendorLayout title="Service Bookings" subtitle={`${stats.total} total`}>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-4 gap-4 mb-6">
         {[
           { label: 'Total',     value: stats.total,    cls: 'bg-white border-gray-100' },
-          { label: 'Enquiries', value: stats.enquiry,  cls: 'bg-yellow-50 border-yellow-200' },
+          { label: 'Pending',   value: stats.pending || 0, cls: 'bg-orange-50 border-orange-200' },
           { label: 'Confirmed', value: stats.confirmed, cls: 'bg-green-50 border-green-200' },
+          { label: 'Cancelled', value: stats.cancelled || 0, cls: 'bg-red-50 border-red-200' },
         ].map(({ label, value, cls }) => (
           <div key={label} className={`rounded-xl border shadow-sm p-4 ${cls}`}>
             <p className="text-xs text-gray-500 mb-1">{label}</p>
@@ -77,6 +166,11 @@ export default function VendorBookings() {
                   </div>
                   <p className="text-sm font-semibold text-gray-800 mt-0.5">{b.customerInfo?.name}</p>
                   <p className="text-xs text-gray-400">{b.customerInfo?.email} · {b.customerInfo?.phone}</p>
+                  {b.status === 'pending' && b.confirmationDeadline && (
+                    <div className="text-[10px] text-orange-600 font-bold mt-1 bg-orange-50 px-2 py-0.5 rounded border border-orange-100 w-fit">
+                      Confirm by: {new Date(b.confirmationDeadline).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-4 text-right">
                   <div>
@@ -93,6 +187,24 @@ export default function VendorBookings() {
                     <p className="text-xs text-gray-400">Total</p>
                     <p className="text-sm font-bold text-primary-600">₹{b.pricing?.total?.toLocaleString() || '—'}</p>
                   </div>
+                  {b.status === 'pending' && (
+                    <div className="flex gap-1.5">
+                      <button onClick={() => handleConfirmBooking(b._id)}
+                        className="px-2.5 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs font-bold transition-colors">
+                        Accept
+                      </button>
+                      <button onClick={() => handleCancelBooking(b._id)}
+                        className="px-2.5 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-bold transition-colors">
+                        Reject
+                      </button>
+                    </div>
+                  )}
+                  {b.status === 'confirmed' && (
+                    <button onClick={() => handleCompleteBooking(b._id)}
+                      className="px-2.5 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-bold transition-colors">
+                      Complete
+                    </button>
+                  )}
                   <button onClick={() => setExpanded(expanded === b._id ? null : b._id)}
                     className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
                     {expanded === b._id ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
@@ -146,7 +258,8 @@ export default function VendorBookings() {
       <ServiceBookingDetailModal
         booking={selectedBooking}
         onClose={() => setSelectedBooking(null)}
-        canChangeStatus={false}
+        onStatusChange={handleStatusChange}
+        canChangeStatus={true}
       />
     )}
     </>

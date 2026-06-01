@@ -35,6 +35,12 @@ export default function AdminRevenuePage() {
   const [expenseSummary, setExpenseSummary] = useState({ totalExpenditure: 0, totalRecords: 0 });
   const [liabilitySummary, setLiabilitySummary] = useState({ totalAmount: 0, totalPaid: 0, totalPending: 0 });
 
+  // Pagination states
+  const [payments, setPayments] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
+
   // Date filter state
   const [dateMode, setDateMode] = useState('financial');
   const [selectedFY, setSelectedFY] = useState('');
@@ -55,8 +61,12 @@ export default function AdminRevenuePage() {
   }, []);
 
   useEffect(() => {
-    if (token && (selectedFY || (startDate && endDate))) fetchRevenue();
-  }, [token, selectedFY, startDate, endDate, dateMode]);
+    if (token && (selectedFY || (startDate && endDate) || dateMode === 'financial')) fetchRevenue();
+  }, [token, selectedFY, startDate, endDate, dateMode, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedFY, startDate, endDate, dateMode]);
 
   const getRange = () => {
     if (dateMode === 'financial' && selectedFY) {
@@ -77,15 +87,24 @@ export default function AdminRevenuePage() {
     setLoading(true);
     try {
       const range = getRange();
-      const paymentParams = range ? `?${new URLSearchParams(range)}` : '';
+      const rangeParams = range ? `?${new URLSearchParams(range)}` : '';
+      
+      const payQuery = new URLSearchParams();
+      if (range) {
+        Object.entries(range).forEach(([k, v]) => payQuery.append(k, v));
+      }
+      payQuery.append('status', 'paid');
+      payQuery.append('page', currentPage);
+      payQuery.append('limit', '10');
+
       const [paymentRes, expenseRes, liabilityRes] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/payments${paymentParams}`, {
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/payments?${payQuery.toString()}`, {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/expenses${paymentParams}`, {
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/expenses${rangeParams}`, {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/liabilities${paymentParams}`, {
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/liabilities${rangeParams}`, {
           headers: { Authorization: `Bearer ${token}` }
         })
       ]);
@@ -94,7 +113,10 @@ export default function AdminRevenuePage() {
       const expenseData = await expenseRes.json();
       const liabilityData = await liabilityRes.json();
       if (data.success) {
-        setStats({ totalRevenue: data.stats?.totalRevenue || 0 });
+        setStats(data.stats || { totalRevenue: 0 });
+        setPayments(data.payments || []);
+        setTotalPages(data.totalPages || 1);
+        setTotalRecords(data.total || 0);
         setExpenseSummary(expenseData?.summary || { totalExpenditure: 0, totalRecords: 0 });
         setLiabilitySummary(liabilityData?.summary || { totalAmount: 0, totalPaid: 0, totalPending: 0 });
       } else {
@@ -108,35 +130,95 @@ export default function AdminRevenuePage() {
   };
 
   const revenue = useMemo(() => {
-    const payment = stats.totalRevenue || 0;
+    const payment = stats.totalPlatformRevenue || 0;
     const expenditure = expenseSummary.totalExpenditure || 0;
     const liabilities = liabilitySummary.totalAmount || 0;  // total liability (not just pending)
     return { payment, expenditure, liabilities, grossProfit: payment - expenditure - liabilities };
   }, [stats, expenseSummary, liabilitySummary]);
 
-  const handleExportCSV = () => {
-    const period = dateMode === 'financial'
-      ? selectedFY
-      : `${startDate?.toLocaleDateString('en-IN')} to ${endDate?.toLocaleDateString('en-IN')}`;
-    const rows = [
-      ['RentalMeet Revenue Report'],
-      ['Period:', period],
-      ['Generated:', new Date().toLocaleString('en-IN')],
-      [],
-      ['Metric', 'Amount'],
-      ['Total Payment Received', revenue.payment],
-      ['Total Expenditure', revenue.expenditure],
-      ['Total Liabilities (Total)', revenue.liabilities],
-      ['Gross Profit', revenue.grossProfit],
-      ['Expense Records', expenseSummary.totalRecords || 0],
-      ['Liability Records', liabilitySummary.totalRecords || 0],
-    ];
-    const csv = rows.map(r => r.map(c => `"${c ?? ''}"`).join(',')).join('\n');
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-    a.download = `Revenue_${period.replace(/\s/g, '_')}.csv`;
-    a.click();
-    toast.success('CSV downloaded');
+  const handleExportCSV = async () => {
+    try {
+      const range = getRange();
+      const payQuery = new URLSearchParams();
+      if (range) {
+        Object.entries(range).forEach(([k, v]) => payQuery.append(k, v));
+      }
+      payQuery.append('status', 'paid');
+      payQuery.append('export', 'true');
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/payments?${payQuery.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!data.success) {
+        toast.error('Failed to fetch transaction details for export');
+        return;
+      }
+      
+      const allPaidPayments = data.payments || [];
+      const period = dateMode === 'financial'
+        ? selectedFY
+        : `${startDate?.toLocaleDateString('en-IN') || 'All'} to ${endDate?.toLocaleDateString('en-IN') || 'All'}`;
+        
+      const rows = [
+        ['RentalMeet Revenue & Platform Fee Report'],
+        ['Period:', period],
+        ['Generated:', new Date().toLocaleString('en-IN')],
+        [],
+        ['Summary Metrics'],
+        ['Total Platform Fee (Excl. GST)', stats.totalPlatformFee || 0],
+        ['Total Platform GST', stats.totalPlatformGST || 0],
+        ['Total Platform Revenue (Incl. GST)', revenue.payment],
+        ['Total Expenditure', revenue.expenditure],
+        ['Total Liabilities', revenue.liabilities],
+        ['Gross Profit', revenue.grossProfit],
+        [],
+        ['Detailed Revenue Statement (Bookings)'],
+        [
+          'S.No', 
+          'Booking No', 
+          'Booking Date', 
+          'Customer Name', 
+          'Customer Email', 
+          'Venue Name', 
+          'Total Booking Amount (Customer Paid)', 
+          'Platform Fee (Excl. GST)', 
+          'Platform GST', 
+          'Total Platform Fee (Incl. GST)'
+        ]
+      ];
+
+      allPaidPayments.forEach((p, index) => {
+        const pb = p.priceBreakdown || {};
+        const pi = p.platformInvoice || {};
+        
+        const platformFee = pb.platformFee || pi.platformFee || 0;
+        const platformGST = pb.platformFeeGST || (pi.cgst + pi.sgst) || 0;
+        const platformFeeTotal = pb.platformFeeTotal || pi.total || 0;
+        
+        rows.push([
+          index + 1,
+          p.bookingNumber || 'N/A',
+          p.bookingDate ? new Date(p.bookingDate).toLocaleDateString('en-IN') : 'N/A',
+          p.customer?.name || 'N/A',
+          p.customer?.email || 'N/A',
+          p.venue?.businessName || 'N/A',
+          p.amount || 0,
+          platformFee,
+          platformGST,
+          platformFeeTotal
+        ]);
+      });
+
+      const csv = rows.map(r => r.map(c => `"${c ?? ''}"`).join(',')).join('\n');
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+      a.download = `Revenue_Statement_${period.replace(/\s/g, '_')}.csv`;
+      a.click();
+      toast.success('CSV downloaded');
+    } catch (error) {
+      toast.error('Export failed');
+    }
   };
 
   return (
@@ -194,19 +276,131 @@ export default function AdminRevenuePage() {
                 tone="bg-orange-50 border-orange-100 text-orange-700"
               />
               <StatCard
-                title="Payment Received"
+                title="Platform Revenue"
                 value={fmtRs(revenue.payment)}
-                note="Total paid amount received"
+                note={`Platform Fee: ${fmtRs(stats.totalPlatformFee || 0)} · GST: ${fmtRs(stats.totalPlatformGST || 0)}`}
                 icon={IndianRupee}
                 tone="bg-blue-50 border-blue-100 text-blue-700"
               />
               <StatCard
                 title="Gross Profit"
                 value={fmtRs(revenue.grossProfit)}
-                note="Payment − Expenditure − Liabilities"
+                note="Revenue − Expenditure − Liabilities"
                 icon={TrendingUp}
                 tone="bg-emerald-50 border-emerald-100 text-emerald-700"
               />
+            </div>
+
+            {/* Platform Fee & GST Statement Table */}
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mt-6">
+              <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-gray-950 text-lg">Platform Fee & GST Statement</h3>
+                  <p className="text-xs text-gray-500 mt-1">Detailed list of bookings with platform fee breakdown</p>
+                </div>
+                <span className="px-3 py-1 bg-primary-50 text-primary-700 text-xs font-bold rounded-full">
+                  {totalRecords} Bookings
+                </span>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm border-collapse">
+                  <thead className="bg-gray-50 border-b border-gray-100 text-gray-600 font-semibold text-xs uppercase tracking-wide">
+                    <tr>
+                      <th className="px-6 py-4">S.No</th>
+                      <th className="px-6 py-4">Booking No</th>
+                      <th className="px-6 py-4">Date</th>
+                      <th className="px-6 py-4">Customer</th>
+                      <th className="px-6 py-4">Venue</th>
+                      <th className="px-6 py-4 text-right">Booking Amount</th>
+                      <th className="px-6 py-4 text-right">Platform Fee</th>
+                      <th className="px-6 py-4 text-right">Platform GST</th>
+                      <th className="px-6 py-4 text-right">Total Fee (Incl. GST)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 text-gray-700 font-medium">
+                    {payments.length === 0 ? (
+                      <tr>
+                        <td colSpan="9" className="px-6 py-12 text-center text-gray-400 font-normal">
+                          No paid bookings found in this period
+                        </td>
+                      </tr>
+                    ) : (
+                      payments.map((p, index) => {
+                        const pb = p.priceBreakdown || {};
+                        const pi = p.platformInvoice || {};
+                        
+                        const platformFee = pb.platformFee || pi.platformFee || 0;
+                        const platformGST = pb.platformFeeGST || (pi.cgst + pi.sgst) || 0;
+                        const platformFeeTotal = pb.platformFeeTotal || pi.total || 0;
+                        
+                        return (
+                          <tr key={p._id} className="hover:bg-gray-50/50 transition-colors">
+                            <td className="px-6 py-4 text-gray-400 text-xs">
+                              {(currentPage - 1) * 10 + index + 1}
+                            </td>
+                            <td className="px-6 py-4 font-mono text-xs text-gray-900">
+                              {p.bookingNumber || 'N/A'}
+                            </td>
+                            <td className="px-6 py-4 text-xs">
+                              {p.bookingDate ? new Date(p.bookingDate).toLocaleDateString('en-IN') : 'N/A'}
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="max-w-[150px] truncate">
+                                <p className="text-gray-900 text-xs truncate font-semibold">{p.customer?.name || 'N/A'}</p>
+                                <p className="text-gray-400 text-[10px] truncate">{p.customer?.email || 'N/A'}</p>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="max-w-[150px] truncate">
+                                <p className="text-gray-900 text-xs truncate font-semibold">{p.venue?.businessName || 'N/A'}</p>
+                                <p className="text-gray-400 text-[10px] truncate">{p.venue?.location?.city || 'N/A'}</p>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-right text-gray-500 text-xs">
+                              {fmtRs(p.amount)}
+                            </td>
+                            <td className="px-6 py-4 text-right text-xs">
+                              {fmtRs(platformFee)}
+                            </td>
+                            <td className="px-6 py-4 text-right text-gray-500 text-xs">
+                              {fmtRs(platformGST)}
+                            </td>
+                            <td className="px-6 py-4 text-right text-primary-600 font-bold text-xs">
+                              {fmtRs(platformFeeTotal)}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="p-4 border-t border-gray-100 flex items-center justify-between flex-wrap gap-3">
+                  <span className="text-xs text-gray-500">
+                    Showing Page {currentPage} of {totalPages} ({totalRecords} total records)
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-semibold hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-semibold hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -33,7 +33,31 @@ export default function OwnerBookings() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalBookings, setTotalBookings] = useState(0);
   const [stats, setStats] = useState({ total: 0, pending: 0, confirmed: 0, completed: 0, cancelled: 0 });
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+    onCancel: null
+  });
   const LIMIT = 12;
+
+  const requestConfirm = (title, message, onConfirm) => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm: () => {
+        onConfirm();
+        closeConfirmModal();
+      },
+      onCancel: closeConfirmModal
+    });
+  };
+
+  const closeConfirmModal = () => {
+    setConfirmModal(prev => ({ ...prev, isOpen: false }));
+  };
 
   useEffect(() => {
     if (token) {
@@ -137,11 +161,40 @@ export default function OwnerBookings() {
       const data = await response.json();
       
       if (data.success) {
+        toast.success(newStatus === 'confirmed' ? 'Booking confirmed successfully' : 'Booking marked as completed');
         fetchBookings(currentPage);
+        return true;
+      } else {
+        toast.error(data.message || 'Failed to update status');
+        return false;
       }
     } catch (error) {
       console.error('Error updating booking status:', error);
+      toast.error('Failed to update status');
+      return false;
     }
+  };
+
+  const handleConfirmClick = (bookingId, isModal = false) => {
+    requestConfirm(
+      'Accept Booking',
+      'Are you sure you want to accept and confirm this booking?',
+      async () => {
+        const success = await handleUpdateStatus(bookingId, 'confirmed');
+        if (success && isModal) setSelectedBooking(null);
+      }
+    );
+  };
+
+  const handleCompleteClick = (bookingId, isModal = false) => {
+    requestConfirm(
+      'Mark Booking Completed',
+      'Are you sure you want to mark this booking as completed?',
+      async () => {
+        const success = await handleUpdateStatus(bookingId, 'completed');
+        if (success && isModal) setSelectedBooking(null);
+      }
+    );
   };
 
   const handleApproveSoon = async (bookingId) => {
@@ -338,7 +391,7 @@ export default function OwnerBookings() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Search by venue name, customer name, or city..."
+            placeholder="Search by booking number, venue name, customer, or city..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
@@ -366,7 +419,7 @@ export default function OwnerBookings() {
                 <div className="w-full lg:w-40 h-32 rounded-lg overflow-hidden flex-shrink-0">
                   {booking.venue?.images?.[0]?.url ? (
                     <img
-                      src={booking.venue.images[0].url}
+                       src={booking.venue.images[0].url}
                       alt={booking.venue.businessName}
                       className="w-full h-full object-cover"
                     />
@@ -382,8 +435,13 @@ export default function OwnerBookings() {
                   {/* Header */}
                   <div className="flex items-start justify-between gap-4 mb-4">
                     <div>
-                      <h3 className="text-xl font-bold text-dark-800 mb-1">
+                      <h3 className="text-xl font-bold text-dark-800 mb-1 flex flex-wrap items-center gap-2">
                         {booking.venue?.businessName}
+                        {booking.bookingNumber && (
+                          <span className="text-xs font-mono font-bold bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
+                            #{booking.bookingNumber}
+                          </span>
+                        )}
                       </h3>
                       <p className="text-sm text-gray-600 flex items-center gap-1">
                         <MapPin className="w-4 h-4" />
@@ -397,12 +455,15 @@ export default function OwnerBookings() {
                         booking.status === 'completed' ? 'bg-blue-100 text-blue-700' :
                         'bg-red-100 text-red-700'
                       }`}>
-                        {booking.status.toUpperCase()}
+                        {booking.status === 'confirmed' ? 'Booking is confirmed' :
+                         booking.status === 'pending' ? 'Booking is pending' :
+                         booking.status === 'completed' ? 'Booking is completed' :
+                         'Booking is cancelled'}
                       </span>
                       {booking.status === 'pending' && (
                         <div className="flex gap-2">
                           <button
-                            onClick={() => handleUpdateStatus(booking._id, 'confirmed')}
+                            onClick={() => handleConfirmClick(booking._id)}
                             className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1"
                           >
                             <CheckCircle2 className="w-3.5 h-3.5" />
@@ -431,27 +492,15 @@ export default function OwnerBookings() {
                           </button>
                         </div>
                       )}
-                      {booking.status === 'confirmed' && (() => {
-                        // Show Mark Completed only after booking end time has passed
-                        const bookingDate = new Date(booking.bookingDate);
-                        const endTime = booking.endTime; // "19:30"
-                        let canComplete = false;
-                        if (endTime) {
-                          const [endH, endM] = endTime.split(':').map(Number);
-                          const bookingEnd = new Date(bookingDate);
-                          bookingEnd.setHours(endH, endM, 0, 0);
-                          canComplete = new Date() >= bookingEnd;
-                        }
-                        return canComplete ? (
-                          <button
-                            onClick={() => handleUpdateStatus(booking._id, 'completed')}
-                            className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            Mark Completed
-                          </button>
-                        ) : null;
-                      })()}
+                      {booking.status === 'confirmed' && (
+                        <button
+                          onClick={() => handleCompleteClick(booking._id)}
+                          className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Mark Completed
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -795,7 +844,12 @@ export default function OwnerBookings() {
                   selectedBooking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
                   selectedBooking.status === 'completed' ? 'bg-blue-100 text-blue-700' :
                   'bg-red-100 text-red-700'
-                }`}>{selectedBooking.status.toUpperCase()}</span>
+                }`}>
+                  {selectedBooking.status === 'confirmed' ? 'Booking is confirmed' :
+                   selectedBooking.status === 'pending' ? 'Booking is pending' :
+                   selectedBooking.status === 'completed' ? 'Booking is completed' :
+                   'Booking is cancelled'}
+                </span>
                 <button onClick={() => setSelectedBooking(null)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800">
                   <XCircle className="w-5 h-5 text-gray-400" />
                 </button>
@@ -803,19 +857,20 @@ export default function OwnerBookings() {
             </div>
 
             <div className="p-5 space-y-4">
-              {/* Key Info — Location / Date / Time / Amount */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {/* Key Info — Location / Date & Time / Booked On / Amount */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <div className="bg-gray-50 dark:bg-slate-800 rounded-xl p-3">
                   <p className="text-[10px] text-gray-500 mb-1 flex items-center gap-1"><MapPin className="w-3 h-3"/>Location</p>
                   <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{selectedBooking.venue?.location?.city}</p>
                 </div>
-                <div className="bg-gray-50 dark:bg-slate-800 rounded-xl p-3">
-                  <p className="text-[10px] text-gray-500 mb-1 flex items-center gap-1"><Calendar className="w-3 h-3"/>Date</p>
+                <div className="bg-yellow-50/50 dark:bg-slate-800 rounded-xl p-3 col-span-2 border border-yellow-100 dark:border-slate-700">
+                  <p className="text-[10px] text-gray-500 mb-1 flex items-center gap-1"><Calendar className="w-3 h-3"/>Booking Date & Time</p>
                   <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{new Date(selectedBooking.bookingDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                  <p className="text-xs text-gray-600 dark:text-slate-400 mt-0.5 font-semibold flex items-center gap-1"><Clock className="w-3 h-3"/>{selectedBooking.startTime} - {selectedBooking.endTime}</p>
                 </div>
                 <div className="bg-gray-50 dark:bg-slate-800 rounded-xl p-3">
-                  <p className="text-[10px] text-gray-500 mb-1 flex items-center gap-1"><Clock className="w-3 h-3"/>Time Slot</p>
-                  <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{selectedBooking.startTime} - {selectedBooking.endTime}</p>
+                  <p className="text-[10px] text-gray-500 mb-1 flex items-center gap-1">📅 Booked On</p>
+                  <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{new Date(selectedBooking.createdAt).toLocaleDateString('en-IN')}</p>
                 </div>
                 <div className="bg-green-50 dark:bg-slate-800 rounded-xl p-3">
                   <p className="text-[10px] text-gray-500 mb-1 flex items-center gap-1"><IndianRupee className="w-3 h-3"/>Amount</p>
@@ -844,6 +899,72 @@ export default function OwnerBookings() {
                   )}
                 </div>
               </div>
+
+              {/* Cancellation & Refund Details */}
+              {selectedBooking.status === 'cancelled' && (
+                <div className="bg-red-50 dark:bg-slate-800 rounded-xl p-4 border border-red-200 dark:border-red-900 text-xs">
+                  <p className="font-bold text-red-800 dark:text-red-400 mb-2 flex items-center gap-1.5 font-sans">
+                    <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" /> Cancellation & Refund Details
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-gray-500 dark:text-slate-400 text-xs">Cancelled By</p>
+                      <p className="font-semibold text-gray-900 dark:text-slate-100 capitalize">
+                        {selectedBooking.cancelledByRole || 'system'} 
+                        {selectedBooking.cancellationType ? ` (${selectedBooking.cancellationType})` : ''}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500 dark:text-slate-400 text-xs">Cancellation Reason</p>
+                      <p className="font-semibold text-gray-900 dark:text-slate-100">
+                        {selectedBooking.cancellationReason || 'No reason provided'}
+                      </p>
+                    </div>
+                    {selectedBooking.paymentStatus === 'refunded' || selectedBooking.refundDetails?.refundStatus ? (
+                      <>
+                        <div>
+                          <p className="text-gray-500 dark:text-slate-400 text-xs">Refund Status</p>
+                          <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold capitalize mt-0.5 ${
+                            selectedBooking.refundDetails?.refundStatus === 'processed' || selectedBooking.paymentStatus === 'refunded'
+                              ? 'bg-purple-100 text-purple-700'
+                              : selectedBooking.refundDetails?.refundStatus === 'failed'
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {selectedBooking.refundDetails?.refundStatus || (selectedBooking.paymentStatus === 'refunded' ? 'processed' : 'pending')}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-gray-500 dark:text-slate-400 text-xs">Refund Amount</p>
+                          <p className="font-semibold text-gray-900 dark:text-slate-100">
+                            ₹{(selectedBooking.refundDetails?.refundAmount || 0).toLocaleString()}
+                          </p>
+                        </div>
+                        {selectedBooking.refundDetails?.refundId && (
+                          <div>
+                            <p className="text-gray-500 dark:text-slate-400 text-xs">Refund ID</p>
+                            <code className="font-mono text-xs bg-white dark:bg-slate-700 border dark:border-slate-600 px-1 rounded">
+                              {selectedBooking.refundDetails.refundId}
+                            </code>
+                          </div>
+                        )}
+                        {selectedBooking.refundDetails?.refundedAt && (
+                          <div>
+                            <p className="text-gray-500 dark:text-slate-400 text-xs">Refunded At</p>
+                            <p className="font-semibold text-gray-900 dark:text-slate-100">
+                              {new Date(selectedBooking.refundDetails.refundedAt).toLocaleString('en-IN')}
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="col-span-2">
+                        <p className="text-xs text-gray-500 dark:text-slate-400 italic">No refund processed (Booking was unpaid or pending at cancellation)</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Price Breakdown */}
               <div className="bg-gray-50 dark:bg-slate-800 rounded-xl p-4">
@@ -975,6 +1096,57 @@ export default function OwnerBookings() {
               >
                 💳 View Full Payment History
               </button>
+
+              {/* Owner Action Buttons for Pending & Confirmed Bookings in Details Modal */}
+              {selectedBooking.status === 'pending' && (
+                <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-gray-100 dark:border-slate-800">
+                  <button
+                    onClick={() => handleConfirmClick(selectedBooking._id, true)}
+                    className="py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl font-semibold text-sm transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    Accept
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleApproveSoon(selectedBooking._id);
+                      setSelectedBooking(null);
+                    }}
+                    disabled={selectedBooking.approveSoonUsed}
+                    className={`py-2.5 rounded-xl font-semibold text-sm transition-colors flex items-center justify-center gap-1.5 ${
+                      selectedBooking.approveSoonUsed
+                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                        : 'bg-orange-400 hover:bg-orange-500 text-white'
+                    }`}
+                  >
+                    <Clock className="w-4 h-4" />
+                    Approve Soon
+                  </button>
+                  <button
+                    onClick={() => {
+                      setCancellingBooking(selectedBooking);
+                      setCancelReason('');
+                      setSelectedBooking(null);
+                    }}
+                    className="py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold text-sm transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <Ban className="w-4 h-4" />
+                    Reject
+                  </button>
+                </div>
+              )}
+
+              {selectedBooking.status === 'confirmed' && (
+                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-slate-800">
+                  <button
+                    onClick={() => handleCompleteClick(selectedBooking._id, true)}
+                    className="w-full py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-semibold text-sm transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    Mark Completed
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -989,6 +1161,39 @@ export default function OwnerBookings() {
             setBookings(prev => prev.map(b => b._id === updated._id ? updated : b));
           }}
         />
+      )}
+
+      {/* Custom Confirmation Modal */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-gray-100 dark:bg-slate-900 dark:border-slate-800 transform scale-100 transition-transform">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-primary-100 text-primary-600 rounded-xl dark:bg-primary-900/30">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+              <h2 className="text-lg font-black text-gray-800 dark:text-slate-100">{confirmModal.title}</h2>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-slate-400 mb-6 leading-relaxed">{confirmModal.message}</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  if (confirmModal.onConfirm) confirmModal.onConfirm();
+                }}
+                className="flex-1 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-bold text-sm transition-colors shadow-md hover:shadow-lg"
+              >
+                Yes, Continue
+              </button>
+              <button
+                onClick={() => {
+                  if (confirmModal.onCancel) confirmModal.onCancel();
+                }}
+                className="flex-1 py-3 border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl font-bold text-sm transition-colors dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Owner Cancel Booking Modal */}

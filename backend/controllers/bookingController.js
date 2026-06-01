@@ -229,9 +229,26 @@ exports.createBooking = async (req, res) => {
       });
     }
     
-    // Populate venue and customer details
-    await booking.populate('venue', 'businessName location sku images');
-    await booking.populate('customer', 'name email phone');
+    // Populate venue (with owner) and customer details
+    await booking.populate([
+      {
+        path: 'venue',
+        select: 'businessName location sku images owner',
+        populate: { path: 'owner', select: 'name email phone' }
+      },
+      {
+        path: 'customer',
+        select: 'name email phone'
+      }
+    ]);
+    
+    // Send email notification
+    try {
+      const { sendBookingEmail } = require('../utils/emailService');
+      await sendBookingEmail(booking, 'created');
+    } catch (emailErr) {
+      console.error('Failed to send booking creation email:', emailErr.message);
+    }
     
     res.status(201).json({
       success: true,
@@ -264,6 +281,29 @@ exports.getBookings = async (req, res) => {
     }
 
     if (status && status !== 'all') query.status = status;
+
+    if (search) {
+      const User = require('../models/User');
+      const customers = await User.find({
+        $or: [
+          { name: { $regex: search, $options: 'i' } },
+          { email: { $regex: search, $options: 'i' } }
+        ]
+      }).select('_id');
+      
+      const venues = await Venue.find({
+        $or: [
+          { businessName: { $regex: search, $options: 'i' } },
+          { 'location.city': { $regex: search, $options: 'i' } }
+        ]
+      }).select('_id');
+      
+      query.$or = [
+        { bookingNumber: { $regex: search, $options: 'i' } },
+        { customer: { $in: customers.map(c => c._id) } },
+        { venue: { $in: venues.map(v => v._id) } }
+      ];
+    }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const [bookings, total] = await Promise.all([
@@ -351,23 +391,30 @@ exports.updateBookingStatus = async (req, res) => {
       });
     }
 
-    // For 'completed' status: validate that booking end time has passed
-    if (status === 'completed') {
-      const bookingDate = new Date(booking.bookingDate);
-      const endTime = booking.endTime; // e.g. "19:30"
-      
-      if (endTime) {
-        const [endH, endM] = endTime.split(':').map(Number);
-        const bookingEnd = new Date(bookingDate);
-        bookingEnd.setHours(endH, endM, 0, 0);
-        
-        if (new Date() < bookingEnd) {
-          return res.status(400).json({
-            success: false,
-            message: `Booking can only be marked complete after ${endTime} on ${bookingDate.toDateString()}`
-          });
-        }
+    // Ownership check for owner
+    if (req.user.role === 'owner') {
+      const venue = await Venue.findById(booking.venue);
+      if (!venue || venue.owner.toString() !== req.user.id) {
+        return res.status(403).json({
+          success: false,
+          message: 'Not authorized to update status for this booking'
+        });
       }
+    }
+
+    // Validate status transitions
+    const allowedTransitions = {
+      pending: ['confirmed', 'cancelled'],
+      confirmed: ['completed', 'cancelled'],
+      completed: [],
+      cancelled: []
+    };
+
+    if (!allowedTransitions[booking.status]?.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot change booking status from ${booking.status} to ${status}`
+      });
     }
     
     booking.status = status;
@@ -381,6 +428,29 @@ exports.updateBookingStatus = async (req, res) => {
           totalEarnings: booking.ownerEarnings
         }
       });
+    }
+
+    // Populate for email notification
+    await booking.populate([
+      {
+        path: 'venue',
+        select: 'businessName location sku images owner',
+        populate: { path: 'owner', select: 'name email phone' }
+      },
+      {
+        path: 'customer',
+        select: 'name email phone'
+      }
+    ]);
+
+    // Send email notification
+    try {
+      const { sendBookingEmail } = require('../utils/emailService');
+      if (status === 'confirmed' || status === 'completed') {
+        await sendBookingEmail(booking, status);
+      }
+    } catch (emailErr) {
+      console.error('Failed to send status update email:', emailErr.message);
     }
     
     res.json({
@@ -696,6 +766,25 @@ exports.cancelBooking = async (req, res) => {
     await booking.save();
     console.log(`[CANCEL] ✅ Booking saved — status:cancelled refundStatus:${booking.refundDetails.refundStatus}`);
     console.log(`[CANCEL] ─────────────────────────────────────────────────\n`);
+
+    // Populate for email notification
+    try {
+      await booking.populate([
+        {
+          path: 'venue',
+          select: 'businessName location sku images owner',
+          populate: { path: 'owner', select: 'name email phone' }
+        },
+        {
+          path: 'customer',
+          select: 'name email phone'
+        }
+      ]);
+      const { sendBookingEmail } = require('../utils/emailService');
+      await sendBookingEmail(booking, 'cancelled');
+    } catch (emailErr) {
+      console.error('Failed to send booking cancellation email:', emailErr.message);
+    }
 
     res.json({
       success: true,

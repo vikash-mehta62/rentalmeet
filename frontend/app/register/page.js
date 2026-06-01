@@ -1,6 +1,7 @@
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useState, useEffect, useMemo } from 'react';
+import { State, City } from 'country-state-city';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -26,13 +27,31 @@ function RegisterInner() {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '', email: '', phone: '', password: '', confirmPassword: '',
-    role: 'owner', referralCode: '', city: '', state: '',
-    businessName: '', businessCategory: '', businessCity: '', businessState: ''
+    role: 'owner', referralCode: '', city: '', state: ''
   });
   const [referrerName, setReferrerName] = useState('');
   const [referralLoading, setReferralLoading] = useState(false);
   const [referralError, setReferralError] = useState('');
   const [error, setError] = useState('');
+  const [selectedStateCode, setSelectedStateCode] = useState('');
+
+  const stateOptions = useMemo(() => State.getStatesOfCountry('IN'), []);
+  const cityOptions = useMemo(
+    () => (selectedStateCode ? City.getCitiesOfState('IN', selectedStateCode) : []),
+    [selectedStateCode]
+  );
+
+  // Email OTP states
+  const [emailOtpSent, setEmailOtpSent] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [emailOtpCode, setEmailOtpCode] = useState('');
+  const [emailOtpLoading, setEmailOtpLoading] = useState(false);
+
+  // Phone OTP states
+  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [phoneOtpCode, setPhoneOtpCode] = useState('');
+  const [phoneOtpLoading, setPhoneOtpLoading] = useState(false);
 
   useEffect(() => {
     setHydrated(true);
@@ -104,6 +123,112 @@ function RegisterInner() {
     setError('');
   };
 
+  const handleSendEmailOtp = async () => {
+    if (!formData.name?.trim()) {
+      setError('Please fill in Contact / Full Name first to verify email');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+    setError('');
+    setEmailOtpLoading(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/send-email-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: formData.name, email: formData.email })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setEmailOtpSent(true);
+      } else {
+        setError(data.message || 'Failed to send verification code');
+      }
+    } catch {
+      setError('Failed to send email verification code. Please try again.');
+    } finally {
+      setEmailOtpLoading(false);
+    }
+  };
+
+  const handleVerifyEmailOtp = async () => {
+    if (emailOtpCode.length !== 6) return;
+    setError('');
+    setEmailOtpLoading(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/verify-email-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email, otp: emailOtpCode })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setEmailVerified(true);
+      } else {
+        setError(data.message || 'Invalid verification code');
+      }
+    } catch {
+      setError('Failed to verify email code. Please try again.');
+    } finally {
+      setEmailOtpLoading(false);
+    }
+  };
+
+  const handleSendPhoneOtp = async () => {
+    if (!formData.name?.trim()) {
+      setError('Please fill in Contact / Full Name first to verify phone');
+      return;
+    }
+    if (formData.phone.length !== 10) {
+      setError('Please enter a valid 10-digit phone number');
+      return;
+    }
+    setError('');
+    setPhoneOtpLoading(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/send-phone-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: formData.name, phone: formData.phone })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPhoneOtpSent(true);
+      } else {
+        setError(data.message || 'Failed to send verification code');
+      }
+    } catch {
+      setError('Failed to send phone verification code. Please try again.');
+    } finally {
+      setPhoneOtpLoading(false);
+    }
+  };
+
+  const handleVerifyPhoneOtp = async () => {
+    if (phoneOtpCode.length !== 6) return;
+    setError('');
+    setPhoneOtpLoading(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/verify-phone-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: formData.phone, otp: phoneOtpCode })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPhoneVerified(true);
+      } else {
+        setError(data.message || 'Invalid verification code');
+      }
+    } catch {
+      setError('Failed to verify phone code. Please try again.');
+    } finally {
+      setPhoneOtpLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -115,9 +240,12 @@ function RegisterInner() {
     if (formData.password !== formData.confirmPassword) { setError('Passwords do not match'); return; }
     if (formData.password.length < 6) { setError('Password must be at least 6 characters'); return; }
     if (formData.phone.length !== 10) { setError('Phone number must be 10 digits'); return; }
-    if (formData.role === 'vendor' && !formData.businessName) { setError('Business name is required'); return; }
-    if (formData.role === 'vendor' && !formData.businessCategory) { setError('Please select a business category'); return; }
     if (formData.referralCode && referralError) { setError('Please enter a valid referral code'); return; }
+
+    if (!emailVerified || !phoneVerified) {
+      setError('Please verify both your email address and phone number first');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -128,11 +256,9 @@ function RegisterInner() {
         password: formData.password,
         role: formData.role,
         referralCode: formData.referralCode || undefined,
-        city: formData.role === 'vendor' ? formData.businessCity : (formData.city || undefined),
-        state: formData.role === 'vendor' ? formData.businessState : (formData.state || undefined),
+        city: formData.city || undefined,
+        state: formData.state || undefined,
         ...(formData.role === 'vendor' && {
-          companyName: formData.businessName,
-          vendorCategory: formData.businessCategory,
           accountType: 'company'
         })
       };
@@ -268,57 +394,148 @@ function RegisterInner() {
                   />
                 </div>
 
-                {isVendor && (
-                  <div className="space-y-4 p-5 bg-primary-50/50 border border-primary-100 rounded-2xl">
-                    <p className="text-xs font-bold text-primary-700 uppercase tracking-wide flex items-center gap-2 mb-2">
-                      <Briefcase className="w-4 h-4" /> Business Information
-                    </p>
-                    <div className="relative">
-                      <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
-                      <input type="text" name="businessName" value={formData.businessName} onChange={handleChange} placeholder="Business / Company Name *" className={inp} required />
-                    </div>
-                    <div className="relative">
-                      <Settings className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
-                      <select name="businessCategory" value={formData.businessCategory} onChange={handleChange} className={inp + ' appearance-none cursor-pointer'} required>
-                        <option value="">Select Category *</option>
-                        {VENDOR_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                      </select>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="relative">
-                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <input type="text" name="businessCity" value={formData.businessCity} onChange={handleChange} placeholder="City" className={inp} />
-                      </div>
-                      <div className="relative">
-                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <input type="text" name="businessState" value={formData.businessState} onChange={handleChange} placeholder="State" className={inp} />
-                      </div>
-                    </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <select
+                      name="state"
+                      value={selectedStateCode}
+                      onChange={(e) => {
+                        const code = e.target.value;
+                        const selected = stateOptions.find((s) => s.isoCode === code);
+                        setSelectedStateCode(code);
+                        setFormData((p) => ({ ...p, state: selected?.name || '', city: '' }));
+                      }}
+                      className={inp}
+                    >
+                      <option value="">Select State</option>
+                      {stateOptions.map((s) => (
+                        <option key={s.isoCode} value={s.isoCode}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                )}
-
-                {!isVendor && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="relative">
-                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input type="text" name="city" value={formData.city} onChange={handleChange} placeholder="City" className={inp} />
-                    </div>
-                    <div className="relative">
-                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input type="text" name="state" value={formData.state} onChange={handleChange} placeholder="State" className={inp} />
-                    </div>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <select
+                      name="city"
+                      value={formData.city}
+                      onChange={(e) => setFormData((p) => ({ ...p, city: e.target.value }))}
+                      disabled={!selectedStateCode}
+                      className={`${inp} ${!selectedStateCode ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''}`}
+                    >
+                      <option value="">{selectedStateCode ? 'Select City' : 'Select State First'}</option>
+                      {cityOptions.map((c) => (
+                        <option key={c.name} value={c.name}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                )}
+                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
                   <div className="relative">
                     <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
-                    <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="Email Address *" className={inp} required />
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      placeholder="Email Address *"
+                      className={inp + ' pr-24'}
+                      required
+                      disabled={emailVerified}
+                    />
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                      {emailVerified ? (
+                        <span className="text-green-600 font-bold text-xs px-2 select-none">✓ Verified</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleSendEmailOtp}
+                          disabled={emailOtpLoading || !formData.email}
+                          className="px-2.5 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-bold text-[10px] transition-colors disabled:opacity-50"
+                        >
+                          {emailOtpLoading ? '...' : emailOtpSent ? 'Resend' : 'Verify'}
+                        </button>
+                      )}
+                    </div>
                   </div>
+
+                  {emailOtpSent && !emailVerified && (
+                    <div className="flex gap-2 bg-orange-50/50 p-2.5 rounded-xl border border-orange-100 animate-slide-up">
+                      <input
+                        type="text"
+                        placeholder="6-digit Email OTP"
+                        value={emailOtpCode}
+                        onChange={(e) => setEmailOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        className="flex-1 px-4 py-2 border border-gray-200 rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-primary-500 text-center tracking-widest font-bold"
+                        maxLength="6"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleVerifyEmailOtp}
+                        disabled={emailOtpCode.length !== 6 || emailOtpLoading}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-xs transition-colors disabled:opacity-50"
+                      >
+                        Verify
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
                   <div className="relative">
                     <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
-                    <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="Phone *" maxLength="10" className={inp} required />
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleChange}
+                      placeholder="Phone *"
+                      maxLength="10"
+                      className={inp + ' pr-24'}
+                      required
+                      disabled={phoneVerified}
+                    />
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                      {phoneVerified ? (
+                        <span className="text-green-600 font-bold text-xs px-2 select-none">✓ Verified</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleSendPhoneOtp}
+                          disabled={phoneOtpLoading || formData.phone.length !== 10}
+                          className="px-2.5 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-bold text-[10px] transition-colors disabled:opacity-50"
+                        >
+                          {phoneOtpLoading ? '...' : phoneOtpSent ? 'Resend' : 'Verify'}
+                        </button>
+                      )}
+                    </div>
                   </div>
+
+                  {phoneOtpSent && !phoneVerified && (
+                    <div className="flex gap-2 bg-orange-50/50 p-2.5 rounded-xl border border-orange-100 animate-slide-up">
+                      <input
+                        type="text"
+                        placeholder="6-digit Phone OTP"
+                        value={phoneOtpCode}
+                        onChange={(e) => setPhoneOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        className="flex-1 px-4 py-2 border border-gray-200 rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-primary-500 text-center tracking-widest font-bold"
+                        maxLength="6"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleVerifyPhoneOtp}
+                        disabled={phoneOtpCode.length !== 6 || phoneOtpLoading}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-xs transition-colors disabled:opacity-50"
+                      >
+                        Verify
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -354,7 +571,7 @@ function RegisterInner() {
 
                 <button 
                   type="submit" 
-                  disabled={loading} 
+                  disabled={loading || !emailVerified || !phoneVerified}
                   className="w-full py-4 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold text-base shadow-lg shadow-primary-200 transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed mt-4"
                 >
                   {loading ? (
@@ -362,7 +579,11 @@ function RegisterInner() {
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       Creating Account...
                     </span>
-                  ) : 'Create Your Account'}
+                  ) : !emailVerified || !phoneVerified ? (
+                    'Verify Email & Phone to Continue'
+                  ) : (
+                    'Create Your Account'
+                  )}
                 </button>
               </form>
 

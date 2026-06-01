@@ -178,12 +178,14 @@ export default function VendorDashboard() {
       )}
 
       {/* Add Service CTA */}
-      <div className="mb-6">
-        <Link href="/vendor/services/new"
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-bold text-sm transition-colors">
-          <Plus className="w-4 h-4" /> Add New Service
-        </Link>
-      </div>
+      {services.length === 0 && (
+        <div className="mb-6">
+          <Link href="/vendor/services/new"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-bold text-sm transition-colors">
+            <Plus className="w-4 h-4" /> Add New Service
+          </Link>
+        </div>
+      )}
 
     </VendorLayout>
   );

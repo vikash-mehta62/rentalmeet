@@ -288,6 +288,9 @@ app.post('/api/service-bookings', async (req, res) => {
     }
 
     const isPaidBooking = Boolean(verifiedPaymentDetails);
+    const confirmationHours = svc.confirmationHours || 3;
+    const confirmationDeadline = isPaidBooking ? new Date(Date.now() + confirmationHours * 60 * 60 * 1000) : undefined;
+
     const booking = await ServiceBooking.create({
       service: serviceId,
       vendor:  svc.vendor,
@@ -306,9 +309,10 @@ app.post('/api/service-bookings', async (req, res) => {
       },
       coupon: appliedCoupon ? { couponId: appliedCoupon._id, code: appliedCoupon.code, discountAmount } : undefined,
       amount: isPaidBooking ? Number(amount || finalTotal) : undefined,
-      status: isPaidBooking ? 'confirmed' : (status || 'enquiry'),
+      status: isPaidBooking ? 'pending' : (status || 'enquiry'),
       paymentStatus: isPaidBooking ? 'paid' : (paymentStatus || 'pending'),
       paymentDetails: isPaidBooking ? verifiedPaymentDetails : undefined,
+      confirmationDeadline
     });
     console.log('[ServiceBooking] Created:', booking.bookingNumber, '| pricing:', JSON.stringify(booking.pricing));
 
@@ -463,6 +467,186 @@ app.patch('/api/service-bookings/:id/downloaded', async (req, res) => {
     res.json({ success: true });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
+
+// PUT /api/service-bookings/:id/confirm (vendor/admin only)
+app.put('/api/service-bookings/:id/confirm', require('./middleware/auth').protect, async (req, res) => {
+  try {
+    const ServiceBooking = require('./models/ServiceBooking');
+    const VendorService = require('./models/VendorService');
+    const booking = await ServiceBooking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+
+    // Authorization: only the service vendor or admin can confirm
+    const isVendor = req.user.id === booking.vendor?.toString();
+    const isAdmin = req.user.role === 'admin';
+    if (!isVendor && !isAdmin) {
+      return res.status(403).json({ success: false, message: 'Not authorized to confirm this booking' });
+    }
+
+    if (booking.status !== 'pending') {
+      return res.status(400).json({ success: false, message: `Booking cannot be confirmed in its current state (status: ${booking.status})` });
+    }
+
+    booking.status = 'confirmed';
+    await booking.save();
+
+    // Increment vendor service booking count
+    await VendorService.findByIdAndUpdate(booking.service, { $inc: { totalBookings: 1 } });
+
+    res.json({ success: true, message: 'Booking confirmed successfully', booking });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// PUT /api/service-bookings/:id/complete (vendor/admin only)
+app.put('/api/service-bookings/:id/complete', require('./middleware/auth').protect, async (req, res) => {
+  try {
+    const ServiceBooking = require('./models/ServiceBooking');
+    const booking = await ServiceBooking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+
+    // Authorization: only the service vendor or admin can complete
+    const isVendor = req.user.id === booking.vendor?.toString();
+    const isAdmin = req.user.role === 'admin';
+    if (!isVendor && !isAdmin) {
+      return res.status(403).json({ success: false, message: 'Not authorized to complete this booking' });
+    }
+
+    if (booking.status !== 'confirmed') {
+      return res.status(400).json({ success: false, message: `Booking can only be marked completed after confirmation (current status: ${booking.status})` });
+    }
+
+    booking.status = 'completed';
+    await booking.save();
+
+    res.json({ success: true, message: 'Booking marked as completed successfully', booking });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// PUT /api/service-bookings/:id/cancel (customer/vendor/admin cancellation with auto-refund)
+app.put('/api/service-bookings/:id/cancel', require('./middleware/auth').protect, async (req, res) => {
+  try {
+    const ServiceBooking = require('./models/ServiceBooking');
+    const Razorpay = require('razorpay');
+    const { reason } = req.body;
+
+    const booking = await ServiceBooking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+
+    if (!['pending', 'confirmed'].includes(booking.status)) {
+      return res.status(400).json({ success: false, message: 'Booking cannot be cancelled in its current state' });
+    }
+
+    // Authorization check: "customer or jiski serivce hai wo hi cancel kar sakta hai bas"
+    const isCustomer = req.user.id === booking.customer?.toString() || req.user.email?.toLowerCase() === booking.customerInfo?.email?.toLowerCase();
+    const isVendor = req.user.id === booking.vendor?.toString();
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isCustomer && !isVendor && !isAdmin) {
+      return res.status(403).json({ success: false, message: 'You are not authorized to cancel this booking' });
+    }
+
+    const role = req.user.role;
+
+    // Refund policy
+    const eventDateTime = new Date(booking.eventDate);
+    const now = new Date();
+    const hoursUntilEvent = (eventDateTime - now) / (1000 * 60 * 60);
+
+    let refundAmount = 0;
+    let refundEligible = false;
+    let refundPolicy = '';
+
+    if (isCustomer && !isAdmin) {
+      const totalPaid = booking.amount || booking.pricing?.total || 0;
+      if (hoursUntilEvent >= 48) {
+        refundEligible = true;
+        refundAmount = totalPaid;
+        refundPolicy = 'Full refund (cancelled 48+ hours before event)';
+      } else if (hoursUntilEvent >= 24) {
+        refundEligible = true;
+        refundAmount = Math.round(totalPaid * 0.5);
+        refundPolicy = '50% refund (cancelled 24–48 hours before event)';
+      } else {
+        refundEligible = false;
+        refundAmount = 0;
+        refundPolicy = 'No refund (cancelled less than 24 hours before event)';
+      }
+    } else {
+      // Vendor or Admin cancel -> 100% refund
+      refundEligible = true;
+      refundAmount = booking.amount || booking.pricing?.total || 0;
+      refundPolicy = `Full refund (cancelled by ${role === 'vendor' ? 'service provider' : 'admin'})`;
+    }
+
+    // Process Razorpay refund
+    let refundResult = { success: false, reason: 'No refund applicable' };
+
+    if (refundEligible && booking.paymentStatus === 'paid' && refundAmount > 0) {
+      if (!booking.paymentDetails?.razorpay_payment_id) {
+        refundResult = { success: false, reason: 'No Razorpay payment ID stored on booking' };
+      } else {
+        try {
+          const razorpay = new Razorpay({
+            key_id: process.env.RAZORPAY_KEY_ID,
+            key_secret: process.env.RAZORPAY_KEY_SECRET
+          });
+
+          const refund = await razorpay.payments.refund(
+            booking.paymentDetails.razorpay_payment_id,
+            {
+              amount: Math.round(refundAmount * 100),
+              speed: 'normal',
+              notes: { bookingNumber: booking.bookingNumber, reason: reason || refundPolicy }
+            }
+          );
+          refundResult = { success: true, refundId: refund.id };
+        } catch (err) {
+          console.error(`[SVC-CANCEL] Refund error:`, err);
+          refundResult = { success: false, reason: err.error?.description || err.message };
+        }
+      }
+    }
+
+    booking.status = 'cancelled';
+    booking.cancellationReason = reason || refundPolicy;
+    booking.cancelledBy = req.user.id;
+    booking.cancelledByRole = isAdmin ? 'admin' : (isVendor ? 'vendor' : 'customer');
+    booking.cancellationType = 'manual';
+    booking.refundDetails = {
+      refundAmount,
+      refundStatus: !refundEligible || booking.paymentStatus !== 'paid'
+        ? 'pending'
+        : refundResult.success ? 'processed' : 'failed',
+      refundId: refundResult.refundId || null,
+      refundedAt: refundResult.success ? new Date() : null,
+      refundReason: refundPolicy
+    };
+
+    if (refundResult.success) {
+      booking.paymentStatus = 'refunded';
+    }
+
+    await booking.save();
+
+    res.json({
+      success: true,
+      message: 'Booking cancelled successfully',
+      refundEligible,
+      refundAmount,
+      refundPolicy,
+      refundProcessed: refundResult.success,
+      refundFailReason: !refundResult.success ? refundResult.reason : undefined,
+      booking
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
 app.use('/api/bookings', require('./routes/bookings'));
 app.use('/api/upload', require('./routes/upload'));
 app.use('/api/payment', require('./routes/payment'));

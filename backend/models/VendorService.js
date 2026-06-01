@@ -98,6 +98,14 @@ const vendorServiceSchema = new mongoose.Schema({
   },
   customAdvanceDays: Number,
 
+  // Confirmation deadline hours
+  confirmationHours: {
+    type: Number,
+    default: 3,
+    min: 1,
+    max: 3
+  },
+
   // Terms
   termsAccepted: { type: Boolean, default: false },
 

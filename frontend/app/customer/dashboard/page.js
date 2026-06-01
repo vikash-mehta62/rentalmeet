@@ -129,14 +129,7 @@ export default function CustomerDashboard() {
   }
 
   return (
-    <CustomerLayout activePage="dashboard" fullWidth>
-      {/* Page Header */}
-      <div className="bg-gradient-to-r from-primary-500 to-primary-600 px-4 sm:px-6 lg:px-8 py-8 shadow-lg">
-        <div>
-          <h1 className="text-3xl font-black text-white mb-1">Customer Dashboard</h1>
-          <p className="text-primary-100">Welcome back, {user?.name}!</p>
-        </div>
-      </div>
+    <CustomerLayout activePage="dashboard" fullWidth title="Dashboard" subtitle={`Welcome back, ${user?.name || 'Customer'}!`}>
 
       {/* Dashboard Content */}
       <div className="p-4 sm:p-6 lg:p-8">

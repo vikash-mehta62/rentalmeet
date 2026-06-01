@@ -30,10 +30,24 @@ function CustomerRegisterInner() {
   const [showPwd, setShowPwd] = useState(false);
   const [error, setError] = useState('');
 
+  // Email OTP states
+  const [emailOtpSent, setEmailOtpSent] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [emailOtpCode, setEmailOtpCode] = useState('');
+  const [emailOtpLoading, setEmailOtpLoading] = useState(false);
+
+  // Phone OTP states
+  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [phoneOtpCode, setPhoneOtpCode] = useState('');
+  const [phoneOtpLoading, setPhoneOtpLoading] = useState(false);
+
   // Step 2 — KYC
   const [idProofType, setIdProofType] = useState('Aadhaar');
   const [idProofFile, setIdProofFile] = useState(null);
   const [idProofPreview, setIdProofPreview] = useState(null);
+  const [idProofBackFile, setIdProofBackFile] = useState(null);
+  const [idProofBackPreview, setIdProofBackPreview] = useState(null);
   const [selfieFile, setSelfieFile] = useState(null);
   const [selfiePreview, setSelfiePreview] = useState(null);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -133,14 +147,126 @@ function CustomerRegisterInner() {
     return () => { mounted = false; };
   }, [referralCode]);
 
+  const handleSendEmailOtp = async () => {
+    if (!form.name?.trim()) {
+      setError('Please fill in Full Name first to verify email');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+    setError('');
+    setEmailOtpLoading(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/send-email-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: form.name, email: form.email })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setEmailOtpSent(true);
+      } else {
+        setError(data.message || 'Failed to send verification code');
+      }
+    } catch {
+      setError('Failed to send email verification code. Please try again.');
+    } finally {
+      setEmailOtpLoading(false);
+    }
+  };
+
+  const handleVerifyEmailOtp = async () => {
+    if (emailOtpCode.length !== 6) return;
+    setError('');
+    setEmailOtpLoading(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/verify-email-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: form.email, otp: emailOtpCode })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setEmailVerified(true);
+      } else {
+        setError(data.message || 'Invalid verification code');
+      }
+    } catch {
+      setError('Failed to verify email code. Please try again.');
+    } finally {
+      setEmailOtpLoading(false);
+    }
+  };
+
+  const handleSendPhoneOtp = async () => {
+    if (!form.name?.trim()) {
+      setError('Please fill in Full Name first to verify phone');
+      return;
+    }
+    if (form.phone.length !== 10) {
+      setError('Please enter a valid 10-digit phone number');
+      return;
+    }
+    setError('');
+    setPhoneOtpLoading(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/send-phone-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: form.name, phone: form.phone })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPhoneOtpSent(true);
+      } else {
+        setError(data.message || 'Failed to send verification code');
+      }
+    } catch {
+      setError('Failed to send phone verification code. Please try again.');
+    } finally {
+      setPhoneOtpLoading(false);
+    }
+  };
+
+  const handleVerifyPhoneOtp = async () => {
+    if (phoneOtpCode.length !== 6) return;
+    setError('');
+    setPhoneOtpLoading(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/verify-phone-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: form.phone, otp: phoneOtpCode })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPhoneVerified(true);
+      } else {
+        setError(data.message || 'Invalid verification code');
+      }
+    } catch {
+      setError('Failed to verify phone code. Please try again.');
+    } finally {
+      setPhoneOtpLoading(false);
+    }
+  };
+
   // Step 1 submit — register account
   const handleRegister = async e => {
     e.preventDefault();
+    setError('');
     if (!form.name || !form.email || !form.phone || !form.password) { setError('All fields required'); return; }
     if (form.password !== form.confirm) { setError('Passwords do not match'); return; }
     if (form.password.length < 6) { setError('Password must be at least 6 characters'); return; }
     if (form.phone.length !== 10) { setError('Phone must be 10 digits'); return; }
     if (referralCode && referralError) { setError('Please enter a valid referral code'); return; }
+
+    if (!emailVerified || !phoneVerified) {
+      setError('Please verify both your email address and phone number first');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -210,6 +336,9 @@ function CustomerRegisterInner() {
     try {
       const fd = new FormData();
       fd.append('idProof', idProofFile);
+      if (idProofBackFile) {
+        fd.append('idProofBack', idProofBackFile);
+      }
       fd.append('selfie', selfieFile);
       fd.append('idProofType', idProofType);
 
@@ -281,10 +410,7 @@ function CustomerRegisterInner() {
             <div className="w-full max-w-xl">
               <div className="bg-white rounded-3xl shadow-xl p-8 border border-gray-100">
           {/* Logo */}
-          <div className="flex justify-center mb-4">
-            <img src="/logo.png" alt="RentalMeet" className="h-14 w-auto object-contain" />
-          </div>
-
+        
           {/* Step indicator */}
           <div className="flex items-center justify-center gap-2 mb-8">
             {STEPS.map((s, i) => (
@@ -307,72 +433,185 @@ function CustomerRegisterInner() {
               <p className="text-sm text-gray-500 text-center mb-6">{targetConfig.subtitle}</p>
               {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm flex items-center gap-2"><AlertCircle className="w-4 h-4 flex-shrink-0" />{error}</div>}
               <form onSubmit={handleRegister} className="space-y-4">
-                <div className="relative"><User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><input name="name" placeholder="Full Name *" value={form.name} onChange={handleChange} className={inputCls} required /></div>
-                <div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><input name="email" type="email" placeholder="Email Address *" value={form.email} onChange={handleChange} className={inputCls} required /></div>
-                <div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><input name="phone" type="tel" placeholder="10-digit Phone *" value={form.phone} onChange={handleChange} maxLength={10} className={inputCls} required /></div>
-                <div className="space-y-2">
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      name="referralCode"
-                      placeholder="Referral Code (optional)"
-                      value={referralCode}
-                      onChange={(e) => { setReferralCode(e.target.value.toUpperCase()); setError(''); }}
-                      className={inputCls}
-                    />
-                  </div>
-                  {referralLoading && <p className="text-xs text-gray-500">Checking referral...</p>}
-                  {!!referrerName && !referralLoading && (
-                    <p className="text-xs text-green-600 font-semibold">Referred by: {referrerName}</p>
+                    <div className="relative"><User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><input name="name" placeholder="Full Name *" value={form.name} onChange={handleChange} className={inputCls} required /></div>
+                    
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          name="email"
+                          type="email"
+                          placeholder="Email Address *"
+                          value={form.email}
+                          onChange={handleChange}
+                          className={inputCls + ' pr-24'}
+                          required
+                          disabled={emailVerified}
+                        />
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                          {emailVerified ? (
+                            <span className="text-green-600 font-bold text-xs px-2 select-none">✓ Verified</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={handleSendEmailOtp}
+                              disabled={emailOtpLoading || !form.email}
+                              className="px-2.5 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-bold text-[10px] transition-colors disabled:opacity-50"
+                            >
+                              {emailOtpLoading ? '...' : emailOtpSent ? 'Resend' : 'Verify'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {emailOtpSent && !emailVerified && (
+                        <div className="flex gap-2 bg-orange-50/50 p-2.5 rounded-xl border border-orange-100 animate-slide-up">
+                          <input
+                            type="text"
+                            placeholder="6-digit Email OTP"
+                            value={emailOtpCode}
+                            onChange={(e) => setEmailOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            className="flex-1 px-4 py-2 border border-gray-200 rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-primary-500 text-center tracking-widest font-bold"
+                            maxLength="6"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleVerifyEmailOtp}
+                            disabled={emailOtpCode.length !== 6 || emailOtpLoading}
+                            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-xs transition-colors disabled:opacity-50"
+                          >
+                            Verify
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          name="phone"
+                          type="tel"
+                          placeholder="10-digit Phone *"
+                          value={form.phone}
+                          onChange={handleChange}
+                          maxLength={10}
+                          className={inputCls + ' pr-24'}
+                          required
+                          disabled={phoneVerified}
+                        />
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                          {phoneVerified ? (
+                            <span className="text-green-600 font-bold text-xs px-2 select-none">✓ Verified</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={handleSendPhoneOtp}
+                              disabled={phoneOtpLoading || form.phone.length !== 10}
+                              className="px-2.5 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-bold text-[10px] transition-colors disabled:opacity-50"
+                            >
+                              {phoneOtpLoading ? '...' : phoneOtpSent ? 'Resend' : 'Verify'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {phoneOtpSent && !phoneVerified && (
+                        <div className="flex gap-2 bg-orange-50/50 p-2.5 rounded-xl border border-orange-100 animate-slide-up">
+                          <input
+                            type="text"
+                            placeholder="6-digit Phone OTP"
+                            value={phoneOtpCode}
+                            onChange={(e) => setPhoneOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            className="flex-1 px-4 py-2 border border-gray-200 rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-primary-500 text-center tracking-widest font-bold"
+                            maxLength="6"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleVerifyPhoneOtp}
+                            disabled={phoneOtpCode.length !== 6 || phoneOtpLoading}
+                            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-xs transition-colors disabled:opacity-50"
+                          >
+                            Verify
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          name="referralCode"
+                          placeholder="Referral Code (optional)"
+                          value={referralCode}
+                          onChange={(e) => { setReferralCode(e.target.value.toUpperCase()); setError(''); }}
+                          className={inputCls}
+                        />
+                      </div>
+                      {referralLoading && <p className="text-xs text-gray-500">Checking referral...</p>}
+                      {!!referrerName && !referralLoading && (
+                        <p className="text-xs text-green-600 font-semibold">Referred by: {referrerName}</p>
+                      )}
+                      {!!referralError && !referralLoading && (
+                        <p className="text-xs text-red-500">{referralError}</p>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="relative">
+                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <select
+                          name="state"
+                          value={selectedStateCode}
+                          onChange={(e) => {
+                            const code = e.target.value;
+                            const selected = stateOptions.find((s) => s.isoCode === code);
+                            setSelectedStateCode(code);
+                            setForm((p) => ({ ...p, state: selected?.name || '', city: '' }));
+                          }}
+                          className={inputCls}
+                        >
+                          <option value="">Select State</option>
+                          {stateOptions.map((s) => (
+                            <option key={s.isoCode} value={s.isoCode}>
+                              {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="relative">
+                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <select
+                          name="city"
+                          value={form.city}
+                          onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))}
+                          disabled={!selectedStateCode}
+                          className={`${inputCls} ${!selectedStateCode ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''}`}
+                        >
+                          <option value="">{selectedStateCode ? 'Select City' : 'Select State First'}</option>
+                          {cityOptions.map((c) => (
+                            <option key={c.name} value={c.name}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><input name="password" type={showPwd ? 'text' : 'password'} placeholder="Password (min 6 chars) *" value={form.password} onChange={handleChange} className={inputCls + ' pr-10'} required /><button type="button" onClick={() => setShowPwd(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">{showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div>
+                    <div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><input name="confirm" type={showPwd ? 'text' : 'password'} placeholder="Confirm Password *" value={form.confirm} onChange={handleChange} className={inputCls} required /></div>
+                  
+                
+                <button type="submit" disabled={loading || !emailVerified || !phoneVerified} className="w-full py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-bold text-sm transition-colors disabled:opacity-50">
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Processing...
+                    </span>
+                  ) : !emailVerified || !phoneVerified ? (
+                    'Verify Email & Phone to Continue'
+                  ) : (
+                    'Continue to KYC →'
                   )}
-                  {!!referralError && !referralLoading && (
-                    <p className="text-xs text-red-500">{referralError}</p>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <select
-                      name="state"
-                      value={selectedStateCode}
-                      onChange={(e) => {
-                        const code = e.target.value;
-                        const selected = stateOptions.find((s) => s.isoCode === code);
-                        setSelectedStateCode(code);
-                        setForm((p) => ({ ...p, state: selected?.name || '', city: '' }));
-                      }}
-                      className={inputCls}
-                    >
-                      <option value="">Select State</option>
-                      {stateOptions.map((s) => (
-                        <option key={s.isoCode} value={s.isoCode}>
-                          {s.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <select
-                      name="city"
-                      value={form.city}
-                      onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))}
-                      disabled={!selectedStateCode}
-                      className={`${inputCls} ${!selectedStateCode ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''}`}
-                    >
-                      <option value="">{selectedStateCode ? 'Select City' : 'Select State First'}</option>
-                      {cityOptions.map((c) => (
-                        <option key={c.name} value={c.name}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><input name="password" type={showPwd ? 'text' : 'password'} placeholder="Password (min 6 chars) *" value={form.password} onChange={handleChange} className={inputCls + ' pr-10'} required /><button type="button" onClick={() => setShowPwd(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">{showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div>
-                <div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><input name="confirm" type={showPwd ? 'text' : 'password'} placeholder="Confirm Password *" value={form.confirm} onChange={handleChange} className={inputCls} required /></div>
-                <button type="submit" disabled={loading} className="w-full py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-bold text-sm transition-colors disabled:opacity-50">
-                  {loading ? 'Creating...' : 'Continue to KYC →'}
                 </button>
               </form>
               <p className="text-center text-sm text-gray-500 mt-4">Already have an account? <Link href="/login" className="text-primary-500 font-semibold">Login</Link></p>

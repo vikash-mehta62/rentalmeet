@@ -2,11 +2,13 @@
 
 import { useRef, useState } from 'react';
 import { X, Download, Printer } from 'lucide-react';
+import toast from 'react-hot-toast';
 
-export default function ServiceQuotationModal({ booking, svc, form, selectedDate, quantities, packages, pricing, onClose }) {
+export default function ServiceQuotationModal({ booking, svc, form, selectedDate, quantities, packages, pricing, onSave, onClose }) {
   const quotationRef = useRef(null);
   const [downloading, setDownloading] = useState(false);
   const [printing, setPrinting] = useState(false);
+  const [activeBooking, setActiveBooking] = useState(booking);
 
   const { subtotal, serviceCgst, serviceSgst, cgstPct, sgstPct, platformFee, platformFeePct, platformFeeGst, platformCgstPct, platformSgstPct, total } = pricing;
 
@@ -19,11 +21,12 @@ export default function ServiceQuotationModal({ booking, svc, form, selectedDate
   const fmt = (n) => (n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const serviceTotal = subtotal + serviceCgst + serviceSgst;
   const platformTotal = platformFee + platformFeeGst;
-  const qNo = booking?.quotationNumber || '—';
+  
+  const qNo = activeBooking?.quotationNumber || '—';
 
-  const markDownloaded = (action = 'download') => {
-    if (booking?._id) {
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/service-bookings/${booking._id}/downloaded`, {
+  const markDownloaded = (b, action = 'download') => {
+    if (b?._id) {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/service-bookings/${b._id}/downloaded`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action })
       }).catch(() => {});
     }
@@ -35,7 +38,22 @@ export default function ServiceQuotationModal({ booking, svc, form, selectedDate
     img.onerror = () => resolve(null); img.src = url;
   });
 
-  const buildHTML = (logoB64) => {
+  const ensureSavedBooking = async () => {
+    if (activeBooking?.isTemporary && onSave) {
+      const saved = await onSave();
+      if (saved) {
+        setActiveBooking(saved);
+        return saved;
+      } else {
+        toast.error("Failed to save quotation. Please try again.");
+        return null;
+      }
+    }
+    return activeBooking;
+  };
+
+  const buildHTML = (logoB64, currentBooking = activeBooking) => {
+    const currentQNo = currentBooking?.quotationNumber || '—';
     const itemRows = selectedItems.map((item, i) =>
       `<tr style="background:${i%2===0?'#fff':'#fafafa'}">
         <td style="padding:5px 8px;font-size:10px">${item.name}</td>
@@ -64,7 +82,7 @@ export default function ServiceQuotationModal({ booking, svc, form, selectedDate
         </div>
         <div style="text-align:right">
           <div style="font-size:14px;font-weight:900;color:#F59E0B;letter-spacing:1px">SERVICE QUOTATION</div>
-          <div style="font-size:10px;color:#374151;margin-top:2px">No: <strong>${qNo}</strong></div>
+          <div style="font-size:10px;color:#374151;margin-top:2px">No: <strong>${currentQNo}</strong></div>
           <div style="font-size:10px;color:#6b7280">Date: ${todayStr} &nbsp;|&nbsp; Valid: ${validUntil}</div>
           <div style="font-size:10px;color:#F59E0B;font-weight:700;margin-top:2px">Event: ${eventDateStr}</div>
         </div>
@@ -132,16 +150,21 @@ export default function ServiceQuotationModal({ booking, svc, form, selectedDate
 
       <div style="text-align:center;font-size:8px;color:#9ca3af;padding-top:8px;border-top:1px solid #e5e7eb">
         <div>Non-binding quotation · Valid 7 days · Final pricing subject to vendor confirmation</div>
-        <div style="margin-top:2px">RentalMeet · booking@rentalmeet.com · Ref: ${qNo}</div>
+        <div style="margin-top:2px">RentalMeet · booking@rentalmeet.com · Ref: ${currentQNo}</div>
       </div>
     </div>`;
   };
 
   const handlePrint = async () => {
     setPrinting(true);
-    markDownloaded('print');
+    const currentBooking = await ensureSavedBooking();
+    if (!currentBooking) {
+      setPrinting(false);
+      return;
+    }
+    markDownloaded(currentBooking, 'print');
     const logoB64 = await toBase64(`${window.location.origin}/logo.png`);
-    const html = `<!DOCTYPE html><html><head><title>Service Quotation - ${qNo}</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#fff}@media print{body{margin:0}}</style></head><body>${buildHTML(logoB64)}</body></html>`;
+    const html = `<!DOCTYPE html><html><head><title>Service Quotation - ${currentBooking.quotationNumber || currentBooking.bookingNumber}</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#fff}@media print{body{margin:0}}</style></head><body>${buildHTML(logoB64, currentBooking)}</body></html>`;
     const w = window.open('', '_blank');
     if (!w) { setPrinting(false); return; }
     w.document.open(); w.document.write(html); w.document.close();
@@ -150,7 +173,12 @@ export default function ServiceQuotationModal({ booking, svc, form, selectedDate
 
   const handleDownloadPDF = async () => {
     setDownloading(true);
-    markDownloaded('download');
+    const currentBooking = await ensureSavedBooking();
+    if (!currentBooking) {
+      setDownloading(false);
+      return;
+    }
+    markDownloaded(currentBooking, 'download');
     try {
       const { default: jsPDF } = await import('jspdf');
       const { default: html2canvas } = await import('html2canvas');
@@ -158,7 +186,7 @@ export default function ServiceQuotationModal({ booking, svc, form, selectedDate
 
       const container = document.createElement('div');
       container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;z-index:-1';
-      container.innerHTML = buildHTML(logoB64);
+      container.innerHTML = buildHTML(logoB64, currentBooking);
       document.body.appendChild(container);
       await new Promise(r => setTimeout(r, 300));
 
@@ -177,7 +205,7 @@ export default function ServiceQuotationModal({ booking, svc, form, selectedDate
         let yPos = 0;
         while (yPos < pdfH) { if (yPos > 0) pdf.addPage(); pdf.addImage(imgData, 'JPEG', 0, -yPos, pdfW, pdfH); yPos += pageH; }
       }
-      pdf.save(`ServiceQuotation-${qNo}.pdf`);
+      pdf.save(`ServiceQuotation-${currentBooking.quotationNumber || currentBooking.bookingNumber}.pdf`);
     } catch (e) { console.error('PDF error:', e); alert('PDF generation failed.'); }
     finally { setDownloading(false); }
   };

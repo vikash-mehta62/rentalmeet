@@ -1,17 +1,20 @@
 const express = require('express');
-const { register, login, getMe, updateProfile, changePassword, deleteAccount, deactivateAccount, uploadKYC, employeeSelfUpdate, getReferrerByCode, forgotPassword, resetPassword } = require('../controllers/authController');
+const { register, login, getMe, updateProfile, changePassword, deleteAccount, deactivateAccount, uploadKYC, employeeSelfUpdate, getReferrerByCode, forgotPassword, resetPassword, sendEmailOtp, verifyEmailOtp, sendPhoneOtp, verifyPhoneOtp } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
 
 const router = express.Router();
 
 router.post('/register', register);
+router.post('/send-email-otp', sendEmailOtp);
+router.post('/verify-email-otp', verifyEmailOtp);
+router.post('/send-phone-otp', sendPhoneOtp);
+router.post('/verify-phone-otp', verifyPhoneOtp);
 router.post('/login', login);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 router.get('/referrer/:code', getReferrerByCode);
 router.get('/me', protect, getMe);
-router.put('/update-profile', protect, updateProfile);
 router.put('/change-password', protect, changePassword);
 router.delete('/delete-account', protect, deleteAccount);
 router.put('/deactivate-account', protect, deactivateAccount);

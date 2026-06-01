@@ -365,6 +365,26 @@ router.put('/bookings/:id/cancel', async (req, res) => {
     }
     await booking.save();
     console.log(`[OWNER-CANCEL] ✅ Done — refundStatus:${booking.refundDetails.refundStatus}\n`);
+
+    // Populate for email notification
+    try {
+      await booking.populate([
+        {
+          path: 'venue',
+          select: 'businessName location sku images owner',
+          populate: { path: 'owner', select: 'name email phone' }
+        },
+        {
+          path: 'customer',
+          select: 'name email phone'
+        }
+      ]);
+      const { sendBookingEmail } = require('../utils/emailService');
+      await sendBookingEmail(booking, 'cancelled');
+    } catch (emailErr) {
+      console.error('Failed to send owner booking cancellation email:', emailErr.message);
+    }
+
     res.json({ success: true, message: 'Booking cancelled with full refund', refundProcessed: refundResult.success, refundFailReason: !refundResult.success ? refundResult.reason : undefined, booking });
   } catch (e) {
     console.error(`[OWNER-CANCEL] 💥`, e);

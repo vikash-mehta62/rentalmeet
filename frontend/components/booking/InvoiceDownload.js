@@ -4,7 +4,7 @@ import React from 'react';
 import { FileText } from 'lucide-react';
 
 export default function InvoiceDownload({ booking, userRole = 'customer' }) {
-  if (!booking || booking.status === 'cancelled') return null;
+  if (!booking || booking.status !== 'completed') return null;
 
   const [settings, setSettings] = React.useState(null);
   const [loading, setLoading] = React.useState({ venue: false, platform: false });
@@ -202,7 +202,7 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
           setFont('bold',   7.5, [17, 24, 39]);    doc.text(String(val || ''), rx + 22, yy);
         };
         rkvLine('Venue',        venueName,                    ry); ry += 4.5;
-        rkvLine('Location',     location,                     ry); ry += 4.5;
+        rkvLine('Address',      location,                     ry); ry += 4.5;
         rkvLine('GSTIN',        gstin,                        ry); ry += 4.5;
         rkvLine('Booking Date', fmtD(booking?.bookingDate),   ry); ry += 4.5;
         rkvLine('Time Slot',    (booking?.startTime || '') + ' - ' + (booking?.endTime || '') + ' (' + (booking?.bookingType || '') + ')', ry);

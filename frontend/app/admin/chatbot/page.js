@@ -85,7 +85,7 @@ export default function AdminChatbot() {
   return (
     <AdminLayout title="Chatbot Settings" subtitle="Manage chatbot quick replies and messages">
       <PermissionGuard permission="chatbot">
-        <div className="max-w-3xl mx-auto space-y-6">
+        <div className="w-full space-y-6">
 
           {/* Preview banner */}
           <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-6 flex items-start gap-4">

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
@@ -146,7 +146,7 @@ const VENUE_TYPE_ICONS = {
   'Banquet Hall': Coffee, 'Guest House': Home, 'Training Center': BookOpen, 'Marriage Garden': Flower2,
 };
 
-export default function BrowseVenues() {
+function BrowseVenuesContent() {
   const searchParams = useSearchParams();
 
   const [venues, setVenues] = useState([]);
@@ -391,5 +391,15 @@ export default function BrowseVenues() {
       </div>
       <Footer />
     </div>
+  );
+}
+
+import { Suspense } from 'react';
+
+export default function BrowseVenues() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#F8F9FA] dark:bg-slate-950"><div className="h-10 w-10 animate-spin rounded-full border-4 border-primary-500 border-t-transparent" /></div>}>
+      <BrowseVenuesContent />
+    </Suspense>
   );
 }

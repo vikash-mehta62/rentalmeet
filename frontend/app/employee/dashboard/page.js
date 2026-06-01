@@ -83,11 +83,11 @@ export default function EmployeeDashboard() {
   };
 
   return (
-    <EmployeeLayout activePage="dashboard">
-      <div className="bg-gradient-to-r from-primary-500 to-primary-600 px-6 py-8 rounded-2xl shadow-lg mb-8">
-        <h1 className="text-3xl font-black text-white mb-1">Welcome, {profileUser?.name || user?.name}!</h1>
-        <p className="text-primary-100 text-sm">{details.position || 'Employee'} · {details.department || 'N/A'}</p>
-      </div>
+    <EmployeeLayout 
+      activePage="dashboard" 
+      title="Dashboard" 
+      subtitle={`Welcome back, ${profileUser?.name || user?.name}!`}
+    >
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div className="bg-white rounded-2xl shadow-soft border border-gray-100 p-6">

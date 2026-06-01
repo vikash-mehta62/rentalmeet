@@ -7,7 +7,8 @@ import PermissionGuard from '@/components/admin/PermissionGuard';
 import toast from 'react-hot-toast';
 import {
   Search, Eye, X, CheckCircle, XCircle, Package,
-  ChevronDown, ChevronUp, ExternalLink, CreditCard, MapPin, Calendar, Download
+  ChevronDown, ChevronUp, ExternalLink, CreditCard, MapPin, Calendar, Download,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 const STATUS_STYLE = {
@@ -42,29 +43,62 @@ function DocImage({ label, url }) {
 }
 
 export default function AdminVendorServices() {
+  const LIMIT = 10;
   const { token } = useAuthStore();
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selected, setSelected] = useState(null);
   const [expanded, setExpanded] = useState({});
   const [rejectModal, setRejectModal] = useState({ open: false, id: '', reason: '' });
   const [actionLoading, setActionLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalServices, setTotalServices] = useState(0);
+  const [exporting, setExporting] = useState(false);
+  const [stats, setStats] = useState({ total: 0, pending: 0, resubmitted: 0, approved: 0, rejected: 0 });
 
-  const fetchServices = async () => {
+  const fetchServices = async (page = 1) => {
     setLoading(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/vendor-services`, {
+      const params = new URLSearchParams({ page, limit: LIMIT });
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+      if (searchQuery) params.set('search', searchQuery);
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/vendor-services?${params}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
-      if (data.success) setServices(data.services);
+      if (data.success) {
+        setServices(data.services);
+        setTotalPages(data.totalPages || 1);
+        setTotalServices(data.total || 0);
+        if (data.stats) setStats(data.stats);
+      }
     } catch { toast.error('Failed to load services'); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { if (token) fetchServices(); }, [token]);
+  useEffect(() => {
+    if (token) {
+      setCurrentPage(1);
+      fetchServices(1);
+    }
+  }, [token, statusFilter, searchQuery]);
+
+  // Debounce search input
+  useEffect(() => {
+    const t = setTimeout(() => setSearchQuery(searchInput), 400);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    fetchServices(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const handleAction = async (id, action, reason = '') => {
     setActionLoading(true);
@@ -77,7 +111,7 @@ export default function AdminVendorServices() {
       const data = await res.json();
       if (data.success) {
         toast.success(data.message);
-        setServices(prev => prev.map(s => s._id === id ? { ...s, status: data.service.status, rejectionReason: data.service.rejectionReason } : s));
+        fetchServices(currentPage);
         if (selected?._id === id) setSelected(prev => ({ ...prev, status: data.service.status, rejectionReason: data.service.rejectionReason }));
         setRejectModal({ open: false, id: '', reason: '' });
       } else toast.error(data.message);
@@ -85,49 +119,50 @@ export default function AdminVendorServices() {
     finally { setActionLoading(false); }
   };
 
-  const filtered = services.filter(s => {
-    const q = search.toLowerCase();
-    const matchSearch = !q ||
-      s.title?.toLowerCase().includes(q) ||
-      s.vendor?.name?.toLowerCase().includes(q) ||
-      s.vendor?.email?.toLowerCase().includes(q) ||
-      s.category?.toLowerCase().includes(q) ||
-      s.city?.toLowerCase().includes(q);
-    const matchStatus = statusFilter === 'all' || s.status === statusFilter;
-    return matchSearch && matchStatus;
-  });
+  const handleExportCSV = async () => {
+    setExporting(true);
+    try {
+      const params = new URLSearchParams({ export: 'true' });
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+      if (searchQuery) params.set('search', searchQuery);
 
-  const stats = {
-    total:        services.length,
-    pending:      services.filter(s => s.status === 'pending').length,
-    resubmitted:  services.filter(s => s.status === 'resubmitted').length,
-    approved:     services.filter(s => s.status === 'approved').length,
-    rejected:     services.filter(s => s.status === 'rejected').length,
-  };
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/vendor-services?${params}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!data.success) {
+        toast.error('Export failed');
+        return;
+      }
 
-  const handleExportCSV = () => {
-    const rows = [
-      ['#', 'Title', 'Company', 'Category', 'Vendor', 'Vendor Email', 'City', 'State', 'Starting Price', 'Status', 'Submitted'],
-      ...filtered.map((s, i) => [
-        i + 1,
-        s.title || '',
-        s.companyName || '',
-        s.category || '',
-        s.vendor?.name || '',
-        s.vendor?.email || '',
-        s.city || '',
-        s.state || '',
-        s.startingPrice || 0,
-        s.status || '',
-        new Date(s.createdAt).toLocaleDateString('en-IN'),
-      ])
-    ];
-    const csv = rows.map(r => r.map(c => `"${c ?? ''}"`).join(',')).join('\n');
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-    a.download = `Vendor_Services_${new Date().toISOString().slice(0,10)}.csv`;
-    a.click();
-    toast.success('CSV downloaded');
+      const allServices = data.services;
+      const rows = [
+        ['#', 'Title', 'Company', 'Category', 'Vendor', 'Vendor Email', 'City', 'State', 'Starting Price', 'Status', 'Submitted'],
+        ...allServices.map((s, i) => [
+          i + 1,
+          s.title || '',
+          s.companyName || '',
+          s.category || '',
+          s.vendor?.name || '',
+          s.vendor?.email || '',
+          s.city || '',
+          s.state || '',
+          s.startingPrice || 0,
+          s.status || '',
+          new Date(s.createdAt).toLocaleDateString('en-IN'),
+        ])
+      ];
+      const csv = rows.map(r => r.map(c => `"${c ?? ''}"`).join(',')).join('\n');
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+      link.download = `Vendor_Services_${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      toast.success(`Exported ${allServices.length} services!`);
+    } catch (e) {
+      toast.error('Export failed');
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -155,7 +190,7 @@ export default function AdminVendorServices() {
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input type="text" placeholder="Search by title, vendor, category, city..."
-              value={search} onChange={e => setSearch(e.target.value)}
+              value={searchInput} onChange={e => setSearchInput(e.target.value)}
               className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500" />
           </div>
           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
@@ -168,9 +203,9 @@ export default function AdminVendorServices() {
             <option value="rejected">Rejected</option>
             <option value="suspended">Suspended</option>
           </select>
-          <button onClick={handleExportCSV} disabled={filtered.length === 0}
+          <button onClick={handleExportCSV} disabled={exporting || totalServices === 0}
             className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50">
-            <Download className="w-4 h-4" /> CSV
+            <Download className="w-4 h-4" /> {exporting ? 'Exporting...' : `CSV (${totalServices})`}
           </button>
         </div>
 
@@ -194,11 +229,11 @@ export default function AdminVendorServices() {
               <tbody className="divide-y divide-gray-50">
                 {loading ? (
                   <tr><td colSpan={9} className="text-center py-12 text-gray-400">Loading...</td></tr>
-                ) : filtered.length === 0 ? (
+                ) : services.length === 0 ? (
                   <tr><td colSpan={9} className="text-center py-12 text-gray-400">No services found</td></tr>
-                ) : filtered.map((svc, i) => (
+                ) : services.map((svc, i) => (
                   <tr key={svc._id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 text-xs text-gray-400">{i + 1}</td>
+                    <td className="px-4 py-3 text-xs text-gray-400">{(currentPage - 1) * LIMIT + i + 1}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         {svc.featuredImage
@@ -245,6 +280,41 @@ export default function AdminVendorServices() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <p className="text-sm text-gray-600">
+                Showing {(currentPage - 1) * LIMIT + 1}–{Math.min(currentPage * LIMIT, totalServices)} of {totalServices} services
+              </p>
+              <div className="flex items-center gap-2">
+                <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}
+                  className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <div className="flex gap-1">
+                  {[...Array(totalPages)].map((_, i) => {
+                    const page = i + 1;
+                    if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+                      return (
+                        <button key={page} onClick={() => handlePageChange(page)}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium ${currentPage === page ? 'bg-primary-500 text-white' : 'border border-gray-300 hover:bg-gray-50'}`}>
+                          {page}
+                        </button>
+                      );
+                    } else if (page === currentPage - 2 || page === currentPage + 2) {
+                      return <span key={page} className="px-2 text-gray-400">...</span>;
+                    }
+                    return null;
+                  })}
+                </div>
+                <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}
+                  className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Service Detail Modal */}

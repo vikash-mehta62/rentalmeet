@@ -89,6 +89,10 @@ router.get('/services/:id', async (req, res) => {
 // POST create service
 router.post('/services', async (req, res) => {
   try {
+    const existingServiceCount = await VendorService.countDocuments({ vendor: req.user.id });
+    if (existingServiceCount >= 1) {
+      return res.status(400).json({ success: false, message: 'You can only add a maximum of one service.' });
+    }
     const service = await VendorService.create({ ...req.body, vendor: req.user.id, status: 'draft' });
     res.status(201).json({ success: true, service });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
@@ -176,7 +180,9 @@ router.get('/service-bookings', async (req, res) => {
     const stats = {
       total:     bookings.length,
       enquiry:   bookings.filter(b => b.status === 'enquiry').length,
+      pending:   bookings.filter(b => b.status === 'pending').length,
       confirmed: bookings.filter(b => b.status === 'confirmed').length,
+      cancelled: bookings.filter(b => b.status === 'cancelled').length,
     };
     res.json({ success: true, bookings, stats });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }

@@ -14,9 +14,11 @@ const processRefund = async (booking) => {
     return { success: false, reason: 'No Razorpay payment ID found' };
   }
 
+  const refundAmt = booking.amount || booking.pricing?.total || 0;
+
   console.log(`[CRON-REFUND] 🔄 Processing refund for ${booking.bookingNumber}`);
   console.log(`[CRON-REFUND] Payment ID : ${booking.paymentDetails.razorpay_payment_id}`);
-  console.log(`[CRON-REFUND] Amount     : ₹${booking.amount} (${Math.round(booking.amount * 100)} paise)`);
+  console.log(`[CRON-REFUND] Amount     : ₹${refundAmt} (${Math.round(refundAmt * 100)} paise)`);
   console.log(`[CRON-REFUND] RZP Key    : ${process.env.RAZORPAY_KEY_ID}`);
 
   try {
@@ -28,7 +30,7 @@ const processRefund = async (booking) => {
     const refund = await razorpay.payments.refund(
       booking.paymentDetails.razorpay_payment_id,
       {
-        amount: Math.round(booking.amount * 100),
+        amount: Math.round(refundAmt * 100),
         speed: 'normal',
         notes: {
           bookingNumber: booking.bookingNumber,
@@ -59,48 +61,107 @@ const startAutoCancelCron = () => {
       const expiredBookings = await Booking.find({
         status: 'pending',
         confirmationDeadline: { $lte: now }
-      }).populate('venue', 'businessName availability');
+      })
+      .populate({
+        path: 'venue',
+        select: 'businessName availability owner',
+        populate: { path: 'owner', select: 'name email phone' }
+      })
+      .populate('customer', 'name email phone');
 
-      if (expiredBookings.length === 0) return;
+      if (expiredBookings.length > 0) {
+        console.log(`[CRON] ${expiredBookings.length} expired booking(s) to auto-cancel`);
 
-      console.log(`[CRON] ${expiredBookings.length} expired booking(s) to auto-cancel`);
+        for (const booking of expiredBookings) {
+          let refundResult = { success: false, reason: 'Payment not completed' };
 
-      for (const booking of expiredBookings) {
-        let refundResult = { success: false, reason: 'Payment not completed' };
+          if (booking.paymentStatus === 'paid') {
+            refundResult = await processRefund(booking);
+          }
+          // If paymentStatus is 'pending' — no money was captured, nothing to refund
 
-        if (booking.paymentStatus === 'paid') {
-          refundResult = await processRefund(booking);
+          booking.status = 'cancelled';
+          booking.cancellationReason = 'Auto-cancelled: owner did not confirm within the required time';
+          booking.cancelledByRole = 'system';
+          booking.cancellationType = 'auto';
+
+          booking.refundDetails = {
+            refundAmount: booking.paymentStatus === 'paid' ? booking.amount : 0,
+            refundStatus: booking.paymentStatus !== 'paid'
+              ? 'pending'                                          // no payment, no refund needed
+              : refundResult.success ? 'processed' : 'failed',   // paid → refund attempted
+            refundId: refundResult.refundId || null,
+            refundedAt: refundResult.success ? new Date() : null,
+            refundReason: 'Auto-cancel: owner confirmation timeout'
+          };
+
+          // Only update paymentStatus if refund actually went through
+          if (booking.paymentStatus === 'paid' && refundResult.success) {
+            booking.paymentStatus = 'refunded';
+          }
+          // If refund failed, keep paymentStatus = 'paid' so admin can retry manually
+
+          await booking.save();
+
+          // Send email notification
+          try {
+            const { sendBookingEmail } = require('./emailService');
+            await sendBookingEmail(booking, 'cancelled');
+          } catch (emailErr) {
+            console.error('[CRON] Failed to send auto-cancel email:', emailErr.message);
+          }
+
+          console.log(
+            `[CRON] Cancelled ${booking.bookingNumber} | ` +
+            `Payment: ${booking.paymentStatus} | ` +
+            `Refund: ${refundResult.success ? refundResult.refundId : refundResult.reason}`
+          );
         }
-        // If paymentStatus is 'pending' — no money was captured, nothing to refund
+      }
 
-        booking.status = 'cancelled';
-        booking.cancellationReason = 'Auto-cancelled: owner did not confirm within the required time';
-        booking.cancelledByRole = 'system';
-        booking.cancellationType = 'auto';
+      const ServiceBooking = require('../models/ServiceBooking');
+      const expiredServices = await ServiceBooking.find({
+        status: 'pending',
+        confirmationDeadline: { $lte: now }
+      }).populate('service', 'title');
 
-        booking.refundDetails = {
-          refundAmount: booking.paymentStatus === 'paid' ? booking.amount : 0,
-          refundStatus: booking.paymentStatus !== 'paid'
-            ? 'pending'                                          // no payment, no refund needed
-            : refundResult.success ? 'processed' : 'failed',   // paid → refund attempted
-          refundId: refundResult.refundId || null,
-          refundedAt: refundResult.success ? new Date() : null,
-          refundReason: 'Auto-cancel: owner confirmation timeout'
-        };
+      if (expiredServices.length > 0) {
+        console.log(`[CRON] ${expiredServices.length} expired service booking(s) to auto-cancel`);
 
-        // Only update paymentStatus if refund actually went through
-        if (booking.paymentStatus === 'paid' && refundResult.success) {
-          booking.paymentStatus = 'refunded';
+        for (const booking of expiredServices) {
+          let refundResult = { success: false, reason: 'Payment not completed' };
+
+          if (booking.paymentStatus === 'paid') {
+            refundResult = await processRefund(booking);
+          }
+
+          booking.status = 'cancelled';
+          booking.cancellationReason = 'Auto-cancelled: vendor did not confirm within the required time';
+          booking.cancelledByRole = 'system';
+          booking.cancellationType = 'auto';
+
+          booking.refundDetails = {
+            refundAmount: booking.paymentStatus === 'paid' ? (booking.amount || booking.pricing?.total || 0) : 0,
+            refundStatus: booking.paymentStatus !== 'paid'
+              ? 'pending'
+              : refundResult.success ? 'processed' : 'failed',
+            refundId: refundResult.refundId || null,
+            refundedAt: refundResult.success ? new Date() : null,
+            refundReason: 'Auto-cancel: vendor confirmation timeout'
+          };
+
+          if (booking.paymentStatus === 'paid' && refundResult.success) {
+            booking.paymentStatus = 'refunded';
+          }
+
+          await booking.save();
+
+          console.log(
+            `[CRON] Cancelled Service Booking ${booking.bookingNumber} | ` +
+            `Payment: ${booking.paymentStatus} | ` +
+            `Refund: ${refundResult.success ? refundResult.refundId : refundResult.reason}`
+          );
         }
-        // If refund failed, keep paymentStatus = 'paid' so admin can retry manually
-
-        await booking.save();
-
-        console.log(
-          `[CRON] Cancelled ${booking.bookingNumber} | ` +
-          `Payment: ${booking.paymentStatus} | ` +
-          `Refund: ${refundResult.success ? refundResult.refundId : refundResult.reason}`
-        );
       }
     } catch (err) {
       console.error('[CRON] Auto-cancel cron error:', err.message);

@@ -2,7 +2,9 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/User');
 const Counter = require('../models/Counter');
-const { sendEmail } = require('../utils/emailService');
+const { sendEmail, sendOtpVerificationEmail, sendPasswordResetEmail } = require('../utils/emailService');
+const OtpVerification = require('../models/OtpVerification');
+const { sendSMS } = require('../utils/smsService');
 
 // Helper function to generate user ID
 // Format: RM-ROLE-YEAR-SEQUENCE
@@ -63,8 +65,32 @@ exports.register = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Phone must be 10 digits' });
     }
 
+    // Verify email is verified in OtpVerification
+    const emailVerification = await OtpVerification.findOne({
+      email: email.trim().toLowerCase(),
+      isEmailVerified: true
+    });
+    if (!emailVerification) {
+      return res.status(400).json({ success: false, message: 'Please verify your email address first' });
+    }
+
+    // Verify phone is verified in OtpVerification
+    const phoneVerification = await OtpVerification.findOne({
+      phone: phone.trim(),
+      isPhoneVerified: true
+    });
+    if (!phoneVerification) {
+      return res.status(400).json({ success: false, message: 'Please verify your phone number first' });
+    }
+
+    // Delete verification records
+    await OtpVerification.deleteOne({ _id: emailVerification._id });
+    if (phoneVerification._id.toString() !== emailVerification._id.toString()) {
+      await OtpVerification.deleteOne({ _id: phoneVerification._id });
+    }
+
     // Check if user exists
-    const userExists = await User.findOne({ $or: [{ email }, { phone }] });
+    const userExists = await User.findOne({ $or: [{ email: email.toLowerCase() }, { phone }] });
     if (userExists) {
       return res.status(400).json({
         success: false,
@@ -150,6 +176,198 @@ exports.register = async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message
+    });
+  }
+};
+
+// @desc    Send registration OTP to Email
+// @route   POST /api/auth/send-email-otp
+exports.sendEmailOtp = async (req, res) => {
+  try {
+    const { name, email } = req.body;
+
+    if (!email?.trim() || !name?.trim()) {
+      return res.status(400).json({ success: false, message: 'Name and email are required' });
+    }
+
+    // Email format validation
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ success: false, message: 'Invalid email format' });
+    }
+
+    // Check if user already exists
+    const userExists = await User.findOne({ email: email.toLowerCase() });
+    if (userExists) {
+      return res.status(400).json({
+        success: false,
+        message: 'User already exists with this email address'
+      });
+    }
+
+    // Generate random 6-digit OTP
+    const emailOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Save/Update OTP in OtpVerification collection
+    await OtpVerification.findOneAndUpdate(
+      { email: email.toLowerCase() },
+      { emailOtp, isEmailVerified: false, expiresAt },
+      { upsert: true, new: true }
+    );
+
+    // Send Email OTP
+    await sendOtpVerificationEmail(email.toLowerCase(), name, emailOtp);
+
+    res.status(200).json({
+      success: true,
+      message: 'OTP has been sent to your email address'
+    });
+  } catch (error) {
+    console.error('Send Email OTP error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send email verification code'
+    });
+  }
+};
+
+// @desc    Verify Email OTP
+// @route   POST /api/auth/verify-email-otp
+exports.verifyEmailOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, message: 'Email and OTP are required' });
+    }
+
+    const verification = await OtpVerification.findOne({
+      email: email.trim().toLowerCase(),
+      expiresAt: { $gt: new Date() }
+    });
+
+    if (!verification) {
+      return res.status(400).json({
+        success: false,
+        message: 'Verification code expired or not found. Please request a new OTP.'
+      });
+    }
+
+    if (verification.emailOtp !== String(otp).trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid email verification code'
+      });
+    }
+
+    verification.isEmailVerified = true;
+    await verification.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Email verified successfully'
+    });
+  } catch (error) {
+    console.error('Verify Email OTP error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to verify email code'
+    });
+  }
+};
+
+// @desc    Send registration OTP to Phone
+// @route   POST /api/auth/send-phone-otp
+exports.sendPhoneOtp = async (req, res) => {
+  try {
+    const { name, phone } = req.body;
+
+    if (!phone?.trim() || !name?.trim()) {
+      return res.status(400).json({ success: false, message: 'Name and phone are required' });
+    }
+
+    // Phone validation (10 digits)
+    if (!/^\d{10}$/.test(phone)) {
+      return res.status(400).json({ success: false, message: 'Phone must be 10 digits' });
+    }
+
+    // Check if user already exists
+    const userExists = await User.findOne({ phone });
+    if (userExists) {
+      return res.status(400).json({
+        success: false,
+        message: 'User already exists with this phone number'
+      });
+    }
+
+    // Generate random 6-digit OTP
+    const phoneOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Save/Update OTP in OtpVerification collection
+    await OtpVerification.findOneAndUpdate(
+      { phone },
+      { phoneOtp, isPhoneVerified: false, expiresAt },
+      { upsert: true, new: true }
+    );
+
+    // Send SMS OTP
+    await sendSMS(phone, name, phoneOtp);
+
+    res.status(200).json({
+      success: true,
+      message: 'OTP has been sent to your phone number'
+    });
+  } catch (error) {
+    console.error('Send Phone OTP error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send phone verification code'
+    });
+  }
+};
+
+// @desc    Verify Phone OTP
+// @route   POST /api/auth/verify-phone-otp
+exports.verifyPhoneOtp = async (req, res) => {
+  try {
+    const { phone, otp } = req.body;
+
+    if (!phone || !otp) {
+      return res.status(400).json({ success: false, message: 'Phone and OTP are required' });
+    }
+
+    const verification = await OtpVerification.findOne({
+      phone: phone.trim(),
+      expiresAt: { $gt: new Date() }
+    });
+
+    if (!verification) {
+      return res.status(400).json({
+        success: false,
+        message: 'Verification code expired or not found. Please request a new OTP.'
+      });
+    }
+
+    if (verification.phoneOtp !== String(otp).trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid phone verification code'
+      });
+    }
+
+    verification.isPhoneVerified = true;
+    await verification.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Phone number verified successfully'
+    });
+  } catch (error) {
+    console.error('Verify Phone OTP error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to verify phone code'
     });
   }
 };
@@ -589,23 +807,7 @@ exports.forgotPassword = async (req, res) => {
     user.resetPasswordExpire = Date.now() + (10 * 60 * 1000); // 10 minutes
     await user.save({ validateBeforeSave: false });
 
-    const html = `
-      <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
-        <h2 style="margin-bottom:8px">Reset Your RentalMeet Password</h2>
-        <p style="margin:0 0 14px">Hi ${user.name || 'User'},</p>
-        <p style="margin:0 0 14px">Use the OTP below to reset your password. This OTP is valid for 10 minutes.</p>
-        <div style="font-size:28px;font-weight:700;letter-spacing:6px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:14px 18px;display:inline-block;color:#9a3412">
-          ${otp}
-        </div>
-        <p style="margin:16px 0 0;color:#6b7280">If you did not request this, please ignore this email.</p>
-      </div>
-    `;
-
-    await sendEmail({
-      email: user.email,
-      subject: 'RentalMeet Password Reset OTP',
-      html
-    });
+    await sendPasswordResetEmail(user.email, user.name, otp);
 
     return res.json({
       success: true,

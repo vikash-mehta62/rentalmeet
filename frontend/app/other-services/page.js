@@ -229,7 +229,7 @@ function FilterPanel({ searchInput, setSearchInput, citySearch, setCitySearch, b
 }
 
 // â”€â”€ Main Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-export default function OtherServicesPage() {
+function OtherServicesContent() {
   const searchParams = useSearchParams();
   const [services, setServices] = useState([]);
   const [total, setTotal] = useState(0);
@@ -469,6 +469,16 @@ export default function OtherServicesPage() {
 
       <Footer />
     </div>
+  );
+}
+
+import { Suspense } from 'react';
+
+export default function OtherServicesPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#F8F9FA] dark:bg-slate-950"><div className="h-10 w-10 animate-spin rounded-full border-4 border-primary-500 border-t-transparent" /></div>}>
+      <OtherServicesContent />
+    </Suspense>
   );
 }
 

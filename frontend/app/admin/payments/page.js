@@ -747,33 +747,106 @@ export default function AdminPayments() {
               {/* Booking Details */}
               <div>
                 <h3 className="text-lg font-semibold mb-3">Booking Information</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-gray-600">Booking Date</p>
-                    <p className="font-semibold text-gray-900">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                  <div className="col-span-2 md:col-span-1 bg-yellow-50/50 p-3 rounded-lg border border-yellow-100">
+                    <p className="text-gray-500 text-xs font-semibold">Booking Date & Time</p>
+                    <p className="font-bold text-gray-900 mt-1 flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-primary-500" />
                       {new Date(selectedPayment.bookingDate).toLocaleDateString('en-IN', {
                         day: 'numeric',
-                        month: 'long',
+                        month: 'short',
                         year: 'numeric'
                       })}
                     </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600">Time Slot</p>
-                    <p className="font-semibold text-gray-900">
+                    <p className="text-xs text-gray-600 mt-0.5 flex items-center gap-1 font-medium">
+                      <Clock className="w-3.5 h-3.5 text-primary-500" />
                       {selectedPayment.startTime} - {selectedPayment.endTime}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-gray-600">Booking Type</p>
-                    <p className="font-semibold text-gray-900 capitalize">{selectedPayment.bookingType}</p>
+                  <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                    <p className="text-gray-500 text-xs font-semibold">Booked On (Creation Date)</p>
+                    <p className="font-bold text-gray-955 mt-1">
+                      {new Date(selectedPayment.createdAt).toLocaleString('en-IN', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </p>
                   </div>
-                  <div>
-                    <p className="text-gray-600">Booking Status</p>
-                    <p className="font-semibold text-gray-900 capitalize">{selectedPayment.status}</p>
+                  <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                    <p className="text-gray-500 text-xs font-semibold">Booking Type</p>
+                    <p className="font-bold text-gray-955 mt-1 capitalize">{selectedPayment.bookingType}</p>
                   </div>
                 </div>
               </div>
+
+              {/* Cancellation & Refund Details */}
+              {selectedPayment.status === 'cancelled' && (
+                <div className="bg-red-50 rounded-xl p-4 border border-red-200 text-xs">
+                  <p className="font-bold text-red-800 mb-2 flex items-center gap-1.5 font-sans">
+                    <XCircle className="w-4 h-4 text-red-600" /> Cancellation & Refund Details
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-gray-500 text-xs">Cancelled By</p>
+                      <p className="font-semibold text-gray-900 capitalize">
+                        {selectedPayment.cancelledByRole || 'system'} 
+                        {selectedPayment.cancellationType ? ` (${selectedPayment.cancellationType})` : ''}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500 text-xs">Cancellation Reason</p>
+                      <p className="font-semibold text-gray-900">
+                        {selectedPayment.cancellationReason || 'No reason provided'}
+                      </p>
+                    </div>
+                    {selectedPayment.paymentStatus === 'refunded' || selectedPayment.refundDetails?.refundStatus ? (
+                      <>
+                        <div>
+                          <p className="text-gray-500 text-xs">Refund Status</p>
+                          <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold capitalize mt-0.5 ${
+                            selectedPayment.refundDetails?.refundStatus === 'processed' || selectedPayment.paymentStatus === 'refunded'
+                              ? 'bg-purple-100 text-purple-700'
+                              : selectedPayment.refundDetails?.refundStatus === 'failed'
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {selectedPayment.refundDetails?.refundStatus || (selectedPayment.paymentStatus === 'refunded' ? 'processed' : 'pending')}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-gray-500 text-xs">Refund Amount</p>
+                          <p className="font-semibold text-gray-900">
+                            ₹{(selectedPayment.refundDetails?.refundAmount || 0).toLocaleString()}
+                          </p>
+                        </div>
+                        {selectedPayment.refundDetails?.refundId && (
+                          <div>
+                            <p className="text-gray-500 text-xs">Refund ID</p>
+                            <code className="font-mono text-xs bg-white border px-1 rounded">
+                              {selectedPayment.refundDetails.refundId}
+                            </code>
+                          </div>
+                        )}
+                        {selectedPayment.refundDetails?.refundedAt && (
+                          <div>
+                            <p className="text-gray-500 text-xs">Refunded At</p>
+                            <p className="font-semibold text-gray-900">
+                              {new Date(selectedPayment.refundDetails.refundedAt).toLocaleString('en-IN')}
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="col-span-2">
+                        <p className="text-xs text-gray-500 italic">No refund processed (Booking was unpaid or pending at cancellation)</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* ── Payment Ledger (Admin) ── */}
               {(() => {

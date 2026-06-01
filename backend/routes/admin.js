@@ -84,7 +84,7 @@ router.put('/subadmins/:id/status', protect, authorize('admin'), toggleSubAdminS
 router.get('/venues', protect, authorize('admin', 'subadmin'), checkPermission('venues'), async (req, res) => {
   try {
     const Venue = require('../models/Venue');
-    const { status, search, venueType, page = 1, limit = 12 } = req.query;
+    const { status, search, venueType, page = 1, limit = 12, export: isExport } = req.query;
     const query = {};
     if (status && status !== 'all') query.status = status;
     if (venueType && venueType !== 'all') query.venueType = venueType;
@@ -95,6 +95,14 @@ router.get('/venues', protect, authorize('admin', 'subadmin'), checkPermission('
         { 'location.area': { $regex: search, $options: 'i' } },
       ];
     }
+
+    if (isExport === 'true') {
+      const venues = await Venue.find(query)
+        .populate('owner', 'name email phone')
+        .sort('-createdAt');
+      return res.json({ success: true, venues });
+    }
+
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const [venues, total] = await Promise.all([
       Venue.find(query)
@@ -657,15 +665,49 @@ router.delete('/coupons/:id', protect, authorize('admin'), async (req, res) => {
 router.get('/quotation-downloads', protect, authorize('admin'), async (req, res) => {
   try {
     const QuotationDownload = require('../models/QuotationDownload');
+    const { venueId, search, action, page = 1, limit = 10, export: isExport } = req.query;
     const filter = {};
-    if (req.query.venueId) filter.venue = req.query.venueId;
+    if (venueId) filter.venue = venueId;
 
-    const records = await QuotationDownload.find(filter)
+    let records = await QuotationDownload.find(filter)
       .populate('venue', 'businessName sku location')
       .populate('customer', 'name email phone')
       .sort('-downloadedAt');
 
-    res.json({ success: true, total: records.length, records });
+    // In-memory filter to support search & action
+    if (search || action) {
+      const q = search ? search.toLowerCase() : '';
+      records = records.filter(r => {
+        const matchSearch = !search ||
+          r.customerSnapshot?.name?.toLowerCase().includes(q) ||
+          r.customerSnapshot?.email?.toLowerCase().includes(q) ||
+          r.customerSnapshot?.phone?.includes(q) ||
+          r.quotationNumber?.toLowerCase().includes(q) ||
+          r.customerSnapshot?.eventType?.toLowerCase().includes(q) ||
+          r.venueSnapshot?.businessName?.toLowerCase().includes(q) ||
+          r.venue?.businessName?.toLowerCase().includes(q);
+        const matchAction = !action || r.action === action;
+        return matchSearch && matchAction;
+      });
+    }
+
+    if (isExport === 'true') {
+      return res.json({ success: true, total: records.length, records });
+    }
+
+    const limitNum = parseInt(limit || 10);
+    const pageNum = parseInt(page || 1);
+    const skip = (pageNum - 1) * limitNum;
+    const total = records.length;
+    const paginated = records.slice(skip, skip + limitNum);
+
+    res.json({
+      success: true,
+      total,
+      totalPages: Math.ceil(total / limitNum),
+      currentPage: pageNum,
+      records: paginated
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -678,7 +720,7 @@ const VendorProfile = require('../models/VendorProfile');
 // Get all vendors
 router.get('/vendors', protect, authorize('admin'), checkPermission('vendorServices'), async (req, res) => {
   try {
-    const { search, status, page = 1, limit = 12 } = req.query;
+    const { search, status, page = 1, limit = 12, export: isExport } = req.query;
     const query = { role: 'vendor' };
     if (search) {
       query.$or = [
@@ -687,6 +729,21 @@ router.get('/vendors', protect, authorize('admin'), checkPermission('vendorServi
         { companyName: { $regex: search, $options: 'i' } },
       ];
     }
+
+    if (isExport === 'true') {
+      const allVendors = await require('../models/User').find(query).select('-password').sort('-createdAt');
+      let result = await Promise.all(allVendors.map(async v => {
+        const profile = await VendorProfile.findOne({ user: v._id }).select('status onboardingStep businessInfo');
+        const serviceCount = await VendorService.countDocuments({ vendor: v._id });
+        const pendingCount = await VendorService.countDocuments({ vendor: v._id, status: 'pending' });
+        return { ...v.toObject(), profile, serviceCount, pendingCount };
+      }));
+      if (status && status !== 'all') {
+        result = result.filter(v => (v.profile?.status || 'incomplete') === status);
+      }
+      return res.json({ success: true, vendors: result });
+    }
+
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const [allVendors, total] = await Promise.all([
       require('../models/User').find(query).select('-password').sort('-createdAt').skip(skip).limit(parseInt(limit)),
@@ -783,16 +840,74 @@ router.get('/vendor-services/pending', protect, authorize('admin'), checkPermiss
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
-// Get ALL services (with optional status filter)
+// Get ALL services (with optional status filter, search, and pagination)
 router.get('/vendor-services', protect, authorize('admin'), checkPermission('vendorServices'), async (req, res) => {
   try {
-    const { status } = req.query;
-    const query = status && status !== 'all' ? { status } : {};
-    const services = await VendorService.find(query)
-      .populate('vendor', 'name email phone companyName vendorCategory')
-      .sort('-createdAt');
-    res.json({ success: true, services });
-  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+    const { status, search, page = 1, limit = 10, export: isExport } = req.query;
+    const query = {};
+    
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+    
+    if (search) {
+      // Find vendors matching search to filter services by vendor
+      const User = require('../models/User');
+      const matchingVendors = await User.find({
+        role: 'vendor',
+        $or: [
+          { name: { $regex: search, $options: 'i' } },
+          { email: { $regex: search, $options: 'i' } }
+        ]
+      }).select('_id');
+      
+      const vendorIds = matchingVendors.map(v => v._id);
+      
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { category: { $regex: search, $options: 'i' } },
+        { city: { $regex: search, $options: 'i' } },
+        { companyName: { $regex: search, $options: 'i' } },
+        { vendor: { $in: vendorIds } }
+      ];
+    }
+    
+    if (isExport === 'true') {
+      const services = await VendorService.find(query)
+        .populate('vendor', 'name email phone companyName vendorCategory')
+        .sort('-createdAt');
+      return res.json({ success: true, services });
+    }
+    
+    const limitNum = parseInt(limit);
+    const pageNum = parseInt(page);
+    const skip = (pageNum - 1) * limitNum;
+    
+    const [services, total, totalAll, pending, resubmitted, approved, rejected] = await Promise.all([
+      VendorService.find(query)
+        .populate('vendor', 'name email phone companyName vendorCategory')
+        .sort('-createdAt')
+        .skip(skip)
+        .limit(limitNum),
+      VendorService.countDocuments(query),
+      VendorService.countDocuments(),
+      VendorService.countDocuments({ status: 'pending' }),
+      VendorService.countDocuments({ status: 'resubmitted' }),
+      VendorService.countDocuments({ status: 'approved' }),
+      VendorService.countDocuments({ status: 'rejected' })
+    ]);
+    
+    res.json({
+      success: true,
+      services,
+      total,
+      totalPages: Math.ceil(total / limitNum),
+      currentPage: pageNum,
+      stats: { total: totalAll, pending, resubmitted, approved, rejected }
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
 });
 
 // ── Service Coupons (admin) ──────────────────────────────────────────────────
@@ -855,18 +970,60 @@ router.delete('/service-coupons/:id', protect, authorize('admin'), checkPermissi
 router.get('/service-quotation-downloads', protect, authorize('admin'), checkPermission('serviceQuotations'), async (req, res) => {
   try {
     const ServiceQuotationDownload = require('../models/ServiceQuotationDownload');
-    const records = await ServiceQuotationDownload.find()
+    const { serviceId, search, action, page = 1, limit = 10, export: isExport } = req.query;
+    const filter = {};
+    if (serviceId) filter.service = serviceId;
+
+    let records = await ServiceQuotationDownload.find(filter)
+      .populate('service', 'title category')
       .populate('vendor', 'name email companyName')
+      .populate('customer', 'name email phone')
       .sort('-downloadedAt');
-    res.json({ success: true, total: records.length, records });
-  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+
+    // In-memory filter to support search & action
+    if (search || action) {
+      const q = search ? search.toLowerCase() : '';
+      records = records.filter(r => {
+        const matchSearch = !search ||
+          r.customerSnapshot?.name?.toLowerCase().includes(q) ||
+          r.customerSnapshot?.email?.toLowerCase().includes(q) ||
+          r.customerSnapshot?.phone?.includes(q) ||
+          r.quotationNumber?.toLowerCase().includes(q) ||
+          r.customerSnapshot?.eventName?.toLowerCase().includes(q) ||
+          r.serviceSnapshot?.title?.toLowerCase().includes(q) ||
+          r.serviceSnapshot?.category?.toLowerCase().includes(q);
+        const matchAction = !action || r.action === action;
+        return matchSearch && matchAction;
+      });
+    }
+
+    if (isExport === 'true') {
+      return res.json({ success: true, total: records.length, records });
+    }
+
+    const limitNum = parseInt(limit || 10);
+    const pageNum = parseInt(page || 1);
+    const skip = (pageNum - 1) * limitNum;
+    const total = records.length;
+    const paginated = records.slice(skip, skip + limitNum);
+
+    res.json({
+      success: true,
+      total,
+      totalPages: Math.ceil(total / limitNum),
+      currentPage: pageNum,
+      records: paginated
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
 });
 
 // ── Service Bookings (admin) ─────────────────────────────────────────────────
 router.get('/service-bookings', protect, authorize('admin'), checkPermission('serviceBookings'), async (req, res) => {
   try {
     const ServiceBooking = require('../models/ServiceBooking');
-    const { status, search, page = 1, limit = 12 } = req.query;
+    const { status, search, page = 1, limit = 12, export: isExport } = req.query;
     const baseFilter = { bookingNumber: { $exists: true, $ne: null, $not: /^SQ-/i } };
     const filter = { ...baseFilter };
     if (status && status !== 'all') filter.status = status;
@@ -878,6 +1035,15 @@ router.get('/service-bookings', protect, authorize('admin'), checkPermission('se
         { 'serviceSnapshot.title': { $regex: search, $options: 'i' } },
       ];
     }
+
+    if (isExport === 'true') {
+      const bookings = await ServiceBooking.find(filter)
+        .populate('service', 'title category city state')
+        .populate('vendor', 'name email companyName')
+        .sort('-createdAt');
+      return res.json({ success: true, bookings, total: bookings.length });
+    }
+
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const [bookings, total] = await Promise.all([
       ServiceBooking.find(filter)
@@ -891,8 +1057,10 @@ router.get('/service-bookings', protect, authorize('admin'), checkPermission('se
     const stats = {
       total:     await ServiceBooking.countDocuments(baseFilter),
       enquiry:   await ServiceBooking.countDocuments({ ...baseFilter, status: 'enquiry' }),
+      pending:   await ServiceBooking.countDocuments({ ...baseFilter, status: 'pending' }),
       confirmed: await ServiceBooking.countDocuments({ ...baseFilter, status: 'confirmed' }),
       cancelled: await ServiceBooking.countDocuments({ ...baseFilter, status: 'cancelled' }),
+      completed: await ServiceBooking.countDocuments({ ...baseFilter, status: 'completed' }),
     };
     res.json({ success: true, bookings, stats, total, totalPages: Math.ceil(total / parseInt(limit)), currentPage: parseInt(page) });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
@@ -902,7 +1070,7 @@ router.get('/service-bookings', protect, authorize('admin'), checkPermission('se
 router.get('/vendor-payments', protect, authorize('admin'), checkPermission('vendorPayments'), async (req, res) => {
   try {
     const ServiceBooking = require('../models/ServiceBooking');
-    const { paymentStatus = 'paid', search } = req.query;
+    const { paymentStatus = 'paid', search, page = 1, limit = 10, export: isExport } = req.query;
 
     const filter = {
       bookingNumber: { $exists: true, $ne: null, $not: /^SQ-/i }
@@ -966,7 +1134,24 @@ router.get('/vendor-payments', protect, authorize('admin'), checkPermission('ven
       vendorPayout: 0
     });
 
-    res.json({ success: true, payments: mapped, stats });
+    if (isExport === 'true') {
+      return res.json({ success: true, payments: mapped, stats });
+    }
+
+    const limitNum = parseInt(limit || 10);
+    const pageNum = parseInt(page || 1);
+    const skip = (pageNum - 1) * limitNum;
+    const total = mapped.length;
+    const paginated = mapped.slice(skip, skip + limitNum);
+
+    res.json({
+      success: true,
+      payments: paginated,
+      total,
+      totalPages: Math.ceil(total / limitNum),
+      currentPage: pageNum,
+      stats
+    });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }
@@ -979,6 +1164,53 @@ router.put('/service-bookings/:id/status', protect, authorize('admin'), checkPer
     const booking = await ServiceBooking.findByIdAndUpdate(req.params.id, { status }, { new: true });
     res.json({ success: true, booking });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+router.put('/service-bookings/:id/cancel', protect, authorize('admin'), checkPermission('serviceBookings'), async (req, res) => {
+  try {
+    const Razorpay = require('razorpay');
+    const ServiceBooking = require('../models/ServiceBooking');
+    const { reason } = req.body;
+    const booking = await ServiceBooking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (!['pending', 'confirmed'].includes(booking.status))
+      return res.status(400).json({ success: false, message: 'Booking cannot be cancelled' });
+
+    const refundAmount = booking.amount || booking.pricing?.total || 0;
+    let refundResult = { success: false, reason: 'Payment not made' };
+
+    if (booking.paymentStatus === 'paid' && refundAmount > 0 && booking.paymentDetails?.razorpay_payment_id) {
+      try {
+        const razorpay = new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET });
+        const refund = await razorpay.payments.refund(booking.paymentDetails.razorpay_payment_id, {
+          amount: Math.round(refundAmount * 100), speed: 'normal',
+          notes: { bookingNumber: booking.bookingNumber, reason: reason || 'Cancelled by admin' }
+        });
+        refundResult = { success: true, refundId: refund.id };
+      } catch (err) {
+        console.error(`[ADMIN-SVC-CANCEL] Refund failed:`, err);
+        refundResult = { success: false, reason: err.error?.description || err.message };
+      }
+    }
+
+    booking.status = 'cancelled';
+    booking.cancellationReason = reason || 'Cancelled by admin';
+    booking.cancelledBy = req.user.id;
+    booking.cancelledByRole = 'admin';
+    booking.cancellationType = 'manual';
+    booking.refundDetails = {
+      refundAmount,
+      refundStatus: booking.paymentStatus !== 'paid' ? 'pending' : refundResult.success ? 'processed' : 'failed',
+      refundId: refundResult.refundId || null,
+      refundedAt: refundResult.success ? new Date() : null,
+      refundReason: 'Full refund — cancelled by admin'
+    };
+    if (refundResult.success) booking.paymentStatus = 'refunded';
+    await booking.save();
+    res.json({ success: true, message: 'Booking cancelled', refundProcessed: refundResult.success, refundFailReason: !refundResult.success ? refundResult.reason : undefined, booking });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
 });
 
 module.exports = router;

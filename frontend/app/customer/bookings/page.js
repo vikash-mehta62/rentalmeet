@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import InvoiceDownload from '@/components/booking/InvoiceDownload';
+import InvitationShare from '@/components/booking/InvitationShare';
 
 export default function CustomerBookings() {
   const router = useRouter();
@@ -354,14 +355,7 @@ export default function CustomerBookings() {
   }
 
   return (
-    <CustomerLayout activePage="bookings">
-      {/* Page Header */}
-      <div className="bg-gradient-to-r from-primary-500 to-primary-600 px-4 sm:px-6 lg:px-8 py-8 shadow-lg">
-        <div>
-          <h1 className="text-3xl font-black text-white mb-1">My Bookings</h1>
-          <p className="text-primary-100">{filteredBookings.length} booking(s) found</p>
-        </div>
-      </div>
+    <CustomerLayout activePage="bookings" title="My Bookings" subtitle={`${filteredBookings.length} booking(s) found`}>
 
       <div className="p-4 sm:p-6 lg:p-8">
         {/* Filters */}
@@ -476,12 +470,19 @@ export default function CustomerBookings() {
                         booking.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
                         booking.status === 'completed' ? 'bg-blue-100 text-blue-700' :
                         'bg-red-100 text-red-700'
-                      }`}>{booking.status.toUpperCase()}</span>
+                      }`}>
+                        {booking.status === 'confirmed' ? 'Your booking is confirmed' :
+                         booking.status === 'pending' ? 'Your booking is pending' :
+                         booking.status === 'completed' ? 'Your booking is completed' :
+                         'Your booking is cancelled'}
+                      </span>
                     </div>
 
                     <div className="flex flex-wrap gap-3 text-xs text-gray-600 mb-3">
-                      <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5 text-primary-500"/>{new Date(booking.bookingDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                      <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-primary-500"/>{booking.startTime} - {booking.endTime}</span>
+                      <span className="flex items-center gap-1 bg-yellow-50 text-yellow-800 px-2 py-0.5 rounded border border-yellow-200">
+                        <Calendar className="w-3.5 h-3.5 text-primary-500"/>
+                        {new Date(booking.bookingDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} ({booking.startTime} - {booking.endTime})
+                      </span>
                       <span className="flex items-center gap-1 font-bold text-primary-600"><IndianRupee className="w-3.5 h-3.5"/>₹{booking.amount?.toLocaleString()}</span>
                     </div>
 
@@ -492,6 +493,9 @@ export default function CustomerBookings() {
                       >
                         <Search className="w-3.5 h-3.5"/> View Details
                       </button>
+                      {(booking.status === 'confirmed' || booking.status === 'completed') && (
+                        <InvitationShare booking={booking} />
+                      )}
                       {booking.status === 'pending' && (
                         <>
                           {/* Phase 2: Modify button — temporarily disabled
@@ -570,7 +574,12 @@ export default function CustomerBookings() {
                   selectedBooking.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
                   selectedBooking.status === 'completed' ? 'bg-blue-100 text-blue-700' :
                   'bg-red-100 text-red-700'
-                }`}>{selectedBooking.status.toUpperCase()}</span>
+                }`}>
+                  {selectedBooking.status === 'confirmed' ? 'Your booking is confirmed' :
+                   selectedBooking.status === 'pending' ? 'Your booking is pending' :
+                   selectedBooking.status === 'completed' ? 'Your booking is completed' :
+                   'Your booking is cancelled'}
+                </span>
                 <button onClick={() => setSelectedBooking(null)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800">
                   <XCircle className="w-5 h-5 text-gray-400" />
                 </button>
@@ -579,18 +588,19 @@ export default function CustomerBookings() {
 
             <div className="p-5 space-y-4">
               {/* Key Info */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <div className="bg-gray-50 dark:bg-slate-800 rounded-xl p-3">
                   <p className="text-[10px] text-gray-500 mb-1 flex items-center gap-1"><MapPin className="w-3 h-3"/>Location</p>
                   <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{selectedBooking.venue?.location?.city}</p>
                 </div>
-                <div className="bg-gray-50 dark:bg-slate-800 rounded-xl p-3">
-                  <p className="text-[10px] text-gray-500 mb-1 flex items-center gap-1"><Calendar className="w-3 h-3"/>Date</p>
+                <div className="bg-yellow-50/50 dark:bg-slate-800 rounded-xl p-3 col-span-2 border border-yellow-100 dark:border-slate-700">
+                  <p className="text-[10px] text-gray-500 mb-1 flex items-center gap-1"><Calendar className="w-3 h-3"/>Booking Date & Time</p>
                   <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{new Date(selectedBooking.bookingDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                  <p className="text-xs text-gray-600 dark:text-slate-400 mt-0.5 font-semibold flex items-center gap-1"><Clock className="w-3 h-3"/>{selectedBooking.startTime} - {selectedBooking.endTime}</p>
                 </div>
                 <div className="bg-gray-50 dark:bg-slate-800 rounded-xl p-3">
-                  <p className="text-[10px] text-gray-500 mb-1 flex items-center gap-1"><Clock className="w-3 h-3"/>Time</p>
-                  <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{selectedBooking.startTime} - {selectedBooking.endTime}</p>
+                  <p className="text-[10px] text-gray-500 mb-1 flex items-center gap-1">📅 Booked On</p>
+                  <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{new Date(selectedBooking.createdAt).toLocaleDateString('en-IN')}</p>
                 </div>
                 <div className="bg-green-50 dark:bg-slate-800 rounded-xl p-3">
                   <p className="text-[10px] text-gray-500 mb-1 flex items-center gap-1"><IndianRupee className="w-3 h-3"/>Amount</p>
@@ -782,11 +792,21 @@ export default function CustomerBookings() {
                 );
               })()}
 
-              {/* Invoice — only confirmed/completed */}
+              {/* Actions: Invoice / Invitation — only confirmed/completed */}
               {(selectedBooking.status === 'confirmed' || selectedBooking.status === 'completed') && (
-                <div>
-                  <p className="text-xs font-bold text-gray-700 dark:text-slate-300 mb-2">Download Invoice</p>
-                  <InvoiceDownload booking={selectedBooking} userRole="customer" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {selectedBooking.status === 'completed' ? (
+                    <div>
+                      <p className="text-xs font-bold text-gray-700 dark:text-slate-300 mb-2">Download Invoice</p>
+                      <InvoiceDownload booking={selectedBooking} userRole="customer" />
+                    </div>
+                  ) : (
+                    <div className="hidden sm:block" /> /* spacer */
+                  )}
+                  <div>
+                    <p className="text-xs font-bold text-gray-700 dark:text-slate-300 mb-2">Event Invitation</p>
+                    <InvitationShare booking={selectedBooking} />
+                  </div>
                 </div>
               )}
 

@@ -217,22 +217,39 @@ export default function VendorServices() {
             onChange={e => setSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500" />
         </div>
-        <Link href="/vendor/services/new"
-          className="flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-sm font-bold transition-colors">
-          <Plus className="w-4 h-4" /> Add Service
-        </Link>
+        {services.length >= 1 ? (
+          <button
+            onClick={() => toast.error('You can only list a maximum of one service on this platform.')}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-200 cursor-not-allowed text-gray-400 rounded-xl text-sm font-bold"
+          >
+            <Plus className="w-4 h-4" /> Add Service
+          </button>
+        ) : (
+          <Link href="/vendor/services/new"
+            className="flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-sm font-bold transition-colors">
+            <Plus className="w-4 h-4" /> Add Service
+          </Link>
+        )}
       </div>
 
       {/* List */}
       {filtered.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
           <Briefcase className="w-14 h-14 text-gray-300 mx-auto mb-3" />
-          <h3 className="text-lg font-semibold text-gray-600 mb-2">No services found</h3>
-          <p className="text-sm text-gray-400 mb-5">Add your first service to start receiving enquiries</p>
-          <Link href="/vendor/services/new"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-sm font-bold transition-colors">
-            <Plus className="w-4 h-4" /> Add Service
-          </Link>
+          <h3 className="text-lg font-semibold text-gray-600 mb-2">
+            {services.length > 0 ? 'No matching services' : 'No services found'}
+          </h3>
+          <p className="text-sm text-gray-400 mb-5">
+            {services.length > 0 
+              ? 'Try adjusting your search query or filters.' 
+              : 'Add your first service to start receiving enquiries.'}
+          </p>
+          {services.length === 0 && (
+            <Link href="/vendor/services/new"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-sm font-bold transition-colors">
+              <Plus className="w-4 h-4" /> Add Service
+            </Link>
+          )}
         </div>
       ) : (
         <div className="space-y-4">

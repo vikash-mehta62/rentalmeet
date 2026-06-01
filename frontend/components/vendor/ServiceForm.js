@@ -197,6 +197,8 @@ export default function ServiceForm({ serviceId }) {
         avail: s.availability?.length ? s.availability : DEFAULT_STATE.avail,
         publicHoliday: s.publicHoliday || DEFAULT_STATE.publicHoliday,
         advanceBooking: s.advanceBooking || '24h',
+        customDays: s.customAdvanceDays || '',
+        confirmationHours: s.confirmationHours || 3,
       });
     });
   }, [serviceId, token]);

@@ -28,18 +28,70 @@ export default function CustomerServiceBookings() {
   const [expanded, setExpanded] = useState(null);
   const [selectedBooking, setSelectedBooking] = useState(null);
 
-  useEffect(() => {
-    if (!token || user?.role !== 'customer') { router.push('/login'); return; }
+  // Cancellation States
+  const [cancellingBooking, setCancellingBooking] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelCustomReason, setCancelCustomReason] = useState('');
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
+
+  const REASONS = [
+    'Change of plans',
+    'Found a better alternative',
+    'Budget constraints',
+    'Event details changed',
+    'Other',
+  ];
+
+  const fetchBookings = () => {
+    if (!token) return;
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/customer/service-bookings`, {
       headers: { Authorization: `Bearer ${token}` }
     }).then(r => r.json()).then(d => {
       if (d.success) setBookings(d.bookings);
       else toast.error('Failed to load');
     }).finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    if (!token || user?.role !== 'customer') { router.push('/login'); return; }
+    fetchBookings();
   }, [token, user]);
 
+  const handleCancelBooking = async () => {
+    if (!cancellingBooking) return;
+    const finalReason = cancelReason === 'Other' ? cancelCustomReason.trim() : cancelReason;
+    if (!finalReason) return toast.error('Please select a reason');
+
+    setCancelSubmitting(true);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/service-bookings/${cancellingBooking._id}/cancel`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ reason: finalReason })
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast.success(data.refundProcessed ? 'Booking cancelled — refund initiated' : 'Booking cancelled');
+        if (!data.refundProcessed && data.refundEligible && data.refundFailReason) {
+          toast.error(`Refund failed: ${data.refundFailReason}`, { duration: 6000 });
+        }
+        setCancellingBooking(null);
+        setCancelReason('');
+        setCancelCustomReason('');
+        fetchBookings();
+      } else {
+        toast.error(data.message || 'Failed to cancel booking');
+      }
+    } catch (error) {
+      console.error('Error cancelling booking:', error);
+      toast.error('Something went wrong');
+    } finally {
+      setCancelSubmitting(false);
+    }
+  };
+
   if (loading) return (
-    <CustomerLayout activePage="service-bookings">
+    <CustomerLayout activePage="service-bookings" title="Service Bookings" subtitle="Loading bookings...">
       <div className="flex items-center justify-center py-20">
         <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
       </div>
@@ -48,12 +100,8 @@ export default function CustomerServiceBookings() {
 
   return (
     <>
-    <CustomerLayout activePage="service-bookings">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">My Service Bookings</h1>
-          <p className="text-sm text-gray-500 mt-1">{bookings.length} booking(s) found</p>
-        </div>
+    <CustomerLayout activePage="service-bookings" title="Service Bookings" subtitle={`${bookings.length} booking(s) found`}>
+      <div className="w-full">
 
         {bookings.length === 0 ? (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
@@ -128,6 +176,12 @@ export default function CustomerServiceBookings() {
                       className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0">
                       {expanded === b._id ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
                     </button>
+                    {['pending', 'confirmed'].includes(b.status) && (
+                      <button onClick={() => setCancellingBooking(b)}
+                        className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-semibold transition-colors flex-shrink-0">
+                        Cancel
+                      </button>
+                    )}
                     <button onClick={() => setSelectedBooking(b)}
                       className="px-3 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-xs font-semibold transition-colors flex-shrink-0">
                       View Details
@@ -194,6 +248,60 @@ export default function CustomerServiceBookings() {
         onClose={() => setSelectedBooking(null)}
         canChangeStatus={false}
       />
+    )}
+
+    {cancellingBooking && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setCancellingBooking(null)}>
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+          <h3 className="text-lg font-bold text-gray-900 mb-2">Cancel Service Booking</h3>
+          <p className="text-xs text-gray-500 mb-4">Are you sure you want to cancel your booking for <strong>{cancellingBooking.serviceSnapshot?.title}</strong>?</p>
+          
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 text-xs text-amber-800 space-y-1">
+            <p className="font-bold">Cancellation Policy:</p>
+            <p>• Cancel 48 hours or more before event: 100% refund.</p>
+            <p>• Cancel 24–48 hours before event: 50% refund.</p>
+            <p>• Cancel less than 24 hours before event: No refund.</p>
+          </div>
+
+          <label className="block text-xs font-semibold text-gray-600 mb-1">Reason for Cancellation</label>
+          <select
+            value={cancelReason}
+            onChange={e => setCancelReason(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 mb-3 bg-white outline-none"
+          >
+            <option value="">Select a reason</option>
+            {REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+
+          {cancelReason === 'Other' && (
+            <textarea
+              value={cancelCustomReason}
+              onChange={e => setCancelCustomReason(e.target.value)}
+              placeholder="Enter cancellation reason..."
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 mb-4 outline-none resize-none"
+            />
+          )}
+
+          <div className="flex gap-3 justify-end mt-4">
+            <button
+              type="button"
+              onClick={() => setCancellingBooking(null)}
+              className="px-4 py-2 border border-gray-300 rounded-xl text-xs font-semibold hover:bg-gray-50 transition-colors"
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              onClick={handleCancelBooking}
+              disabled={cancelSubmitting || !cancelReason}
+              className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-xs font-bold transition-colors disabled:opacity-50"
+            >
+              {cancelSubmitting ? 'Cancelling...' : 'Confirm Cancellation'}
+            </button>
+          </div>
+        </div>
+      </div>
     )}
     </>
   );

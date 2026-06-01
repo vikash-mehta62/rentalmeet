@@ -369,51 +369,54 @@ export default function ServiceDetailPage() {
     };
   };
 
-  // Download quotation without payment
-  const handleDownloadQuotation = async () => {
+  // Download quotation without payment (opens modal with temporary quotation)
+  const handleDownloadQuotation = () => {
     if (!form.name.trim() || !form.email.trim() || !form.phone.trim()) { toast.error('Name, email & phone required'); return; }
-    setSubmitting(true);
+    
+    // Create a temporary booking object
+    const tempBooking = {
+      isTemporary: true,
+      quotationNumber: 'SVC-QTN-DRAFT',
+      bookingNumber: 'SVC-ORD-DRAFT',
+      eventDate: selectedDate,
+      customerInfo: {
+        ...form,
+        notes: [form.notes?.trim(), selectedTime ? `Preferred Time: ${selectedTime}` : ''].filter(Boolean).join(' | ')
+      },
+      items: packages
+        .map((pkg, i) => ({ name: pkg.name, price: pkg.price || 0, unit: pkg.unit, quantity: quantities[i] || 0, amount: (pkg.price || 0) * (quantities[i] || 0) }))
+        .filter(it => it.quantity > 0),
+      pricing: { subtotal, serviceCGST: serviceCgst, serviceSGST: serviceSgst, cgstPct, sgstPct, platformFee, platformFeePct, platformFeeGST: platformFeeGst, total },
+      coupon: couponApplied ? { code: couponApplied.code, discountAmount: couponApplied.discountAmount } : undefined,
+      status: 'enquiry',
+      paymentStatus: 'pending'
+    };
+
+    setBooking(tempBooking);
+    setBookingModal(false);
+    setShowQuotationModal(true);
+  };
+
+  // Saves the quotation to database as status 'enquiry' on actual download request
+  const saveQuotationToDb = async () => {
     try {
-      // Do not create booking for quotation-only flow
-      const tempQuotation = {
-        quotationNumber: `SVC-QTN-TEMP-${Date.now().toString().slice(-6)}`,
-        customerInfo: {
-          ...form,
-          notes: [form.notes?.trim(), selectedTime ? `Preferred Time: ${selectedTime}` : ''].filter(Boolean).join(' | ')
-        },
-        serviceSnapshot: {
-          title: svc.title,
-          category: svc.category,
-          companyName: svc.companyName || svc.vendor?.companyName,
-          city: svc.city,
-          state: svc.state
-        },
-        eventDate: selectedDate,
-        items: (packages || [])
-          .map((pkg, i) => ({ name: pkg.name, price: pkg.price || 0, unit: pkg.unit, quantity: quantities[i] || 0, amount: (pkg.price || 0) * (quantities[i] || 0) }))
-          .filter(it => it.quantity > 0),
-        pricing: {
-          subtotal,
-          serviceCGST: serviceCgst,
-          serviceSGST: serviceSgst,
-          cgstPct,
-          sgstPct,
-          platformFee,
-          platformFeePct,
-          platformFeeGST: platformFeeGst,
-          total: finalTotal,
-          discount: couponApplied?.discountAmount || 0
-        },
-        coupon: couponApplied ? { code: couponApplied.code, discountAmount: couponApplied.discountAmount } : undefined,
-        status: 'enquiry',
-        paymentStatus: 'pending'
-      };
-      setBooking(tempQuotation);
-      setBookingModal(false);
-      setShowQuotationModal(true);
-      toast.success('Quotation ready to download!');
-    } catch { toast.error('Something went wrong'); }
-    finally { setSubmitting(false); }
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/service-bookings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildBookingPayload({
+          status: 'enquiry',
+          paymentStatus: 'pending'
+        }))
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBooking(data.booking);
+        return data.booking;
+      }
+    } catch (e) {
+      console.error('Failed to save quotation:', e);
+    }
+    return null;
   };
 
   const handleSubmitBooking = async () => {
@@ -463,7 +466,7 @@ export default function ServiceDetailPage() {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(buildBookingPayload({
-                status: 'confirmed',
+                status: 'pending',
                 paymentStatus: 'paid',
                 amount: finalTotal,
                 paymentDetails: {
@@ -477,7 +480,7 @@ export default function ServiceDetailPage() {
             if (bookData.success) {
               setBooking(bookData.booking);
               setBookingModal('success');
-              toast.success('Payment successful! Booking confirmed.');
+              toast.success('Payment successful! Booking request sent for confirmation.');
             } else {
               toast.error(bookData.message || 'Payment done but booking creation failed. Contact support.');
             }
@@ -990,10 +993,7 @@ export default function ServiceDetailPage() {
                   </p>
                   <p className="text-xs text-gray-400 mb-6">Payment successful. The vendor will contact you within 24 hours.</p>
                   <div className="flex flex-col gap-3">
-                    <button onClick={() => { setBookingModal(false); setShowQuotationModal(true); }}
-                      className="w-full flex items-center justify-center gap-2 py-3 border-2 border-primary-500 text-primary-600 rounded-xl font-bold text-sm hover:bg-primary-50 transition-colors">
-                      <FileText className="w-4 h-4" /> View & Download Invoice
-                    </button>
+                  
                     <button onClick={() => { setBookingModal(false); router.push('/customer/bookings'); }}
                       className="w-full py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-bold text-sm transition-colors">
                       Manage Bookings
@@ -1020,6 +1020,7 @@ export default function ServiceDetailPage() {
           quantities={quantities}
           packages={packages}
           pricing={{ subtotal, serviceCgst, serviceSgst, cgstPct, sgstPct, platformFee, platformFeePct, platformFeeGst, platformCgstPct, platformSgstPct, total }}
+          onSave={saveQuotationToDb}
           onClose={() => setShowQuotationModal(false)}
         />
       )}

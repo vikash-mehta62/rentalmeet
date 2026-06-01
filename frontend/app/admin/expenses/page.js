@@ -50,6 +50,12 @@ export default function AdminExpensesPage() {
   const [revExpSummary, setRevExpSummary] = useState({ totalExpenditure: 0, totalRecords: 0 });
   const [revLibSummary, setRevLibSummary] = useState({ totalAmount: 0, totalPaid: 0, totalPending: 0 });
 
+  // Pagination states for revenue
+  const [payments, setPayments] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
+
   useEffect(() => {
     const years = [];
     const now = new Date();
@@ -65,12 +71,16 @@ export default function AdminExpensesPage() {
   useEffect(() => { if (token) fetchHeads(); }, [token]);
 
   useEffect(() => {
-    if (token && (selectedFY || (startDate && endDate))) {
+    if (token && (selectedFY || (startDate && endDate) || dateMode === 'financial')) {
       fetchExpenses();
       fetchLiabilities();
       fetchRevenue();
     }
-  }, [token, selectedFY, startDate, endDate, dateMode]);
+  }, [token, selectedFY, startDate, endDate, dateMode, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedFY, startDate, endDate, dateMode]);
 
   const getParams = () => {
     if (dateMode === 'financial' && selectedFY) {
@@ -107,13 +117,24 @@ export default function AdminExpensesPage() {
     setLoadingRev(true);
     try {
       const p = getParams();
+      
+      const payQuery = new URLSearchParams(p);
+      payQuery.append('status', 'paid');
+      payQuery.append('page', currentPage);
+      payQuery.append('limit', '10');
+
       const [payRes, expRes, libRes] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/payments${p}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/payments?${payQuery.toString()}`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/expenses${p}`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/liabilities${p}`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
       const [payData, expData, libData] = await Promise.all([payRes.json(), expRes.json(), libRes.json()]);
-      if (payData.success) setRevStats({ totalRevenue: payData.stats?.totalRevenue || 0 });
+      if (payData.success) {
+        setRevStats(payData.stats || { totalRevenue: 0 });
+        setPayments(payData.payments || []);
+        setTotalPages(payData.totalPages || 1);
+        setTotalRecords(payData.total || 0);
+      }
       if (expData.success) setRevExpSummary(expData.summary || {});
       if (libData.success) setRevLibSummary(libData.summary || {});
     } catch { toast.error('Failed to load revenue'); }
@@ -234,14 +255,14 @@ export default function AdminExpensesPage() {
   };
 
   const revenue = useMemo(() => {
-    const payment = revStats.totalRevenue || 0;
+    const payment = revStats.totalPlatformRevenue || 0;
     const expenditure = revExpSummary.totalExpenditure || 0;
     const liab = revLibSummary.totalAmount || 0;
     return { payment, expenditure, liab, grossProfit: payment - expenditure - liab };
   }, [revStats, revExpSummary, revLibSummary]);
 
-  const handleExportCSV = () => {
-    const period = dateMode === 'financial' ? selectedFY : `${startDate?.toLocaleDateString('en-IN')} to ${endDate?.toLocaleDateString('en-IN')}`;
+  const handleExportCSV = async () => {
+    const period = dateMode === 'financial' ? selectedFY : `${startDate?.toLocaleDateString('en-IN') || 'All'} to ${endDate?.toLocaleDateString('en-IN') || 'All'}`;
     let rows, filename;
     if (activeTab === 'expenses') {
       rows = [['#','Date','Head','Sub Head','Amount','Added By','Role','Remark'], ...expenses.map((x,i) => [i+1, new Date(x.expenseDate||x.createdAt).toLocaleDateString('en-IN'), x.head||'', x.subHead||'', x.amount||0, x.createdBy?.name||'', x.createdBy?.role||'', x.remark||''])];
@@ -250,8 +271,77 @@ export default function AdminExpensesPage() {
       rows = [['#','Title','Total','Paid','Pending','Pay By','Remark'], ...liabilities.map((l,i) => [i+1, l.title||'', l.totalAmount||0, l.paidAmount||0, (l.totalAmount||0)-(l.paidAmount||0), l.payByDate?new Date(l.payByDate).toLocaleDateString('en-IN'):'', l.remark||''])];
       filename = `Liabilities_${period.replace(/\s/g,'_')}.csv`;
     } else {
-      rows = [['Metric','Amount'],['Payment Received', revenue.payment],['Expenditure', revenue.expenditure],['Liabilities', revenue.liab],['Gross Profit', revenue.grossProfit]];
-      filename = `Revenue_${period.replace(/\s/g,'_')}.csv`;
+      try {
+        const p = getParams();
+        const payQuery = new URLSearchParams(p);
+        payQuery.append('status', 'paid');
+        payQuery.append('export', 'true');
+
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/payments?${payQuery.toString()}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (!data.success) {
+          toast.error('Failed to fetch transaction details for export');
+          return;
+        }
+        
+        const allPaidPayments = data.payments || [];
+        rows = [
+          ['RentalMeet Revenue & Platform Fee Report'],
+          ['Period:', period],
+          ['Generated:', new Date().toLocaleString('en-IN')],
+          [],
+          ['Summary Metrics'],
+          ['Total Platform Fee (Excl. GST)', revStats.totalPlatformFee || 0],
+          ['Total Platform GST', revStats.totalPlatformGST || 0],
+          ['Total Platform Revenue (Incl. GST)', revenue.payment],
+          ['Total Expenditure', revenue.expenditure],
+          ['Total Liabilities', revenue.liab],
+          ['Gross Profit', revenue.grossProfit],
+          [],
+          ['Detailed Revenue Statement (Bookings)'],
+          [
+            'S.No', 
+            'Booking No', 
+            'Booking Date', 
+            'Customer Name', 
+            'Customer Email', 
+            'Venue Name', 
+            'Total Booking Amount (Customer Paid)', 
+            'Platform Fee (Excl. GST)', 
+            'Platform GST', 
+            'Total Platform Fee (Incl. GST)'
+          ]
+        ];
+
+        allPaidPayments.forEach((item, index) => {
+          const pb = item.priceBreakdown || {};
+          const pi = item.platformInvoice || {};
+          
+          const platformFee = pb.platformFee || pi.platformFee || 0;
+          const platformGST = pb.platformFeeGST || (pi.cgst + pi.sgst) || 0;
+          const platformFeeTotal = pb.platformFeeTotal || pi.total || 0;
+          
+          rows.push([
+            index + 1,
+            item.bookingNumber || 'N/A',
+            item.bookingDate ? new Date(item.bookingDate).toLocaleDateString('en-IN') : 'N/A',
+            item.customer?.name || 'N/A',
+            item.customer?.email || 'N/A',
+            item.venue?.businessName || 'N/A',
+            item.amount || 0,
+            platformFee,
+            platformGST,
+            platformFeeTotal
+          ]);
+        });
+        
+        filename = `Revenue_Statement_${period.replace(/\s/g,'_')}.csv`;
+      } catch (error) {
+        toast.error('Export failed');
+        return;
+      }
     }
     const csv = rows.map(r => r.map(c => `"${c??''}"`).join(',')).join('\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' })); a.download = filename; a.click();
@@ -414,30 +504,148 @@ export default function AdminExpensesPage() {
         {/* REVENUE TAB */}
         {activeTab === 'revenue' && (
           loadingRev ? <div className="flex items-center justify-center py-20"><div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" /></div> : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="rounded-xl border border-rose-100 bg-rose-50 p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div><p className="text-xs font-semibold uppercase tracking-wide text-rose-600">Expenditure</p><p className="mt-2 text-3xl font-black text-rose-700">{fmtRs(revenue.expenditure)}</p><p className="mt-1 text-xs text-rose-500">Entries: {revExpSummary.totalRecords || 0}</p></div>
-                  <div className="rounded-lg bg-white/70 p-2"><Wallet className="h-5 w-5 text-rose-400" /></div>
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="rounded-xl border border-rose-100 bg-rose-50 p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div><p className="text-xs font-semibold uppercase tracking-wide text-rose-600">Expenditure</p><p className="mt-2 text-3xl font-black text-rose-700">{fmtRs(revenue.expenditure)}</p><p className="mt-1 text-xs text-rose-500">Entries: {revExpSummary.totalRecords || 0}</p></div>
+                    <div className="rounded-lg bg-white/70 p-2"><Wallet className="h-5 w-5 text-rose-400" /></div>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-orange-100 bg-orange-50 p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div><p className="text-xs font-semibold uppercase tracking-wide text-orange-600">Liabilities</p><p className="mt-2 text-3xl font-black text-orange-700">{fmtRs(revenue.liab)}</p><p className="mt-1 text-xs text-orange-500">Paid: {fmtRs(revLibSummary.totalPaid)} · Pending: {fmtRs(revLibSummary.totalPending)}</p></div>
+                    <div className="rounded-lg bg-white/70 p-2"><Wallet className="h-5 w-5 text-orange-400" /></div>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-blue-100 bg-blue-50 p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Platform Revenue</p>
+                      <p className="mt-2 text-3xl font-black text-blue-700">{fmtRs(revenue.payment)}</p>
+                      <p className="mt-1 text-xs text-blue-500">Platform Fee: {fmtRs(revStats.totalPlatformFee || 0)} · GST: {fmtRs(revStats.totalPlatformGST || 0)}</p>
+                    </div>
+                    <div className="rounded-lg bg-white/70 p-2"><IndianRupee className="h-5 w-5 text-blue-400" /></div>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div><p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Gross Profit</p><p className={`mt-2 text-3xl font-black ${revenue.grossProfit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>{fmtRs(revenue.grossProfit)}</p><p className="mt-1 text-xs text-emerald-500">Revenue − Expenditure − Liabilities</p></div>
+                    <div className="rounded-lg bg-white/70 p-2"><TrendingUp className="h-5 w-5 text-emerald-400" /></div>
+                  </div>
                 </div>
               </div>
-              <div className="rounded-xl border border-orange-100 bg-orange-50 p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div><p className="text-xs font-semibold uppercase tracking-wide text-orange-600">Liabilities</p><p className="mt-2 text-3xl font-black text-orange-700">{fmtRs(revenue.liab)}</p><p className="mt-1 text-xs text-orange-500">Paid: {fmtRs(revLibSummary.totalPaid)} · Pending: {fmtRs(revLibSummary.totalPending)}</p></div>
-                  <div className="rounded-lg bg-white/70 p-2"><Wallet className="h-5 w-5 text-orange-400" /></div>
+
+              {/* Platform Fee & GST Statement Table */}
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mt-6">
+                <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-gray-950 text-lg">Platform Fee & GST Statement</h3>
+                    <p className="text-xs text-gray-500 mt-1">Detailed list of bookings with platform fee breakdown</p>
+                  </div>
+                  <span className="px-3 py-1 bg-primary-50 text-primary-700 text-xs font-bold rounded-full">
+                    {totalRecords} Bookings
+                  </span>
                 </div>
-              </div>
-              <div className="rounded-xl border border-blue-100 bg-blue-50 p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div><p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Payment Received</p><p className="mt-2 text-3xl font-black text-blue-700">{fmtRs(revenue.payment)}</p><p className="mt-1 text-xs text-blue-500">Total paid amount received</p></div>
-                  <div className="rounded-lg bg-white/70 p-2"><IndianRupee className="h-5 w-5 text-blue-400" /></div>
+                
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm border-collapse">
+                    <thead className="bg-gray-50 border-b border-gray-100 text-gray-600 font-semibold text-xs uppercase tracking-wide">
+                      <tr>
+                        <th className="px-6 py-4">S.No</th>
+                        <th className="px-6 py-4">Booking No</th>
+                        <th className="px-6 py-4">Date</th>
+                        <th className="px-6 py-4">Customer</th>
+                        <th className="px-6 py-4">Venue</th>
+                        <th className="px-6 py-4 text-right">Booking Amount</th>
+                        <th className="px-6 py-4 text-right">Platform Fee</th>
+                        <th className="px-6 py-4 text-right">Platform GST</th>
+                        <th className="px-6 py-4 text-right">Total Fee (Incl. GST)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 text-gray-700 font-medium">
+                      {payments.length === 0 ? (
+                        <tr>
+                          <td colSpan="9" className="px-6 py-12 text-center text-gray-400 font-normal">
+                            No paid bookings found in this period
+                          </td>
+                        </tr>
+                      ) : (
+                        payments.map((p, index) => {
+                          const pb = p.priceBreakdown || {};
+                          const pi = p.platformInvoice || {};
+                          
+                          const platformFee = pb.platformFee || pi.platformFee || 0;
+                          const platformGST = pb.platformFeeGST || (pi.cgst + pi.sgst) || 0;
+                          const platformFeeTotal = pb.platformFeeTotal || pi.total || 0;
+                          
+                          return (
+                            <tr key={p._id} className="hover:bg-gray-50/50 transition-colors">
+                              <td className="px-6 py-4 text-gray-400 text-xs">
+                                {(currentPage - 1) * 10 + index + 1}
+                              </td>
+                              <td className="px-6 py-4 font-mono text-xs text-gray-900">
+                                {p.bookingNumber || 'N/A'}
+                              </td>
+                              <td className="px-6 py-4 text-xs">
+                                {p.bookingDate ? new Date(p.bookingDate).toLocaleDateString('en-IN') : 'N/A'}
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="max-w-[150px] truncate">
+                                  <p className="text-gray-900 text-xs truncate font-semibold">{p.customer?.name || 'N/A'}</p>
+                                  <p className="text-gray-400 text-[10px] truncate">{p.customer?.email || 'N/A'}</p>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="max-w-[150px] truncate">
+                                  <p className="text-gray-900 text-xs truncate font-semibold">{p.venue?.businessName || 'N/A'}</p>
+                                  <p className="text-gray-400 text-[10px] truncate">{p.venue?.location?.city || 'N/A'}</p>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 text-right text-gray-500 text-xs">
+                                {fmtRs(p.amount)}
+                              </td>
+                              <td className="px-6 py-4 text-right text-xs">
+                                {fmtRs(platformFee)}
+                              </td>
+                              <td className="px-6 py-4 text-right text-gray-500 text-xs">
+                                {fmtRs(platformGST)}
+                              </td>
+                              <td className="px-6 py-4 text-right text-primary-600 font-bold text-xs">
+                                {fmtRs(platformFeeTotal)}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
                 </div>
-              </div>
-              <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div><p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Gross Profit</p><p className={`mt-2 text-3xl font-black ${revenue.grossProfit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>{fmtRs(revenue.grossProfit)}</p><p className="mt-1 text-xs text-emerald-500">Payment − Expenditure − Liabilities</p></div>
-                  <div className="rounded-lg bg-white/70 p-2"><TrendingUp className="h-5 w-5 text-emerald-400" /></div>
-                </div>
+
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="p-4 border-t border-gray-100 flex items-center justify-between flex-wrap gap-3">
+                    <span className="text-xs text-gray-500">
+                      Showing Page {currentPage} of {totalPages} ({totalRecords} total records)
+                    </span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-semibold hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                      >
+                        Previous
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-semibold hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )

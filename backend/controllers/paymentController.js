@@ -56,10 +56,12 @@ exports.verifyPayment = async (req, res) => {
       }
 
       // Backward compatibility: old flow where booking existed before payment
-      const booking = await ServiceBooking.findById(bookingId);
+      const booking = await ServiceBooking.findById(bookingId).populate('service');
       if (!booking) return res.status(404).json({ success: false, message: 'Service booking not found' });
       booking.paymentStatus = 'paid';
-      booking.status = 'confirmed';
+      booking.status = 'pending';
+      const hours = booking.service?.confirmationHours || 3;
+      booking.confirmationDeadline = new Date(Date.now() + hours * 60 * 60 * 1000);
       booking.paymentDetails = { razorpay_order_id, razorpay_payment_id, razorpay_signature, paidAt: new Date() };
       await booking.save();
       return res.json({ success: true, message: 'Payment verified', booking });

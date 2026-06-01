@@ -256,7 +256,7 @@ export default function EmployeeProfile() {
   if (!token || user?.role !== 'employee') return null;
 
   if (fetching) return (
-    <EmployeeLayout activePage="profile">
+    <EmployeeLayout activePage="profile" title="My Profile" subtitle="Loading account settings...">
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" />
       </div>
@@ -296,8 +296,8 @@ export default function EmployeeProfile() {
 
 
   return (
-    <EmployeeLayout activePage="profile">
-      <div className="max-w-3xl mx-auto space-y-4">
+    <EmployeeLayout activePage="profile" title="My Profile" subtitle="Manage your account settings">
+      <div className="w-full space-y-4">
 
         {/* Header */}
         <div className="bg-white rounded-2xl shadow-soft border border-gray-100 p-5 flex items-center gap-4">

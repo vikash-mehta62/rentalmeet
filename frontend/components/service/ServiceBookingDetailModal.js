@@ -9,16 +9,19 @@ import ServiceInvoiceDownload from '@/components/service/ServiceInvoiceDownload'
 
 const STATUS_STYLE = {
   enquiry:   { cls: 'bg-yellow-100 text-yellow-700', icon: Clock,        label: 'Enquiry' },
+  pending:   { cls: 'bg-orange-100 text-orange-700', icon: Clock,        label: 'Pending' },
   confirmed: { cls: 'bg-green-100 text-green-700',  icon: CheckCircle2, label: 'Confirmed' },
   cancelled: { cls: 'bg-red-100 text-red-700',      icon: XCircle,      label: 'Cancelled' },
+  completed: { cls: 'bg-blue-100 text-blue-700',    icon: CheckCircle2, label: 'Completed' },
 };
 const PAY_STYLE = {
-  paid:    'bg-green-100 text-green-700',
-  pending: 'bg-yellow-100 text-yellow-700',
-  failed:  'bg-red-100 text-red-700',
+  paid:     'bg-green-100 text-green-700',
+  pending:  'bg-yellow-100 text-yellow-700',
+  failed:   'bg-red-100 text-red-700',
+  refunded: 'bg-purple-100 text-purple-700',
 };
 
-export default function ServiceBookingDetailModal({ booking: b, onClose, onStatusChange, canChangeStatus = false }) {
+export default function ServiceBookingDetailModal({ booking: b, onClose, onStatusChange, canChangeStatus = false, isAdmin = false }) {
   const printRef = useRef(null);
   if (!b) return null;
 
@@ -113,11 +116,50 @@ export default function ServiceBookingDetailModal({ booking: b, onClose, onStatu
             )}
             {canChangeStatus && onStatusChange && (
               <div className="ml-auto">
-                <select value={b.status} onChange={e => onStatusChange(b._id, e.target.value)}
-                  className="px-3 py-1.5 border border-gray-300 rounded-xl text-xs font-semibold bg-white focus:ring-2 focus:ring-primary-500 outline-none">
-                  <option value="enquiry">Enquiry</option>
-                  <option value="confirmed">Confirmed</option>
-                  <option value="cancelled">Cancelled</option>
+                <select
+                  value={b.status}
+                  onChange={e => onStatusChange(b._id, e.target.value)}
+                  disabled={!isAdmin && ['completed', 'cancelled'].includes(b.status)}
+                  className="px-3 py-1.5 border border-gray-300 rounded-xl text-xs font-semibold bg-white focus:ring-2 focus:ring-primary-500 outline-none disabled:bg-gray-100 disabled:text-gray-500"
+                >
+                  {isAdmin ? (
+                    <>
+                      <option value="enquiry">Enquiry</option>
+                      <option value="pending">Pending</option>
+                      <option value="confirmed">Confirmed</option>
+                      <option value="cancelled">Cancelled</option>
+                      <option value="completed">Completed</option>
+                    </>
+                  ) : (
+                    <>
+                      {b.status === 'enquiry' && (
+                        <>
+                          <option value="enquiry">Enquiry</option>
+                          <option value="pending">Pending</option>
+                          <option value="cancelled">Cancelled</option>
+                        </>
+                      )}
+                      {b.status === 'pending' && (
+                        <>
+                          <option value="pending">Pending</option>
+                          <option value="confirmed">Confirmed (Accept)</option>
+                          <option value="cancelled">Cancelled (Reject)</option>
+                        </>
+                      )}
+                      {b.status === 'confirmed' && (
+                        <>
+                          <option value="confirmed">Confirmed</option>
+                          <option value="completed">Completed</option>
+                          <option value="cancelled">Cancelled</option>
+                        </>
+                      )}
+                      {['completed', 'cancelled'].includes(b.status) && (
+                        <option value={b.status}>
+                          {b.status.charAt(0).toUpperCase() + b.status.slice(1)}
+                        </option>
+                      )}
+                    </>
+                  )}
                 </select>
               </div>
             )}
@@ -164,6 +206,72 @@ export default function ServiceBookingDetailModal({ booking: b, onClose, onStatu
             </div>
           </div>
 
+          {/* Cancellation & Refund Details */}
+          {b.status === 'cancelled' && (
+            <div className="bg-red-50 rounded-xl p-4 border border-red-200 text-xs">
+              <p className="font-bold text-red-800 mb-2 flex items-center gap-1.5">
+                <XCircle className="w-4 h-4 text-red-600" /> Cancellation & Refund Details
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <p className="text-gray-500 font-medium">Cancelled By</p>
+                  <p className="font-semibold text-gray-900 capitalize">
+                    {b.cancelledByRole || 'system'} 
+                    {b.cancellationType ? ` (${b.cancellationType})` : ''}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500 font-medium">Cancellation Reason</p>
+                  <p className="font-semibold text-gray-900">
+                    {b.cancellationReason || 'No reason provided'}
+                  </p>
+                </div>
+                {b.paymentStatus === 'refunded' || b.refundDetails?.refundStatus ? (
+                  <>
+                    <div>
+                      <p className="text-gray-500 font-medium">Refund Status</p>
+                      <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold capitalize mt-0.5 ${
+                        b.refundDetails?.refundStatus === 'processed' || b.paymentStatus === 'refunded'
+                          ? 'bg-purple-100 text-purple-700'
+                          : b.refundDetails?.refundStatus === 'failed'
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        {b.refundDetails?.refundStatus || (b.paymentStatus === 'refunded' ? 'processed' : 'pending')}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-gray-500 font-medium">Refund Amount</p>
+                      <p className="font-semibold text-gray-900">
+                        ₹{(b.refundDetails?.refundAmount || 0).toLocaleString()}
+                      </p>
+                    </div>
+                    {b.refundDetails?.refundId && (
+                      <div>
+                        <p className="text-gray-500 font-medium">Refund ID</p>
+                        <code className="font-mono text-xs bg-white border px-1 rounded">
+                          {b.refundDetails.refundId}
+                        </code>
+                      </div>
+                    )}
+                    {b.refundDetails?.refundedAt && (
+                      <div>
+                        <p className="text-gray-500 font-medium">Refunded At</p>
+                        <p className="font-semibold text-gray-900">
+                          {new Date(b.refundDetails.refundedAt).toLocaleString('en-IN')}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="col-span-2">
+                    <p className="text-xs text-gray-500 italic">No refund processed (Booking was unpaid or pending at cancellation)</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Items Table */}
           {b.items?.length > 0 && (
             <div>
@@ -195,8 +303,8 @@ export default function ServiceBookingDetailModal({ booking: b, onClose, onStatu
             </div>
           )}
 
-          {/* Price Breakdown */}
-          {b.pricing && (
+          {/* Price Breakdown (Completed bookings only) */}
+          {b.status === 'completed' && b.pricing && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-blue-50 rounded-xl p-4 border border-blue-100 text-xs space-y-1.5">
                 <p className="font-bold text-blue-800 mb-2">📄 Service Invoice</p>
@@ -218,11 +326,13 @@ export default function ServiceBookingDetailModal({ booking: b, onClose, onStatu
             </div>
           )}
 
-          {/* Invoice Download */}
-          <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3 border border-gray-100">
-            <p className="text-xs font-semibold text-gray-600">Download Invoice</p>
-            <ServiceInvoiceDownload booking={b} userRole={b.customer ? 'customer' : 'admin'} />
-          </div>
+          {/* Invoice Download (Completed bookings only) */}
+          {b.status === 'completed' && (
+            <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3 border border-gray-100">
+              <p className="text-xs font-semibold text-gray-600">Download Invoice</p>
+              <ServiceInvoiceDownload booking={b} userRole={b.customer ? 'customer' : 'admin'} />
+            </div>
+          )}
 
           {/* Coupon + Grand Total */}
           <div className="bg-gradient-to-r from-primary-50 to-orange-50 rounded-xl p-4 border border-primary-200">

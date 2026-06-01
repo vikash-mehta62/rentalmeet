@@ -153,7 +153,7 @@ export default function AdminVenueTypes() {
   return (
     <AdminLayout title="Venue Types" subtitle="Manage venue type categories">
       <PermissionGuard permission="venueTypes">
-        <div className="max-w-6xl mx-auto">
+        <div className="w-full">
         {/* Header Actions */}
         <div className="flex justify-between items-center mb-6">
           <div>
