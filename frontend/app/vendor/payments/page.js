@@ -116,6 +116,57 @@ function PaymentDetailModal({ booking, onClose }) {
             </div>
           )}
 
+          {/* Settlement details */}
+          {booking.status === 'completed' && (
+            <div className={`rounded-xl p-4 border text-xs ${
+              booking.settlementStatus === 'settled' ? 'bg-green-50 border-green-200 text-green-900' :
+              booking.settlementStatus === 'failed' ? 'bg-red-50 border-red-200 text-red-900' :
+              'bg-yellow-50 border-yellow-200 text-yellow-900'
+            }`}>
+              <p className="font-bold uppercase tracking-wider mb-2 text-[10px] text-gray-500">Payout Settlement</p>
+              <div className="grid grid-cols-2 gap-y-2 gap-x-4">
+                <div>
+                  <span className="text-gray-500 font-normal">Status:</span>
+                  <span className={`ml-1.5 font-bold uppercase ${
+                    booking.settlementStatus === 'settled' ? 'text-green-700' :
+                    booking.settlementStatus === 'failed' ? 'text-red-700' : 'text-yellow-700'
+                  }`}>{booking.settlementStatus || 'unsettled'}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500 font-normal">Payout Share:</span>
+                  <span className="ml-1.5 font-bold text-gray-800">
+                    ₹{(
+                      Number(booking.pricing?.total ?? booking.amount ?? 0) -
+                      Number(booking.pricing?.platformFee ?? 0) -
+                      Number(booking.pricing?.platformFeeGST ?? 0)
+                    ).toLocaleString('en-IN')}
+                  </span>
+                </div>
+                {booking.settlementDetails?.settledAt && (
+                  <div>
+                    <span className="text-gray-500 font-normal">Date:</span>
+                    <span className="ml-1.5 font-semibold text-gray-700">
+                      {new Date(booking.settlementDetails.settledAt).toLocaleDateString('en-IN')}
+                    </span>
+                  </div>
+                )}
+                {booking.settlementDetails?.transactionId && (
+                  <div className="col-span-2">
+                    <span className="text-gray-500 font-normal">Ref ID:</span>
+                    <code className="ml-1.5 font-mono bg-white border border-gray-200 px-1 py-0.5 rounded select-all text-gray-800">
+                      {booking.settlementDetails.transactionId}
+                    </code>
+                  </div>
+                )}
+                {booking.settlementDetails?.remarks && (
+                  <div className="col-span-2 text-gray-600 mt-1 italic">
+                    Note: {booking.settlementDetails.remarks}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Items */}
           {booking.items?.length > 0 && (
             <div className="bg-gray-50 rounded-xl p-4">
@@ -251,7 +302,7 @@ export default function VendorPayments() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-100">
                     <tr>
-                      {['Booking #', 'Customer', 'Service', 'Event Date', 'Amount', 'Payment', 'Status', ''].map(h => (
+                      {['Booking #', 'Customer', 'Service', 'Event Date', 'Amount', 'Payment', 'Booking Status', 'Settlement', ''].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">{h}</th>
                       ))}
                     </tr>
@@ -294,6 +345,19 @@ export default function VendorPayments() {
                           </span>
                         </td>
                         <td className="px-4 py-3">
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${
+                            b.settlementStatus === 'settled' ? 'bg-green-100 text-green-700' :
+                            b.settlementStatus === 'failed' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {b.settlementStatus || 'unsettled'}
+                          </span>
+                          {b.settlementDetails?.transactionId && (
+                            <p className="text-[10px] text-gray-400 font-mono mt-1 select-all truncate max-w-[80px]" title={b.settlementDetails.transactionId}>
+                              {b.settlementDetails.transactionId}
+                            </p>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
                           <button
                             onClick={() => setSelectedBooking(b)}
                             className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-primary-600 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors"
@@ -330,6 +394,22 @@ export default function VendorPayments() {
                         <span>{b.eventDate ? new Date(b.eventDate).toLocaleDateString('en-IN') : '—'}</span>
                       </div>
                       <p className="font-bold text-gray-800">₹{(b.pricing?.total || b.amount || 0).toLocaleString('en-IN')}</p>
+                    </div>
+                    <div className="flex justify-between items-center text-xs pt-1.5 border-t border-gray-100">
+                      <span className="text-gray-500">Settlement:</span>
+                      <div className="text-right">
+                        <span className={`px-2 py-0.5 rounded-full font-semibold capitalize ${
+                          b.settlementStatus === 'settled' ? 'bg-green-100 text-green-700' :
+                          b.settlementStatus === 'failed' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {b.settlementStatus || 'unsettled'}
+                        </span>
+                        {b.settlementDetails?.transactionId && (
+                          <p className="text-[10px] text-gray-400 font-mono mt-0.5" title={b.settlementDetails.transactionId}>
+                            Ref: {b.settlementDetails.transactionId}
+                          </p>
+                        )}
+                      </div>
                     </div>
                     <button
                       onClick={() => setSelectedBooking(b)}

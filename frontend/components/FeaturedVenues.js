@@ -2,7 +2,22 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { MapPin, Users, Star, ArrowRight } from 'lucide-react';
+import { Users, Star, ArrowRight, Leaf, UtensilsCrossed, Utensils } from 'lucide-react';
+
+function getFoodTypeIcon(foodType) {
+  if (foodType === 'Veg') return Leaf;
+  if (foodType === 'Non Veg') return UtensilsCrossed;
+  return Utensils;
+}
+
+function getVenueTypeLabel(venue) {
+  if (Array.isArray(venue?.venueType)) return venue.venueType[0] || 'Venue';
+  return venue?.venueType || 'Venue';
+}
+
+function getCapacityLabel(venue) {
+  return venue?.capacity ? `${venue.capacity} persons` : 'Capacity on request';
+}
 
 export default function FeaturedVenues() {
   const router = useRouter();
@@ -70,6 +85,10 @@ Featured Venues at RentalMeet
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {venues.map((venue) => {
             const featuredImage = venue.images?.find((img) => img.isFeatured)?.url || venue.images?.[0]?.url || '/hero-img.jpg';
+            const foodType = venue.foodType || 'Veg';
+            const FoodIcon = getFoodTypeIcon(foodType);
+            const venueTypeLabel = getVenueTypeLabel(venue);
+            const capacityLabel = getCapacityLabel(venue);
             
             return (
               <div
@@ -94,7 +113,7 @@ Featured Venues at RentalMeet
                   <div className="absolute top-3 left-3 bg-white dark:bg-slate-900 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-md">
                     <Users className="w-3.5 h-3.5 text-gray-800 dark:text-slate-200" />
                     <span className="text-xs font-bold text-gray-900 dark:text-slate-100">
-                      {venue.capacity} persons
+                      {capacityLabel}
                     </span>
                   </div>
 
@@ -124,13 +143,7 @@ Featured Venues at RentalMeet
                 <div className="p-4">
                   {/* Category Label */}
                   <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">
-                    Meeting Room ({venue.capacity <= 20 ? '11-20' : 
-                     venue.capacity <= 40 ? '31-40' : 
-                     venue.capacity <= 50 ? '41-50' : 
-                     venue.capacity <= 100 ? '50-100' : 
-                     venue.capacity <= 200 ? '100-200' : 
-                     venue.capacity <= 500 ? '200-500' : 
-                     '500-600'} persons)
+                    {venueTypeLabel} ({capacityLabel})
                   </p>
 
                   {/* Venue Name */}
@@ -144,7 +157,7 @@ Featured Venues at RentalMeet
                   </p>
 
                   {/* Amenities Icons */}
-                  <div className="flex items-center gap-2 mb-3 text-gray-500 dark:text-slate-400">
+                  <div className="flex flex-wrap items-center gap-2 mb-3 text-gray-500 dark:text-slate-400">
                     <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                       <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z"/>
                     </svg>
@@ -154,6 +167,10 @@ Featured Venues at RentalMeet
                     <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                       <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/>
                     </svg>
+                    <span className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-800 px-2 py-0.5 rounded-full text-xs font-semibold">
+                      <FoodIcon className="w-3.5 h-3.5" />
+                      {foodType}
+                    </span>
                     <span className="text-xs text-gray-500">+13 more</span>
                   </div>
 

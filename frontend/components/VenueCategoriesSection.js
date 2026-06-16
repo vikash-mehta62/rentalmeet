@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { ArrowRight, Building2, Briefcase, GraduationCap, Utensils, TreePine, Monitor, Landmark, BedDouble, UtensilsCrossed, School, PartyPopper, Leaf, Laptop, BookOpen, Home, Flower2 } from 'lucide-react';
+import { venueTypeToSlug } from '@/data/venueTypeData';
 
 const staticCategories = [
   { name: 'Meeting Hall',        icon: Building2,      count: 48, price: 1000 },
@@ -107,7 +109,7 @@ export default function VenueCategoriesSection() {
             return (
               <button
                 key={cat.name}
-                onClick={() => router.push(`/venues?type=${encodeURIComponent(cat.name)}`)}
+                onClick={() => router.push(`/venues/type/${venueTypeToSlug(cat.name)}`)}
                 className={`group flex flex-col items-center text-center gap-2 p-3 rounded-xl border ${c.border} ${c.bg} ${c.hover} hover:shadow-md transition-all duration-300 cursor-pointer`}
               >
                 <div className={`inline-flex items-center justify-center w-10 h-10 rounded-lg ${c.iconBg} ${c.iconColor} transition-colors duration-300 flex-shrink-0`}>

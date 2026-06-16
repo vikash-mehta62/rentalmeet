@@ -37,6 +37,10 @@ const bookingSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  ownerEarnings: {
+    type: Number,
+    default: 0
+  },
   // Selected amenities and services
   selectedAmenities: {
     basic: [{
@@ -112,7 +116,8 @@ const bookingSchema = new mongoose.Schema({
   coupon: {
     couponId: { type: mongoose.Schema.Types.ObjectId, ref: 'Coupon' },
     code: String,
-    discountAmount: Number
+    discountAmount: Number,
+    isOwnerSponsored: { type: Boolean, default: false }
   },
   
   // New: Venue Invoice Data (Invoice 1)
@@ -218,6 +223,25 @@ const bookingSchema = new mongoose.Schema({
     refundReason: String
   },
 
+  // Payout Settlement tracking
+  settlementStatus: {
+    type: String,
+    enum: ['unsettled', 'settled', 'failed'],
+    default: 'unsettled',
+    index: true
+  },
+  settlementDetails: {
+    transactionId: String,   // Payout reference (Razorpay / Manual UTN)
+    settledAt: Date,
+    amount: Number,
+    remarks: String,         // Success details or Failure reason
+    settlementMethod: {
+      type: String,
+      enum: ['automatic', 'manual'],
+      default: 'automatic'
+    }
+  },
+
   // ── Payment Ledger ────────────────────────────────────────────────────────
   // Tracks every rupee: what was due, what was paid, what is pending/refundable
   paymentLedger: {
@@ -252,40 +276,67 @@ const bookingSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Auto adjust earnings when saving (commission disabled by default)
+// Auto adjust earnings when saving
 bookingSchema.pre('save', function(next) {
-  if (this.commissionRate && this.commissionRate > 0) {
-    this.commission = (this.amount * this.commissionRate) / 100;
-    this.ownerEarnings = this.amount - this.commission;
-  } else {
-    this.commission = 0;
-    if (this.priceBreakdown && typeof this.priceBreakdown.subtotal === 'number') {
-      this.ownerEarnings = this.priceBreakdown.subtotal;
-    } else if (typeof this.ownerEarnings !== 'number' || isNaN(this.ownerEarnings)) {
-      this.ownerEarnings = this.amount;
+  try {
+    let shouldCalculate = true;
+    if (this.settlementStatus === 'settled') {
+      shouldCalculate = false;
     }
+
+    if (shouldCalculate) {
+      if (this.priceBreakdown) {
+        const subtotal = this.priceBreakdown.subtotal || 0;
+        const gst = this.priceBreakdown.gst || 0;
+        const discount = this.priceBreakdown.discount || 0;
+
+        // Read directly from saved coupon field inside the booking
+        // phase2 work: check for coupon sponsorship type
+        // const isOwnerSponsored = this.coupon?.isOwnerSponsored || false;
+        // if (isOwnerSponsored) {
+        //   this.ownerEarnings = Math.max(0, subtotal + gst - discount);
+        // } else {
+        //   // Platform sponsored (global) coupon: platform bears the discount, owner gets full share
+        //   this.ownerEarnings = subtotal + gst;
+        // }
+        this.ownerEarnings = Math.max(0, subtotal + gst - discount);
+      } else if (this.priceBreakdown?.subtotal) {
+        // Fallback: Use subtotal directly (this is pre-calculated owner's share)
+        this.ownerEarnings = this.priceBreakdown.subtotal;
+      } else {
+        // Final fallback: Use full amount (for very old bookings)
+        this.ownerEarnings = this.amount || 0;
+      }
+      
+      // Round owner earnings to nearest integer
+      if (typeof this.ownerEarnings === 'number') {
+        this.ownerEarnings = Math.round(this.ownerEarnings);
+      }
+    }
+
+    // ── Sync paymentLedger totals ──────────────────────────────────────────
+    if (!this.paymentLedger) this.paymentLedger = {};
+    this.paymentLedger.totalDue = this.amount || 0;
+
+    // Sum all completed payment/manual_payment transactions
+    const paid = (this.paymentLedger.transactions || [])
+      .filter(t => ['payment', 'manual_payment'].includes(t.type) && t.status === 'completed')
+      .reduce((s, t) => s + (t.amount || 0), 0);
+
+    // Sum all completed refund transactions
+    const refunded = (this.paymentLedger.transactions || [])
+      .filter(t => ['refund', 'manual_refund'].includes(t.type) && t.status === 'completed')
+      .reduce((s, t) => s + (t.amount || 0), 0);
+
+    this.paymentLedger.totalPaid = paid - refunded;
+    const balance = this.paymentLedger.totalDue - this.paymentLedger.totalPaid;
+    this.paymentLedger.amountDue  = balance > 0 ? balance : 0;
+    this.paymentLedger.refundDue  = balance < 0 ? Math.abs(balance) : 0;
+
+    next();
+  } catch (err) {
+    next(err);
   }
-
-  // ── Sync paymentLedger totals ──────────────────────────────────────────
-  if (!this.paymentLedger) this.paymentLedger = {};
-  this.paymentLedger.totalDue = this.amount || 0;
-
-  // Sum all completed payment/manual_payment transactions
-  const paid = (this.paymentLedger.transactions || [])
-    .filter(t => ['payment', 'manual_payment'].includes(t.type) && t.status === 'completed')
-    .reduce((s, t) => s + (t.amount || 0), 0);
-
-  // Sum all completed refund transactions
-  const refunded = (this.paymentLedger.transactions || [])
-    .filter(t => ['refund', 'manual_refund'].includes(t.type) && t.status === 'completed')
-    .reduce((s, t) => s + (t.amount || 0), 0);
-
-  this.paymentLedger.totalPaid = paid - refunded;
-  const balance = this.paymentLedger.totalDue - this.paymentLedger.totalPaid;
-  this.paymentLedger.amountDue  = balance > 0 ? balance : 0;
-  this.paymentLedger.refundDue  = balance < 0 ? Math.abs(balance) : 0;
-
-  next();
 });
 
 bookingSchema.index({ venue: 1, bookingDate: 1 });

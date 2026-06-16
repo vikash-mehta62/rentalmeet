@@ -7,7 +7,7 @@ import {
   Search, Filter, MapPin, Users, Star, X,
   Building2, Monitor, Landmark, BedDouble, UtensilsCrossed,
   School, PartyPopper, GraduationCap, Leaf, Laptop, BookOpen,
-  Home, Flower2, TreePine, Coffee, Projector, AlertCircle
+  Home, Flower2, TreePine, Coffee, Projector, AlertCircle, Utensils
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -15,6 +15,22 @@ import CityAutocomplete from '@/components/CityAutocomplete';
 
 const LIMIT = 30;
 const DEBOUNCE_MS = 400;
+const FOOD_TYPE_OPTIONS = [
+  { label: 'All', value: '' },
+  { label: 'Veg', value: 'Veg' },
+  { label: 'Non Veg', value: 'Non Veg' },
+  { label: 'Both', value: 'Both' },
+];
+
+function getVenueFoodType(venue) {
+  return venue?.foodType || 'Veg';
+}
+
+function getFoodTypeIcon(foodType) {
+  if (foodType === 'Veg') return Leaf;
+  if (foodType === 'Non Veg') return UtensilsCrossed;
+  return Utensils;
+}
 
 function VenueCardSkeleton() {
   return (
@@ -38,6 +54,8 @@ function VenueCardSkeleton() {
 
 function VenueCard({ venue }) {
   const p = venue.pricing;
+  const foodType = getVenueFoodType(venue);
+  const FoodIcon = getFoodTypeIcon(foodType);
   const allPrices = [
     p?.perHour?.weekday, p?.perHour?.weekend,
     p?.halfDay?.weekday, p?.halfDay?.weekend,
@@ -95,6 +113,9 @@ function VenueCard({ venue }) {
           <div className="flex flex-wrap gap-2 text-xs text-slate-600 dark:text-slate-300">
             <span className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
               <Users className="w-3.5 h-3.5 text-slate-400" /> {venue.capacity}
+            </span>
+            <span className="flex items-center gap-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full">
+              <FoodIcon className="w-3.5 h-3.5" /> {foodType}
             </span>
             {venue.amenities?.basic?.filter(a => a.available).slice(0, 3).map((a, i) => (
               <span key={i} className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">{a.name}</span>
@@ -159,27 +180,35 @@ function BrowseVenuesContent() {
 
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  // Pre-fill city from ?location= URL param
+  // Initialize filters directly from searchParams (available synchronously on client)
   const [cityFilter, setCityFilter] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const loc = new URLSearchParams(window.location.search).get('location');
-      return loc ? loc.charAt(0).toUpperCase() + loc.slice(1) : '';
-    }
-    return '';
+    const loc = searchParams.get('location');
+    return loc ? loc.charAt(0).toUpperCase() + loc.slice(1) : '';
   });
-  const [typeFilter, setTypeFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState(() => {
+    return searchParams.get('venueType') || searchParams.get('type') || '';
+  });
   const [capacityFilter, setCapacityFilter] = useState('');
+  const [foodTypeFilter, setFoodTypeFilter] = useState(() => searchParams.get('foodType') || '');
   const [priceFilter, setPriceFilter] = useState(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [venueTypes, setVenueTypes] = useState([]);
   const [filterSettings, setFilterSettings] = useState({ capacityMin: 10, capacityMax: 1000, priceMin: 1000, priceMax: 1000000 });
 
-  // Sync city from URL param on mount
+  // Sync filters if URL params change via client-side navigation
+  const didInitRef = useRef(false);
   useEffect(() => {
-    const loc = searchParams.get('location');
-    if (loc) {
-      setCityFilter(loc.charAt(0).toUpperCase() + loc.slice(1));
+    if (!didInitRef.current) {
+      // Skip first run — already handled by useState initializer above
+      didInitRef.current = true;
+      return;
     }
+    const loc = searchParams.get('location');
+    const vt = searchParams.get('venueType') || searchParams.get('type');
+    const ft = searchParams.get('foodType');
+    if (loc) setCityFilter(loc.charAt(0).toUpperCase() + loc.slice(1));
+    if (vt) setTypeFilter(vt);
+    setFoodTypeFilter(ft || '');
   }, [searchParams]);
 
   const sentinelRef = useRef(null);
@@ -215,6 +244,7 @@ function BrowseVenuesContent() {
       if (cityFilter) params.set('city', cityFilter);
       if (typeFilter) params.set('venueType', typeFilter);
       if (capacityFilter) params.set('capacity', capacityFilter);
+      if (foodTypeFilter) params.set('foodType', foodTypeFilter);
       if (priceFilter) params.set('maxPrice', priceFilter);
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues?${params}`, { signal: controller.signal });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -235,7 +265,7 @@ function BrowseVenuesContent() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [searchTerm, cityFilter, typeFilter, capacityFilter, priceFilter]);
+  }, [searchTerm, cityFilter, typeFilter, capacityFilter, foodTypeFilter, priceFilter]);
 
   useEffect(() => {
     pageRef.current = 1;
@@ -256,8 +286,8 @@ function BrowseVenuesContent() {
     return () => observer.disconnect();
   }, [hasMore, loadingMore, loading, fetchVenues]);
 
-  const resetFilters = () => { setSearchInput(''); setSearchTerm(''); setCityFilter(''); setTypeFilter(''); setCapacityFilter(''); setPriceFilter(null); };
-  const hasActiveFilters = !!(searchTerm || cityFilter || typeFilter || capacityFilter || priceFilter);
+  const resetFilters = () => { setSearchInput(''); setSearchTerm(''); setCityFilter(''); setTypeFilter(''); setCapacityFilter(''); setFoodTypeFilter(''); setPriceFilter(null); };
+  const hasActiveFilters = !!(searchTerm || cityFilter || typeFilter || capacityFilter || foodTypeFilter || priceFilter);
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] dark:bg-slate-950">
@@ -265,8 +295,8 @@ function BrowseVenuesContent() {
       <div className="pt-28 lg:pt-32 pb-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
           <span className="inline-block border border-gray-300 text-gray-600 text-xs font-semibold px-3 py-1 rounded-full mb-4">Browse Venues</span>
-          <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-900 dark:text-slate-100 mb-3">Browse All Venues</h1>
-          <p className="text-gray-500 dark:text-slate-400 max-w-2xl">Find the perfect venue for your next meeting, conference, or corporate event.</p>
+          <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-900 dark:text-slate-100 mb-3">Explore Premium Venues for Every Business Event</h1>
+          <p className="text-gray-500 dark:text-slate-400 max-w-2xl">Finding the right venue is essential for the success of any meeting, conference, training session, or corporate event. RentalMeet brings together a wide range of verified venues across India, allowing businesses and event organizers to discover, compare, and book the perfect space with ease.</p>
         </div>
       </div>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
@@ -316,6 +346,22 @@ function BrowseVenuesContent() {
                         <Icon className="w-4 h-4 flex-shrink-0" />
                         <span className="text-left truncate">{type.name}</span>
                         {isActive && <X className="w-3 h-3 ml-auto flex-shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">Food Type</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {FOOD_TYPE_OPTIONS.map(option => {
+                    const Icon = option.value ? getFoodTypeIcon(option.value) : Utensils;
+                    const isActive = foodTypeFilter === option.value;
+                    return (
+                      <button key={option.label} onClick={() => setFoodTypeFilter(option.value)}
+                        className={`flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm transition-all ${isActive ? 'bg-emerald-600 text-white font-semibold shadow-sm' : 'text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
+                        <Icon className="w-4 h-4 flex-shrink-0" />
+                        <span>{option.label}</span>
                       </button>
                     );
                   })}

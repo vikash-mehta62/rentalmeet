@@ -173,14 +173,16 @@ export default function AdminRevenuePage() {
         ['Total Liabilities', revenue.liabilities],
         ['Gross Profit', revenue.grossProfit],
         [],
-        ['Detailed Revenue Statement (Bookings)'],
+        ['Detailed Revenue Statement (All Bookings)'],
         [
-          'S.No', 
+          'S.No',
+          'Type', 
           'Booking No', 
           'Booking Date', 
           'Customer Name', 
           'Customer Email', 
-          'Venue Name', 
+          'Venue/Service Name',
+          'Location', 
           'Total Booking Amount (Customer Paid)', 
           'Platform Fee (Excl. GST)', 
           'Platform GST', 
@@ -189,20 +191,45 @@ export default function AdminRevenuePage() {
       ];
 
       allPaidPayments.forEach((p, index) => {
+        const isVenue = p.bookingType === 'venue';
         const pb = p.priceBreakdown || {};
         const pi = p.platformInvoice || {};
+        const pricing = p.pricing || {};
         
-        const platformFee = pb.platformFee || pi.platformFee || 0;
-        const platformGST = pb.platformFeeGST || (pi.cgst + pi.sgst) || 0;
-        const platformFeeTotal = pb.platformFeeTotal || pi.total || 0;
+        const platformFee = isVenue 
+          ? (pb.platformFee || pi.platformFee || 0)
+          : (pricing.platformFee || 0);
+        
+        const platformGST = isVenue 
+          ? (pb.platformFeeGST || (pi.cgst + pi.sgst) || 0)
+          : (pricing.platformFeeGST || 0);
+        
+        const platformFeeTotal = isVenue 
+          ? (pb.platformFeeTotal || pi.total || 0)
+          : (platformFee + platformGST);
+
+        const customerName = p.customer?.name || p.customerInfo?.name || 'N/A';
+        const customerEmail = p.customer?.email || p.customerInfo?.email || 'N/A';
+        
+        const businessName = isVenue 
+          ? (p.venue?.businessName || 'N/A')
+          : (p.service?.title || p.serviceSnapshot?.title || 'N/A');
+        
+        const location = isVenue 
+          ? (p.venue?.location?.city || 'N/A')
+          : (p.service?.city || p.serviceSnapshot?.city || 'N/A');
         
         rows.push([
           index + 1,
+          isVenue ? 'Venue' : 'Service',
           p.bookingNumber || 'N/A',
-          p.bookingDate ? new Date(p.bookingDate).toLocaleDateString('en-IN') : 'N/A',
-          p.customer?.name || 'N/A',
-          p.customer?.email || 'N/A',
-          p.venue?.businessName || 'N/A',
+          p.bookingDate || p.eventDate 
+            ? new Date(p.bookingDate || p.eventDate).toLocaleDateString('en-IN') 
+            : 'N/A',
+          customerName,
+          customerEmail,
+          businessName,
+          location,
           p.amount || 0,
           platformFee,
           platformGST,
@@ -308,10 +335,11 @@ export default function AdminRevenuePage() {
                   <thead className="bg-gray-50 border-b border-gray-100 text-gray-600 font-semibold text-xs uppercase tracking-wide">
                     <tr>
                       <th className="px-6 py-4">S.No</th>
+                      <th className="px-6 py-4">Type</th>
                       <th className="px-6 py-4">Booking No</th>
                       <th className="px-6 py-4">Date</th>
                       <th className="px-6 py-4">Customer</th>
-                      <th className="px-6 py-4">Venue</th>
+                      <th className="px-6 py-4">Venue/Service</th>
                       <th className="px-6 py-4 text-right">Booking Amount</th>
                       <th className="px-6 py-4 text-right">Platform Fee</th>
                       <th className="px-6 py-4 text-right">Platform GST</th>
@@ -321,40 +349,75 @@ export default function AdminRevenuePage() {
                   <tbody className="divide-y divide-gray-100 text-gray-700 font-medium">
                     {payments.length === 0 ? (
                       <tr>
-                        <td colSpan="9" className="px-6 py-12 text-center text-gray-400 font-normal">
+                        <td colSpan="10" className="px-6 py-12 text-center text-gray-400 font-normal">
                           No paid bookings found in this period
                         </td>
                       </tr>
                     ) : (
                       payments.map((p, index) => {
+                        const isVenue = p.bookingType === 'venue';
                         const pb = p.priceBreakdown || {};
                         const pi = p.platformInvoice || {};
+                        const pricing = p.pricing || {};
                         
-                        const platformFee = pb.platformFee || pi.platformFee || 0;
-                        const platformGST = pb.platformFeeGST || (pi.cgst + pi.sgst) || 0;
-                        const platformFeeTotal = pb.platformFeeTotal || pi.total || 0;
+                        // Platform fee calculation based on type
+                        const platformFee = isVenue 
+                          ? (pb.platformFee || pi.platformFee || 0)
+                          : (pricing.platformFee || 0);
+                        
+                        const platformGST = isVenue 
+                          ? (pb.platformFeeGST || (pi.cgst + pi.sgst) || 0)
+                          : (pricing.platformFeeGST || 0);
+                        
+                        const platformFeeTotal = isVenue 
+                          ? (pb.platformFeeTotal || pi.total || 0)
+                          : (platformFee + platformGST);
+
+                        // Customer info
+                        const customerName = p.customer?.name || p.customerInfo?.name || 'N/A';
+                        const customerEmail = p.customer?.email || p.customerInfo?.email || 'N/A';
+                        
+                        // Venue/Service info
+                        const businessName = isVenue 
+                          ? (p.venue?.businessName || 'N/A')
+                          : (p.service?.title || p.serviceSnapshot?.title || 'N/A');
+                        
+                        const location = isVenue 
+                          ? (p.venue?.location?.city || 'N/A')
+                          : (p.service?.city || p.serviceSnapshot?.city || 'N/A');
                         
                         return (
                           <tr key={p._id} className="hover:bg-gray-50/50 transition-colors">
                             <td className="px-6 py-4 text-gray-400 text-xs">
                               {(currentPage - 1) * 10 + index + 1}
                             </td>
+                            <td className="px-6 py-4">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${
+                                isVenue 
+                                  ? 'bg-blue-100 text-blue-700' 
+                                  : 'bg-purple-100 text-purple-700'
+                              }`}>
+                                {isVenue ? 'Venue' : 'Service'}
+                              </span>
+                            </td>
                             <td className="px-6 py-4 font-mono text-xs text-gray-900">
                               {p.bookingNumber || 'N/A'}
                             </td>
                             <td className="px-6 py-4 text-xs">
-                              {p.bookingDate ? new Date(p.bookingDate).toLocaleDateString('en-IN') : 'N/A'}
+                              {p.bookingDate || p.eventDate 
+                                ? new Date(p.bookingDate || p.eventDate).toLocaleDateString('en-IN') 
+                                : 'N/A'}
                             </td>
                             <td className="px-6 py-4">
                               <div className="max-w-[150px] truncate">
-                                <p className="text-gray-900 text-xs truncate font-semibold">{p.customer?.name || 'N/A'}</p>
-                                <p className="text-gray-400 text-[10px] truncate">{p.customer?.email || 'N/A'}</p>
+                                <p className="text-gray-900 text-xs truncate font-semibold">{customerName}</p>
+                                <p className="text-gray-400 text-[10px] truncate">{customerEmail}</p>
                               </div>
                             </td>
                             <td className="px-6 py-4">
                               <div className="max-w-[150px] truncate">
-                                <p className="text-gray-900 text-xs truncate font-semibold">{p.venue?.businessName || 'N/A'}</p>
-                                <p className="text-gray-400 text-[10px] truncate">{p.venue?.location?.city || 'N/A'}</p>
+                                <p className="text-gray-900 text-xs truncate font-semibold">{businessName}</p>
+                                <p className="text-gray-400 text-[10px] truncate">{location}</p>
                               </div>
                             </td>
                             <td className="px-6 py-4 text-right text-gray-500 text-xs">

@@ -36,10 +36,26 @@ export default function PaymentHistoryModal({ booking, token, onClose, onUpdate 
   const rawTxns = ledger.transactions || [];
   const rawAdj  = ledger.adjustments  || [];
 
-  const totalPaid = rawTxns
+  // Filter out the initial pending "Booking created" entry if payment is completed
+  // This prevents showing duplicate entries (one pending + one completed for same amount)
+  const hasCompletedPayment = rawTxns.some(t => 
+    ['payment', 'manual_payment'].includes(t.type) && t.status === 'completed'
+  );
+  
+  const filteredTxns = hasCompletedPayment 
+    ? rawTxns.filter(t => {
+        // Keep all transactions except the initial pending booking entry
+        if (t.type === 'payment' && t.status === 'pending' && t.txnId?.startsWith('BOOKING-')) {
+          return false; // Hide initial pending booking entry
+        }
+        return true; // Show all other transactions
+      })
+    : rawTxns; // If no completed payment, show all (including pending)
+
+  const totalPaid = filteredTxns
     .filter(t => ['payment','manual_payment'].includes(t.type) && t.status === 'completed')
     .reduce((s, t) => s + (t.amount || 0), 0);
-  const totalRefunded = rawTxns
+  const totalRefunded = filteredTxns
     .filter(t => ['refund','manual_refund'].includes(t.type) && t.status === 'completed')
     .reduce((s, t) => s + (t.amount || 0), 0);
   const totalDue = booking.amount || 0;
@@ -52,7 +68,7 @@ export default function PaymentHistoryModal({ booking, token, onClose, onUpdate 
   const isRefundDue = balance < 0 && isCancelled;
 
   const timeline = [
-    ...rawTxns.map(t => ({ ...t, _kind: 'txn' })),
+    ...filteredTxns.map(t => ({ ...t, _kind: 'txn' })),
     ...rawAdj.map(a  => ({ ...a, _kind: 'adj', type: 'adjustment' }))
   ].sort((a, b) => new Date(b.date) - new Date(a.date));
 
@@ -112,36 +128,23 @@ export default function PaymentHistoryModal({ booking, token, onClose, onUpdate 
           {/* Summary */}
           <div className="grid grid-cols-4 gap-3">
             {[
-              { label: 'Total Due',   val: totalDue,       cls: 'bg-gray-50 border-gray-200 text-gray-900' },
-              { label: 'Total Paid',  val: totalPaid,      cls: 'bg-green-50 border-green-200 text-green-600' },
-              { label: 'Refunded',    val: totalRefunded,  cls: 'bg-red-50 border-red-200 text-red-500' },
-              {
-                label: isCancelled && totalRefunded >= totalPaid && totalPaid > 0
-                  ? 'Refund Done'
-                  : isRefundDue
-                  ? 'Refund Due'
-                  : isOverpaid
-                  ? 'Overpaid'
-                  : balance > 0
-                  ? 'Balance Due'
-                  : 'Settled',
+              { label: 'Total Amount',   val: totalDue,       cls: 'bg-gray-50 border-gray-200 text-gray-900' },
+              { label: 'Paid Amount',  val: totalPaid,      cls: 'bg-green-50 border-green-200 text-green-600' },
+              { label: 'Refund',    val: totalRefunded,  cls: 'bg-red-50 border-red-200 text-red-500' },
+              { 
+                label: 'Balance',
                 val: Math.abs(balance),
-                cls: isCancelled && totalRefunded >= totalPaid && totalPaid > 0
+                cls: balance === 0 
                   ? 'bg-green-50 border-green-200 text-green-600'
-                  : isRefundDue
-                  ? 'bg-blue-50 border-blue-200 text-blue-600'
-                  : isOverpaid
-                  ? 'bg-orange-50 border-orange-200 text-orange-600'
                   : balance > 0
                   ? 'bg-orange-50 border-orange-200 text-orange-600'
-                  : 'bg-green-50 border-green-200 text-green-600',
-                override: (balance === 0 || (isCancelled && totalRefunded >= totalPaid && totalPaid > 0)) ? '✓ Clear' : null
+                  : 'bg-blue-50 border-blue-200 text-blue-600'
               }
-            ].map(({ label, val, cls, override }) => (
+            ].map(({ label, val, cls }) => (
               <div key={label} className={`rounded-xl p-3 text-center border ${cls}`}>
                 <p className="text-xs text-gray-500 mb-1">{label}</p>
                 <p className={`text-lg font-black ${cls.split(' ').find(c => c.startsWith('text-'))}`}>
-                  {override ?? `₹${val.toLocaleString()}`}
+                  ₹{val.toLocaleString()}
                 </p>
               </div>
             ))}
@@ -171,6 +174,53 @@ export default function PaymentHistoryModal({ booking, token, onClose, onUpdate 
               'bg-yellow-100 text-yellow-700'
             }`}>{booking.paymentStatus}</span>
           </div>
+
+          {/* Settlement Details */}
+          {booking.status === 'completed' && (
+            <div className={`rounded-xl p-4 border text-xs ${
+              booking.settlementStatus === 'settled' ? 'bg-green-50/50 border-green-100 text-green-900' :
+              booking.settlementStatus === 'failed' ? 'bg-red-50/50 border-red-100 text-red-900' :
+              'bg-yellow-50/50 border-yellow-100 text-yellow-900'
+            }`}>
+              <p className="font-bold uppercase tracking-wider mb-2 text-[10px] text-gray-500">Beneficiary Payout Settlement</p>
+              <div className="grid grid-cols-2 gap-y-2 gap-x-4">
+                <div>
+                  <span className="text-gray-500 font-normal">Settlement Status:</span>
+                  <span className={`ml-1.5 font-bold uppercase ${
+                    booking.settlementStatus === 'settled' ? 'text-green-700' :
+                    booking.settlementStatus === 'failed' ? 'text-red-700' : 'text-yellow-700'
+                  }`}>{booking.settlementStatus || 'unsettled'}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500 font-normal">Payout Amount:</span>
+                  <span className="ml-1.5 font-bold text-gray-800">
+                    ₹{(booking.ownerEarnings || (booking.amount - (booking.priceBreakdown?.platformFeeTotal || 0))).toLocaleString('en-IN')}
+                  </span>
+                </div>
+                {booking.settlementDetails?.settledAt && (
+                  <div>
+                    <span className="text-gray-500 font-normal">Settled At:</span>
+                    <span className="ml-1.5 font-semibold text-gray-700">
+                      {new Date(booking.settlementDetails.settledAt).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                )}
+                {booking.settlementDetails?.transactionId && (
+                  <div className="col-span-2">
+                    <span className="text-gray-500 font-normal">Transaction ID:</span>
+                    <code className="ml-1.5 font-mono bg-white border border-gray-200 px-1.5 py-0.5 rounded select-all text-gray-800">
+                      {booking.settlementDetails.transactionId}
+                    </code>
+                  </div>
+                )}
+                {booking.settlementDetails?.remarks && (
+                  <div className="col-span-2 text-gray-600 mt-1 italic">
+                    Note: {booking.settlementDetails.remarks}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Action Buttons — Phase 2: Record Payment & Record Refund disabled */}
           {/* 
@@ -304,14 +354,21 @@ export default function PaymentHistoryModal({ booking, token, onClose, onUpdate 
                   const meta = TXN_META[item.type] || TXN_META.payment;
                   const { Icon } = meta;
                   const isCredit = ['payment','manual_payment'].includes(item.type);
+                  const isPending = item.status === 'pending';
+                  
                   return (
                     <div key={`txn-${i}`} className={`flex items-start gap-3 p-3 rounded-xl border ${
+                      isPending ? 'bg-yellow-50 border-yellow-100' :
                       isCredit ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'
                     }`}>
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        isPending ? 'bg-yellow-200' :
                         isCredit ? 'bg-green-200' : 'bg-red-200'
                       }`}>
-                        <Icon className={`w-4 h-4 ${isCredit ? 'text-green-700' : 'text-red-700'}`} />
+                        <Icon className={`w-4 h-4 ${
+                          isPending ? 'text-yellow-700' :
+                          isCredit ? 'text-green-700' : 'text-red-700'
+                        }`} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -324,8 +381,11 @@ export default function PaymentHistoryModal({ booking, token, onClose, onUpdate 
                         {item.note && <p className="text-xs text-gray-600 mt-0.5">{item.note}</p>}
                         <p className="text-xs text-gray-400 mt-0.5">{fmt(item.date)}</p>
                       </div>
-                      <span className={`text-base font-black flex-shrink-0 ${isCredit ? 'text-green-600' : 'text-red-600'}`}>
-                        {meta.sign}₹{item.amount?.toLocaleString()}
+                      <span className={`text-base font-black flex-shrink-0 ${
+                        isPending ? 'text-gray-400' :
+                        isCredit ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {isPending ? '—' : `${meta.sign}₹${item.amount?.toLocaleString()}`}
                       </span>
                     </div>
                   );

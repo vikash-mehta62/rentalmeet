@@ -1,8 +1,15 @@
 const nodemailer = require('nodemailer');
 
+const smtpPort = Number(process.env.SMTP_PORT) || 587;
+const smtpSecure = process.env.SMTP_SECURE
+  ? process.env.SMTP_SECURE === 'true'
+  : smtpPort === 465;
+const smtpFrom = process.env.SMTP_FROM || process.env.SMTP_USER;
+
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
-  port: process.env.SMTP_PORT,
+  port: smtpPort,
+  secure: smtpSecure,
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASSWORD
@@ -11,7 +18,7 @@ const transporter = nodemailer.createTransport({
 
 exports.sendEmail = async (options) => {
   const mailOptions = {
-    from: `RentalMeet <${process.env.SMTP_USER}>`,
+    from: `RentalMeet <${smtpFrom}>`,
     to: options.email,
     subject: options.subject,
     html: options.html

@@ -51,14 +51,14 @@ export default function AdminVenues() {
       const data = await res.json();
       if (!data.success) { toast.error('Export failed'); return; }
       const allVenues = data.venues;
-      const headers = ['S.No','Venue Name','SKU','Owner Name','Owner Email','Owner Phone','City','Area','State','Capacity','Total Bookings','Rating','Total Revenue','Status'];
+      const headers = ['S.No','Venue Name','SKU','Owner Name','Owner Email','Owner Phone','City','Area','State','Capacity','Food Type','Total Bookings','Rating','Total Earnings','Status'];
       const rows = allVenues.map((v, i) => [
         i+1, v.businessName||'N/A', v.sku||'N/A',
         v.owner?.name||'N/A', v.owner?.email||'N/A', v.owner?.phone||'N/A',
         v.location?.city||'N/A', v.location?.area||'N/A', v.location?.state||'N/A',
-        v.capacity||'N/A', v.totalBookings||0,
+        v.capacity||'N/A', v.foodType || 'Veg', v.totalBookings||0,
         v.rating ? `${v.rating}/5` : 'N/A',
-        v.totalRevenue ? `₹${v.totalRevenue}` : '₹0',
+        v.totalEarnings ? `₹${v.totalEarnings}` : '₹0',
         v.status||'N/A'
       ]);
       const csv = [headers.join(','), ...rows.map(r => r.map(c => `"${c}"`).join(','))].join('\n');
@@ -306,16 +306,23 @@ export default function AdminVenues() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  {['S.No','Venue','Owner','Location','Capacity','Bookings','Rating','Revenue','Status','Actions'].map(h => (
-                    <th key={h} className={`px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase ${['Bookings','Rating','Revenue'].includes(h) ? 'bg-yellow-50' : ''}`}>{h}</th>
+                  {['S.No','Venue','Owner','Location','Capacity','Food Type','Bookings','Rating','Earnings','Status','Actions'].map(h => (
+                    <th key={h} className={`px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase ${['Bookings','Rating','Earnings'].includes(h) ? 'bg-yellow-50' : ''}`}>
+                      {h === 'Earnings' ? (
+                        <div className="flex items-center gap-1" title="Owner earnings (excluding platform fee & GST)">
+                          {h}
+                          <span className="text-[10px] text-gray-400">(Owner)</span>
+                        </div>
+                      ) : h}
+                    </th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {loading ? (
-                  <tr><td colSpan="10" className="px-6 py-8 text-center text-gray-500">Loading...</td></tr>
+                  <tr><td colSpan="11" className="px-6 py-8 text-center text-gray-500">Loading...</td></tr>
                 ) : venues.length === 0 ? (
-                  <tr><td colSpan="10" className="px-6 py-8 text-center text-gray-500">No venues found</td></tr>
+                  <tr><td colSpan="11" className="px-6 py-8 text-center text-gray-500">No venues found</td></tr>
                 ) : venues.map((venue, index) => (
                   <tr key={venue._id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-xs font-semibold text-gray-700">{(currentPage - 1) * LIMIT + index + 1}</td>
@@ -337,11 +344,21 @@ export default function AdminVenues() {
                       <p className="text-xs text-gray-500">{venue.location?.area}</p>
                     </td>
                     <td className="px-4 py-3 text-xs font-medium text-gray-700">{venue.capacity} guests</td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                        {venue.foodType || 'Veg'}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 bg-yellow-50">
                       <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-bold text-xs">{venue.totalBookings || 0}</span>
                     </td>
                     <td className="px-4 py-3 bg-yellow-50 text-xs font-semibold text-amber-600">{venue.rating ? `${venue.rating}/5` : 'N/A'}</td>
-                    <td className="px-4 py-3 bg-yellow-50 text-xs font-semibold text-green-700">₹{(venue.totalRevenue || 0).toLocaleString('en-IN')}</td>
+                    <td className="px-4 py-3 bg-yellow-50">
+                      <div className="flex flex-col">
+                        <span className="text-xs font-semibold text-green-700">₹{(venue.totalEarnings || 0).toLocaleString('en-IN')}</span>
+                        <span className="text-[9px] text-gray-500">(Excl. platform fee)</span>
+                      </div>
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                         venue.status === 'approved' ? 'bg-green-100 text-green-700' :

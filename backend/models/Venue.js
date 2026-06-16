@@ -67,6 +67,12 @@ const venueSchema = new mongoose.Schema({
     trim: true
     // No enum - accepts any venue type name from VenueType collection
   }],
+  foodType: {
+    type: String,
+    enum: ['Veg', 'Non Veg', 'Both'],
+    default: 'Veg',
+    trim: true
+  },
   description: {
     type: String,
     required: true,
@@ -396,6 +402,7 @@ venueSchema.index({ owner: 1 });
 venueSchema.index({ status: 1 });
 venueSchema.index({ 'location.city': 1 });
 venueSchema.index({ venueType: 1 });
+venueSchema.index({ foodType: 1 });
 venueSchema.index({ sku: 1 });
 
 module.exports = mongoose.model('Venue', venueSchema);

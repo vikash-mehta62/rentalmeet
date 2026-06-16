@@ -1,5 +1,18 @@
+import venueTypeData from '@/data/venueTypeData';
+
 const BASE_URL = 'https://rentalmeet.com';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+/**
+ * Sitemap revalidation — 6 hours
+ *
+ * Next.js re-generates sitemap.xml in the background every 6 hours.
+ * When a new venue or service is approved, it appears in the sitemap
+ * automatically within 6 hours — no redeploy needed.
+ *
+ * Change 21600 → 3600 for 1-hour refresh, → 86400 for once a day.
+ */
+export const revalidate = 21600; // seconds
 
 // Static public pages
 const staticRoutes = [
@@ -20,7 +33,7 @@ const staticRoutes = [
 export default async function sitemap() {
   const now = new Date();
 
-  // Build static entries
+  // ── Static pages ──────────────────────────────────────────────────────────
   const staticEntries = staticRoutes.map(({ url, priority, changeFrequency }) => ({
     url: `${BASE_URL}${url}`,
     lastModified: now,
@@ -28,11 +41,20 @@ export default async function sitemap() {
     priority,
   }));
 
-  // Fetch all approved venues
+  // ── Venue type SEO landing pages (static, from venueTypeData.js) ──────────
+  const venueTypeEntries = venueTypeData.map(vt => ({
+    url: `${BASE_URL}/venues/type/${vt.slug}`,
+    lastModified: now,
+    changeFrequency: 'monthly',
+    priority: 0.85,
+  }));
+
+  // ── Approved venues (auto-refreshes every 6 hours via revalidate above) ───
   let venueEntries = [];
   try {
-    const res = await fetch(`${API_URL}/venues?status=approved&limit=2000`, {
-      next: { revalidate: 3600 }, // revalidate every hour
+    const res = await fetch(`${API_URL}/venues?status=approved&limit=5000`, {
+      // cache: 'no-store' ensures fresh data on every revalidation cycle
+      cache: 'no-store',
     });
     const data = await res.json();
     if (data.success && Array.isArray(data.venues)) {
@@ -49,19 +71,20 @@ export default async function sitemap() {
     console.error('Sitemap: failed to fetch venues', e);
   }
 
-  // Fetch all active vendor services
+  // ── Approved vendor services (auto-refreshes every 6 hours) ──────────────
   let serviceEntries = [];
   try {
-    const res = await fetch(`${API_URL}/vendor-services?status=approved&limit=2000`, {
-      next: { revalidate: 3600 },
+    const res = await fetch(`${API_URL}/vendor-services?status=approved&limit=5000`, {
+      cache: 'no-store',
     });
     const data = await res.json();
     const services = data.services || data.data || [];
     if (Array.isArray(services)) {
       serviceEntries = services
-        .filter(s => s._id && s.isActive !== false)
+        .filter(s => s.isActive !== false && (s.slug || s._id))
         .map(s => ({
-          url: `${BASE_URL}/other-services/${s._id}`,
+          // Use slug if available, fall back to MongoDB _id for old records
+          url: `${BASE_URL}/other-services/${s.slug || s._id}`,
           lastModified: s.updatedAt ? new Date(s.updatedAt) : now,
           changeFrequency: 'weekly',
           priority: 0.8,
@@ -71,5 +94,5 @@ export default async function sitemap() {
     console.error('Sitemap: failed to fetch services', e);
   }
 
-  return [...staticEntries, ...venueEntries, ...serviceEntries];
+  return [...staticEntries, ...venueTypeEntries, ...venueEntries, ...serviceEntries];
 }

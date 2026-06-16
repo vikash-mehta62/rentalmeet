@@ -9,6 +9,7 @@ import { Search, CheckCircle2, Clock, XCircle, Download, ChevronLeft, ChevronRig
 import ServiceBookingDetailModal from '@/components/service/ServiceBookingDetailModal';
 
 const PAY_STYLE = { paid: 'bg-green-100 text-green-700', pending: 'bg-yellow-100 text-yellow-700', failed: 'bg-red-100 text-red-700', refunded: 'bg-purple-100 text-purple-700' };
+const STATUS_STYLE = { enquiry: 'bg-yellow-100 text-yellow-700', pending: 'bg-orange-100 text-orange-700', confirmed: 'bg-green-100 text-green-700', cancelled: 'bg-red-100 text-red-700', completed: 'bg-blue-100 text-blue-700' };
 
 export default function AdminServiceBookings() {
   const { token } = useAuthStore();
@@ -189,14 +190,14 @@ export default function AdminServiceBookings() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  {['#','Booking No','Customer','Service','Vendor','Booked On','Event Date','Total','Payment','Actions'].map(h => (
+                  {['#','Booking No','Customer','Service','Vendor','Booked On','Event Date','Total','Payment','Status','Actions'].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {loading ? <tr><td colSpan={10} className="text-center py-12 text-gray-400">Loading...</td></tr>
-                : filtered.length === 0 ? <tr><td colSpan={10} className="text-center py-12 text-gray-400">No bookings found</td></tr>
+                {loading ? <tr><td colSpan={11} className="text-center py-12 text-gray-400">Loading...</td></tr>
+                : filtered.length === 0 ? <tr><td colSpan={11} className="text-center py-12 text-gray-400">No bookings found</td></tr>
                 : filtered.map((b, i) => {
                   return (
                     <tr key={b._id} className="hover:bg-gray-50">
@@ -212,6 +213,7 @@ export default function AdminServiceBookings() {
                       <td className="px-4 py-3 text-xs text-gray-600 font-semibold">{b.eventDate ? new Date(b.eventDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td>
                       <td className="px-4 py-3 text-xs font-bold text-primary-600">{b.pricing?.total ? `₹${b.pricing.total.toLocaleString()}` : '—'}{b.coupon?.code && <p className="text-[10px] text-green-600 font-normal">Coupon: {b.coupon.code}</p>}</td>
                       <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${PAY_STYLE[b.paymentStatus] || PAY_STYLE.pending}`}>{b.paymentStatus || 'pending'}</span></td>
+                      <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize ${STATUS_STYLE[b.status] || 'bg-gray-100 text-gray-700'}`}>{b.status || 'enquiry'}</span></td>
                       <td className="px-4 py-3">
                         <button onClick={() => setSelected(b)} className="px-3 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-xs font-semibold">View</button>
                       </td>

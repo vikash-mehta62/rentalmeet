@@ -71,6 +71,7 @@ export default function Step7Terms() {
         // Step 1: Basic Info
         businessName: formData.basicInfo?.businessName || '',
         venueType: formData.basicInfo?.venueType || [],
+        foodType: formData.basicInfo?.foodType || 'Veg',
         description: formData.basicInfo?.description || '',
         capacity: formData.basicInfo?.capacity || '',
         areaSqft: Number(formData.basicInfo?.areaSqft) || 0,

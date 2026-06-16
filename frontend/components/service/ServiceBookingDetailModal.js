@@ -5,6 +5,7 @@ import {
   X, Download, Printer, CheckCircle2, Clock, XCircle,
   Tag, CreditCard, Calendar, MapPin, User, Briefcase, Package
 } from 'lucide-react';
+import SettlementStatusCard from '@/components/booking/SettlementStatusCard';
 import ServiceInvoiceDownload from '@/components/service/ServiceInvoiceDownload';
 
 const STATUS_STYLE = {
@@ -32,6 +33,7 @@ export default function ServiceBookingDetailModal({ booking: b, onClose, onStatu
   const svcTotal = (b.pricing?.subtotal || 0) + (b.pricing?.serviceCGST || b.pricing?.serviceCgst || 0) + (b.pricing?.serviceSGST || b.pricing?.serviceSgst || 0);
   const platTotal = (b.pricing?.platformFee || 0) + (b.pricing?.platformFeeGST || b.pricing?.platformFeeGst || 0);
   const grandTotal = b.pricing?.total || 0;
+  const vendorPayout = Math.max(0, svcTotal - (b.coupon?.discountAmount || b.pricing?.discount || 0));
 
   const handlePrint = () => {
     const content = printRef.current?.innerHTML;
@@ -115,52 +117,85 @@ export default function ServiceBookingDetailModal({ booking: b, onClose, onStatu
               </span>
             )}
             {canChangeStatus && onStatusChange && (
-              <div className="ml-auto">
-                <select
-                  value={b.status}
-                  onChange={e => onStatusChange(b._id, e.target.value)}
-                  disabled={!isAdmin && ['completed', 'cancelled'].includes(b.status)}
-                  className="px-3 py-1.5 border border-gray-300 rounded-xl text-xs font-semibold bg-white focus:ring-2 focus:ring-primary-500 outline-none disabled:bg-gray-100 disabled:text-gray-500"
-                >
-                  {isAdmin ? (
-                    <>
-                      <option value="enquiry">Enquiry</option>
-                      <option value="pending">Pending</option>
-                      <option value="confirmed">Confirmed</option>
-                      <option value="cancelled">Cancelled</option>
-                      <option value="completed">Completed</option>
-                    </>
-                  ) : (
-                    <>
-                      {b.status === 'enquiry' && (
-                        <>
-                          <option value="enquiry">Enquiry</option>
-                          <option value="pending">Pending</option>
-                          <option value="cancelled">Cancelled</option>
-                        </>
-                      )}
-                      {b.status === 'pending' && (
-                        <>
-                          <option value="pending">Pending</option>
-                          <option value="confirmed">Confirmed (Accept)</option>
-                          <option value="cancelled">Cancelled (Reject)</option>
-                        </>
-                      )}
-                      {b.status === 'confirmed' && (
-                        <>
-                          <option value="confirmed">Confirmed</option>
-                          <option value="completed">Completed</option>
-                          <option value="cancelled">Cancelled</option>
-                        </>
-                      )}
-                      {['completed', 'cancelled'].includes(b.status) && (
-                        <option value={b.status}>
-                          {b.status.charAt(0).toUpperCase() + b.status.slice(1)}
-                        </option>
-                      )}
-                    </>
-                  )}
-                </select>
+              <div className="ml-auto flex items-center gap-2">
+                {b.status === 'enquiry' && (
+                  <>
+                    <button
+                      onClick={() => onStatusChange(b._id, 'pending')}
+                      className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+                    >
+                      Accept Enquiry
+                    </button>
+                    {!isAdmin && (
+                      <button
+                        onClick={() => {
+                          if (confirm('Cancel this enquiry?')) {
+                            onStatusChange(b._id, 'cancelled');
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-xs font-bold transition-all"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </>
+                )}
+                {b.status === 'pending' && (
+                  <>
+                    <button
+                      onClick={() => onStatusChange(b._id, 'confirmed')}
+                      className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+                    >
+                      Confirm Booking
+                    </button>
+                    {!isAdmin && (
+                      <button
+                        onClick={() => {
+                          if (confirm('Cancel this booking?')) {
+                            onStatusChange(b._id, 'cancelled');
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-xs font-bold transition-all"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </>
+                )}
+                {b.status === 'confirmed' && (
+                  <>
+                    {(() => {
+                      const eventDate = b.eventDate ? new Date(b.eventDate) : null;
+                      const canComplete = eventDate ? new Date() > eventDate : true;
+                      return (
+                        <button
+                          onClick={() => onStatusChange(b._id, 'completed')}
+                          disabled={!canComplete}
+                          title={!canComplete ? "Booking can only be completed after the event date" : ""}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm ${
+                            canComplete 
+                              ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer' 
+                              : 'bg-gray-300 text-gray-500 cursor-not-allowed border border-gray-200'
+                          }`}
+                        >
+                          Mark Complete
+                        </button>
+                      );
+                    })()}
+                    {!isAdmin && (
+                      <button
+                        onClick={() => {
+                          if (confirm('Cancel this booking?')) {
+                            onStatusChange(b._id, 'cancelled');
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-xs font-bold transition-all"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -278,7 +313,7 @@ export default function ServiceBookingDetailModal({ booking: b, onClose, onStatu
               <p className="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-1.5">
                 <Package className="w-3.5 h-3.5" /> Selected Services
               </p>
-              <div className="rounded-xl border border-gray-200 overflow-hidden">
+              <div className="rounded-xl border border-gray-200 overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50">
                     <tr>
@@ -303,8 +338,8 @@ export default function ServiceBookingDetailModal({ booking: b, onClose, onStatu
             </div>
           )}
 
-          {/* Price Breakdown (Completed bookings only) */}
-          {b.status === 'completed' && b.pricing && (
+          {/* Price Breakdown */}
+          {b.pricing && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-blue-50 rounded-xl p-4 border border-blue-100 text-xs space-y-1.5">
                 <p className="font-bold text-blue-800 mb-2">📄 Service Invoice</p>
@@ -326,8 +361,8 @@ export default function ServiceBookingDetailModal({ booking: b, onClose, onStatu
             </div>
           )}
 
-          {/* Invoice Download (Completed bookings only) */}
-          {b.status === 'completed' && (
+          {/* Invoice Download */}
+          {(b.status === 'completed' || b.paymentStatus === 'paid') && (
             <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3 border border-gray-100">
               <p className="text-xs font-semibold text-gray-600">Download Invoice</p>
               <ServiceInvoiceDownload booking={b} userRole={b.customer ? 'customer' : 'admin'} />
@@ -356,6 +391,13 @@ export default function ServiceBookingDetailModal({ booking: b, onClose, onStatu
               </div>
             </div>
           </div>
+
+          <SettlementStatusCard
+            booking={b}
+            title="Vendor Settlement"
+            payoutLabel="Vendor Payout"
+            fallbackAmount={vendorPayout}
+          />
 
           {/* Payment Details */}
           {b.paymentDetails?.razorpay_payment_id && (

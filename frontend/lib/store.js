@@ -79,7 +79,7 @@ export const useVenueFormStore = create(
     (set) => ({
       formData: {
         step: 1,
-        basicInfo: {},
+        basicInfo: { foodType: 'Veg' },
         location: {},
         amenities: {},
         pricing: {},
@@ -99,7 +99,7 @@ export const useVenueFormStore = create(
       resetForm: () => set({
         formData: {
           step: 1,
-          basicInfo: {},
+          basicInfo: { foodType: 'Veg' },
           location: {},
           amenities: {},
           pricing: {},

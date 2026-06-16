@@ -367,6 +367,12 @@ export default function MyVenues() {
                   {venue.location?.city}, {venue.location?.area}
                 </p>
 
+                <div className="mb-3">
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                    {venue.foodType || 'Veg'}
+                  </span>
+                </div>
+
                 <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
                   <span className="flex items-center gap-1">
                     <Calendar className="w-4 h-4" />

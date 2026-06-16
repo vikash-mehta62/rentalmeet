@@ -178,7 +178,7 @@ export default function AdminQuotationDownloads() {
           <p className="text-slate-500 font-medium">No quotation records found</p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-soft overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-soft overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>

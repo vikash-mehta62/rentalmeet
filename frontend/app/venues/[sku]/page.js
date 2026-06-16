@@ -14,7 +14,7 @@ import {
   Monitor, Mic, Volume2, Thermometer, Droplets, Flame,
   Package, Dumbbell, Baby, Accessibility, ParkingCircle,
   UtensilsCrossed, CupSoda, Sandwich, ChefHat, Refrigerator,
-  Sofa, Bed, Bath, Shirt, Scissors, FlowerIcon
+  Sofa, Bed, Bath, Shirt, Scissors, FlowerIcon, Leaf
 } from 'lucide-react';
 import BookingForm from '@/components/booking/BookingForm';
 import VenueReviews from '@/components/venue/VenueReviews';
@@ -77,6 +77,12 @@ function getAmenityIcon(name) {
     if (lower.includes(key) || key.includes(lower)) return Icon;
   }
   return Package;
+}
+
+function getFoodTypeIcon(foodType) {
+  if (foodType === 'Veg') return Leaf;
+  if (foodType === 'Non Veg') return UtensilsCrossed;
+  return Utensils;
 }
 
 export default function VenueDetail() {
@@ -528,6 +534,8 @@ export default function VenueDetail() {
 
   // Inactive venue — show banner, no booking
   const isInactive = venue.isActive === false;
+  const foodType = venue.foodType || 'Veg';
+  const FoodTypeIcon = getFoodTypeIcon(foodType);
 
   return (
     <div className="min-h-screen bg-[#F5F0E8] dark:bg-slate-950">
@@ -668,6 +676,10 @@ export default function VenueDetail() {
                 <span className="flex items-center gap-1.5">
                   <Users className="w-4 h-4 text-primary-500" />
                   Up to {venue.capacity} guests
+                </span>
+                <span className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 px-2.5 py-1 rounded-full">
+                  <FoodTypeIcon className="w-4 h-4" />
+                  {foodType}
                 </span>
                 {venue.rating > 0 && (
                   <span className="flex items-center gap-1.5 bg-yellow-50 dark:bg-yellow-900/20 px-2.5 py-1 rounded-full">

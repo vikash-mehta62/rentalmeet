@@ -88,10 +88,6 @@ const platformSettingsSchema = new mongoose.Schema({
     type: Number,
     default: 5
   },
-  commissionRate: {
-    type: Number,
-    default: 0
-  },
   
   updatedBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -109,7 +105,7 @@ platformSettingsSchema.statics.getSettings = async function() {
       venueCGST: 9, venueSGST: 9, venueHSN: '',
       platformFeeType: 'percentage', platformFeePercentage: 5,
       platformCGST: 9, platformSGST: 9,
-      gstRate: 18, platformFeeValue: 5, commissionRate: 0,
+      gstRate: 18, platformFeeValue: 5,
       gstInvoiceSignature: null, platformInvoiceSignature: null,
       serviceCGST: 9, serviceSGST: 9, serviceHSN: '',
       servicePlatformFee: 5, servicePlatformCGST: 9, servicePlatformSGST: 9, serviceCategoryRates: []

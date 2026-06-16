@@ -39,7 +39,9 @@ const {
   createSubAdmin,
   updateSubAdmin,
   deleteSubAdmin,
-  toggleSubAdminStatus
+  toggleSubAdminStatus,
+  settleBookingManual,
+  settleServiceBookingManual
 } = require('../controllers/adminController');
 const { protect, authorize, checkPermission } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
@@ -84,6 +86,8 @@ router.put('/subadmins/:id/status', protect, authorize('admin'), toggleSubAdminS
 router.get('/venues', protect, authorize('admin', 'subadmin'), checkPermission('venues'), async (req, res) => {
   try {
     const Venue = require('../models/Venue');
+    const Booking = require('../models/Booking');
+    const VenueReview = require('../models/VenueReview');
     const { status, search, venueType, page = 1, limit = 12, export: isExport } = req.query;
     const query = {};
     if (status && status !== 'all') query.status = status;
@@ -100,7 +104,54 @@ router.get('/venues', protect, authorize('admin', 'subadmin'), checkPermission('
       const venues = await Venue.find(query)
         .populate('owner', 'name email phone')
         .sort('-createdAt');
-      return res.json({ success: true, venues });
+      
+      // Calculate stats for all venues in export
+      const venueIds = venues.map(v => v._id);
+      
+      // Get booking counts and earnings per venue
+      const bookingStats = await Booking.aggregate([
+        { $match: { venue: { $in: venueIds }, paymentStatus: 'paid' } },
+        { $group: {
+          _id: '$venue',
+          totalBookings: { $sum: 1 },
+          totalEarnings: { $sum: '$ownerEarnings' }
+        }}
+      ]);
+      
+      // Get rating per venue
+      const ratingStats = await VenueReview.aggregate([
+        { $match: { venue: { $in: venueIds } } },
+        { $group: {
+          _id: '$venue',
+          avgRating: { $avg: '$rating' }
+        }}
+      ]);
+      
+      // Create maps for quick lookup
+      const bookingMap = {};
+      bookingStats.forEach(stat => {
+        bookingMap[stat._id.toString()] = {
+          totalBookings: stat.totalBookings,
+          totalEarnings: Math.round(stat.totalEarnings || 0)
+        };
+      });
+      
+      const ratingMap = {};
+      ratingStats.forEach(stat => {
+        ratingMap[stat._id.toString()] = Number((stat.avgRating || 0).toFixed(1));
+      });
+      
+      // Attach stats to venues
+      const venuesWithStats = venues.map(venue => {
+        const venueObj = venue.toObject();
+        const venueId = venue._id.toString();
+        venueObj.totalBookings = bookingMap[venueId]?.totalBookings || 0;
+        venueObj.totalEarnings = bookingMap[venueId]?.totalEarnings || 0;
+        venueObj.rating = ratingMap[venueId] || 0;
+        return venueObj;
+      });
+      
+      return res.json({ success: true, venues: venuesWithStats });
     }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -112,6 +163,53 @@ router.get('/venues', protect, authorize('admin', 'subadmin'), checkPermission('
         .limit(parseInt(limit)),
       Venue.countDocuments(query)
     ]);
+    
+    // Calculate stats for paginated venues
+    const venueIds = venues.map(v => v._id);
+    
+    // Get booking counts and earnings per venue
+    const bookingStats = await Booking.aggregate([
+      { $match: { venue: { $in: venueIds }, paymentStatus: 'paid' } },
+      { $group: {
+        _id: '$venue',
+        totalBookings: { $sum: 1 },
+        totalEarnings: { $sum: '$ownerEarnings' }
+      }}
+    ]);
+    
+    // Get rating per venue
+    const ratingStats = await VenueReview.aggregate([
+      { $match: { venue: { $in: venueIds } } },
+      { $group: {
+        _id: '$venue',
+        avgRating: { $avg: '$rating' }
+      }}
+    ]);
+    
+    // Create maps for quick lookup
+    const bookingMap = {};
+    bookingStats.forEach(stat => {
+      bookingMap[stat._id.toString()] = {
+        totalBookings: stat.totalBookings,
+        totalEarnings: Math.round(stat.totalEarnings || 0)
+      };
+    });
+    
+    const ratingMap = {};
+    ratingStats.forEach(stat => {
+      ratingMap[stat._id.toString()] = Number((stat.avgRating || 0).toFixed(1));
+    });
+    
+    // Attach stats to venues
+    const venuesWithStats = venues.map(venue => {
+      const venueObj = venue.toObject();
+      const venueId = venue._id.toString();
+      venueObj.totalBookings = bookingMap[venueId]?.totalBookings || 0;
+      venueObj.totalEarnings = bookingMap[venueId]?.totalEarnings || 0;
+      venueObj.rating = ratingMap[venueId] || 0;
+      return venueObj;
+    });
+    
     // Stats always on full dataset (no filters for stats)
     const [totalAll, approved, pending, rejected, resubmitted, suspended] = await Promise.all([
       Venue.countDocuments({}),
@@ -123,11 +221,11 @@ router.get('/venues', protect, authorize('admin', 'subadmin'), checkPermission('
     ]);
     res.json({
       success: true,
-      count: venues.length,
+      count: venuesWithStats.length,
       total,
       totalPages: Math.ceil(total / parseInt(limit)),
       currentPage: parseInt(page),
-      venues,
+      venues: venuesWithStats,
       stats: { total: totalAll, approved, pending, rejected, resubmitted, suspended }
     });
   } catch (e) {
@@ -565,6 +663,12 @@ router.post('/bookings/:id/retry-refund', protect, authorize('admin'), async (re
     res.status(500).json({ success: false, message: msg });
   }
 });
+
+// Admin: Settle venue booking payout (retry automatic or mark manual)
+router.post('/bookings/:id/settle', protect, authorize('admin'), checkPermission('payments'), settleBookingManual);
+
+// Admin: Settle service booking payout (retry automatic or mark manual)
+router.post('/service-bookings/:id/settle', protect, authorize('admin'), checkPermission('serviceBookings'), settleServiceBookingManual);
 
 // Commission routes (removed - no longer used)
 
@@ -1161,7 +1265,42 @@ router.put('/service-bookings/:id/status', protect, authorize('admin'), checkPer
   try {
     const ServiceBooking = require('../models/ServiceBooking');
     const { status } = req.body;
-    const booking = await ServiceBooking.findByIdAndUpdate(req.params.id, { status }, { new: true });
+
+    const booking = await ServiceBooking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+
+    if (status === 'completed') {
+      if (booking.eventDate && new Date() <= new Date(booking.eventDate)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Booking can only be completed after the event date'
+        });
+      }
+    }
+
+    const oldStatus = booking.status;
+    booking.status = status;
+    await booking.save();
+
+    if (status === 'completed' && oldStatus !== 'completed') {
+      try {
+        const { createPlatformGSTLiability } = require('../utils/liabilityHelper');
+        await createPlatformGSTLiability(booking, 'service', req.user?.id);
+      } catch (err) {
+        console.error('Failed to create platform GST liability for service booking:', err);
+      }
+
+      // Trigger Automatic Settlement for Service
+      try {
+        const { settleBooking } = require('../utils/settlementHelper');
+        settleBooking(booking._id, 'service').catch(err => {
+          console.error(`[SETTLEMENT] Automatic service settlement hook failed for ${booking.bookingNumber}:`, err);
+        });
+      } catch (settleErr) {
+        console.error(`[SETTLEMENT] Failed to initialize service settlement trigger for ${booking.bookingNumber}:`, settleErr);
+      }
+    }
+
     res.json({ success: true, booking });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });

@@ -7,12 +7,13 @@ import { useAuthStore } from '@/lib/store';
 import CustomerLayout from '@/components/customer/CustomerLayout';
 import {
   Calendar, CheckCircle2, XCircle, Clock, MapPin, IndianRupee,
-  AlertCircle, Search, Download, User, Mail, Phone, Building2,
+  AlertCircle, Search, Download, Building2,
   Wifi, Coffee, Utensils, Plus, Minus, ArrowLeft, CreditCard
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import InvoiceDownload from '@/components/booking/InvoiceDownload';
 import InvitationShare from '@/components/booking/InvitationShare';
+import { VenueAmenitiesDetails, VenueBookingPartyCards, VenueInvoiceBreakdownCards } from '@/components/booking/VenueBookingSummaryCards';
 
 export default function CustomerBookings() {
   const router = useRouter();
@@ -561,7 +562,7 @@ export default function CustomerBookings() {
       {/* Booking Detail Modal */}
       {selectedBooking && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setSelectedBooking(null)}>
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-slate-700">
               <div>
@@ -608,41 +609,11 @@ export default function CustomerBookings() {
                 </div>
               </div>
 
-              {/* Event Details */}
-              {selectedBooking.customerDetails && (
-                <div className="bg-blue-50 dark:bg-slate-800 rounded-xl p-4">
-                  <p className="text-xs font-bold text-blue-700 dark:text-blue-400 mb-2">Event Details</p>
-                  <div className="grid grid-cols-2 gap-2 text-sm text-gray-700 dark:text-slate-300">
-                    {selectedBooking.customerDetails.eventType && <p><span className="font-semibold">Event:</span> {selectedBooking.customerDetails.eventType}</p>}
-                    {selectedBooking.customerDetails.guestCount && <p><span className="font-semibold">Guests:</span> {selectedBooking.customerDetails.guestCount}</p>}
-                    {selectedBooking.customerDetails.specialRequirements && (
-                      <p className="col-span-2"><span className="font-semibold">Special Requirements:</span> {selectedBooking.customerDetails.specialRequirements}</p>
-                    )}
-                  </div>
-                </div>
-              )}
+              <VenueBookingPartyCards booking={selectedBooking} />
 
-              {/* Price Breakdown */}
-              <div className="bg-gray-50 dark:bg-slate-800 rounded-xl p-4">
-                <p className="text-xs font-bold text-gray-700 dark:text-slate-300 mb-2">Price Breakdown</p>
-                <div className="space-y-1.5 text-sm">
-                  <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">Base Price</span><span className="font-semibold">₹{(selectedBooking.priceBreakdown?.basePrice || 0).toLocaleString()}</span></div>
-                  {selectedBooking.amenitiesTotal > 0 && <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">Amenities</span><span className="font-semibold">₹{selectedBooking.amenitiesTotal?.toLocaleString()}</span></div>}
-                  {selectedBooking.priceBreakdown?.gst > 0 && <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">GST ({selectedBooking.priceBreakdown.gstRate || ''}%)</span><span className="font-semibold">₹{selectedBooking.priceBreakdown.gst?.toLocaleString()}</span></div>}
-                  {selectedBooking.priceBreakdown?.platformFee > 0 && <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">Platform Fee</span><span className="font-semibold">₹{selectedBooking.priceBreakdown.platformFee?.toLocaleString()}</span></div>}
-                  {selectedBooking.priceBreakdown?.platformFeeGST > 0 && <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">Platform Fee GST</span><span className="font-semibold">₹{selectedBooking.priceBreakdown.platformFeeGST?.toLocaleString()}</span></div>}
-                  {selectedBooking.priceBreakdown?.discount > 0 && (
-                    <div className="flex justify-between text-green-600">
-                      <span>Coupon Discount {selectedBooking.priceBreakdown.couponCode ? `(${selectedBooking.priceBreakdown.couponCode})` : ''}</span>
-                      <span className="font-semibold">- ₹{selectedBooking.priceBreakdown.discount?.toLocaleString()}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between border-t border-gray-200 pt-1.5 mt-1">
-                    <span className="font-bold text-gray-800 dark:text-slate-100">Total</span>
-                    <span className="font-black text-primary-600">₹{(selectedBooking.amount || 0).toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
+              <VenueAmenitiesDetails booking={selectedBooking} />
+
+              <VenueInvoiceBreakdownCards booking={selectedBooking} />
 
               {/* ── Payment Ledger ── */}
               {(() => {
@@ -761,17 +732,6 @@ export default function CustomerBookings() {
                               </div>
                               <div className="text-right text-gray-500 text-[10px]">
                                 <p>₹{adj.oldAmount?.toLocaleString()}</p>
-                                <p>→</p>
-                                <p className="font-bold text-gray-800">₹{adj.newAmount?.toLocaleString()}</p>
-                              </div>
-                            </div>
-                          ))}
-                          {txns.filter(t => t.type !== 'adjustment' && t.status !== 'pending').map((txn, i) => (
-                            <div key={`txn-${i}`} className={`flex items-start gap-3 text-xs p-2.5 rounded-lg border ${['payment','manual_payment'].includes(txn.type) ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
-                              <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${['payment','manual_payment'].includes(txn.type) ? 'bg-green-200' : 'bg-red-200'}`}>
-                                {['payment','manual_payment'].includes(txn.type)
-                                  ? <CheckCircle2 className="w-3.5 h-3.5 text-green-700" />
-                                  : <XCircle className="w-3.5 h-3.5 text-red-700" />}
                               </div>
                               <div className="flex-1">
                                 <p className="font-semibold text-gray-800 dark:text-slate-200">

@@ -357,8 +357,10 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
           setFont('normal', 7.5, [107, 114, 128]); doc.text(label, rx + 3, yy);
           setFont('bold',   7.5, [17, 24, 39]);    doc.text(String(val || ''), rx + 22, yy);
         };
-        rkvL('Company', 'YUWAKA EDUTECH',   ry); ry += 4.5;
-        rkvL('GSTIN',   '23AABCY6855D1ZC', ry);
+        rkvL('Company',  'YUWAKA EDUTECH PRIVATE LIMITED', ry); ry += 4.5;
+        rkvL('GSTIN',    '23AABCY6855D1ZC',                ry); ry += 4.5;
+        rkvL('HSN Code', '999799',                         ry); ry += 4.5;
+        rkvL('Address',  'Bhubaneswar, Odisha',            ry);
         y += cardH + 6;
 
         // table header
@@ -427,7 +429,7 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
       // ── footer ────────────────────────────────────────────────────────────
       const footerY = 287;
       line(M, footerY - 3, W - M, footerY - 3, [229, 231, 235], 0.3);
-      setFont('normal', 7, [156, 163, 175]);
+      setFont('bold', 7, [156, 163, 175]);
       doc.text('RentalMeet  -  Book Your Premium Meeting Venue  |  support@rentalmeet.com', W / 2, footerY, { align: 'center' });
       doc.text('Booking Ref: ' + bookingRef + '  |  Generated: ' + fmtDT(new Date()) + '  |  Computer-generated invoice', W / 2, footerY + 4, { align: 'center' });
 

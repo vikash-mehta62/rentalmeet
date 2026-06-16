@@ -202,7 +202,8 @@ export default function AdminCoupons() {
 
         {/* Table */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-soft overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="text-left px-4 py-3 text-xs font-bold text-gray-600 uppercase">Code</th>
@@ -276,6 +277,7 @@ export default function AdminCoupons() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
 
       </>

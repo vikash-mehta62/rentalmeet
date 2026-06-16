@@ -84,7 +84,7 @@ export default function ServiceInvoiceDownload({ booking: b, userRole = 'custome
         doc.roundedRect(x, y, w, h, 2, 2, fill ? (stroke ? 'FD' : 'F') : 'S');
       };
 
-      const accentColor = type === 'service' ? [14, 165, 233] : [139, 92, 246];
+      const accentColor = type === 'service' ? [245, 158, 11] : [14, 165, 233];
       let y = M;
 
       // Logo
@@ -112,14 +112,28 @@ export default function ServiceInvoiceDownload({ booking: b, userRole = 'custome
       y += 5;
 
       // Cards
-      const cardH = 32, cardW = (CW - 4) / 2;
       const custName  = b.customerInfo?.name  || b.customer?.name  || b.customerDetails?.name  || 'N/A';
       const custEmail = b.customerInfo?.email || b.customer?.email || b.customerDetails?.email || 'N/A';
       const custPhone = b.customerInfo?.phone || b.customerDetails?.phone || b.customer?.phone || 'N/A';
+      const custCompany = b.customerInfo?.company || '';
+      const custGST   = b.customerInfo?.gstNumber || '';
       const eventType = b.customerInfo?.eventName || b.customerDetails?.eventType || b.eventType || '';
 
-      // Left card — Billed To
-      const lCardColor = type === 'service' ? [[240,249,255],[186,230,253],[12,74,110]] : [[245,243,255],[221,214,254],[76,29,149]];
+      // Calculate dynamic card height based on fields
+      const leftCardRows = 3 + (custCompany ? 1 : 0) + (custGST ? 1 : 0) + (eventType ? 1 : 0);
+      
+      // Right card rows calculation
+      const vendorGST = b.serviceSnapshot?.gstNumber || b.vendorSnapshot?.gstNumber || '';
+      const city = b.vendorSnapshot?.city || b.vendor?.address?.city || '';
+      const rightCardRows = type === 'service' 
+        ? (3 + (city ? 1 : 0) + (vendorGST ? 1 : 0))
+        : 4; // Platform card always has 4 rows
+      
+      const cardH = 10 + Math.max(leftCardRows, rightCardRows) * 4.5 + 2;
+      const cardW = (CW - 4) / 2;
+
+      // Left card — Billed To (both use amber/yellow colors like venue invoice)
+      const lCardColor = [[255, 251, 235], [253, 230, 138], [146, 64, 14]];
       rect(M, y, cardW, cardH, lCardColor[0], lCardColor[1]);
       setFont('bold', 7, lCardColor[2]);
       doc.text('BILLED TO', M + 3, y + 5);
@@ -132,11 +146,13 @@ export default function ServiceInvoiceDownload({ booking: b, userRole = 'custome
       kv('Customer', custName,  M, cy); cy += 4.5;
       kv('Email',    custEmail, M, cy); cy += 4.5;
       kv('Phone',    custPhone, M, cy); cy += 4.5;
+      if (b.customerInfo?.company) { kv('Company', b.customerInfo.company, M, cy); cy += 4.5; }
+      if (b.customerInfo?.gstNumber) { kv('GSTIN', b.customerInfo.gstNumber, M, cy); cy += 4.5; }
       if (eventType) kv('Event', eventType, M, cy);
 
-      // Right card — Supplier
+      // Right card — Supplier (both types use amber/yellow)
       const rx = M + cardW + 4;
-      const rCardColor = type === 'service' ? [[255,251,235],[253,230,138],[146,64,14]] : [[245,243,255],[221,214,254],[76,29,149]];
+      const rCardColor = [[255, 251, 235], [253, 230, 138], [146, 64, 14]];
       rect(rx, y, cardW, cardH, rCardColor[0], rCardColor[1]);
       setFont('bold', 7, rCardColor[2]);
       doc.text(type === 'service' ? 'SERVICE PROVIDER' : 'SUPPLIER (PLATFORM)', rx + 3, y + 5);
@@ -147,15 +163,17 @@ export default function ServiceInvoiceDownload({ booking: b, userRole = 'custome
         const vendorName = b.vendorSnapshot?.companyName || b.vendor?.companyName || b.vendor?.name || 'N/A';
         const category   = b.service?.category || b.vendorSnapshot?.category || '';
         const city       = b.vendorSnapshot?.city || b.vendor?.address?.city || '';
+        const vendorGST  = b.serviceSnapshot?.gstNumber || b.vendorSnapshot?.gstNumber || '';
         kv('Service',  svcName,    rx, ry); ry += 4.5;
         kv('Category', category,   rx, ry); ry += 4.5;
         kv('Vendor',   vendorName, rx, ry); ry += 4.5;
-        if (city) kv('Location', city, rx, ry);
+        if (city) { kv('Location', city, rx, ry); ry += 4.5; }
+        if (vendorGST) kv('GSTIN', vendorGST, rx, ry);
       } else {
-        kv('Company',  'RentalMeet Technologies', rx, ry); ry += 4.5;
-        kv('GSTIN',    'Not Available',           rx, ry); ry += 4.5;
-        kv('HSN Code', '999799',                  rx, ry); ry += 4.5;
-        kv('Ref',      bookingRef,                rx, ry);
+        kv('Company',  'YUWAKA EDUTECH PRIVATE LIMITED', rx, ry); ry += 4.5;
+        kv('GSTIN',    '23AABCY6855D1ZC',                rx, ry); ry += 4.5;
+        kv('HSN Code', '999799',                         rx, ry); ry += 4.5;
+        kv('Address',  'Bhubaneswar, Odisha',            rx, ry);
       }
       y += cardH + 6;
 
@@ -208,7 +226,7 @@ export default function ServiceInvoiceDownload({ booking: b, userRole = 'custome
         }
         y += 4;
 
-        // Totals
+        // Totals (service invoice - use amber/yellow like venue)
         const totLines = [
           ['Service Amount (Subtotal)', 'Rs.' + fmt(subtotal)],
           ['CGST @ ' + svcCGSTRate + '%', 'Rs.' + fmt(svcCGST)],
@@ -216,7 +234,7 @@ export default function ServiceInvoiceDownload({ booking: b, userRole = 'custome
         ];
         if (discount > 0) totLines.push(['Coupon Discount' + (b.coupon?.code ? ' (' + b.coupon.code + ')' : ''), '- Rs.' + fmt(discount)]);
         const totH = totLines.length * 6 + 10;
-        rect(M, y, CW, totH, [240, 249, 255], [186, 230, 253]);
+        rect(M, y, CW, totH, [255, 251, 235], [253, 230, 138]);
         let ty = y + 5;
         totLines.forEach(([label, val], i) => {
           setFont('normal', 8.5, i === totLines.length - 1 && discount > 0 ? [22, 163, 74] : [55, 65, 81]);
@@ -224,14 +242,14 @@ export default function ServiceInvoiceDownload({ booking: b, userRole = 'custome
           right(val, W - M - 4, ty);
           ty += 6;
         });
-        line(M + 4, ty - 1, W - M - 4, ty - 1, [186, 230, 253], 0.5);
+        line(M + 4, ty - 1, W - M - 4, ty - 1, [253, 230, 138], 0.5);
         setFont('bold', 10, accentColor);
         doc.text('SERVICE INVOICE TOTAL', M + 4, ty + 4);
         right('Rs.' + fmt(svcTotal - discount), W - M - 4, ty + 4);
         y += totH + 6;
 
       } else {
-        // Platform invoice row
+        // Platform invoice row (use sky blue for platform)
         rect(M, y, CW, 10, [255,255,255], [243,244,246]);
         setFont('bold',   8.5, [17, 24, 39]);
         doc.text('Platform Service Fee', colX[0] + 2, y + 4);
@@ -250,7 +268,7 @@ export default function ServiceInvoiceDownload({ booking: b, userRole = 'custome
           ['SGST @ ' + pfSGSTRate + '%', 'Rs.' + fmt(pfSGST)],
         ];
         const totH = totLines.length * 6 + 10;
-        rect(M, y, CW, totH, [245, 243, 255], [221, 214, 254]);
+        rect(M, y, CW, totH, [240, 249, 255], [186, 230, 253]);
         let ty = y + 5;
         totLines.forEach(([label, val]) => {
           setFont('normal', 8.5, [55, 65, 81]);
@@ -258,7 +276,7 @@ export default function ServiceInvoiceDownload({ booking: b, userRole = 'custome
           right(val, W - M - 4, ty);
           ty += 6;
         });
-        line(M + 4, ty - 1, W - M - 4, ty - 1, [221, 214, 254], 0.5);
+        line(M + 4, ty - 1, W - M - 4, ty - 1, [186, 230, 253], 0.5);
         setFont('bold', 10, accentColor);
         doc.text('PLATFORM INVOICE TOTAL', M + 4, ty + 4);
         right('Rs.' + fmt(pfTotal), W - M - 4, ty + 4);
@@ -296,7 +314,7 @@ export default function ServiceInvoiceDownload({ booking: b, userRole = 'custome
       // Footer
       const footerY = 287;
       line(M, footerY - 3, W - M, footerY - 3, [229, 231, 235], 0.3);
-      setFont('normal', 7, [156, 163, 175]);
+      setFont('bold', 7, [156, 163, 175]);
       doc.text('RentalMeet  -  Book Your Premium Meeting Venue  |  support@rentalmeet.com', W / 2, footerY, { align: 'center' });
       doc.text('Booking Ref: ' + bookingRef + '  |  Generated: ' + fmtDT(new Date()) + '  |  Computer-generated invoice', W / 2, footerY + 4, { align: 'center' });
 
@@ -314,7 +332,7 @@ export default function ServiceInvoiceDownload({ booking: b, userRole = 'custome
       <button
         onClick={() => generatePDF('service')}
         disabled={loading.service}
-        className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-500 hover:bg-sky-600 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-60"
+        className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-60"
       >
         <FileText className="w-3.5 h-3.5" />
         {loading.service ? 'Generating...' : 'Service Invoice'}
@@ -322,7 +340,7 @@ export default function ServiceInvoiceDownload({ booking: b, userRole = 'custome
       <button
         onClick={() => generatePDF('platform')}
         disabled={loading.platform}
-        className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-500 hover:bg-violet-600 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-60"
+        className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-500 hover:bg-sky-600 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-60"
       >
         <FileText className="w-3.5 h-3.5" />
         {loading.platform ? 'Generating...' : 'Platform Invoice'}

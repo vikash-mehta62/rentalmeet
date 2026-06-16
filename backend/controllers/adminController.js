@@ -282,10 +282,12 @@ exports.updateVenueSettings = async (req, res) => {
 
 // @desc    Get commission settings
 // @route   GET /api/admin/commission
+// DEPRECATED: Commission feature is disabled
 exports.getCommissionSettings = async (req, res) => {
   try {
     res.json({
       success: true,
+      message: 'Commission feature disabled. Owners/vendors receive full amount minus platform fee.',
       settings: {
         commissionRate: 0
       },
@@ -305,11 +307,12 @@ exports.getCommissionSettings = async (req, res) => {
 
 // @desc    Update commission rate
 // @route   PUT /api/admin/commission
+// DEPRECATED: Commission feature is disabled
 exports.updateCommissionRate = async (req, res) => {
   try {
     res.json({
       success: true,
-      message: 'Commission is disabled. Rate set to 0.',
+      message: 'Commission feature is disabled. Rate is fixed at 0%.',
       settings: { commissionRate: 0 }
     });
   } catch (error) {
@@ -353,7 +356,7 @@ exports.updatePlatformSettings = async (req, res) => {
     const PlatformSettings = require('../models/PlatformSettings');
     const { uploadToCloudinary } = require('../config/cloudinary');
     const { 
-      gstRate, platformFeeType, platformFeeValue, platformFeePercentage, commissionRate,
+      gstRate, platformFeeType, platformFeeValue, platformFeePercentage,
       venueCGST, venueSGST, venueHSN, platformCGST, platformSGST,
       // Service fields
       serviceCGST, serviceSGST, serviceHSN, servicePlatformFee, servicePlatformCGST, servicePlatformSGST, serviceCategoryRates
@@ -367,7 +370,6 @@ exports.updatePlatformSettings = async (req, res) => {
       settings.platformFeeType = platformFeeType || settings.platformFeeType;
       settings.platformFeeValue = feeValue !== undefined ? feeValue : settings.platformFeeValue;
       settings.platformFeePercentage = feeValue !== undefined ? feeValue : settings.platformFeePercentage;
-      settings.commissionRate = commissionRate !== undefined ? commissionRate : settings.commissionRate;
       settings.venueCGST = venueCGST !== undefined ? venueCGST : settings.venueCGST;
       settings.venueSGST = venueSGST !== undefined ? venueSGST : settings.venueSGST;
       settings.venueHSN = venueHSN !== undefined ? venueHSN : settings.venueHSN;
@@ -398,7 +400,6 @@ exports.updatePlatformSettings = async (req, res) => {
       const newSettings = {
         gstRate: gstRate || 18, platformFeeType: platformFeeType || 'percentage',
         platformFeeValue: feeValue || 5, platformFeePercentage: feeValue || 5,
-        commissionRate: commissionRate || 0,
         venueCGST: venueCGST || 9, venueSGST: venueSGST || 9, venueHSN: venueHSN || '',
         platformCGST: platformCGST || 9, platformSGST: platformSGST || 9,
         serviceCGST: serviceCGST || 9, serviceSGST: serviceSGST || 9,
@@ -542,7 +543,7 @@ exports.getAllUsers = async (req, res) => {
 
     if (isExport === 'true') {
       const users = await User.find(query)
-        .select('-password -kyc -employeeDetails.bankDetails -employeeDetails.documents -gstNumber -panNumber')
+        .select('-password -employeeDetails.bankDetails -employeeDetails.documents -gstNumber -panNumber')
         .populate('referredBy', 'name email')
         .populate('referrals.user', 'name email role')
         .sort('-createdAt');
@@ -577,7 +578,7 @@ exports.getAllUsers = async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const [users, total] = await Promise.all([
       User.find(query)
-        .select('-password -kyc -employeeDetails.bankDetails -employeeDetails.documents -gstNumber -panNumber')
+        .select('-password -employeeDetails.bankDetails -employeeDetails.documents -gstNumber -panNumber')
         .populate('referredBy', 'name email')
         .populate('referrals.user', 'name email role')
         .sort('-createdAt')
@@ -642,7 +643,7 @@ exports.getAllUsers = async (req, res) => {
 exports.getUser = async (req, res) => {
   try {
     const user = await User.findById(req.params.id)
-      .select('-password -kyc -employeeDetails.bankDetails -employeeDetails.documents')
+      .select('-password -employeeDetails.bankDetails -employeeDetails.documents')
       .populate('referredBy', 'name email')
       .populate('referrals.user', 'name email role');
     
@@ -940,12 +941,34 @@ exports.getAllPayments = async (req, res) => {
     const filter = { paymentStatus: { $exists: true }, ...dateMatch };
     if (status && status !== 'all') filter.paymentStatus = status;
 
-    // ── Fetch ─────────────────────────────────────────────────────────────────
-    let payments = await Booking.find(filter)
+    // ── Fetch Venue Bookings ──────────────────────────────────────────────────
+    let venuePayments = await Booking.find(filter)
       .populate('venue', 'businessName location owner images')
       .populate('customer', 'name email phone')
       .populate({ path: 'venue', populate: { path: 'owner', select: 'name email phone' } })
-      .sort('-createdAt');
+      .sort('-createdAt')
+      .lean();
+
+    // Add type field to venue bookings
+    venuePayments = venuePayments.map(p => ({ ...p, bookingType: 'venue' }));
+
+    // ── Fetch Vendor Service Bookings ─────────────────────────────────────────
+    const ServiceBooking = require('../models/ServiceBooking');
+    let servicePayments = await ServiceBooking.find(filter)
+      .populate('service', 'title category companyName city state')
+      .populate('vendor', 'name email phone')
+      .populate('customer', 'name email phone')
+      .sort('-createdAt')
+      .lean();
+
+    // Add type field to service bookings
+    servicePayments = servicePayments.map(p => ({ ...p, bookingType: 'service' }));
+
+    // ── Combine both payment arrays ───────────────────────────────────────────
+    let payments = [...venuePayments, ...servicePayments];
+    
+    // Sort combined array by createdAt
+    payments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     // ── Search filter (in-memory — name/email/paymentId) ─────────────────────
     if (search) {
@@ -955,60 +978,52 @@ exports.getAllPayments = async (req, res) => {
         p.paymentDetails?.razorpay_order_id?.toLowerCase().includes(q) ||
         p.customer?.name?.toLowerCase().includes(q) ||
         p.customer?.email?.toLowerCase().includes(q) ||
+        (p.customerInfo?.name?.toLowerCase().includes(q)) ||
+        (p.customerInfo?.email?.toLowerCase().includes(q)) ||
         p.venue?.businessName?.toLowerCase().includes(q) ||
+        p.service?.title?.toLowerCase().includes(q) ||
+        p.service?.companyName?.toLowerCase().includes(q) ||
         p.bookingNumber?.toLowerCase().includes(q)
       );
     }
 
-    // ── Backfill ledger for old paid bookings ─────────────────────────────────
-    const backfillPromises = [];
-    for (const booking of payments) {
-      const txns = booking.paymentLedger?.transactions || [];
-      if (txns.length === 0) {
-        if (!booking.paymentLedger) booking.paymentLedger = { transactions: [], adjustments: [] };
-        if (!booking.paymentLedger.transactions) booking.paymentLedger.transactions = [];
-
-        if ((booking.paymentStatus === 'paid' || booking.paymentStatus === 'refunded') && booking.paymentDetails?.razorpay_payment_id) {
-          booking.paymentLedger.transactions.push({
-            txnId: booking.paymentDetails.razorpay_payment_id,
-            type: 'payment', amount: booking.amount, status: 'completed',
-            note: `Razorpay — Order: ${booking.paymentDetails.razorpay_order_id || 'N/A'}`,
-            date: booking.paymentDetails.paidAt || booking.updatedAt
-          });
-          if (booking.refundDetails?.refundAmount) {
-            booking.paymentLedger.transactions.push({
-              txnId: booking.refundDetails.refundId || `REFUND-${booking._id}`,
-              type: 'refund', amount: booking.refundDetails.refundAmount,
-              status: booking.refundDetails.refundStatus === 'processed' ? 'completed' : 'pending',
-              note: booking.refundDetails.refundReason || 'Refund processed',
-              date: booking.refundDetails.refundedAt || booking.updatedAt
-            });
-          }
-        } else {
-          booking.paymentLedger.transactions.push({
-            txnId: `BOOKING-${booking._id}`, type: 'payment', amount: booking.amount,
-            status: 'pending', note: `Booking created — ₹${(booking.amount || 0).toLocaleString()} due`,
-            date: booking.createdAt
-          });
-        }
-        booking.markModified('paymentLedger');
-        backfillPromises.push(booking.save({ validateBeforeSave: false }));
-      }
-    }
-    if (backfillPromises.length > 0) await Promise.all(backfillPromises);
-
     // ── Compute stats from filtered set ──────────────────────────────────────
+    const paidPayments = payments.filter(p => p.paymentStatus === 'paid');
+    
     const stats = {
       total:         payments.length,
-      paid:          payments.filter(p => p.paymentStatus === 'paid').length,
+      paid:          paidPayments.length,
       pending:       payments.filter(p => p.paymentStatus === 'pending').length,
       failed:        payments.filter(p => p.paymentStatus === 'failed').length,
       refunded:      payments.filter(p => p.paymentStatus === 'refunded').length,
-      totalRevenue:  payments.filter(p => p.paymentStatus === 'paid').reduce((s, p) => s + (p.amount || 0), 0),
-      ownerEarnings: payments.filter(p => p.paymentStatus === 'paid').reduce((s, p) => s + (p.ownerEarnings || 0), 0),
-      totalPlatformFee: payments.filter(p => p.paymentStatus === 'paid').reduce((s, p) => s + (p.priceBreakdown?.platformFee || p.platformInvoice?.platformFee || 0), 0),
-      totalPlatformGST: payments.filter(p => p.paymentStatus === 'paid').reduce((s, p) => s + (p.priceBreakdown?.platformFeeGST || (p.platformInvoice ? (p.platformInvoice.cgst || 0) + (p.platformInvoice.sgst || 0) : 0) || 0), 0),
-      totalPlatformRevenue: payments.filter(p => p.paymentStatus === 'paid').reduce((s, p) => s + (p.priceBreakdown?.platformFeeTotal || p.platformInvoice?.total || 0), 0),
+      totalRevenue:  paidPayments.reduce((s, p) => s + (p.amount || 0), 0),
+      ownerEarnings: paidPayments.reduce((s, p) => s + (p.ownerEarnings || 0), 0),
+      totalPlatformFee: paidPayments.reduce((s, p) => {
+        // For venue bookings
+        if (p.bookingType === 'venue') {
+          return s + (p.priceBreakdown?.platformFee || p.platformInvoice?.platformFee || 0);
+        }
+        // For service bookings
+        return s + (p.pricing?.platformFee || 0);
+      }, 0),
+      totalPlatformGST: paidPayments.reduce((s, p) => {
+        // For venue bookings
+        if (p.bookingType === 'venue') {
+          return s + (p.priceBreakdown?.platformFeeGST || (p.platformInvoice ? (p.platformInvoice.cgst || 0) + (p.platformInvoice.sgst || 0) : 0) || 0);
+        }
+        // For service bookings
+        return s + (p.pricing?.platformFeeGST || 0);
+      }, 0),
+      totalPlatformRevenue: paidPayments.reduce((s, p) => {
+        // For venue bookings
+        if (p.bookingType === 'venue') {
+          return s + (p.priceBreakdown?.platformFeeTotal || p.platformInvoice?.total || 0);
+        }
+        // For service bookings
+        const platformFee = p.pricing?.platformFee || 0;
+        const platformGST = p.pricing?.platformFeeGST || 0;
+        return s + (platformFee + platformGST);
+      }, 0),
     };
 
     if (isExport === 'true') {
@@ -1119,19 +1134,176 @@ exports.getReports = async (req, res) => {
     const dateFilter = { createdAt: { $gte: queryStartDate, $lte: queryEndDate } };
 
     // ── Venue Bookings ──────────────────────────────────────────────────────
-    const allBookings = await Booking.find(dateFilter).populate('venue', 'businessName location owner').populate('customer', 'name email');
+    const allBookings = await Booking.find(dateFilter)
+      .populate({
+        path: 'venue',
+        select: 'businessName location owner bankDetails',
+        populate: { path: 'owner', select: 'name email' }
+      })
+      .populate('customer', 'name email');
     const paidBookings = allBookings.filter(b => b.paymentStatus === 'paid');
 
+    console.log(`📊 Reports Debug - Total Bookings: ${allBookings.length}, Paid: ${paidBookings.length}`);
+    
     const totalRevenue = paidBookings.reduce((s, b) => s + (b.amount || 0), 0);
-    const platformFeeTotal = paidBookings.reduce((s, b) => s + (b.priceBreakdown?.platformFeeTotal || 0), 0);
-    const ownerEarnings = paidBookings.reduce((s, b) => s + (b.ownerEarnings || 0), 0);
+    const venuePlatformFeeTotal = paidBookings.reduce((s, b) => s + (b.priceBreakdown?.platformFeeTotal || 0), 0);
+    const ownerEarnings = paidBookings.reduce((s, b) => {
+      console.log(`  Booking ${b.bookingNumber}: ownerEarnings = ${b.ownerEarnings || 0}`);
+      return s + (b.ownerEarnings || 0);
+    }, 0);
     const venueGSTTotal = paidBookings.reduce((s, b) => s + (b.priceBreakdown?.gst || 0), 0);
     const discountTotal = paidBookings.reduce((s, b) => s + (b.priceBreakdown?.discount || 0), 0);
+    
+    console.log(`💰 Total Owner Earnings: ₹${ownerEarnings}`);
 
     // ── Service Bookings ────────────────────────────────────────────────────
     const allSvcBookings = await ServiceBooking.find(dateFilter).populate('vendor', 'name email').populate('service', 'title category');
     const paidSvcBookings = allSvcBookings.filter(b => b.paymentStatus === 'paid');
     const svcRevenue = paidSvcBookings.reduce((s, b) => s + (b.amount || 0), 0);
+    
+    // Calculate service platform fee total (platformFee + platformFeeGST)
+    const svcPlatformFeeTotal = paidSvcBookings.reduce((s, b) => {
+      const platformFee = b.pricing?.platformFee || 0;
+      const platformFeeGST = b.pricing?.platformFeeGST || 0;
+      return s + platformFee + platformFeeGST;
+    }, 0);
+
+    const getSvcPayout = (b) => {
+      const pricing = b.pricing || {};
+      const subtotal = pricing.subtotal || 0;
+      const serviceCGST = pricing.serviceCGST || pricing.serviceCgst || (pricing.cgstPct ? Math.round(subtotal * pricing.cgstPct / 100) : 0);
+      const serviceSGST = pricing.serviceSGST || pricing.serviceSgst || (pricing.sgstPct ? Math.round(subtotal * pricing.sgstPct / 100) : 0);
+      const serviceTotal = subtotal + serviceCGST + serviceSGST;
+      const discount = b.coupon?.discountAmount || pricing.discount || 0;
+      // phase2 work: check for coupon sponsorship type
+      // const isVendorSponsored = b.coupon?.isVendorSponsored || false;
+      // if (isVendorSponsored) {
+      //   return Math.round(Math.max(0, serviceTotal - discount));
+      // } else {
+      //   return Math.round(serviceTotal);
+      // }
+      return Math.round(Math.max(0, serviceTotal - discount));
+    };
+
+    // Calculate vendor earnings (respecting coupon sponsorship, excluding platform fee + platform fee GST)
+    const vendorEarnings = paidSvcBookings.reduce((s, b) => {
+      return s + getSvcPayout(b);
+    }, 0);
+
+    // Calculate service GST collected (with percentage fallback)
+    const serviceGSTTotal = paidSvcBookings.reduce((s, b) => {
+      const subtotal = b.pricing?.subtotal || 0;
+      const serviceCGST = b.pricing?.serviceCGST || b.pricing?.serviceCgst || (b.pricing?.cgstPct ? Math.round(subtotal * b.pricing.cgstPct / 100) : 0);
+      const serviceSGST = b.pricing?.serviceSGST || b.pricing?.serviceSgst || (b.pricing?.sgstPct ? Math.round(subtotal * b.pricing.sgstPct / 100) : 0);
+      return s + serviceCGST + serviceSGST;
+    }, 0);
+
+    // Combined platform fee (venue + service)
+    const totalPlatformFee = venuePlatformFeeTotal + svcPlatformFeeTotal;
+
+    // ── Settlements Calculations ──────────────────────────────────────────────
+    const settledVenueBookings = paidBookings.filter(b => b.settlementStatus === 'settled');
+    const venueSettled = settledVenueBookings.reduce((s, b) => s + (b.ownerEarnings || 0), 0);
+    const pendingVenueBookings = paidBookings.filter(b => b.settlementStatus !== 'settled');
+    const venuePending = pendingVenueBookings.reduce((s, b) => s + (b.ownerEarnings || 0), 0);
+
+    const settledSvcBookings = paidSvcBookings.filter(b => b.settlementStatus === 'settled');
+    const serviceSettled = settledSvcBookings.reduce((s, b) => s + getSvcPayout(b), 0);
+    const pendingSvcBookings = paidSvcBookings.filter(b => b.settlementStatus !== 'settled');
+    const servicePending = pendingSvcBookings.reduce((s, b) => s + getSvcPayout(b), 0);
+
+    // Build unified settlement records for all completed & paid bookings in the range
+    const maskAccountNumber = (accNum) => {
+      if (!accNum) return 'N/A';
+      const str = String(accNum);
+      if (str.length <= 4) return str;
+      return 'X'.repeat(str.length - 4) + str.slice(-4);
+    };
+
+    const VendorProfile = require('../models/VendorProfile');
+    const vendorProfiles = await VendorProfile.find({});
+    const vendorProfileMap = {};
+    vendorProfiles.forEach(vp => {
+      if (vp.user) {
+        vendorProfileMap[vp.user.toString()] = vp.bankDetails;
+      }
+    });
+
+    const venueRecords = paidBookings
+      .filter(b => b.status === 'completed')
+      .map(b => {
+        let bankDetails = null;
+        if (b.venue?.bankDetails) {
+          let rawAccountNumber = b.venue.bankDetails.accountNumber;
+          if (rawAccountNumber) {
+            try {
+              const { decrypt } = require('../utils/encryption');
+              rawAccountNumber = decrypt(rawAccountNumber);
+            } catch (err) {
+              // already decrypted or fallback
+            }
+          }
+          bankDetails = {
+            accountHolderName: b.venue.bankDetails.accountHolderName,
+            accountNumber: maskAccountNumber(rawAccountNumber),
+            ifscCode: b.venue.bankDetails.ifscCode,
+            bankName: b.venue.bankDetails.bankName,
+            branchName: b.venue.bankDetails.branchName,
+            accountType: b.venue.bankDetails.accountType
+          };
+        }
+        return {
+          id: b._id,
+          bookingNumber: b.bookingNumber,
+          type: 'venue',
+          businessName: b.venue?.businessName || 'N/A',
+          partnerName: b.venue?.owner?.name || 'N/A',
+          partnerEmail: b.venue?.owner?.email || 'N/A',
+          totalAmount: b.amount || 0,
+          payoutAmount: b.ownerEarnings || Math.max(0, (b.amount || 0) - (b.priceBreakdown?.platformFeeTotal || 0)),
+          settlementStatus: b.settlementStatus || 'unsettled',
+          settlementDetails: b.settlementDetails || {},
+          completedAt: b.settlementDetails?.settledAt || b.updatedAt,
+          createdAt: b.createdAt,
+          bankDetails
+        };
+      });
+
+    const serviceRecords = paidSvcBookings
+      .filter(b => b.status === 'completed')
+      .map(b => {
+        const vendorId = b.vendor?._id?.toString() || b.vendor?.toString();
+        const vendorBankDetails = vendorId ? vendorProfileMap[vendorId] : null;
+        let bankDetails = null;
+        if (vendorBankDetails) {
+          bankDetails = {
+            accountHolderName: vendorBankDetails.accountHolderName,
+            accountNumber: maskAccountNumber(vendorBankDetails.accountNumber || vendorBankDetails.accountNumberCard),
+            ifscCode: vendorBankDetails.ifscCode || vendorBankDetails.ifsc,
+            bankName: vendorBankDetails.bankName,
+            branchName: vendorBankDetails.branchName,
+            accountType: vendorBankDetails.accountType
+          };
+        }
+        return {
+          id: b._id,
+          bookingNumber: b.bookingNumber,
+          type: 'service',
+          businessName: b.serviceSnapshot?.title || b.service?.title || 'N/A',
+          partnerName: b.vendor?.name || 'N/A',
+          partnerEmail: b.vendor?.email || 'N/A',
+          totalAmount: Number(b.pricing?.total ?? b.amount ?? 0),
+          payoutAmount: getSvcPayout(b),
+          settlementStatus: b.settlementStatus || 'unsettled',
+          settlementDetails: b.settlementDetails || {},
+          completedAt: b.settlementDetails?.settledAt || b.updatedAt,
+          createdAt: b.createdAt,
+          bankDetails
+        };
+      });
+
+    const settlementRecords = [...venueRecords, ...serviceRecords]
+      .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
 
     // ── Users ───────────────────────────────────────────────────────────────
     const [totalUsers, customers, owners, vendors, newUsers] = await Promise.all([
@@ -1170,7 +1342,7 @@ exports.getReports = async (req, res) => {
     // ── Top Owners by Earnings ──────────────────────────────────────────────
     const ownerEarningsMap = {};
     paidBookings.forEach(b => {
-      const ownerId = b.venue?.owner?.toString();
+      const ownerId = b.venue?.owner?._id?.toString() || b.venue?.owner?.toString();
       if (!ownerId) return;
       if (!ownerEarningsMap[ownerId]) ownerEarningsMap[ownerId] = { earnings: 0, bookings: 0 };
       ownerEarningsMap[ownerId].earnings += b.ownerEarnings || 0;
@@ -1244,9 +1416,13 @@ exports.getReports = async (req, res) => {
       reports: {
         revenue: {
           total: totalRevenue,
-          platformFee: Math.round(platformFeeTotal),
+          platformFee: Math.round(totalPlatformFee),
+          venuePlatformFee: Math.round(venuePlatformFeeTotal),
+          servicePlatformFee: Math.round(svcPlatformFeeTotal),
           ownerEarnings: Math.round(ownerEarnings),
+          vendorEarnings: Math.round(vendorEarnings),
           venueGST: Math.round(venueGSTTotal),
+          serviceGST: Math.round(serviceGSTTotal),
           discountGiven: Math.round(discountTotal),
           serviceRevenue: svcRevenue,
           grandTotal: totalRevenue + svcRevenue,
@@ -1279,6 +1455,17 @@ exports.getReports = async (req, res) => {
           paid: svcPayGroups.paid, paidAmount: svcPayGroups.paidAmt,
           pending: svcPayGroups.pending, pendingAmount: svcPayGroups.pendingAmt,
           failed: svcPayGroups.failed, failedAmount: svcPayGroups.failedAmt
+        },
+        settlements: {
+          totalSettled: Math.round(venueSettled + serviceSettled),
+          totalPending: Math.round(venuePending + servicePending),
+          venueSettled: Math.round(venueSettled),
+          venuePending: Math.round(venuePending),
+          serviceSettled: Math.round(serviceSettled),
+          servicePending: Math.round(servicePending),
+          venueFailedCount: allBookings.filter(b => b.settlementStatus === 'failed').length,
+          serviceFailedCount: allSvcBookings.filter(b => b.settlementStatus === 'failed').length,
+          records: settlementRecords
         }
       }
     });
@@ -2165,6 +2352,54 @@ exports.getVenueAnalytics = async (req, res) => {
     });
   } catch (error) {
     console.error('Venue analytics error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Settle venue booking payout manually or retry automatic
+// @route   POST /api/admin/bookings/:id/settle
+exports.settleBookingManual = async (req, res) => {
+  try {
+    const { method, transactionId, remarks } = req.body;
+    const { settleBooking } = require('../utils/settlementHelper');
+
+    const booking = await settleBooking(req.params.id, 'venue', {
+      method: method || 'automatic',
+      transactionId,
+      remarks
+    });
+
+    res.json({
+      success: true,
+      message: method === 'manual' ? 'Booking settled manually' : 'Automatic settlement processed',
+      booking
+    });
+  } catch (error) {
+    console.error('Settle booking error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Settle service booking payout manually or retry automatic
+// @route   POST /api/admin/service-bookings/:id/settle
+exports.settleServiceBookingManual = async (req, res) => {
+  try {
+    const { method, transactionId, remarks } = req.body;
+    const { settleBooking } = require('../utils/settlementHelper');
+
+    const booking = await settleBooking(req.params.id, 'service', {
+      method: method || 'automatic',
+      transactionId,
+      remarks
+    });
+
+    res.json({
+      success: true,
+      message: method === 'manual' ? 'Service booking settled manually' : 'Automatic service settlement processed',
+      booking
+    });
+  } catch (error) {
+    console.error('Settle service booking error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

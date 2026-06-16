@@ -231,8 +231,8 @@ export default function ServiceQuotationModal({ booking, svc, form, selectedDate
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
-          <div ref={quotationRef} className="bg-white rounded-xl shadow-sm overflow-hidden"
+        <div className="flex-1 overflow-auto p-4 bg-gray-50">
+          <div ref={quotationRef} className="bg-white rounded-xl shadow-sm overflow-x-auto"
             dangerouslySetInnerHTML={{ __html: buildHTML(null) }} />
         </div>
       </div>

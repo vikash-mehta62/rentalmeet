@@ -2,6 +2,7 @@ const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const Booking = require('../models/Booking');
 const ServiceBooking = require('../models/ServiceBooking');
+const { calculateServiceConfirmationDeadline } = require('../utils/confirmationDeadline');
 
 // Create Razorpay Order
 exports.createOrder = async (req, res) => {
@@ -61,7 +62,7 @@ exports.verifyPayment = async (req, res) => {
       booking.paymentStatus = 'paid';
       booking.status = 'pending';
       const hours = booking.service?.confirmationHours || 3;
-      booking.confirmationDeadline = new Date(Date.now() + hours * 60 * 60 * 1000);
+      booking.confirmationDeadline = calculateServiceConfirmationDeadline(booking.service, hours);
       booking.paymentDetails = { razorpay_order_id, razorpay_payment_id, razorpay_signature, paidAt: new Date() };
       await booking.save();
       return res.json({ success: true, message: 'Payment verified', booking });

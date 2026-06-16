@@ -7,7 +7,7 @@ import PermissionGuard from '@/components/admin/PermissionGuard';
 import {
   CreditCard, Search, Filter, Eye, X, Calendar, IndianRupee,
   CheckCircle, XCircle, Clock, AlertCircle, User, Building2,
-  TrendingUp, Download, Plus, RefreshCw, History
+  TrendingUp, Download, Plus, RefreshCw, History, Coins
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import InvoiceDownload from '@/components/booking/InvoiceDownload';
@@ -485,6 +485,7 @@ export default function AdminPayments() {
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Amount</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Owner Gets</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Settlement</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Date</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Actions</th>
               </tr>
@@ -540,6 +541,25 @@ export default function AdminPayments() {
                     </td>
                     <td className="px-6 py-4">
                       {getPaymentStatusBadge(payment.paymentStatus)}
+                    </td>
+                    <td className="px-6 py-4">
+                      {payment.paymentStatus === 'paid' && payment.status === 'completed' ? (
+                        <div>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize ${
+                            payment.settlementStatus === 'settled' ? 'bg-green-100 text-green-700' :
+                            payment.settlementStatus === 'failed' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {payment.settlementStatus || 'unsettled'}
+                          </span>
+                          {payment.settlementDetails?.transactionId && (
+                            <p className="text-[10px] text-gray-400 font-mono mt-1 select-all truncate max-w-[80px]" title={payment.settlementDetails.transactionId}>
+                              {payment.settlementDetails.transactionId}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-gray-400 italic">N/A</span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-sm text-gray-700 flex items-center gap-2">
@@ -660,8 +680,7 @@ export default function AdminPayments() {
                   </div>
                   <div className="bg-white rounded-lg p-3 flex justify-between items-center">
                     <div>
-                      <span className="text-gray-700">Platform Commission</span>
-                      <span className="text-xs text-gray-500 ml-2">({selectedPayment.commissionRate}%)</span>
+                      <span className="text-gray-700">Platform Fee</span>
                     </div>
                     <span className="text-xl font-bold text-purple-600">
                       ₹{selectedPayment.commission?.toLocaleString()}
@@ -674,6 +693,138 @@ export default function AdminPayments() {
                     </span>
                   </div>
                 </div>
+
+                {/* Settlement Payout Details */}
+                {selectedPayment.paymentStatus === 'paid' && selectedPayment.status === 'completed' && (
+                  <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg p-4 border border-purple-200 space-y-3">
+                    <h3 className="text-lg font-semibold text-purple-900 flex items-center gap-2">
+                      <Coins className="w-5 h-5" />
+                      Payout Settlement Details
+                    </h3>
+                    
+                    <div className="grid grid-cols-2 gap-4 text-sm bg-white rounded-lg p-3">
+                      <div>
+                        <p className="text-gray-500 text-xs">Settlement Status</p>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize inline-block mt-1 ${
+                          selectedPayment.settlementStatus === 'settled' ? 'bg-green-100 text-green-700' :
+                          selectedPayment.settlementStatus === 'failed' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {selectedPayment.settlementStatus || 'unsettled'}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 text-xs">Payout Amount (Excl. Platform Fee)</p>
+                        <p className="font-bold text-gray-900 mt-1">₹{selectedPayment.ownerEarnings?.toLocaleString('en-IN')}</p>
+                      </div>
+                      {selectedPayment.settlementDetails?.transactionId && (
+                        <div className="col-span-2">
+                          <p className="text-gray-500 text-xs">Reference ID / Txn Hash</p>
+                          <code className="text-xs font-mono bg-gray-50 px-1.5 py-0.5 rounded block mt-1 break-all select-all text-gray-800">
+                            {selectedPayment.settlementDetails.transactionId}
+                          </code>
+                        </div>
+                      )}
+                      {selectedPayment.settlementDetails?.remarks && (
+                        <div className="col-span-2">
+                          <p className="text-gray-500 text-xs">Details / Remarks</p>
+                          <p className="text-xs text-gray-700 mt-1 italic">{selectedPayment.settlementDetails.remarks}</p>
+                        </div>
+                      )}
+                      {selectedPayment.settlementDetails?.settledAt && (
+                        <div className="col-span-2">
+                          <p className="text-gray-500 text-xs">Settled Date & Time</p>
+                          <p className="text-xs font-semibold text-gray-800 mt-1">
+                            {new Date(selectedPayment.settlementDetails.settledAt).toLocaleString('en-IN')}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Owner Bank details preview */}
+                    <div className="bg-white rounded-lg p-3 text-xs space-y-2 border border-gray-100">
+                      <p className="font-bold text-gray-800">Linked Bank Account Details</p>
+                      {selectedPayment.venue?.bankDetails ? (
+                        <div className="grid grid-cols-2 gap-2 text-gray-600">
+                          <p>Holder: <span className="font-semibold text-gray-800">{selectedPayment.venue.bankDetails.accountHolderName || '—'}</span></p>
+                          <p>Bank: <span className="font-semibold text-gray-800">{selectedPayment.venue.bankDetails.bankName || '—'}</span></p>
+                          <p>A/C No: <span className="font-semibold text-gray-800">
+                            {selectedPayment.venue.bankDetails.accountNumber ? `••••••••${selectedPayment.venue.bankDetails.accountNumber.slice(-4)}` : '—'}
+                          </span></p>
+                          <p>IFSC: <span className="font-semibold text-gray-800">{selectedPayment.venue.bankDetails.ifscCode || '—'}</span></p>
+                        </div>
+                      ) : (
+                        <p className="text-red-500 italic">No bank account linked to this venue.</p>
+                      )}
+                    </div>
+
+                    {/* Action Buttons for Admin */}
+                    {selectedPayment.settlementStatus !== 'settled' && (
+                      <div className="flex gap-2 pt-2">
+                        <button
+                          onClick={async () => {
+                            try {
+                              const loadingToast = toast.loading('Attempting automatic settlement...');
+                              const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/bookings/${selectedPayment._id}/settle`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                body: JSON.stringify({ method: 'automatic' })
+                              });
+                              const rData = await res.json();
+                              toast.dismiss(loadingToast);
+                              if (rData.success) {
+                                toast.success('Payout automatic settlement completed successfully!');
+                                setSelectedPayment(rData.booking);
+                                fetchPayments();
+                              } else {
+                                toast.error(rData.message || 'Settlement failed. Please check bank details.');
+                                fetchPayments();
+                              }
+                            } catch (err) {
+                              toast.error('Network error triggering settlement.');
+                            }
+                          }}
+                          className="flex-1 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-colors shadow-sm"
+                        >
+                          Retry Auto-Payout
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            const txn = prompt('Enter manual bank transaction reference/UTN ID:');
+                            if (txn === null) return;
+                            const remark = prompt('Enter manual settlement remarks (optional):', 'Settled manually after verification');
+                            if (remark === null) return;
+                            
+                            (async () => {
+                              try {
+                                const loadingToast = toast.loading('Recording manual settlement...');
+                                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/bookings/${selectedPayment._id}/settle`, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                  body: JSON.stringify({ method: 'manual', transactionId: txn, remarks: remark })
+                                });
+                                const rData = await res.json();
+                                toast.dismiss(loadingToast);
+                                if (rData.success) {
+                                  toast.success('Booking payout marked settled successfully!');
+                                  setSelectedPayment(rData.booking);
+                                  fetchPayments();
+                                } else {
+                                  toast.error(rData.message || 'Action failed.');
+                                }
+                              } catch (err) {
+                                toast.error('Network error.');
+                              }
+                            })();
+                          }}
+                          className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-bold transition-colors border border-gray-200"
+                        >
+                          Mark Settled Manually
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Customer Details */}
@@ -949,7 +1100,7 @@ export default function AdminPayments() {
                               </div>
                             </div>
                           ))}
-                          {txns.filter(t => t.type !== 'adjustment').map((txn, i) => (
+                          {txns.filter(t => t.type !== 'adjustment' && !t.txnId?.startsWith('BOOKING-')).map((txn, i) => (
                             <div key={`txn-${i}`} className={`flex items-start gap-3 text-xs p-3 rounded-lg border ${['payment','manual_payment'].includes(txn.type) ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
                               <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${['payment','manual_payment'].includes(txn.type) ? 'bg-green-200' : 'bg-red-200'}`}>
                                 {['payment','manual_payment'].includes(txn.type) ? <CheckCircle className="w-4 h-4 text-green-700" /> : <XCircle className="w-4 h-4 text-red-700" />}

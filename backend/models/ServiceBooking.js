@@ -11,21 +11,23 @@ const serviceBookingSchema = new mongoose.Schema({
 
   // Customer snapshot
   customerInfo: {
-    name:      String,
-    email:     String,
-    phone:     String,
-    company:   String,
-    eventName: String,
-    notes:     String,
+    name:       String,
+    email:      String,
+    phone:      String,
+    company:    String,
+    gstNumber:  String,  // Customer GST number
+    eventName:  String,
+    notes:      String,
   },
 
-  // Service snapshot
+  // Service snapshot (includes vendor details)
   serviceSnapshot: {
     title:       String,
     category:    String,
     companyName: String,
     city:        String,
     state:       String,
+    gstNumber:   String,  // Vendor GST number
   },
 
   // Selected items
@@ -54,7 +56,12 @@ const serviceBookingSchema = new mongoose.Schema({
   paymentStatus: { type: String, enum: ['pending', 'paid', 'failed', 'refunded'], default: 'pending' },
   paymentDetails: { razorpay_order_id: String, razorpay_payment_id: String, razorpay_signature: String, paidAt: Date },
   amount: Number,
-  coupon: { couponId: { type: mongoose.Schema.Types.ObjectId, ref: 'Coupon' }, code: String, discountAmount: Number },
+  coupon: { 
+    couponId: { type: mongoose.Schema.Types.ObjectId, ref: 'Coupon' }, 
+    code: String, 
+    discountAmount: Number,
+    isVendorSponsored: { type: Boolean, default: false }
+  },
   downloadedAt: Date,
 
   cancellationReason: String,
@@ -81,6 +88,24 @@ const serviceBookingSchema = new mongoose.Schema({
     refundStatus: { type: String, enum: ['pending', 'processed', 'failed'] },
     refundedAt: Date,
     refundReason: String
+  },
+  // Payout Settlement tracking
+  settlementStatus: {
+    type: String,
+    enum: ['unsettled', 'settled', 'failed'],
+    default: 'unsettled',
+    index: true
+  },
+  settlementDetails: {
+    transactionId: String,   // Payout reference (Razorpay / Manual UTN)
+    settledAt: Date,
+    amount: Number,
+    remarks: String,         // Success details or Failure reason
+    settlementMethod: {
+      type: String,
+      enum: ['automatic', 'manual'],
+      default: 'automatic'
+    }
   },
 }, { timestamps: true });
 

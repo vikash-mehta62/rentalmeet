@@ -10,6 +10,7 @@ import {
 import OwnerLayout from '@/components/owner/OwnerLayout';
 import InvoiceDownload from '@/components/booking/InvoiceDownload';
 import PaymentHistoryModal from '@/components/admin/PaymentHistoryModal';
+import { VenueAmenitiesDetails, VenueBookingPartyCards, VenueInvoiceBreakdownCards } from '@/components/booking/VenueBookingSummaryCards';
 import toast from 'react-hot-toast';
 
 export default function OwnerBookings() {
@@ -186,7 +187,39 @@ export default function OwnerBookings() {
     );
   };
 
-  const handleCompleteClick = (bookingId, isModal = false) => {
+  // Check if booking can be completed (event must be over)
+  const canCompleteBooking = (booking) => {
+    if (!booking.bookingDate || !booking.endTime) return false;
+    
+    const bookingDate = new Date(booking.bookingDate);
+    const cleanStr = booking.endTime.trim().toUpperCase();
+    const isPM = cleanStr.includes('PM');
+    const isAM = cleanStr.includes('AM');
+    const digitsOnly = cleanStr.replace(/[AP]M/, '').trim();
+    const parts = digitsOnly.split(':');
+    let hours = parseInt(parts[0], 10) || 0;
+    let minutes = parseInt(parts[1], 10) || 0;
+    
+    if (isPM || isAM) {
+      if (isPM && hours < 12) hours += 12;
+      if (isAM && hours === 12) hours = 0;
+    }
+    
+    // Set the end time on booking date
+    const bookingEndDateTime = new Date(bookingDate);
+    bookingEndDateTime.setHours(hours, minutes, 0, 0);
+    
+    // Check if current time is past the booking end time
+    const now = new Date();
+    return now > bookingEndDateTime;
+  };
+
+  const handleCompleteClick = (bookingId, booking, isModal = false) => {
+    if (!canCompleteBooking(booking)) {
+      toast.error('Booking can only be completed after the event end time');
+      return;
+    }
+    
     requestConfirm(
       'Mark Booking Completed',
       'Are you sure you want to mark this booking as completed?',
@@ -494,8 +527,14 @@ export default function OwnerBookings() {
                       )}
                       {booking.status === 'confirmed' && (
                         <button
-                          onClick={() => handleCompleteClick(booking._id)}
-                          className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1"
+                          onClick={() => handleCompleteClick(booking._id, booking)}
+                          disabled={!canCompleteBooking(booking)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 ${
+                            canCompleteBooking(booking)
+                              ? 'bg-blue-500 hover:bg-blue-600 text-white cursor-pointer'
+                              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          }`}
+                          title={!canCompleteBooking(booking) ? 'Can only complete after event end time' : 'Mark as completed'}
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           Mark Completed
@@ -831,7 +870,7 @@ export default function OwnerBookings() {
       {/* Booking Detail Modal — clean design matching customer view */}
       {selectedBooking && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setSelectedBooking(null)}>
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-slate-700">
               <div>
@@ -878,27 +917,7 @@ export default function OwnerBookings() {
                 </div>
               </div>
 
-              {/* Customer Details */}
-              <div className="bg-blue-50 dark:bg-slate-800 rounded-xl p-4">
-                <p className="text-xs font-bold text-blue-700 dark:text-blue-400 mb-3">Customer Details</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                  <p className="flex items-center gap-2 text-gray-700 dark:text-slate-300">
-                    <Mail className="w-3.5 h-3.5 text-blue-500 flex-shrink-0"/>{selectedBooking.customer?.email}
-                  </p>
-                  <p className="flex items-center gap-2 text-gray-700 dark:text-slate-300">
-                    <Phone className="w-3.5 h-3.5 text-blue-500 flex-shrink-0"/>{selectedBooking.customerDetails?.phone || selectedBooking.customer?.phone}
-                  </p>
-                  {selectedBooking.customerDetails?.eventType && (
-                    <p className="text-gray-700 dark:text-slate-300"><span className="font-semibold">Event:</span> {selectedBooking.customerDetails.eventType}</p>
-                  )}
-                  {selectedBooking.customerDetails?.guestCount && (
-                    <p className="text-gray-700 dark:text-slate-300"><span className="font-semibold">Guests:</span> {selectedBooking.customerDetails.guestCount}</p>
-                  )}
-                  {selectedBooking.customerDetails?.specialRequirements && (
-                    <p className="col-span-2 text-gray-700 dark:text-slate-300"><span className="font-semibold">Special Requirements:</span> {selectedBooking.customerDetails.specialRequirements}</p>
-                  )}
-                </div>
-              </div>
+              <VenueBookingPartyCards booking={selectedBooking} />
 
               {/* Cancellation & Refund Details */}
               {selectedBooking.status === 'cancelled' && (
@@ -966,27 +985,9 @@ export default function OwnerBookings() {
                 </div>
               )}
 
-              {/* Price Breakdown */}
-              <div className="bg-gray-50 dark:bg-slate-800 rounded-xl p-4">
-                <p className="text-xs font-bold text-gray-700 dark:text-slate-300 mb-3">Price Breakdown</p>
-                <div className="space-y-1.5 text-sm">
-                  <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">Base Price</span><span className="font-semibold">₹{(selectedBooking.priceBreakdown?.basePrice || 0).toLocaleString()}</span></div>
-                  {selectedBooking.amenitiesTotal > 0 && <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">Amenities</span><span className="font-semibold">₹{selectedBooking.amenitiesTotal?.toLocaleString()}</span></div>}
-                  {selectedBooking.priceBreakdown?.gst > 0 && <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">GST ({selectedBooking.priceBreakdown.gstRate || ''}%)</span><span className="font-semibold">₹{selectedBooking.priceBreakdown.gst?.toLocaleString()}</span></div>}
-                  {selectedBooking.priceBreakdown?.platformFee > 0 && <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">Platform Fee</span><span className="font-semibold">₹{selectedBooking.priceBreakdown.platformFee?.toLocaleString()}</span></div>}
-                  {selectedBooking.priceBreakdown?.platformFeeGST > 0 && <div className="flex justify-between"><span className="text-gray-600 dark:text-slate-400">Platform Fee GST</span><span className="font-semibold">₹{selectedBooking.priceBreakdown.platformFeeGST?.toLocaleString()}</span></div>}
-                  {selectedBooking.priceBreakdown?.discount > 0 && (
-                    <div className="flex justify-between text-green-600">
-                      <span>Coupon Discount {selectedBooking.priceBreakdown.couponCode ? `(${selectedBooking.priceBreakdown.couponCode})` : ''}</span>
-                      <span className="font-semibold">- ₹{selectedBooking.priceBreakdown.discount?.toLocaleString()}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between border-t border-gray-200 dark:border-slate-700 pt-2 mt-1">
-                    <span className="font-bold text-gray-800 dark:text-slate-100">Total</span>
-                    <span className="font-black text-primary-600">₹{(selectedBooking.amount || 0).toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
+              <VenueAmenitiesDetails booking={selectedBooking} />
+
+              <VenueInvoiceBreakdownCards booking={selectedBooking} />
 
               {/* Payment Summary + Transaction History */}
               {(() => {
@@ -1031,7 +1032,7 @@ export default function OwnerBookings() {
                       <div className="border-t border-gray-200 dark:border-slate-700 p-4 bg-white dark:bg-slate-800">
                         <p className="text-xs font-bold text-gray-700 dark:text-slate-300 mb-3">Transaction History</p>
                         <div className="space-y-2.5">
-                          {txns.filter(t => t.type !== 'adjustment').map((txn, i) => {
+                          {txns.filter(t => t.type !== 'adjustment' && !t.txnId?.startsWith('BOOKING-')).map((txn, i) => {
                             const isPay = ['payment','manual_payment'].includes(txn.type);
                             const isRefund = ['refund','manual_refund'].includes(txn.type);
                             return (
@@ -1067,6 +1068,58 @@ export default function OwnerBookings() {
                     <p className="text-xs text-green-600 mt-0.5">After platform fee deduction</p>
                   </div>
                   <p className="text-2xl font-black text-green-600">₹{selectedBooking.ownerEarnings?.toLocaleString()}</p>
+                </div>
+              )}
+
+              {/* Payout Settlement details */}
+              {selectedBooking.status === 'completed' && (
+                <div className="border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-3 bg-white dark:bg-slate-800">
+                  <p className="text-xs font-bold text-gray-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5 border-b border-gray-100 dark:border-slate-700 pb-1.5">
+                    💸 Payout Settlement Status
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <p className="text-gray-400 font-normal">Settlement Status</p>
+                      <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize mt-1 ${
+                        selectedBooking.settlementStatus === 'settled' ? 'bg-green-100 text-green-700' :
+                        selectedBooking.settlementStatus === 'failed' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        {selectedBooking.settlementStatus || 'unsettled'}
+                      </span>
+                    </div>
+                    {selectedBooking.settlementDetails?.amount !== undefined && (
+                      <div>
+                        <p className="text-gray-400 font-normal">Settled Amount</p>
+                        <p className="text-sm font-bold text-gray-800 dark:text-slate-200 mt-1">
+                          ₹{selectedBooking.settlementDetails.amount?.toLocaleString()}
+                        </p>
+                      </div>
+                    )}
+                    {selectedBooking.settlementDetails?.transactionId && (
+                      <div className="col-span-2">
+                        <p className="text-gray-400 font-normal">Transaction Reference</p>
+                        <code className="inline-block font-mono text-gray-800 dark:text-slate-200 bg-gray-50 dark:bg-slate-700 px-1.5 py-0.5 rounded select-all font-semibold mt-1">
+                          {selectedBooking.settlementDetails.transactionId}
+                        </code>
+                      </div>
+                    )}
+                    {selectedBooking.settlementDetails?.settledAt && (
+                      <div>
+                        <p className="text-gray-400 font-normal">Settled At</p>
+                        <p className="text-gray-800 dark:text-slate-200 font-semibold mt-1">
+                          {new Date(selectedBooking.settlementDetails.settledAt).toLocaleString('en-IN')}
+                        </p>
+                      </div>
+                    )}
+                    {selectedBooking.settlementDetails?.remarks && (
+                      <div className="col-span-2 bg-gray-50 dark:bg-slate-700/50 p-2.5 rounded-lg border border-gray-100 dark:border-slate-700 mt-1">
+                        <p className="text-gray-400 font-normal text-[10px] uppercase tracking-wide">Remarks</p>
+                        <p className="text-gray-600 dark:text-slate-400 mt-0.5 leading-relaxed">
+                          {selectedBooking.settlementDetails.remarks}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -1139,8 +1192,14 @@ export default function OwnerBookings() {
               {selectedBooking.status === 'confirmed' && (
                 <div className="mt-4 pt-4 border-t border-gray-100 dark:border-slate-800">
                   <button
-                    onClick={() => handleCompleteClick(selectedBooking._id, true)}
-                    className="w-full py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-semibold text-sm transition-colors flex items-center justify-center gap-1.5"
+                    onClick={() => handleCompleteClick(selectedBooking._id, selectedBooking, true)}
+                    disabled={!canCompleteBooking(selectedBooking)}
+                    className={`w-full py-2.5 rounded-xl font-semibold text-sm transition-colors flex items-center justify-center gap-1.5 ${
+                      canCompleteBooking(selectedBooking)
+                        ? 'bg-blue-500 hover:bg-blue-600 text-white cursor-pointer'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                    title={!canCompleteBooking(selectedBooking) ? 'Can only complete after event end time' : 'Mark as completed'}
                   >
                     <CheckCircle2 className="w-4 h-4" />
                     Mark Completed

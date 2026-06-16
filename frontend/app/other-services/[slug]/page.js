@@ -149,7 +149,7 @@ function AvailabilityCalendar({ availability, blockedDates, advanceBooking, cust
 
 // ── Main Page ─────────────────────────────────────────────────────────────
 export default function ServiceDetailPage() {
-  const { id } = useParams();
+  const { slug } = useParams();
   const router = useRouter();
   const { user, token } = useAuthStore();
 
@@ -200,7 +200,7 @@ export default function ServiceDetailPage() {
       document.body.appendChild(script);
     }
 
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/vendor-services/${id}`)
+    fetch(/^[a-f\d]{24}$/i.test(slug) ? `${process.env.NEXT_PUBLIC_API_URL}/vendor-services/${slug}` : `${process.env.NEXT_PUBLIC_API_URL}/vendor-services/slug/${slug}`)
       .then(r => r.json())
       .then(d => { if (d.success) setSvc(d.service); })
       .catch(() => toast.error('Failed to load service'))
@@ -211,11 +211,16 @@ export default function ServiceDetailPage() {
       .then(d => { if (d.success) setPlatformSettings(d.settings); })
       .catch(() => {});
 
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/service-coupons?serviceId=${id}`)
+  }, [slug]);
+
+  // Fetch coupons only after svc loads so we use the real _id
+  useEffect(() => {
+    if (!svc?._id) return;
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/service-coupons?serviceId=${svc._id}`)
       .then(r => r.json())
       .then(d => { if (d.success) setAvailableCoupons(d.coupons || []); })
       .catch(() => {});
-  }, [id]);
+  }, [svc?._id]);
 
   useEffect(() => {
     setSelectedTime('');
@@ -359,7 +364,7 @@ export default function ServiceDetailPage() {
       .filter(it => it.quantity > 0);
     const notesWithTime = [form.notes?.trim(), selectedTime ? `Preferred Time: ${selectedTime}` : ''].filter(Boolean).join(' | ');
     return {
-      serviceId: id,
+      serviceId: svc._id,
       eventDate: selectedDate,
       customerInfo: { ...form, notes: notesWithTime },
       items,
@@ -514,7 +519,7 @@ export default function ServiceDetailPage() {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/service-coupons/validate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: code.trim(), serviceId: id, bookingAmount: total })
+        body: JSON.stringify({ code: code.trim(), serviceId: svc._id, bookingAmount: total })
       });
       const data = await res.json();
       if (data.success) {
@@ -632,7 +637,7 @@ export default function ServiceDetailPage() {
               {packages.length > 0 && (
                 <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
                   <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><FileText className="w-5 h-5 text-primary-500" />Services & Rate List</h3>
-                  <div className="rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="rounded-xl border border-gray-200 overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50">
                         <tr>
@@ -921,7 +926,7 @@ export default function ServiceDetailPage() {
                   </div>
 
                   {/* Items */}
-                  <div className="rounded-xl border border-gray-200 overflow-hidden text-sm">
+                  <div className="rounded-xl border border-gray-200 overflow-x-auto text-sm">
                     <table className="w-full">
                       <thead className="bg-gray-50"><tr>
                         <th className="text-left px-3 py-2 text-gray-500 text-xs font-semibold">Service</th>

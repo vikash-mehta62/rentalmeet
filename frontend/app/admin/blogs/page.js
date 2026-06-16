@@ -121,7 +121,8 @@ export default function AdminBlogsPage() {
               </button>
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50 text-xs uppercase text-gray-600">
                   <th className="px-4 py-3 text-left">Title</th>
@@ -173,6 +174,7 @@ export default function AdminBlogsPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
 

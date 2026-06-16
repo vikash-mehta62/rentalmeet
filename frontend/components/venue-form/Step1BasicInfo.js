@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { useVenueFormStore } from '@/lib/store';
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { Building2, Users, FileText, Maximize2 } from 'lucide-react';
+import { Building2, Users, FileText, Maximize2, UtensilsCrossed } from 'lucide-react';
 
 const capacityOptions = [
   '10-20', '20-30', '30-40', '40-50', '50-100', '100-200', '200-300',
@@ -15,7 +15,10 @@ const capacityOptions = [
 export default function Step1BasicInfo() {
   const { formData, setFormData, setStep } = useVenueFormStore();
   const { register, handleSubmit, formState: { errors }, watch } = useForm({
-    defaultValues: formData.basicInfo
+    defaultValues: {
+      ...formData.basicInfo,
+      foodType: formData.basicInfo?.foodType || 'Veg'
+    }
   });
   const [venueTypes, setVenueTypes] = useState([]);
   const [loadingTypes, setLoadingTypes] = useState(true);
@@ -109,8 +112,29 @@ export default function Step1BasicInfo() {
         </div>
       </div>
 
-      {/* Row 2: Maximum Capacity | Total Area */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Row 2: Food Type | Maximum Capacity | Total Area */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Food Type */}
+        <div className="form-group">
+          <label className="flex items-center text-sm font-semibold text-dark-700 mb-2">
+            <UtensilsCrossed className="w-4 h-4 mr-2 text-primary-500" />
+            Food Type *
+          </label>
+          <select
+            {...register('foodType', { required: 'Food type is required' })}
+            className="input-field"
+          >
+            <option value="Veg">Veg</option>
+            <option value="Non Veg">Non Veg</option>
+            <option value="Both">Both</option>
+          </select>
+          {errors.foodType && (
+            <p className="text-error text-sm mt-1 flex items-center">
+              <span className="mr-1">!</span> {errors.foodType.message}
+            </p>
+          )}
+        </div>
+
         {/* Maximum Capacity */}
         <div className="form-group">
           <label className="flex items-center text-sm font-semibold text-dark-700 mb-2">

@@ -12,9 +12,17 @@ import {
 import Image from 'next/image';
 import QuotationView from './QuotationView';
 
+function getCapacityLimit(capacity) {
+  const text = String(capacity || '').trim();
+  if (!text || text.toLowerCase().includes('more than')) return null;
+  const values = text.match(/\d+/g)?.map(Number).filter(Number.isFinite) || [];
+  return values.length ? Math.max(...values) : null;
+}
+
 export default function BookingForm({ venue, initialData = {}, initialAmenities = {}, initialQuantities = {}, onClose }) {
   const router = useRouter();
   const { user, token } = useAuthStore();
+  const capacityLimit = getCapacityLimit(venue?.capacity);
   const [submitting, setSubmitting] = useState(false);
   const [showQuotation, setShowQuotation] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(null); // { bookingNumber, bookingId }
@@ -538,8 +546,17 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.bookingType || !formData.bookingDate || !formData.startTime || !formData.endTime) {
+    if (!formData.bookingType || !formData.bookingDate || !formData.startTime || !formData.endTime || !formData.guestCount) {
       toast.error('Please fill all required fields');
+      return;
+    }
+    const guestCount = Number(formData.guestCount);
+    if (!Number.isFinite(guestCount) || guestCount < 1) {
+      toast.error('Please enter a valid guest count');
+      return;
+    }
+    if (capacityLimit && guestCount > capacityLimit) {
+      toast.error(`Guest count cannot exceed ${capacityLimit}`);
       return;
     }
     if (!formData.acceptTerms) {
@@ -862,8 +879,8 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
               </div>
               <div>
                 <label className="block text-sm font-semibold mb-2 dark:text-slate-200">Guest Count *</label>
-                <input type="number" name="guestCount" value={formData.guestCount} onChange={handleChange} min="1" max={venue.capacity} className="w-full px-4 py-3 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-700 text-slate-900 dark:text-slate-100" required />
-                <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">Max: {venue.capacity}</p>
+                <input type="number" name="guestCount" value={formData.guestCount} onChange={handleChange} min="1" max={capacityLimit || undefined} className="w-full px-4 py-3 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-700 text-slate-900 dark:text-slate-100" required />
+                <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">Capacity: {venue.capacity}</p>
               </div>
               <div>
                 <label className="block text-sm font-semibold mb-2 dark:text-slate-200">Special Requirements</label>
@@ -1022,6 +1039,15 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
             onClick={() => {
               if (!formData.bookingType || !formData.bookingDate || !formData.startTime || !formData.endTime || !formData.guestCount || !formData.acceptTerms) {
                 toast.error('Please fill all required fields and accept terms');
+                return;
+              }
+              const guestCount = Number(formData.guestCount);
+              if (!Number.isFinite(guestCount) || guestCount < 1) {
+                toast.error('Please enter a valid guest count');
+                return;
+              }
+              if (capacityLimit && guestCount > capacityLimit) {
+                toast.error(`Guest count cannot exceed ${capacityLimit}`);
                 return;
               }
               setShowQuotation(true);

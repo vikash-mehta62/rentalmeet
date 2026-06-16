@@ -3,6 +3,7 @@ const Venue = require('../models/Venue');
 const Counter = require('../models/Counter');
 const Coupon = require('../models/Coupon');
 const { getCityCode, getStateCode } = require('../utils/cityCodes');
+const { calculateVenueConfirmationDeadline } = require('../utils/confirmationDeadline');
 
 // Helper function to generate booking number
 // Format: STATE(2) + CITY(3) + YEAR(2) + VENUETYPE(2) + SERIAL(6)
@@ -35,6 +36,13 @@ const generateBookingNumber = async (venue) => {
   const bookingNumber = `${stateCode}${cityCode}${year}${venueTypeCode}${sequenceStr}`;
   
   return bookingNumber;
+};
+
+const getCapacityLimit = (capacity) => {
+  const text = String(capacity || '').trim();
+  if (!text || text.toLowerCase().includes('more than')) return null;
+  const values = text.match(/\d+/g)?.map(Number).filter(Number.isFinite) || [];
+  return values.length ? Math.max(...values) : null;
 };
 
 // @desc    Create booking
@@ -105,6 +113,22 @@ exports.createBooking = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Venue not found'
+      });
+    }
+
+    const guestCount = Number(customerDetails?.guestCount);
+    if (!Number.isFinite(guestCount) || guestCount < 1) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid guest count is required'
+      });
+    }
+
+    const capacityLimit = getCapacityLimit(venueDetails.capacity);
+    if (capacityLimit && guestCount > capacityLimit) {
+      return res.status(400).json({
+        success: false,
+        message: `Guest count cannot exceed venue capacity (${capacityLimit})`
       });
     }
     
@@ -188,15 +212,23 @@ exports.createBooking = async (req, res) => {
       endTime,
       bookingType,
       amount: finalAmount,
-      commission: 0,
       ownerEarnings,
-      commissionRate: 0,
-      confirmationDeadline: new Date(Date.now() + (venueDetails.availability?.confirmationHours || 3) * 60 * 60 * 1000),
+      confirmationDeadline: calculateVenueConfirmationDeadline(
+        venueDetails.availability,
+        venueDetails.availability?.confirmationHours
+      ),
       selectedAmenities: selectedAmenities || { basic: [], beverages: [], refreshmentFood: [], lunchThalis: [], additional: [] },
       amenitiesTotal: amenitiesTotal || 0,
       priceBreakdown: { ...(priceBreakdown || {}), discount: discountAmount, couponCode: appliedCoupon ? appliedCoupon.code : null, total: finalAmount },
       customerDetails,
-      ...(appliedCoupon && { coupon: { couponId: appliedCoupon._id, code: appliedCoupon.code, discountAmount } }),
+      ...(appliedCoupon && { 
+        coupon: { 
+          couponId: appliedCoupon._id, 
+          code: appliedCoupon.code, 
+          discountAmount,
+          isOwnerSponsored: !!(appliedCoupon.venue || appliedCoupon.owner)
+        } 
+      }),
       // Seed payment ledger with initial pending transaction
       paymentLedger: {
         totalDue: finalAmount,
@@ -417,6 +449,41 @@ exports.updateBookingStatus = async (req, res) => {
       });
     }
     
+    // Date/time validation for completing bookings
+    if (status === 'completed') {
+      // Parse booking end date/time
+      const bookingEndDateTime = new Date(booking.bookingDate);
+      
+      // Add end time to the date
+      if (booking.endTime) {
+        const cleanStr = booking.endTime.trim().toUpperCase();
+        const isPM = cleanStr.includes('PM');
+        const isAM = cleanStr.includes('AM');
+        const digitsOnly = cleanStr.replace(/[AP]M/, '').trim();
+        const parts = digitsOnly.split(':');
+        let hours = parseInt(parts[0], 10) || 0;
+        let minutes = parseInt(parts[1], 10) || 0;
+        
+        if (isPM || isAM) {
+          if (isPM && hours < 12) hours += 12;
+          if (isAM && hours === 12) hours = 0;
+        }
+        bookingEndDateTime.setHours(hours, minutes, 0, 0);
+      } else {
+        // If no end time specified, set to end of day
+        bookingEndDateTime.setHours(23, 59, 59, 999);
+      }
+      
+      // Check if current time is after booking end time
+      const now = new Date();
+      if (now <= bookingEndDateTime) {
+        return res.status(400).json({
+          success: false,
+          message: 'Booking can only be completed after the event end time'
+        });
+      }
+    }
+    
     booking.status = status;
     await booking.save();
     
@@ -428,6 +495,23 @@ exports.updateBookingStatus = async (req, res) => {
           totalEarnings: booking.ownerEarnings
         }
       });
+      // Create Platform GST Liability
+      try {
+        const { createPlatformGSTLiability } = require('../utils/liabilityHelper');
+        await createPlatformGSTLiability(booking, 'venue', req.user?.id);
+      } catch (err) {
+        console.error('Failed to create platform GST liability:', err);
+      }
+
+      // Trigger Automatic Settlement
+      try {
+        const { settleBooking } = require('../utils/settlementHelper');
+        settleBooking(booking._id, 'venue').catch(err => {
+          console.error(`[SETTLEMENT] Automatic venue settlement hook failed for ${booking.bookingNumber}:`, err);
+        });
+      } catch (settleErr) {
+        console.error(`[SETTLEMENT] Failed to initialize settlement trigger for ${booking.bookingNumber}:`, settleErr);
+      }
     }
 
     // Populate for email notification
@@ -470,7 +554,7 @@ exports.updateBookingStatus = async (req, res) => {
 // @route   PUT /api/bookings/:id/approve-soon
 exports.approveSoon = async (req, res) => {
   try {
-    const booking = await Booking.findById(req.params.id).populate('venue', 'owner');
+    const booking = await Booking.findById(req.params.id).populate('venue', 'owner availability');
 
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found' });
@@ -492,7 +576,11 @@ exports.approveSoon = async (req, res) => {
     const base = booking.confirmationDeadline && booking.confirmationDeadline > new Date()
       ? booking.confirmationDeadline
       : new Date();
-    booking.confirmationDeadline = new Date(base.getTime() + 60 * 60 * 1000);
+    booking.confirmationDeadline = calculateVenueConfirmationDeadline(
+      booking.venue?.availability,
+      1,
+      base
+    );
     booking.approveSoonUsed = true;
     await booking.save();
 

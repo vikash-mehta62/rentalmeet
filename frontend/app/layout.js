@@ -3,6 +3,7 @@ import './globals.css'
 import { Toaster } from 'react-hot-toast'
 import ThemeInitializer from '@/components/ThemeInitializer'
 import ChatbotWidget from '@/components/ChatbotWidget'
+import Script from 'next/script'
 
 const inter = Inter({
   subsets: ['latin', 'latin-ext'],
@@ -25,8 +26,9 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata = {
-  title: 'RentalMeet - Book Your Premium Meeting Venues',
-  description: 'Find and book the perfect venue for your meetings, events, and conferences',
+  title: 'RentalMeet | Book Conference Halls, Meeting Rooms & Event Venues Across India',
+  description: 'Find and book conference halls, meeting rooms, training rooms, hotels, and event venues across India with RentalMeet. Compare venues, check availability, and book instantly.',
+  keywords: 'Venue Booking Platform India, Conference Hall Booking, Meeting Room Booking, Event Venue Booking, Corporate Event Venues, Training Room Rental, Business Meeting Venues, Hotel Conference Halls, Venue Booking App',
   verification: {
     google: 'uTqA47_wan_8NNEFA6uAII7f8cPyO4ry1L8FezkrbuE',
   },
@@ -44,8 +46,8 @@ export const metadata = {
     ],
   },
   openGraph: {
-    title: 'RentalMeet - Book Your Premium Meeting Venues',
-    description: 'Find and book the perfect venue for your meetings, events, and conferences',
+    title: 'RentalMeet | Book Conference Halls, Meeting Rooms & Event Venues Across India',
+    description: 'Find and book conference halls, meeting rooms, training rooms, hotels, and event venues across India with RentalMeet. Compare venues, check availability, and book instantly.',
     url: 'https://rentalmeet.com',
     siteName: 'RentalMeet',
     type: 'website',
@@ -53,8 +55,8 @@ export const metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'RentalMeet - Book Your Premium Meeting Venues',
-    description: 'Find and book the perfect venue for your meetings, events, and conferences',
+    title: 'RentalMeet | Book Conference Halls, Meeting Rooms & Event Venues Across India',
+    description: 'Find and book conference halls, meeting rooms, training rooms, hotels, and event venues across India with RentalMeet. Compare venues, check availability, and book instantly.',
     images: ['/android-chrome-512x512.png'],
   },
 }
@@ -62,7 +64,32 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${inter.variable} ${playfair.variable} ${jetbrainsMono.variable}`}>
+      <head>
+        {/* Google Tag Manager */}
+        <Script
+          id="gtm-script"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-MHPT6JPQ');`,
+          }}
+        />
+        {/* End Google Tag Manager */}
+      </head>
       <body className="font-sans antialiased">
+        {/* Google Tag Manager (noscript) */}
+        <noscript>
+          <iframe
+            src="https://www.googletagmanager.com/ns.html?id=GTM-MHPT6JPQ"
+            height="0"
+            width="0"
+            style={{ display: 'none', visibility: 'hidden' }}
+          />
+        </noscript>
+        {/* End Google Tag Manager (noscript) */}
         <ThemeInitializer />
         {children}
         <ChatbotWidget />

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import { useParams } from 'next/navigation';
 import { useState, useRef } from 'react';
 import Link from 'next/link';
@@ -80,7 +80,7 @@ export default function VendorProfile() {
                 <h3 className="font-bold text-gray-900 dark:text-slate-100 mb-4 flex items-center gap-2">
                   <FileText className="w-5 h-5 text-yellow-500" /> Services & Rate List
                 </h3>
-                <div className="rounded-xl border border-gray-200 overflow-hidden">
+                <div className="overflow-x-auto rounded-xl border border-gray-200">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 dark:bg-slate-800">
                       <tr>
@@ -179,28 +179,30 @@ export default function VendorProfile() {
                     {form.notes && <p className="text-gray-500 text-xs mt-1">{form.notes}</p>}
                   </div>
                 </div>
-                <table className="w-full text-sm border border-gray-200 rounded-xl overflow-hidden">
-                  <thead className="bg-gray-50"><tr>
-                    <th className="text-left px-4 py-2.5 text-gray-500 font-semibold">Service</th>
-                    <th className="text-right px-4 py-2.5 text-gray-500 font-semibold">Rate</th>
-                    <th className="text-center px-4 py-2.5 text-gray-500 font-semibold">Qty</th>
-                    <th className="text-right px-4 py-2.5 text-gray-500 font-semibold">Amount</th>
-                  </tr></thead>
-                  <tbody>
-                    {vendor.services.map((svc, i) => {
-                      const qty = quantities[i] || 0;
-                      if (!qty) return null;
-                      return (
-                        <tr key={i} className="border-t border-gray-100">
-                          <td className="px-4 py-2.5">{svc.name}</td>
-                          <td className="px-4 py-2.5 text-right">Rs.{svc.rate.toLocaleString()}</td>
-                          <td className="px-4 py-2.5 text-center">{qty} {svc.unit}</td>
-                          <td className="px-4 py-2.5 text-right font-semibold text-yellow-600">Rs.{(svc.rate * qty).toLocaleString()}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50"><tr>
+                      <th className="text-left px-4 py-2.5 text-gray-500 font-semibold">Service</th>
+                      <th className="text-right px-4 py-2.5 text-gray-500 font-semibold">Rate</th>
+                      <th className="text-center px-4 py-2.5 text-gray-500 font-semibold">Qty</th>
+                      <th className="text-right px-4 py-2.5 text-gray-500 font-semibold">Amount</th>
+                    </tr></thead>
+                    <tbody>
+                      {vendor.services.map((svc, i) => {
+                        const qty = quantities[i] || 0;
+                        if (!qty) return null;
+                        return (
+                          <tr key={i} className="border-t border-gray-100">
+                            <td className="px-4 py-2.5">{svc.name}</td>
+                            <td className="px-4 py-2.5 text-right">Rs.{svc.rate.toLocaleString()}</td>
+                            <td className="px-4 py-2.5 text-center">{qty} {svc.unit}</td>
+                            <td className="px-4 py-2.5 text-right font-semibold text-yellow-600">Rs.{(svc.rate * qty).toLocaleString()}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
                 <div className="flex justify-end">
                   <div className="w-64 space-y-1.5 text-sm">
                     <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>Rs.{subtotal.toLocaleString()}</span></div>

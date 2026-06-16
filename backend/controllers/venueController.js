@@ -3,6 +3,14 @@ const { uploadToCloudinary } = require('../config/cloudinary');
 const { encrypt } = require('../utils/encryption');
 const { sendVenueSubmissionEmail } = require('../utils/emailService');
 
+const normalizeFoodType = (value) => {
+  const key = String(value || '').toLowerCase().replace(/[\s_-]+/g, '');
+  if (key === 'veg') return 'Veg';
+  if (key === 'nonveg') return 'Non Veg';
+  if (key === 'both') return 'Both';
+  return '';
+};
+
 // @desc    Create new venue
 // @route   POST /api/venues
 exports.createVenue = async (req, res) => {
@@ -163,6 +171,7 @@ exports.getVenues = async (req, res) => {
       venueType, 
       capacity, 
       status, 
+      foodType,
       minPrice, 
       maxPrice,
       search,
@@ -192,6 +201,36 @@ exports.getVenues = async (req, res) => {
     
     // Capacity filter
     if (capacity) query.capacity = capacity;
+
+    const normalizedFoodType = normalizeFoodType(foodType);
+    if (normalizedFoodType) {
+      if (normalizedFoodType === 'Veg') {
+        query.$and = [
+          ...(query.$and || []),
+          {
+            $or: [
+              { foodType: 'Veg' },
+              { foodType: 'Both' },
+              { foodType: { $exists: false } },
+              { foodType: null },
+              { foodType: '' }
+            ]
+          }
+        ];
+      } else if (normalizedFoodType === 'Non Veg') {
+        query.$and = [
+          ...(query.$and || []),
+          {
+            $or: [
+              { foodType: 'Non Veg' },
+              { foodType: 'Both' }
+            ]
+          }
+        ];
+      } else {
+        query.foodType = normalizedFoodType;
+      }
+    }
     
     // Price range filter
     if (minPrice || maxPrice) {
@@ -541,7 +580,6 @@ exports.getPublicPlatformSettings = async (req, res) => {
         platformSGST: settings.platformSGST || 9,
         // Also expose flat fields for BookingForm compatibility
         platformFeePercentage: settings.platformFeePercentage ?? settings.platformFeeValue ?? 5,
-        commissionRate: 0,
         gstInvoiceSignature: settings.gstInvoiceSignature || null,
         platformInvoiceSignature: settings.platformInvoiceSignature || null
       }

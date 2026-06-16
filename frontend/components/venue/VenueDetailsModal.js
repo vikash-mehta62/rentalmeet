@@ -124,6 +124,10 @@ export default function VenueDetailsModal({
                   <p className="text-sm text-gray-900">{venue.venueType?.join(', ')}</p>
                 </div>
                 <div>
+                  <label className="text-xs font-semibold text-gray-500 block mb-1">Food Type</label>
+                  <p className="text-sm text-gray-900">{venue.foodType || 'Veg'}</p>
+                </div>
+                <div>
                   <label className="text-xs font-semibold text-gray-500 block mb-1">Capacity</label>
                   <p className="text-sm text-gray-900">{venue.capacity} guests</p>
                 </div>

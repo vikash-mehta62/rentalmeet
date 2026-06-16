@@ -235,9 +235,23 @@ export default function AdminUsers() {
     finally { setExporting(false); }
   };
 
-  const openModal = (user) => {
-    setSelectedUser(user);
+  const openModal = async (user) => {
+    setSelectedUser(user); // Show basic info immediately
     setModalOpen(true);
+    
+    // Fetch full user details including KYC
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${user._id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSelectedUser(data.user); // Update with full details including KYC
+      }
+    } catch (error) {
+      console.error('Error fetching user details:', error);
+      toast.error('Failed to load user details');
+    }
   };
 
   const closeModal = () => {

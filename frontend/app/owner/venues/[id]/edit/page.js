@@ -61,6 +61,7 @@ export default function EditVenue() {
         basicInfo: {
           businessName: venue.businessName || '',
           venueType: venue.venueType || [],
+          foodType: venue.foodType || 'Veg',
           description: venue.description || '',
           capacity: venue.capacity || '',
           areaSqft: venue.areaSqft || ''

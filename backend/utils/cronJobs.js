@@ -2,6 +2,10 @@ const cron = require('node-cron');
 const Razorpay = require('razorpay');
 const Booking = require('../models/Booking');
 const User = require('../models/User');
+const {
+  calculateVenueConfirmationDeadline,
+  calculateServiceConfirmationDeadline
+} = require('./confirmationDeadline');
 
 /**
  * Process refund via Razorpay — refund goes back to original payment source
@@ -73,6 +77,24 @@ const startAutoCancelCron = () => {
         console.log(`[CRON] ${expiredBookings.length} expired booking(s) to auto-cancel`);
 
         for (const booking of expiredBookings) {
+          if (booking.createdAt) {
+            const workingHoursDeadline = calculateVenueConfirmationDeadline(
+              booking.venue?.availability,
+              booking.venue?.availability?.confirmationHours,
+              booking.createdAt
+            );
+
+            if (
+              workingHoursDeadline > now &&
+              (!booking.confirmationDeadline || workingHoursDeadline > booking.confirmationDeadline)
+            ) {
+              booking.confirmationDeadline = workingHoursDeadline;
+              await booking.save();
+              console.log(`[CRON] Extended ${booking.bookingNumber} to working-hour deadline ${workingHoursDeadline.toISOString()}`);
+              continue;
+            }
+          }
+
           let refundResult = { success: false, reason: 'Payment not completed' };
 
           if (booking.paymentStatus === 'paid') {
@@ -123,12 +145,31 @@ const startAutoCancelCron = () => {
       const expiredServices = await ServiceBooking.find({
         status: 'pending',
         confirmationDeadline: { $lte: now }
-      }).populate('service', 'title');
+      }).populate('service', 'title availability confirmationHours');
 
       if (expiredServices.length > 0) {
         console.log(`[CRON] ${expiredServices.length} expired service booking(s) to auto-cancel`);
 
         for (const booking of expiredServices) {
+          const deadlineBase = booking.paymentDetails?.paidAt || booking.createdAt;
+          if (deadlineBase) {
+            const workingHoursDeadline = calculateServiceConfirmationDeadline(
+              booking.service,
+              booking.service?.confirmationHours,
+              deadlineBase
+            );
+
+            if (
+              workingHoursDeadline > now &&
+              (!booking.confirmationDeadline || workingHoursDeadline > booking.confirmationDeadline)
+            ) {
+              booking.confirmationDeadline = workingHoursDeadline;
+              await booking.save();
+              console.log(`[CRON] Extended Service Booking ${booking.bookingNumber} to working-hour deadline ${workingHoursDeadline.toISOString()}`);
+              continue;
+            }
+          }
+
           let refundResult = { success: false, reason: 'Payment not completed' };
 
           if (booking.paymentStatus === 'paid') {

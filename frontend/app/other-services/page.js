@@ -152,14 +152,14 @@ function VendorCard({ svc }) {
 
           <div className="flex gap-2">
             <button
-              onClick={() => router.push(`/other-services/${svc._id}`)}
+              onClick={() => router.push(`/other-services/${svc.slug || svc._id}`)}
               className="px-4 py-2 border border-slate-300 rounded-md text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors inline-flex items-center gap-1.5"
             >
               <User className="w-4 h-4" />
               View Profile
             </button>
             <button
-              onClick={() => router.push(`/other-services/${svc._id}`)}
+              onClick={() => router.push(`/other-services/${svc.slug || svc._id}`)}
               className="px-5 py-2 bg-green-600 text-white rounded-md text-sm font-semibold hover:bg-green-700 transition-colors"
             >
               Book Now

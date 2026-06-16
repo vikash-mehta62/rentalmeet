@@ -59,7 +59,26 @@ export default function VendorBookings() {
     }
   };
 
-  const handleCompleteBooking = async (bookingId) => {
+  // Check if booking can be completed (event must be over)
+  const canCompleteBooking = (booking) => {
+    if (!booking.eventDate) return false;
+    
+    // Check if event date has passed
+    const eventDate = new Date(booking.eventDate);
+    const now = new Date();
+    
+    // Set time to end of event day (assuming full day event)
+    eventDate.setHours(23, 59, 59, 999);
+    
+    return now > eventDate;
+  };
+
+  const handleCompleteBooking = async (bookingId, booking) => {
+    if (!canCompleteBooking(booking)) {
+      toast.error('Booking can only be completed after the event date');
+      return;
+    }
+    
     if (!confirm('Are you sure you want to mark this booking as completed?')) return;
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/service-bookings/${bookingId}/complete`, {
@@ -113,7 +132,9 @@ export default function VendorBookings() {
     } else if (newStatus === 'cancelled') {
       await handleCancelBooking(bookingId);
     } else if (newStatus === 'completed') {
-      await handleCompleteBooking(bookingId);
+      // Find the booking to pass to handleCompleteBooking
+      const booking = bookings.find(b => b._id === bookingId);
+      await handleCompleteBooking(bookingId, booking);
     } else {
       toast.error('Invalid status change for vendor');
     }
@@ -200,8 +221,15 @@ export default function VendorBookings() {
                     </div>
                   )}
                   {b.status === 'confirmed' && (
-                    <button onClick={() => handleCompleteBooking(b._id)}
-                      className="px-2.5 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-bold transition-colors">
+                    <button onClick={() => handleCompleteBooking(b._id, b)}
+                      disabled={!canCompleteBooking(b)}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                        canCompleteBooking(b)
+                          ? 'bg-blue-500 hover:bg-blue-600 text-white cursor-pointer'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                      title={!canCompleteBooking(b) ? 'Can only complete after event date' : 'Mark as completed'}
+                    >
                       Complete
                     </button>
                   )}

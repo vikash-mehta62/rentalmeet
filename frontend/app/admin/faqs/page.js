@@ -208,7 +208,7 @@ export default function AdminFAQs() {
             return (
               <div key={cat.value}>
                 <h3 className="text-sm font-black text-gray-500 uppercase tracking-wider mb-3">{cat.label}</h3>
-                <div className="bg-white rounded-xl border border-gray-100 shadow-soft overflow-hidden">
+                <div className="bg-white rounded-xl border border-gray-100 shadow-soft overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 border-b border-gray-100">
                       <tr>

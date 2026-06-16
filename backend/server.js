@@ -9,13 +9,8 @@ const connectDB = require('./config/database');
 
 const app = express();
 
-// Connect to MongoDB
-connectDB();
-
-// Start cron jobs
 const { startAutoCancelCron, startAutoDeleteCron } = require('./utils/cronJobs');
-startAutoCancelCron();
-startAutoDeleteCron();
+const { calculateServiceConfirmationDeadline } = require('./utils/confirmationDeadline');
 
 // Security middleware
 app.use(helmet({
@@ -170,7 +165,7 @@ app.get('/api/service-platform-settings', async (req, res) => {
 app.get('/api/vendor-services/categories', async (req, res) => {
   try {
     const VendorService = require('./models/VendorService');
-    const filter = { status: { $in: ['approved', 'pending', 'resubmitted'] } };
+    const filter = { status: 'approved', isActive: true };
     const services = await VendorService.find(filter, 'category startingPrice featuredImage');
     const map = {};
     services.forEach(svc => {
@@ -194,7 +189,7 @@ app.get('/api/vendor-services', async (req, res) => {
   try {
     const VendorService = require('./models/VendorService');
     const { category, city, search, limit = 20, page = 1, maxPrice } = req.query;
-    const filter = { status: { $in: ['approved', 'pending', 'resubmitted'] } };
+    const filter = { status: 'approved', isActive: true };
     if (category) filter.category = category;
     if (city) filter.city = { $regex: city, $options: 'i' };
     if (maxPrice) filter.startingPrice = { $lte: parseInt(maxPrice) };
@@ -213,6 +208,18 @@ app.get('/api/vendor-services', async (req, res) => {
       VendorService.countDocuments(filter)
     ]);
     res.json({ success: true, services, total, page: parseInt(page), pages: Math.ceil(total / parseInt(limit)) });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// Lookup by slug (must be before /:id to avoid collision)
+app.get('/api/vendor-services/slug/:slug', async (req, res) => {
+  try {
+    const VendorService = require('./models/VendorService');
+    const service = await VendorService.findOne({ slug: req.params.slug, status: 'approved' })
+      .select('-bankDetails -ownerDocs -businessDocs')
+      .populate('vendor', 'name companyName vendorCategory city state');
+    if (!service) return res.status(404).json({ success: false, message: 'Not found' });
+    res.json({ success: true, service });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
@@ -235,9 +242,13 @@ app.post('/api/service-bookings', async (req, res) => {
     const Coupon = require('./models/Coupon');
     const crypto = require('crypto');
     const {
-      serviceId, eventDate, customerInfo, items, pricing, couponCode,
+      serviceId: rawServiceId, eventDate, customerInfo, items, pricing, couponCode,
       status, paymentStatus, paymentDetails, amount
     } = req.body;
+
+    // Resolve slug → ObjectId if a slug was accidentally passed
+    const serviceId = await resolveServiceId(rawServiceId);
+    if (!serviceId) return res.status(404).json({ success: false, message: 'Service not found' });
 
     const svc = await VendorService.findById(serviceId);
     if (!svc) return res.status(404).json({ success: false, message: 'Service not found' });
@@ -291,14 +302,26 @@ app.post('/api/service-bookings', async (req, res) => {
 
     const isPaidBooking = Boolean(verifiedPaymentDetails);
     const confirmationHours = svc.confirmationHours || 3;
-    const confirmationDeadline = isPaidBooking ? new Date(Date.now() + confirmationHours * 60 * 60 * 1000) : undefined;
+    const confirmationDeadline = isPaidBooking
+      ? calculateServiceConfirmationDeadline(svc, confirmationHours)
+      : undefined;
 
     const booking = await ServiceBooking.create({
       service: serviceId,
       vendor:  svc.vendor,
       eventDate: new Date(eventDate),
-      customerInfo,
-      serviceSnapshot: { title: svc.title, category: svc.category, companyName: svc.companyName, city: svc.city, state: svc.state },
+      customerInfo: {
+        ...customerInfo,
+        gstNumber: customerInfo?.gstNumber || req.user?.gstNumber || '',  // Save customer GST
+      },
+      serviceSnapshot: { 
+        title: svc.title, 
+        category: svc.category, 
+        companyName: svc.companyName, 
+        city: svc.city, 
+        state: svc.state,
+        gstNumber: svc.gstNumber || ''  // Save vendor GST
+      },
       items,
       pricing: {
         ...pricing,
@@ -309,7 +332,12 @@ app.post('/api/service-bookings', async (req, res) => {
         discount: discountAmount,
         total: finalTotal
       },
-      coupon: appliedCoupon ? { couponId: appliedCoupon._id, code: appliedCoupon.code, discountAmount } : undefined,
+      coupon: appliedCoupon ? { 
+        couponId: appliedCoupon._id, 
+        code: appliedCoupon.code, 
+        discountAmount,
+        isVendorSponsored: !!(appliedCoupon.service || appliedCoupon.serviceVendor)
+      } : undefined,
       amount: isPaidBooking ? Number(amount || finalTotal) : undefined,
       status: isPaidBooking ? 'pending' : (status || 'enquiry'),
       paymentStatus: isPaidBooking ? 'paid' : (paymentStatus || 'pending'),
@@ -330,12 +358,25 @@ app.post('/api/service-bookings', async (req, res) => {
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
+// Helper: resolve serviceId which may be a MongoDB ObjectId OR a slug
+async function resolveServiceId(serviceId) {
+  if (!serviceId) return null;
+  const VendorService = require('./models/VendorService');
+  const isObjectId = /^[a-f\d]{24}$/i.test(serviceId);
+  if (isObjectId) return serviceId; // already an ObjectId string
+  const svc = await VendorService.findOne({ slug: serviceId }).select('_id');
+  return svc ? svc._id.toString() : null;
+}
+
 // GET/POST service coupons (public)
 app.get('/api/service-coupons', async (req, res) => {
   try {
     const Coupon = require('./models/Coupon');
-    const { serviceId } = req.query;
-    if (!serviceId) return res.status(400).json({ success: false, message: 'serviceId is required' });
+    const { serviceId: rawServiceId } = req.query;
+    if (!rawServiceId) return res.status(400).json({ success: false, message: 'serviceId is required' });
+
+    // Resolve slug → ObjectId if needed
+    const serviceId = await resolveServiceId(rawServiceId);
 
     const now = new Date();
     const coupons = await Coupon.find({
@@ -357,7 +398,11 @@ app.get('/api/service-coupons', async (req, res) => {
 app.post('/api/service-coupons/validate', async (req, res) => {
   try {
     const Coupon = require('./models/Coupon');
-    const { code, serviceId, bookingAmount } = req.body;
+    const { code, serviceId: rawServiceId, bookingAmount } = req.body;
+
+    // Resolve slug → ObjectId if needed
+    const serviceId = await resolveServiceId(rawServiceId);
+
     let coupon = await Coupon.findOne({ code: code.toUpperCase().trim(), service: serviceId, isActive: true });
     if (!coupon) coupon = await Coupon.findOne({ code: code.toUpperCase().trim(), service: null, venue: null, isActive: true });
     if (!coupon) return res.status(404).json({ success: false, message: 'Invalid coupon code' });
@@ -519,8 +564,32 @@ app.put('/api/service-bookings/:id/complete', require('./middleware/auth').prote
       return res.status(400).json({ success: false, message: `Booking can only be marked completed after confirmation (current status: ${booking.status})` });
     }
 
+    // Date/time validation for completing service bookings
+    if (booking.eventDate) {
+      const eventDate = new Date(booking.eventDate);
+      const now = new Date();
+      
+      // Check if current time is after event date
+      if (now <= eventDate) {
+        return res.status(400).json({
+          success: false,
+          message: 'Booking can only be completed after the event date'
+        });
+      }
+    }
+
     booking.status = 'completed';
     await booking.save();
+
+    // Trigger Automatic Settlement for Service
+    try {
+      const { settleBooking } = require('./utils/settlementHelper');
+      settleBooking(booking._id, 'service').catch(err => {
+        console.error(`[SETTLEMENT] Automatic service settlement hook failed for completed route ${booking.bookingNumber}:`, err);
+      });
+    } catch (settleErr) {
+      console.error(`[SETTLEMENT] Failed to initialize service settlement trigger in complete route for ${booking.bookingNumber}:`, settleErr);
+    }
 
     res.json({ success: true, message: 'Booking marked as completed successfully', booking });
   } catch (e) {
@@ -695,6 +764,19 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+const startServer = async () => {
+  try {
+    await connectDB();
+    startAutoCancelCron();
+    startAutoDeleteCron();
+
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('❌ Server startup failed:', error.message);
+    process.exit(1);
+  }
+};
+
+startServer();

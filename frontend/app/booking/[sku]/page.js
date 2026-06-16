@@ -12,6 +12,13 @@ import QuotationView from '@/components/booking/QuotationView';
 import { useAuthStore } from '@/lib/store';
 import toast from 'react-hot-toast';
 
+function getCapacityLimit(capacity) {
+  const text = String(capacity || '').trim();
+  if (!text || text.toLowerCase().includes('more than')) return null;
+  const values = text.match(/\d+/g)?.map(Number).filter(Number.isFinite) || [];
+  return values.length ? Math.max(...values) : null;
+}
+
 export default function BookingPage() {
   const params = useParams();
   const router = useRouter();
@@ -193,6 +200,20 @@ export default function BookingPage() {
   }, [venue, bookingData, selectedAmenities, quantities, platformSettings]);
 
   const pricing = calculatePrice();
+  const capacityLimit = getCapacityLimit(venue?.capacity);
+
+  const validateGuestCount = () => {
+    const guestCount = Number(formData.guestCount);
+    if (!Number.isFinite(guestCount) || guestCount < 1) {
+      toast.error('Please enter a valid guest count');
+      return false;
+    }
+    if (capacityLimit && guestCount > capacityLimit) {
+      toast.error(`Guest count cannot exceed ${capacityLimit}`);
+      return false;
+    }
+    return true;
+  };
 
   const getDurationLabel = (duration) => {
     const d = parseInt(duration);
@@ -206,6 +227,7 @@ export default function BookingPage() {
     e.preventDefault();
     if (!formData.acceptTerms) return toast.error('Please accept terms and conditions');
     if (!formData.eventType || !formData.guestCount) return toast.error('Please fill all required fields');
+    if (!validateGuestCount()) return;
     if (!bookingData) return toast.error('Booking data missing. Please go back and select date/time.');
 
     setSubmitting(true);
@@ -304,6 +326,7 @@ export default function BookingPage() {
     e.preventDefault();
     if (!formData.acceptTerms) return toast.error('Please accept terms and conditions');
     if (!formData.eventType || !formData.guestCount) return toast.error('Please fill all required fields');
+    if (!validateGuestCount()) return;
     setShowQuotation(true);
   };
 
@@ -356,6 +379,7 @@ export default function BookingPage() {
                   <div className="space-y-1 text-sm text-gray-600">
                     <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-primary-500" />{venue.location?.city}, {venue.location?.area}</div>
                     <div className="flex items-center gap-2"><Users className="w-4 h-4 text-primary-500" />Up to {venue.capacity} guests</div>
+                    <div className="flex items-center gap-2"><Utensils className="w-4 h-4 text-primary-500" />{venue.foodType || 'Veg'}</div>
                     <div className="flex items-center gap-2"><Clock className="w-4 h-4 text-primary-500" />{venue.availability?.openingTime} - {venue.availability?.closingTime}</div>
                   </div>
                 </div>
@@ -547,7 +571,8 @@ export default function BookingPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Number of Guests *</label>
-                  <input type="number" required min="1" value={formData.guestCount} onChange={e => setFormData({...formData, guestCount: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
+                  <input type="number" required min="1" max={capacityLimit || undefined} value={formData.guestCount} onChange={e => setFormData({...formData, guestCount: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
+                  <p className="text-xs text-gray-500 mt-1">Capacity: {venue.capacity}</p>
                 </div>
               </div>
               <div className="mb-4">

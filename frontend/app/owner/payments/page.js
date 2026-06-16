@@ -161,7 +161,7 @@ export default function OwnerPayments() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-100">
                     <tr>
-                      {['Booking #', 'Customer', 'Venue', 'Date', 'Amount', 'Payment', 'Booking Status', ''].map(h => (
+                      {['Booking #', 'Customer', 'Venue', 'Date', 'Amount', 'Payment', 'Booking Status', 'Settlement', ''].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">{h}</th>
                       ))}
                     </tr>
@@ -205,6 +205,19 @@ export default function OwnerPayments() {
                             </span>
                           </td>
                           <td className="px-4 py-3">
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${
+                              b.settlementStatus === 'settled' ? 'bg-green-100 text-green-700' :
+                              b.settlementStatus === 'failed' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                            }`}>
+                              {b.settlementStatus || 'unsettled'}
+                            </span>
+                            {b.settlementDetails?.transactionId && (
+                              <p className="text-[10px] text-gray-400 font-mono mt-1 select-all truncate max-w-[80px]" title={b.settlementDetails.transactionId}>
+                                {b.settlementDetails.transactionId}
+                              </p>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
                             <button
                               onClick={() => setHistoryBooking(b)}
                               className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-primary-600 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors"
@@ -243,6 +256,22 @@ export default function OwnerPayments() {
                         <span>{b.bookingDate ? new Date(b.bookingDate).toLocaleDateString('en-IN') : '—'}</span>
                       </div>
                       <p className="font-bold text-gray-800">₹{(b.amount || 0).toLocaleString('en-IN')}</p>
+                    </div>
+                    <div className="flex justify-between items-center text-xs pt-1.5 border-t border-gray-100">
+                      <span className="text-gray-500">Settlement:</span>
+                      <div className="text-right">
+                        <span className={`px-2 py-0.5 rounded-full font-semibold capitalize ${
+                          b.settlementStatus === 'settled' ? 'bg-green-100 text-green-700' :
+                          b.settlementStatus === 'failed' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {b.settlementStatus || 'unsettled'}
+                        </span>
+                        {b.settlementDetails?.transactionId && (
+                          <p className="text-[10px] text-gray-400 font-mono mt-0.5" title={b.settlementDetails.transactionId}>
+                            Ref: {b.settlementDetails.transactionId}
+                          </p>
+                        )}
+                      </div>
                     </div>
                     <button
                       onClick={() => setHistoryBooking(b)}
