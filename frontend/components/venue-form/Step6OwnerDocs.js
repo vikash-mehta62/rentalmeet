@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { useVenueFormStore } from '@/lib/store';
 import toast from 'react-hot-toast';
 import { FileText, User, CreditCard, Building, Camera, Upload, Loader2, CheckCircle } from 'lucide-react';
-import { uploadDocument } from '@/lib/cloudinary';
+import { uploadDocument } from '@/lib/storage';
 
 const businessProofTypes = [
   'Business Regd. Certificate',
@@ -180,15 +180,14 @@ export default function Step6OwnerDocs() {
     setUploading(true);
     
     try {
-      // Upload to Cloudinary
       toast.loading(`Uploading ${file.name}...`, { id: type });
-      const cloudinaryData = await uploadDocument(file, 'documents');
+      const uploadData = await uploadDocument(file, 'documents');
       
       const uploadedFile = {
-        url: cloudinaryData.url,
-        publicId: cloudinaryData.publicId,
+        url: uploadData.url,
+        publicId: uploadData.publicId,
         name: file.name,
-        format: cloudinaryData.format,
+        format: uploadData.format,
         size: file.size
       };
 

@@ -4,7 +4,7 @@ const { protect, authorize } = require('../middleware/auth');
 const VendorProfile = require('../models/VendorProfile');
 const VendorService = require('../models/VendorService');
 const { upload } = require('../middleware/upload');
-const { uploadToCloudinary } = require('../config/cloudinary');
+const { uploadToStorage } = require('../config/storage');
 
 router.use(protect, authorize('vendor'));
 
@@ -62,8 +62,16 @@ router.post('/profile/submit', async (req, res) => {
 router.post('/upload', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ success: false, message: 'No file' });
-    const result = await uploadToCloudinary(req.file.buffer, req.body.folder || 'vendors');
-    res.json({ success: true, url: result.secure_url });
+    const result = await uploadToStorage(req.file.buffer, req.body.folder || 'vendors', {
+      contentType: req.file.mimetype,
+      originalName: req.file.originalname
+    });
+    res.json({
+      success: true,
+      url: result.secure_url,
+      publicId: result.public_id,
+      storage: result.storage || 's3'
+    });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 

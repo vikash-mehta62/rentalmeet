@@ -76,11 +76,11 @@ const userSchema = new mongoose.Schema({
   // KYC Documents (mandatory for customers to book)
   kyc: {
     idProof: {
-      type: String,   // Cloudinary URL (front side)
+      type: String,   // S3 URL (front side)
       default: null
     },
     idProofBack: {
-      type: String,   // Cloudinary URL (back side — Aadhaar, Voter ID)
+      type: String,   // S3 URL (back side - Aadhaar, Voter ID)
       default: null
     },
     idProofType: {
@@ -89,11 +89,11 @@ const userSchema = new mongoose.Schema({
       default: null
     },
     selfie: {
-      type: String,   // Cloudinary URL (real-time selfie)
+      type: String,   // S3 URL (real-time selfie)
       default: null
     },
     addressProof: {
-      type: String,   // Cloudinary URL (address proof)
+      type: String,   // S3 URL (address proof)
       default: null
     },
     verifiedAt: {

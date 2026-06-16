@@ -669,7 +669,7 @@ exports.deactivateAccount = async (req, res) => {
 exports.uploadKYC = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { uploadToCloudinary } = require('../config/cloudinary');
+    const { uploadToStorage } = require('../config/storage');
     const { idProofType } = req.body;
 
     if (!req.files || (!req.files.idProof && !req.files.selfie && !req.files.idProofBack && !req.files.addressProof)) {
@@ -679,23 +679,23 @@ exports.uploadKYC = async (req, res) => {
     const updates = { 'kyc.verifiedAt': null };
 
     if (req.files.idProof && req.files.idProof[0]) {
-      const result = await uploadToCloudinary(req.files.idProof[0].buffer, 'kyc/id-proofs');
+      const result = await uploadToStorage(req.files.idProof[0].buffer, 'kyc/id-proofs');
       updates['kyc.idProof'] = result.secure_url;
       if (idProofType) updates['kyc.idProofType'] = idProofType;
     }
 
     if (req.files.idProofBack && req.files.idProofBack[0]) {
-      const result = await uploadToCloudinary(req.files.idProofBack[0].buffer, 'kyc/id-proofs');
+      const result = await uploadToStorage(req.files.idProofBack[0].buffer, 'kyc/id-proofs');
       updates['kyc.idProofBack'] = result.secure_url;
     }
 
     if (req.files.selfie && req.files.selfie[0]) {
-      const result = await uploadToCloudinary(req.files.selfie[0].buffer, 'kyc/selfies');
+      const result = await uploadToStorage(req.files.selfie[0].buffer, 'kyc/selfies');
       updates['kyc.selfie'] = result.secure_url;
     }
 
     if (req.files.addressProof && req.files.addressProof[0]) {
-      const result = await uploadToCloudinary(req.files.addressProof[0].buffer, 'kyc/address-proofs');
+      const result = await uploadToStorage(req.files.addressProof[0].buffer, 'kyc/address-proofs');
       updates['kyc.addressProof'] = result.secure_url;
     }
 

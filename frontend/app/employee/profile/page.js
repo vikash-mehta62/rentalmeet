@@ -123,7 +123,7 @@ export default function EmployeeProfile() {
 
   const handleChange = (e) => setForm(p => ({ ...p, [e.target.name]: e.target.value }));
 
-  // Upload file to cloudinary via backend
+  // Upload file to S3 via backend
   const handleFileUpload = async (e, field) => {
     const file = e.target.files[0];
     if (!file) return;

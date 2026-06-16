@@ -1,20 +1,18 @@
-// Cloudinary upload utility
-// Uploads files via backend API for better security
+// Uploads files through the backend storage API.
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
-export const uploadToCloudinary = async (file, folder = 'venues') => {
+export const uploadToStorage = async (file, folder = 'venues') => {
   try {
     const base64 = await fileToBase64(file);
-    
-    // Token is stored in sessionStorage (see lib/store.js)
+
     const authData = sessionStorage.getItem('auth-storage');
     const token = authData ? JSON.parse(authData).state?.token : null;
-    
+
     if (!token) {
       throw new Error('Authentication required');
     }
-    
+
     const response = await fetch(`${API_URL}/upload/image`, {
       method: 'POST',
       headers: {
@@ -23,7 +21,7 @@ export const uploadToCloudinary = async (file, folder = 'venues') => {
       },
       body: JSON.stringify({
         file: base64,
-        folder: folder
+        folder
       })
     });
 
@@ -33,33 +31,33 @@ export const uploadToCloudinary = async (file, folder = 'venues') => {
     }
 
     const data = await response.json();
-    
+
     return {
       url: data.url,
       publicId: data.publicId,
       format: data.format,
       size: data.size,
       width: data.width,
-      height: data.height
+      height: data.height,
+      storage: data.storage
     };
   } catch (error) {
-    console.error('Cloudinary upload error:', error);
+    console.error('Storage upload error:', error);
     throw error;
   }
 };
 
-export const deleteFromCloudinary = async (publicId) => {
+export const deleteFromStorage = async (publicId) => {
   try {
     const authData = sessionStorage.getItem('auth-storage');
     const token = authData ? JSON.parse(authData).state?.token : null;
-    
+
     if (!token) {
       throw new Error('Authentication required');
     }
-    
-    // Replace / with -- for URL encoding
+
     const encodedPublicId = publicId.replace(/\//g, '--');
-    
+
     const response = await fetch(`${API_URL}/upload/${encodedPublicId}`, {
       method: 'DELETE',
       headers: {
@@ -73,23 +71,22 @@ export const deleteFromCloudinary = async (publicId) => {
 
     return { success: true };
   } catch (error) {
-    console.error('Cloudinary delete error:', error);
+    console.error('Storage delete error:', error);
     throw error;
   }
 };
 
-// Upload document (PDF, images, etc.)
 export const uploadDocument = async (file, folder = 'documents') => {
   try {
     const base64 = await fileToBase64(file);
-    
+
     const authData = sessionStorage.getItem('auth-storage');
     const token = authData ? JSON.parse(authData).state?.token : null;
-    
+
     if (!token) {
       throw new Error('Authentication required');
     }
-    
+
     const response = await fetch(`${API_URL}/upload/document`, {
       method: 'POST',
       headers: {
@@ -98,7 +95,7 @@ export const uploadDocument = async (file, folder = 'documents') => {
       },
       body: JSON.stringify({
         file: base64,
-        folder: folder
+        folder
       })
     });
 
@@ -108,13 +105,14 @@ export const uploadDocument = async (file, folder = 'documents') => {
     }
 
     const data = await response.json();
-    
+
     return {
       url: data.url,
       publicId: data.publicId,
       format: data.format,
       size: data.size,
-      resourceType: data.resourceType
+      resourceType: data.resourceType,
+      storage: data.storage
     };
   } catch (error) {
     console.error('Document upload error:', error);
@@ -122,7 +120,6 @@ export const uploadDocument = async (file, folder = 'documents') => {
   }
 };
 
-// Helper function to convert file to base64
 const fileToBase64 = (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

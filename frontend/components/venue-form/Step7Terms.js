@@ -131,7 +131,7 @@ export default function Step7Terms() {
           confirmationHours: formData.pricing?.confirmationHours || 3
         },
         
-        // Step 5: Photos (with Cloudinary URLs)
+        // Step 5: Photos (with S3 URLs)
         images: formData.images || [],
         
         // Step 6: Owner Info & Documents

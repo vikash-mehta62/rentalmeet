@@ -16,7 +16,7 @@ const heroSlideSchema = new mongoose.Schema({
   },
   image: {
     type: String,
-    required: true // Cloudinary URL
+    required: true // S3 URL
   },
   buttonText: {
     type: String,

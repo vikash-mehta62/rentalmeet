@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useVenueFormStore } from '@/lib/store';
 import toast from 'react-hot-toast';
 import { Image as ImageIcon, Upload, X, CheckCircle, Loader2 } from 'lucide-react';
-import { uploadToCloudinary, deleteFromCloudinary } from '@/lib/cloudinary';
+import { uploadToStorage, deleteFromStorage } from '@/lib/storage';
 
 const photoCategories = [
   { value: 'Featured', label: 'Featured Photo', required: true },
@@ -44,20 +44,19 @@ export default function Step5Photos() {
       }
 
       try {
-        // Upload to Cloudinary
         toast.loading(`Uploading ${file.name}...`, { id: file.name });
-        const cloudinaryData = await uploadToCloudinary(file, 'venues');
+        const uploadData = await uploadToStorage(file, 'venues');
         
         // Save URL and public_id (not base64!)
         const newImage = {
           id: Date.now() + Math.random(),
-          url: cloudinaryData.url,
-          publicId: cloudinaryData.publicId,
+          url: uploadData.url,
+          publicId: uploadData.publicId,
           category: category,
           isFeatured: category === 'Featured',
           name: file.name,
           size: file.size,
-          format: cloudinaryData.format
+          format: uploadData.format
         };
         
         setImages(prev => [...prev, newImage]);
@@ -74,13 +73,13 @@ export default function Step5Photos() {
   const removeImage = async (imageToRemove) => {
     try {
       if (imageToRemove.publicId) {
-        await deleteFromCloudinary(imageToRemove.publicId);
+        await deleteFromStorage(imageToRemove.publicId);
       }
       setImages(prev => prev.filter(img => img.url !== imageToRemove.url));
       toast.success('Image removed');
     } catch (error) {
       console.error('Delete error:', error);
-      // Still remove from UI even if cloudinary delete fails
+      // Still remove from UI even if storage delete fails
       setImages(prev => prev.filter(img => img.url !== imageToRemove.url));
       toast.success('Image removed');
     }

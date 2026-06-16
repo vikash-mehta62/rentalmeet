@@ -354,7 +354,7 @@ exports.getPlatformSettings = async (req, res) => {
 exports.updatePlatformSettings = async (req, res) => {
   try {
     const PlatformSettings = require('../models/PlatformSettings');
-    const { uploadToCloudinary } = require('../config/cloudinary');
+    const { uploadToStorage } = require('../config/storage');
     const { 
       gstRate, platformFeeType, platformFeeValue, platformFeePercentage,
       venueCGST, venueSGST, venueHSN, platformCGST, platformSGST,
@@ -386,11 +386,11 @@ exports.updatePlatformSettings = async (req, res) => {
       
       if (req.files) {
         if (req.files.gstInvoiceSignature?.[0]) {
-          const result = await uploadToCloudinary(req.files.gstInvoiceSignature[0].buffer, 'signatures');
+          const result = await uploadToStorage(req.files.gstInvoiceSignature[0].buffer, 'signatures');
           settings.gstInvoiceSignature = result.secure_url;
         }
         if (req.files.platformInvoiceSignature?.[0]) {
-          const result = await uploadToCloudinary(req.files.platformInvoiceSignature[0].buffer, 'signatures');
+          const result = await uploadToStorage(req.files.platformInvoiceSignature[0].buffer, 'signatures');
           settings.platformInvoiceSignature = result.secure_url;
         }
       }
@@ -410,11 +410,11 @@ exports.updatePlatformSettings = async (req, res) => {
       };
       if (req.files) {
         if (req.files.gstInvoiceSignature?.[0]) {
-          const result = await uploadToCloudinary(req.files.gstInvoiceSignature[0].buffer, 'signatures');
+          const result = await uploadToStorage(req.files.gstInvoiceSignature[0].buffer, 'signatures');
           newSettings.gstInvoiceSignature = result.secure_url;
         }
         if (req.files.platformInvoiceSignature?.[0]) {
-          const result = await uploadToCloudinary(req.files.platformInvoiceSignature[0].buffer, 'signatures');
+          const result = await uploadToStorage(req.files.platformInvoiceSignature[0].buffer, 'signatures');
           newSettings.platformInvoiceSignature = result.secure_url;
         }
       }
@@ -1539,7 +1539,7 @@ exports.updateTermsConditions = async (req, res) => {
 
 // Hero Slides Management
 const HeroSlide = require('../models/HeroSlide');
-const { uploadToCloudinary } = require('../config/cloudinary');
+const { uploadToStorage } = require('../config/storage');
 
 // @desc    Get all hero slides
 // @route   GET /api/admin/hero-slides
@@ -1579,9 +1579,8 @@ exports.createHeroSlide = async (req, res) => {
       });
     }
 
-    console.log('Uploading to Cloudinary...');
-    // Upload to Cloudinary using buffer
-    const result = await uploadToCloudinary(req.file.buffer, 'hero-slides');
+    console.log('Uploading to S3...');
+    const result = await uploadToStorage(req.file.buffer, 'hero-slides');
     console.log('Upload successful:', result.secure_url);
 
     const slide = await HeroSlide.create({
@@ -1634,7 +1633,7 @@ exports.updateHeroSlide = async (req, res) => {
 
     // Update image if provided
     if (req.file) {
-      const result = await uploadToCloudinary(req.file.buffer, 'hero-slides');
+      const result = await uploadToStorage(req.file.buffer, 'hero-slides');
       slide.image = result.secure_url;
     }
 

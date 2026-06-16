@@ -8374,9 +8374,6 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "OK"
-          },
           "400": {
             "description": "Bad Request"
           },
@@ -8429,9 +8426,6 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "OK"
-          },
           "400": {
             "description": "Bad Request"
           },
@@ -8523,9 +8517,6 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "OK"
-          },
           "400": {
             "description": "Bad Request"
           },
@@ -8550,6 +8541,36 @@
           "Upload"
         ],
         "summary": "Upload document (base64)"
+      }
+    },
+    "/api/upload/{publicId}": {
+      "delete": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "publicId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Upload"
+        ]
       }
     },
     "/api/payment/create-order": {
@@ -11519,7 +11540,7 @@
                   },
                   "example": {
                     "type": "string",
-                    "example": "https://res.cloudinary.com/..."
+                    "example": "https://your_bucket_name.s3.ap-southeast-2.amazonaws.com/public/blogs/image.jpg"
                   }
                 }
               },

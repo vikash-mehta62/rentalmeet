@@ -35,7 +35,7 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
   const bookingRef = booking?.bookingNumber || (booking?._id ? booking._id.slice(-8).toUpperCase() : 'N/A');
 
   const toBase64 = (url) => new Promise((resolve) => {
-    // Try fetch first (handles CORS better for external URLs like Cloudinary)
+    // Try fetch first (handles CORS better for external storage URLs)
     fetch(url)
       .then(r => r.blob())
       .then(blob => {

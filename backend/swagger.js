@@ -250,7 +250,7 @@ const doc = {
                     content:          { type: 'string', description: 'HTML content from Tiptap editor' },
                     author:           { type: 'string', example: 'Admin' },
                     status:           { type: 'string', enum: ['draft', 'published', 'archived'], example: 'draft' },
-                    featuredImage:    { type: 'string', example: 'https://res.cloudinary.com/...' },
+                    featuredImage:    { type: 'string', example: 'https://your_bucket_name.s3.ap-southeast-2.amazonaws.com/public/blogs/image.jpg' },
                     featuredImageAlt: { type: 'string', example: 'Venue booking tips' },
                     seo: {
                         type: 'object',

@@ -2,7 +2,7 @@ const VenueReview = require('../models/VenueReview');
 const Venue = require('../models/Venue');
 const Booking = require('../models/Booking');
 const mongoose = require('mongoose');
-const { uploadToCloudinary } = require('../config/cloudinary');
+const { uploadToStorage } = require('../config/storage');
 
 // @desc    Get reviews for a venue
 // @route   GET /api/venues/:venueId/reviews
@@ -102,7 +102,7 @@ exports.createVenueReview = async (req, res) => {
     let images = [];
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
-        const result = await uploadToCloudinary(file.buffer, 'venue-reviews');
+        const result = await uploadToStorage(file.buffer, 'venue-reviews');
         images.push({
           url: result.secure_url,
           caption: ''
@@ -170,7 +170,7 @@ exports.updateVenueReview = async (req, res) => {
     if (req.files && req.files.length > 0) {
       const newImages = [];
       for (const file of req.files) {
-        const result = await uploadToCloudinary(file.buffer, 'venue-reviews');
+        const result = await uploadToStorage(file.buffer, 'venue-reviews');
         newImages.push({
           url: result.secure_url,
           caption: ''

@@ -101,19 +101,31 @@ function LoginInner() {
         badge: 'Client Login',
         title: 'Client Account',
         subtitle: 'Access bookings, confirmations, and venue management in one place.',
-        image: 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=1400&q=80'
+        image: '/login/user.jpg',
+        bg: 'bg-[#faf9fe]',
+        theme: 'light',
+        overlay: '',
+        imgFit: 'object-contain opacity-100 p-4'
       },
       owner: {
         badge: 'Venue Login',
         title: 'Venue Owner',
         subtitle: 'Manage your listed venues, bookings, coupons, and business performance.',
-        image: 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=1400&q=80'
+        image: '/login/venues.jpg',
+        bg: 'bg-[#f4efea]',
+        theme: 'light',
+        overlay: '',
+        imgFit: 'object-contain opacity-100 p-4'
       },
       vendor: {
         badge: 'Vendor Login',
         title: 'Vendor Partner',
         subtitle: 'Handle service enquiries, quotations, and customer bookings efficiently.',
-        image: 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=1400&q=80'
+        image: '/login/vendor.jpg',
+        bg: 'bg-white',
+        theme: 'light',
+        overlay: '',
+        imgFit: 'object-contain opacity-100 p-4'
       }
     };
     return meta[selectedRole] || meta.customer;
@@ -134,29 +146,65 @@ function LoginInner() {
       <Navbar />
       <main className="w-full h-full pt-[80px]">
         <div className="flex flex-col md:flex-row min-h-[calc(100vh-80px)]">
-          <div className="relative w-full md:w-1/2 bg-dark-900 flex items-center justify-center p-8 lg:p-16 overflow-hidden">
-            <img
-              src={roleMeta.image}
-              alt={roleMeta.title}
-              className="absolute inset-0 w-full h-full object-cover opacity-60 scale-105 hover:scale-100 transition-transform duration-1000"
-            />
-            <div className="absolute inset-0 bg-gradient-to-br from-primary-600/40 to-dark-900/90" />
-
-            <div className="relative z-10 max-w-lg">
-              <Link href="/" className="inline-flex items-center gap-2 text-white/80 hover:text-white mb-8 transition-colors text-sm font-medium">
-                <ArrowLeft className="w-4 h-4" /> Back to Home
-              </Link>
-              <div className="space-y-4">
-                <span className="px-3 py-1 bg-primary-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full">
-                  {roleMeta.badge}
-                </span>
-                <h2 className="text-4xl lg:text-6xl font-black text-white leading-tight">
-                  Welcome Back <br />
-                  <span className="text-primary-400">{roleMeta.title}</span>
-                </h2>
-                <p className="text-lg text-gray-200 font-light max-w-md">{roleMeta.subtitle}</p>
+          <div className={`w-full md:w-1/2 ${roleMeta.bg} flex flex-col ${roleMeta.theme === 'light' ? 'justify-start p-8 lg:p-12' : 'relative items-center justify-center p-8 lg:p-16'} overflow-hidden transition-all duration-500`}>
+            {roleMeta.theme === 'light' ? (
+              <div className="flex flex-col h-full justify-between max-w-lg w-full mx-auto">
+                <div className="mb-6">
+                  <Link
+                    href="/"
+                    className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors text-sm font-medium"
+                  >
+                    <ArrowLeft className="w-4 h-4" /> Back to Home
+                  </Link>
+                  <div className="space-y-3">
+                    <span className="px-3 py-1 bg-primary-600 text-white text-[10px] font-bold uppercase tracking-widest rounded-full">
+                      {roleMeta.badge}
+                    </span>
+                    <h2 className="text-3xl lg:text-4xl font-black text-gray-900 leading-tight">
+                      Welcome Back <br />
+                      <span className="text-primary-600">{roleMeta.title}</span>
+                    </h2>
+                    <p className="text-sm text-gray-600 font-light">{roleMeta.subtitle}</p>
+                  </div>
+                </div>
+                
+                <div className="flex-1 flex items-center justify-center min-h-[300px] w-full">
+                  <img
+                    src={roleMeta.image}
+                    alt={roleMeta.title}
+                    className="max-w-full max-h-[420px] object-contain rounded-xl shadow-md border border-gray-150 bg-white p-2"
+                  />
+                </div>
               </div>
-            </div>
+            ) : (
+              <>
+                <img
+                  src={roleMeta.image}
+                  alt={roleMeta.title}
+                  className={`absolute inset-0 w-full h-full ${roleMeta.imgFit}`}
+                />
+                {roleMeta.overlay && <div className={`absolute inset-0 ${roleMeta.overlay}`} />}
+
+                <div className="relative z-10 max-w-lg">
+                  <Link
+                    href="/"
+                    className="inline-flex items-center gap-2 text-white/80 hover:text-white mb-8 transition-colors text-sm font-medium"
+                  >
+                    <ArrowLeft className="w-4 h-4" /> Back to Home
+                  </Link>
+                  <div className="space-y-4">
+                    <span className="px-3 py-1 bg-primary-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full">
+                      {roleMeta.badge}
+                    </span>
+                    <h2 className="text-4xl lg:text-6xl font-black text-white leading-tight">
+                      Welcome Back <br />
+                      <span className="text-primary-400">{roleMeta.title}</span>
+                    </h2>
+                    <p className="text-lg text-gray-200 font-light max-w-md">{roleMeta.subtitle}</p>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="w-full md:w-1/2 bg-white flex flex-col items-center justify-center p-6 sm:p-8 lg:p-14 overflow-y-auto">

@@ -1,5 +1,5 @@
 const Venue = require('../models/Venue');
-const { uploadToCloudinary } = require('../config/cloudinary');
+const { uploadToStorage } = require('../config/storage');
 const { encrypt } = require('../utils/encryption');
 const { sendVenueSubmissionEmail } = require('../utils/emailService');
 
@@ -128,16 +128,20 @@ exports.uploadImages = async (req, res) => {
       });
     }
     
-    // Upload to Cloudinary
-    const uploadPromises = files.map(file => 
-      uploadToCloudinary(file, `venues/${venue._id}`)
+    // Upload to configured storage
+    const uploadPromises = files.map(file =>
+      uploadToStorage(file.buffer, `venues/${venue._id}`, {
+        contentType: file.mimetype,
+        originalName: file.originalname
+      })
     );
     
-    const imageUrls = await Promise.all(uploadPromises);
+    const uploadedImages = await Promise.all(uploadPromises);
     
     // Add to venue
-    const newImages = imageUrls.map(url => ({
-      url,
+    const newImages = uploadedImages.map(result => ({
+      url: result.secure_url,
+      publicId: result.public_id,
       category: category || 'Interior',
       isFeatured: isFeatured || false
     }));

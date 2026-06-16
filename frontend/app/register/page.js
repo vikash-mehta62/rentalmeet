@@ -299,16 +299,24 @@ function RegisterInner() {
     ? {
         title: 'Vendor Partner',
         subtitle: 'Grow your service business with RentalMeet leads.',
-        image: 'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=1400&q=80',
+        image: '/login/vendor.jpg',
         badge: 'Vendor Registration',
-        features: ['Reach thousands of event planners', 'Manage bookings & payments', 'Build your brand online']
+        features: ['Reach thousands of event planners', 'Manage bookings & payments', 'Build your brand online'],
+        bg: 'bg-white',
+        theme: 'light',
+        overlay: '',
+        imgFit: 'object-contain opacity-100 p-4'
       }
     : {
         title: 'Venue Owner',
         subtitle: 'List your spaces and start receiving bookings quickly.',
-        image: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=1400&q=80',
+        image: '/login/venues.jpg',
         badge: 'Venue Owner Registration',
-        features: ['List unlimited venues', 'Get confirmed bookings daily', 'Track earnings in real-time']
+        features: ['List unlimited venues', 'Get confirmed bookings daily', 'Track earnings in real-time'],
+        bg: 'bg-[#f4efea]',
+        theme: 'light',
+        overlay: '',
+        imgFit: 'object-contain opacity-100 p-4'
       };
 
   return (
@@ -319,44 +327,92 @@ function RegisterInner() {
         <div className="flex flex-col md:flex-row min-h-[calc(100vh-80px)]">
           
           {/* Left Side: Visual & Content */}
-          <div className="relative w-full md:w-1/2 bg-dark-900 flex items-center justify-center p-8 lg:p-16 overflow-hidden min-h-[320px] md:min-h-0">
-            <img 
-              src={targetMeta.image} 
-              alt={targetMeta.title} 
-              className="absolute inset-0 w-full h-full object-cover opacity-50 scale-105 hover:scale-100 transition-transform duration-1000" 
-            />
-            <div className="absolute inset-0 bg-gradient-to-br from-primary-700/60 to-dark-900/90" />
-            
-            <div className="relative z-10 max-w-lg w-full">
-              <Link href="/" className="inline-flex items-center gap-2 text-white/80 hover:text-white mb-8 transition-colors text-sm font-medium">
-                <ArrowLeft className="w-4 h-4" /> Back to Home
-              </Link>
-              <div className="space-y-5">
-                <span className="px-3 py-1 bg-primary-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full">
-                  {targetMeta.badge}
-                </span>
-                <h2 className="text-4xl lg:text-5xl font-black text-white leading-tight">
-                  Start Your <br />
-                  <span className="text-primary-400">{targetMeta.title}</span><br />
-                  <span className="text-white">Journey</span>
-                </h2>
-                <p className="text-base text-gray-200 font-light max-w-md">
-                  {targetMeta.subtitle} Join hundreds of professionals already earning on RentalMeet.
-                </p>
-                <ul className="space-y-2.5 pt-2">
-                  {targetMeta.features.map((f, i) => (
-                    <li key={i} className="flex items-center gap-3 text-sm text-white/90">
-                      <span className="w-5 h-5 rounded-full bg-primary-500/30 border border-primary-400 flex items-center justify-center flex-shrink-0">
-                        <svg className="w-3 h-3 text-primary-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      </span>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
+          <div className={`w-full md:w-1/2 ${targetMeta.bg} flex flex-col ${targetMeta.theme === 'light' ? 'justify-start p-8 lg:p-12' : 'relative items-center justify-center p-8 lg:p-16'} overflow-hidden min-h-[320px] md:min-h-0 transition-all duration-500`}>
+            {targetMeta.theme === 'light' ? (
+              <div className="flex flex-col h-full justify-between max-w-lg w-full mx-auto">
+                <div className="mb-6">
+                  <Link 
+                    href="/" 
+                    className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors text-sm font-medium"
+                  >
+                    <ArrowLeft className="w-4 h-4" /> Back to Home
+                  </Link>
+                  <div className="space-y-3">
+                    <span className="px-3 py-1 bg-primary-600 text-white text-[10px] font-bold uppercase tracking-widest rounded-full">
+                      {targetMeta.badge}
+                    </span>
+                    <h2 className="text-3xl lg:text-4xl font-black text-gray-900 leading-tight">
+                      Start Your <br />
+                      <span className="text-primary-600">{targetMeta.title}</span> <br />
+                      <span className="text-gray-800">Journey</span>
+                    </h2>
+                    <p className="text-sm text-gray-600 font-light">
+                      {targetMeta.subtitle} Join hundreds of professionals already earning on RentalMeet.
+                    </p>
+                    <ul className="space-y-2 pt-2">
+                      {targetMeta.features.map((f, i) => (
+                        <li key={i} className="flex items-center gap-3 text-xs text-gray-700">
+                          <span className="w-4 h-4 rounded-full bg-primary-100 border border-primary-500 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-2.5 h-2.5 text-primary-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </span>
+                          {f}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="flex-1 flex items-center justify-center min-h-[280px] w-full">
+                  <img
+                    src={targetMeta.image}
+                    alt={targetMeta.title}
+                    className="max-w-full max-h-[380px] object-contain rounded-xl shadow-md border border-gray-150 bg-white p-2"
+                  />
+                </div>
               </div>
-            </div>
+            ) : (
+              <>
+                <img 
+                  src={targetMeta.image} 
+                  alt={targetMeta.title} 
+                  className={`absolute inset-0 w-full h-full ${targetMeta.imgFit}`} 
+                />
+                {targetMeta.overlay && <div className={`absolute inset-0 ${targetMeta.overlay}`} />}
+                
+                <div className="relative z-10 max-w-lg w-full">
+                  <Link href="/" className="inline-flex items-center gap-2 text-white/80 hover:text-white mb-8 transition-colors text-sm font-medium">
+                    <ArrowLeft className="w-4 h-4" /> Back to Home
+                  </Link>
+                  <div className="space-y-5">
+                    <span className="px-3 py-1 bg-primary-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full">
+                      {targetMeta.badge}
+                    </span>
+                    <h2 className="text-4xl lg:text-5xl font-black text-white leading-tight">
+                      Start Your <br />
+                      <span className="text-primary-400">{targetMeta.title}</span><br />
+                      <span className="text-white">Journey</span>
+                    </h2>
+                    <p className="text-base text-gray-200 font-light max-w-md">
+                      {targetMeta.subtitle} Join hundreds of professionals already earning on RentalMeet.
+                    </p>
+                    <ul className="space-y-2.5 pt-2">
+                      {targetMeta.features.map((f, i) => (
+                        <li key={i} className="flex items-center gap-3 text-sm text-white/90">
+                          <span className="w-5 h-5 rounded-full bg-primary-500/30 border border-primary-400 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-3 h-3 text-primary-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </span>
+                          {f}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Right Side: Registration Form */}

@@ -1,5 +1,5 @@
 const Review = require('../models/Review');
-const { uploadToCloudinary } = require('../config/cloudinary');
+const { uploadToStorage } = require('../config/storage');
 
 // @desc    Get all active reviews (Public)
 // @route   GET /api/reviews
@@ -49,7 +49,7 @@ exports.createReview = async (req, res) => {
     
     // Upload profile image if provided
     if (req.file) {
-      const result = await uploadToCloudinary(req.file.buffer, 'reviews');
+      const result = await uploadToStorage(req.file.buffer, 'reviews');
       profileImage = result.secure_url;
     }
     
@@ -100,7 +100,7 @@ exports.updateReview = async (req, res) => {
     
     // Upload new profile image if provided
     if (req.file) {
-      const result = await uploadToCloudinary(req.file.buffer, 'reviews');
+      const result = await uploadToStorage(req.file.buffer, 'reviews');
       review.profileImage = result.secure_url;
     }
     
