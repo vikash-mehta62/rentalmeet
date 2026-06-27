@@ -65,11 +65,35 @@ exports.sendVenueSubmissionEmail = async (ownerEmail, venueName) => {
     nextStepsHtml
   );
   
-  await this.sendEmail({
-    email: ownerEmail,
-    subject: 'Venue Submission Received - RentalMeet',
-    html
-  });
+  // Create DB Notification
+  try {
+    const User = require('../models/User');
+    const owner = await User.findOne({ email: ownerEmail.toLowerCase().trim() });
+    if (owner) {
+      const Notification = require('../models/Notification');
+      await Notification.create({
+        recipient: owner._id,
+        type: 'general',
+        title: 'Venue Registration Under Review',
+        message: `Thank you for registering ${venueName}. Your venue is currently under review.`,
+        link: '/owner/dashboard'
+      });
+      console.log(`[NOTIFICATION] Created submission notification for owner ${ownerEmail}`);
+    }
+  } catch (notifErr) {
+    console.error('[NOTIFICATION] Failed to create submission notification:', notifErr.message);
+  }
+
+  // Send Email
+  try {
+    await this.sendEmail({
+      email: ownerEmail,
+      subject: 'Venue Submission Received - RentalMeet',
+      html
+    });
+  } catch (emailErr) {
+    console.error('[EMAIL] Failed to send submission email:', emailErr.message);
+  }
 };
 
 exports.sendVenueApprovalEmail = async (ownerEmail, venueName) => {
@@ -87,11 +111,35 @@ exports.sendVenueApprovalEmail = async (ownerEmail, venueName) => {
     ctaHtml
   );
   
-  await this.sendEmail({
-    email: ownerEmail,
-    subject: 'Venue Approved - RentalMeet',
-    html
-  });
+  // Create DB Notification
+  try {
+    const User = require('../models/User');
+    const owner = await User.findOne({ email: ownerEmail.toLowerCase().trim() });
+    if (owner) {
+      const Notification = require('../models/Notification');
+      await Notification.create({
+        recipient: owner._id,
+        type: 'general',
+        title: '🎉 Venue Approved!',
+        message: `Congratulations! Your venue ${venueName} has been approved and is now live.`,
+        link: '/owner/dashboard'
+      });
+      console.log(`[NOTIFICATION] Created approval notification for owner ${ownerEmail}`);
+    }
+  } catch (notifErr) {
+    console.error('[NOTIFICATION] Failed to create approval notification:', notifErr.message);
+  }
+
+  // Send Email
+  try {
+    await this.sendEmail({
+      email: ownerEmail,
+      subject: 'Venue Approved - RentalMeet',
+      html
+    });
+  } catch (emailErr) {
+    console.error('[EMAIL] Failed to send approval email:', emailErr.message);
+  }
 };
 
 exports.sendVenueRejectionEmail = async (ownerEmail, venueName, reason) => {
@@ -110,11 +158,35 @@ exports.sendVenueRejectionEmail = async (ownerEmail, venueName, reason) => {
     rejectionHtml
   );
   
-  await this.sendEmail({
-    email: ownerEmail,
-    subject: 'Venue Registration Update - RentalMeet',
-    html
-  });
+  // Create DB Notification
+  try {
+    const User = require('../models/User');
+    const owner = await User.findOne({ email: ownerEmail.toLowerCase().trim() });
+    if (owner) {
+      const Notification = require('../models/Notification');
+      await Notification.create({
+        recipient: owner._id,
+        type: 'general',
+        title: 'Venue Registration Update',
+        message: `We regret to inform you that your venue ${venueName} could not be approved. Reason: ${reason}`,
+        link: '/owner/dashboard'
+      });
+      console.log(`[NOTIFICATION] Created rejection notification for owner ${ownerEmail}`);
+    }
+  } catch (notifErr) {
+    console.error('[NOTIFICATION] Failed to create rejection notification:', notifErr.message);
+  }
+
+  // Send Email
+  try {
+    await this.sendEmail({
+      email: ownerEmail,
+      subject: 'Venue Registration Update - RentalMeet',
+      html
+    });
+  } catch (emailErr) {
+    console.error('[EMAIL] Failed to send rejection email:', emailErr.message);
+  }
 };
 
 const getHtmlTemplate = (title, recipientName, messageText, bookingDetails = null, extraHtml = '') => {
@@ -296,30 +368,110 @@ exports.sendBookingEmail = async (booking, eventType) => {
         return;
     }
 
-    const emailPromises = [];
-    if (customerEmail) {
-      emailPromises.push(
-        this.sendEmail({
-          email: customerEmail,
-          subject,
-          html: customerHtml
-        })
-      );
-    }
-    if (ownerEmail) {
-      emailPromises.push(
-        this.sendEmail({
-          email: ownerEmail,
-          subject,
-          html: ownerHtml
-        })
-      );
+    // 1. Generate DB Notifications (Run before sending emails so email failure doesn't block it)
+    try {
+      const Notification = require('../models/Notification');
+      const notificationsToCreate = [];
+
+      let customerTitle = '';
+      let customerMsg = '';
+      let ownerTitle = '';
+      let ownerMsg = '';
+      let typeStr = 'general';
+
+      switch (eventType) {
+        case 'created':
+          customerTitle = 'Booking Request Received';
+          customerMsg = `Your booking request for ${venueName} has been received and is pending owner confirmation. Booking No: #${bookingNo}`;
+          ownerTitle = 'New Booking Request';
+          ownerMsg = `You have received a new booking request for your venue ${venueName}. Booking No: #${bookingNo}`;
+          typeStr = 'booking_created';
+          break;
+        case 'confirmed':
+          customerTitle = 'Booking Confirmed 🎉';
+          customerMsg = `Great news! Your booking request for ${venueName} has been confirmed by the venue owner. Booking No: #${bookingNo}`;
+          ownerTitle = 'Booking Confirmed Successfully';
+          ownerMsg = `You have successfully confirmed the booking #${bookingNo} for ${venueName}.`;
+          typeStr = 'booking_confirmed';
+          break;
+        case 'completed':
+          customerTitle = 'Booking Completed';
+          customerMsg = `Your booking #${bookingNo} for ${venueName} has been marked as completed.`;
+          ownerTitle = 'Booking Completed';
+          ownerMsg = `The booking #${bookingNo} for ${venueName} has been completed.`;
+          typeStr = 'booking_completed';
+          break;
+        case 'cancelled':
+          customerTitle = 'Booking Cancelled';
+          customerMsg = `Your booking for ${venueName} has been cancelled. Booking No: #${bookingNo}`;
+          ownerTitle = 'Booking Cancelled';
+          ownerMsg = `The booking #${bookingNo} for ${venueName} has been cancelled.`;
+          typeStr = 'booking_cancelled';
+          break;
+      }
+
+      // Add customer notification
+      const custId = booking.customer?._id || booking.customer;
+      if (custId) {
+        notificationsToCreate.push({
+          recipient: custId,
+          type: typeStr,
+          title: customerTitle,
+          message: customerMsg,
+          link: '/customer/bookings'
+        });
+      }
+
+      // Add owner notification
+      const ownerId = booking.venue?.owner?._id || booking.venue?.owner;
+      if (ownerId) {
+        notificationsToCreate.push({
+          recipient: ownerId,
+          type: typeStr,
+          title: ownerTitle,
+          message: ownerMsg,
+          link: '/owner/bookings'
+        });
+      }
+
+      if (notificationsToCreate.length > 0) {
+        await Notification.insertMany(notificationsToCreate);
+        console.log(`[NOTIFICATION] Created ${notificationsToCreate.length} DB notifications for booking #${bookingNo}`);
+      }
+    } catch (notifErr) {
+      console.error('[NOTIFICATION] Failed to create DB notifications:', notifErr.message);
     }
 
-    await Promise.all(emailPromises);
-    console.log(`[EMAIL] Sent ${eventType} booking notification for #${bookingNo}`);
+    // 2. Send Emails (Wrap in try-catch so it is non-blocking)
+    try {
+      const emailPromises = [];
+      if (customerEmail) {
+        emailPromises.push(
+          this.sendEmail({
+            email: customerEmail,
+            subject,
+            html: customerHtml
+          })
+        );
+      }
+      if (ownerEmail) {
+        emailPromises.push(
+          this.sendEmail({
+            email: ownerEmail,
+            subject,
+            html: ownerHtml
+          })
+        );
+      }
+
+      await Promise.all(emailPromises);
+      console.log(`[EMAIL] Sent ${eventType} booking notification emails for #${bookingNo}`);
+    } catch (emailErr) {
+      console.error(`[EMAIL] Email delivery failed for booking #${bookingNo}:`, emailErr.message);
+    }
+
   } catch (error) {
-    console.error(`[EMAIL] Error sending ${eventType} booking email:`, error.message);
+    console.error(`[EMAIL] Error in sendBookingEmail:`, error.message);
   }
 };
 

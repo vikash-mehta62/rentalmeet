@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
+import NotificationBell from '@/components/NotificationBell';
 import {
   Building2, Calendar, Home, Search, Menu, X, 
   LogOut, ChevronLeft, ChevronRight, Bell, Settings, User, Briefcase
@@ -12,7 +13,7 @@ import {
 export default function CustomerLayout({ children, activePage = 'dashboard', fullWidth = false, title, subtitle }) {
   const router = useRouter();
   const pathname = usePathname(); // Current path check karne ke liye
-  const { user, logout } = useAuthStore();
+  const { user, token, logout } = useAuthStore();
   
   const [hydrated, setHydrated] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -89,6 +90,18 @@ export default function CustomerLayout({ children, activePage = 'dashboard', ful
           })}
         </nav>
 
+        {/* Back to Home */}
+        <div className="p-2 border-t border-gray-100">
+          <Link href="/" onClick={() => setSidebarOpen(false)}
+            title={isCollapsed ? 'Back to Home' : undefined}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all text-purple-600 hover:bg-purple-50 hover:text-purple-700 ${
+              isCollapsed ? 'justify-center' : ''
+            }`}>
+            <Home className="w-4 h-4 flex-shrink-0" />
+            {!isCollapsed && 'Back to Home'}
+          </Link>
+        </div>
+
       </aside>
 
       {/* Overlay */}
@@ -106,10 +119,7 @@ export default function CustomerLayout({ children, activePage = 'dashboard', ful
             <p className="text-xs text-gray-400 truncate">{subtitle || 'Customer Portal'}</p>
           </div>
           <div className="flex items-center gap-3">
-            <button className="hidden sm:flex p-2 text-gray-400 hover:bg-gray-100 rounded-xl relative">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
-            </button>
+            <NotificationBell token={token} />
             <div className="h-8 w-px bg-gray-200 hidden sm:block"></div>
             <div className="hidden sm:flex flex-col text-right leading-tight">
               <span className="text-sm font-bold text-gray-800 max-w-[180px] truncate">{user?.name || 'Customer'}</span>

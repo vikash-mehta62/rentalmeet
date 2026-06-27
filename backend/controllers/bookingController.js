@@ -2,8 +2,10 @@ const Booking = require('../models/Booking');
 const Venue = require('../models/Venue');
 const Counter = require('../models/Counter');
 const Coupon = require('../models/Coupon');
+const PlatformSettings = require('../models/PlatformSettings');
 const { getCityCode, getStateCode } = require('../utils/cityCodes');
 const { calculateVenueConfirmationDeadline } = require('../utils/confirmationDeadline');
+const { calculateVenueBookingPrice, calculateVenueOwnerPayout, numberOr } = require('../utils/venuePricing');
 
 // Helper function to generate booking number
 // Format: STATE(2) + CITY(3) + YEAR(2) + VENUETYPE(2) + SERIAL(6)
@@ -43,6 +45,28 @@ const getCapacityLimit = (capacity) => {
   if (!text || text.toLowerCase().includes('more than')) return null;
   const values = text.match(/\d+/g)?.map(Number).filter(Number.isFinite) || [];
   return values.length ? Math.max(...values) : null;
+};
+
+const getSnapshotPlatformFeeConfig = (priceBreakdown = {}) => {
+  const feeType = priceBreakdown.platformFeeType === 'fixed' ? 'fixed' : 'percentage';
+  const fallbackValue = priceBreakdown.platformFeeValue !== undefined
+    ? priceBreakdown.platformFeeValue
+    : (priceBreakdown.platformFeeRate ?? priceBreakdown.platformFeePercentage);
+
+  return {
+    source: priceBreakdown.platformFeeSource || 'snapshot',
+    type: feeType,
+    value: numberOr(fallbackValue, feeType === 'percentage' ? 5 : 0),
+    cgstRate: numberOr(priceBreakdown.platformFeeCGSTRate, 9),
+    sgstRate: numberOr(priceBreakdown.platformFeeSGSTRate, 9)
+  };
+};
+
+const getSnapshotVenueGSTConfig = (priceBreakdown = {}) => {
+  const fallbackHalfRate = priceBreakdown.gstRate ? numberOr(priceBreakdown.gstRate, 0) / 2 : 0;
+  const cgstRate = numberOr(priceBreakdown.venueCGSTRate, fallbackHalfRate);
+  const sgstRate = numberOr(priceBreakdown.venueSGSTRate, fallbackHalfRate);
+  return { cgstRate, sgstRate, totalRate: cgstRate + sgstRate, hsnCode: priceBreakdown.venueHSN || '9973' };
 };
 
 // @desc    Create booking
@@ -91,17 +115,50 @@ exports.createBooking = async (req, res) => {
       startTime, 
       endTime, 
       bookingType, 
-      amount, 
+      amount: clientAmount, 
       selectedAmenities,
-      amenitiesTotal,
       priceBreakdown,
       customerDetails,
-      couponCode
+      couponCode,
+      paymentDetails
     } = req.body;
+
+    if (!paymentDetails || !paymentDetails.razorpay_order_id || !paymentDetails.razorpay_payment_id || !paymentDetails.razorpay_signature) {
+      return res.status(400).json({
+        success: false,
+        message: 'Payment details are required to complete this booking.'
+      });
+    }
+
+    const crypto = require('crypto');
+    const sign = paymentDetails.razorpay_order_id + '|' + paymentDetails.razorpay_payment_id;
+    const expectedSign = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+      .update(sign.toString())
+      .digest('hex');
+
+    if (paymentDetails.razorpay_signature !== expectedSign) {
+      return res.status(400).json({
+        success: false,
+        message: 'Payment verification failed: Invalid signature'
+      });
+    }
+
+    // Explicitly capture the payment so it can be refunded later if needed
+    try {
+      const Razorpay = require('razorpay');
+      const razorpay = new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET });
+      const payment = await razorpay.payments.fetch(paymentDetails.razorpay_payment_id);
+      console.log(`[PAYMENT] Payment status: ${payment.status} | captured: ${payment.captured}`);
+      if (payment.status === 'authorized' && !payment.captured) {
+        await razorpay.payments.capture(paymentDetails.razorpay_payment_id, payment.amount, 'INR');
+        console.log(`[PAYMENT] ✅ Payment captured: ${paymentDetails.razorpay_payment_id}`);
+      }
+    } catch (captureErr) {
+      console.warn(`[PAYMENT] ⚠️  Capture attempt: ${captureErr.error?.description || captureErr.message}`);
+    }
     
     console.log('=== BOOKING REQUEST DEBUG ===');
-    console.log('Amount (Total):', amount);
-    console.log('Amenities Total:', amenitiesTotal);
+    console.log('Client Amount (Total):', clientAmount);
     console.log('Selected Amenities:', JSON.stringify(selectedAmenities, null, 2));
     console.log('Price Breakdown:', JSON.stringify(priceBreakdown, null, 2));
     console.log('============================');
@@ -135,30 +192,25 @@ exports.createBooking = async (req, res) => {
     // Generate booking number
     const bookingNumber = await generateBookingNumber(venueDetails);
     console.log('Generated Booking Number:', bookingNumber);
-    
-    // Calculate owner earnings (no commission; only platform fee retained)
-    let ownerEarnings = 0;
-    try {
-      // Prefer client-provided subtotal
-      if (priceBreakdown?.subtotal) {
-        ownerEarnings = priceBreakdown.subtotal;
-      } else {
-        // Fallback: reverse-calc subtotal from total using gstRate and platformFee if available
-        const PlatformSettings = require('../models/PlatformSettings');
-        const settings = await PlatformSettings.getSettings();
-        const gstRate = priceBreakdown?.gstRate || settings.gstRate || 18;
-        const platformFee = priceBreakdown?.platformFee || 0;
-        ownerEarnings = (amount - platformFee) / (1 + gstRate / 100);
-      }
-    } catch (calcErr) {
-      console.warn('Owner earnings calc fallback error:', calcErr?.message);
-      ownerEarnings = amount;
-    }
+
+    const settings = await PlatformSettings.getSettings();
+    const serverPrice = calculateVenueBookingPrice({
+      venue: venueDetails,
+      settings,
+      bookingDate,
+      startTime,
+      endTime,
+      bookingType,
+      selectedAmenities: selectedAmenities || {},
+      durationHours: priceBreakdown?.durationHours
+    });
+    const preCouponAmount = serverPrice.total;
+    console.log('Server Price Breakdown:', JSON.stringify(serverPrice, null, 2));
     
     // ── Coupon validation & application ──────────────────────────────────────
     let appliedCoupon = null;
     let discountAmount = 0;
-    let finalAmount = amount;
+    let finalAmount = preCouponAmount;
 
     if (couponCode) {
       // Try venue-specific coupon first, then global (venue: null)
@@ -179,15 +231,15 @@ exports.createBooking = async (req, res) => {
         const now = new Date();
         const expired = coupon.expiryDate && now > new Date(coupon.expiryDate);
         const limitReached = coupon.maxUses !== null && coupon.usedCount >= coupon.maxUses;
-        const belowMin = amount < coupon.minBookingAmount;
+        const belowMin = preCouponAmount < coupon.minBookingAmount;
 
         if (!expired && !limitReached && !belowMin) {
           // Determine applicable amount based on appliesTo
           const appliesTo = coupon.appliesTo || 'total';
-          let applicableAmount = amount; // default: total
-          if (appliesTo === 'platformFee') applicableAmount = priceBreakdown?.platformFeeTotal || 0;
-          else if (appliesTo === 'amenities') applicableAmount = amenitiesTotal || 0;
-          else if (appliesTo === 'baseAmount') applicableAmount = priceBreakdown?.basePrice || 0;
+          let applicableAmount = preCouponAmount; // default: total
+          if (appliesTo === 'platformFee') applicableAmount = serverPrice.platformFeeTotal || 0;
+          else if (appliesTo === 'amenities') applicableAmount = serverPrice.amenitiesTotal || 0;
+          else if (appliesTo === 'baseAmount') applicableAmount = serverPrice.basePrice || 0;
 
           if (coupon.discountType === 'percentage') {
             discountAmount = (applicableAmount * coupon.discountValue) / 100;
@@ -196,9 +248,66 @@ exports.createBooking = async (req, res) => {
             discountAmount = Math.min(coupon.discountValue, applicableAmount);
           }
           discountAmount = Math.round(discountAmount);
-          finalAmount = Math.max(1, amount - discountAmount); // minimum ₹1
+          finalAmount = Math.max(1, preCouponAmount - discountAmount); // minimum Rs.1
           appliedCoupon = coupon;
         }
+      }
+    }
+
+    const discountAppliesTo = appliedCoupon ? (appliedCoupon.appliesTo || 'total') : null;
+
+    const ownerEarnings = calculateVenueOwnerPayout({
+      amount: finalAmount,
+      priceBreakdown: { ...serverPrice, discount: discountAmount, discountAppliesTo }
+    });
+
+    // Check if venue is already booked for this date
+    if (bookingDate) {
+      const targetDate = new Date(bookingDate);
+      
+      const startRange = new Date(targetDate);
+      startRange.setDate(startRange.getDate() - 2);
+      const endRange = new Date(targetDate);
+      endRange.setDate(endRange.getDate() + 2);
+      
+      const existingBookings = await Booking.find({
+        venue,
+        bookingDate: { $gte: startRange, $lte: endRange },
+        status: { $in: ['confirmed', 'pending'] }
+      });
+      
+      const isAlreadyBooked = existingBookings.some(b => {
+        const dbDate = new Date(b.bookingDate);
+        const sameUTC = dbDate.getUTCFullYear() === targetDate.getUTCFullYear() &&
+                        dbDate.getUTCMonth() === targetDate.getUTCMonth() &&
+                        dbDate.getUTCDate() === targetDate.getUTCDate();
+        const sameLocal = dbDate.getFullYear() === targetDate.getFullYear() &&
+                          dbDate.getMonth() === targetDate.getMonth() &&
+                          dbDate.getDate() === targetDate.getDate();
+        return sameUTC || sameLocal;
+      });
+      
+      if (isAlreadyBooked) {
+        // Auto-refund
+        try {
+          const Razorpay = require('razorpay');
+          const razorpay = new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET });
+          await razorpay.payments.refund(paymentDetails.razorpay_payment_id, {
+            amount: Math.round(finalAmount * 100),
+            speed: 'normal',
+            notes: {
+              reason: 'Auto-refund: venue already booked for this date.'
+            }
+          });
+          console.log(`[AUTO-REFUND] ✅ Refunded ₹${finalAmount} for payment ${paymentDetails.razorpay_payment_id} due to double booking.`);
+        } catch (refundErr) {
+          console.error('[AUTO-REFUND] ❌ Failed to auto-refund double booking payment:', refundErr.message);
+        }
+
+        return res.status(400).json({
+          success: false,
+          message: 'This venue was already booked on the selected date. Your payment has been automatically refunded.'
+        });
       }
     }
 
@@ -218,29 +327,36 @@ exports.createBooking = async (req, res) => {
         venueDetails.availability?.confirmationHours
       ),
       selectedAmenities: selectedAmenities || { basic: [], beverages: [], refreshmentFood: [], lunchThalis: [], additional: [] },
-      amenitiesTotal: amenitiesTotal || 0,
-      priceBreakdown: { ...(priceBreakdown || {}), discount: discountAmount, couponCode: appliedCoupon ? appliedCoupon.code : null, total: finalAmount },
+      amenitiesTotal: serverPrice.amenitiesTotal,
+      priceBreakdown: { ...serverPrice, discount: discountAmount, discountAppliesTo, couponCode: appliedCoupon ? appliedCoupon.code : null, total: finalAmount },
       customerDetails,
+      paymentStatus: 'paid',
+      paymentDetails: {
+        razorpay_order_id: paymentDetails.razorpay_order_id,
+        razorpay_payment_id: paymentDetails.razorpay_payment_id,
+        razorpay_signature: paymentDetails.razorpay_signature,
+        paidAt: new Date()
+      },
       ...(appliedCoupon && { 
         coupon: { 
           couponId: appliedCoupon._id, 
           code: appliedCoupon.code, 
+          appliesTo: appliedCoupon.appliesTo || 'total',
           discountAmount,
           isOwnerSponsored: !!(appliedCoupon.venue || appliedCoupon.owner)
         } 
       }),
-      // Seed payment ledger with initial pending transaction
       paymentLedger: {
         totalDue: finalAmount,
-        totalPaid: 0,
-        amountDue: finalAmount,
+        totalPaid: finalAmount,
+        amountDue: 0,
         refundDue: 0,
         transactions: [{
-          txnId: `BOOKING-${Date.now()}`,
+          txnId: paymentDetails.razorpay_payment_id,
           type: 'payment',
           amount: finalAmount,
-          status: 'pending',
-          note: `Booking created — ₹${finalAmount.toLocaleString()} due`,
+          status: 'completed',
+          note: `Razorpay payment — Order: ${paymentDetails.razorpay_order_id}`,
           date: new Date()
         }],
         adjustments: []
@@ -609,6 +725,34 @@ exports.modifyBooking = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized to modify this booking' });
     }
 
+    booking.approveSoonUsed = true;
+    await booking.save();
+
+    res.json({
+      success: true,
+      message: 'Confirmation deadline extended by 1 hour',
+      confirmationDeadline: booking.confirmationDeadline
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Modify booking (date/time/amenities) - recalculates price
+// @route   PUT /api/bookings/:id/modify
+exports.modifyBooking = async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id).populate('venue');
+
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    // Only customer who made the booking can modify it
+    if (booking.customer.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Not authorized to modify this booking' });
+    }
+
     // Only pending bookings can be modified
     if (booking.status !== 'pending') {
       return res.status(400).json({ success: false, message: 'Only pending bookings can be modified' });
@@ -620,43 +764,114 @@ exports.modifyBooking = async (req, res) => {
       endTime,
       bookingType,
       selectedAmenities,
-      amenitiesTotal,
-      priceBreakdown,
-      amount,
       customerDetails
     } = req.body;
+
+    // Check if venue is already booked for the new date
+    if (bookingDate) {
+      const targetDate = new Date(bookingDate);
+      const currentDate = new Date(booking.bookingDate);
+      
+      // Only check if the date actually changed
+      const dateChanged = targetDate.getUTCFullYear() !== currentDate.getUTCFullYear() ||
+                          targetDate.getUTCMonth() !== currentDate.getUTCMonth() ||
+                          targetDate.getUTCDate() !== currentDate.getUTCDate();
+
+      if (dateChanged) {
+        // Query bookings within +/- 2 days of the target date to cover timezone differences
+        const startRange = new Date(targetDate);
+        startRange.setDate(startRange.getDate() - 2);
+        const endRange = new Date(targetDate);
+        endRange.setDate(endRange.getDate() + 2);
+        
+        const existingBookings = await Booking.find({
+          _id: { $ne: booking._id }, // Exclude current booking
+          venue: booking.venue._id,
+          bookingDate: { $gte: startRange, $lte: endRange },
+          status: { $in: ['confirmed', 'pending'] }
+        });
+        
+        const isAlreadyBooked = existingBookings.some(b => {
+          const dbDate = new Date(b.bookingDate);
+          
+          // Compare UTC date parts
+          const sameUTC = dbDate.getUTCFullYear() === targetDate.getUTCFullYear() &&
+                          dbDate.getUTCMonth() === targetDate.getUTCMonth() &&
+                          dbDate.getUTCDate() === targetDate.getUTCDate();
+                          
+          // Compare local (server-side system) date parts
+          const sameLocal = dbDate.getFullYear() === targetDate.getFullYear() &&
+                            dbDate.getMonth() === targetDate.getMonth() &&
+                            dbDate.getDate() === targetDate.getDate();
+                            
+          return sameUTC || sameLocal;
+        });
+        
+        if (isAlreadyBooked) {
+          return res.status(400).json({
+            success: false,
+            message: 'This venue is already booked for the selected date.'
+          });
+        }
+      }
+    }
 
     // ── Record price adjustment in ledger ──────────────────────────────────
     // Capture oldAmount BEFORE updating booking.amount
     const oldAmount = booking.amount;
+    const existingPriceBreakdown = booking.priceBreakdown || {};
+    const settings = await PlatformSettings.getSettings();
+    const nextSelectedAmenities = selectedAmenities || booking.selectedAmenities || {};
+    const recalculatedPrice = calculateVenueBookingPrice({
+      venue: booking.venue,
+      settings,
+      bookingDate: bookingDate || booking.bookingDate,
+      startTime: startTime || booking.startTime,
+      endTime: endTime || booking.endTime,
+      bookingType: bookingType || booking.bookingType,
+      selectedAmenities: nextSelectedAmenities,
+      durationHours: existingPriceBreakdown.durationHours,
+      basePriceOverride: existingPriceBreakdown.basePrice,
+      platformFeeConfig: getSnapshotPlatformFeeConfig(existingPriceBreakdown),
+      venueGSTConfig: getSnapshotVenueGSTConfig(existingPriceBreakdown)
+    });
+    const discountAmount = numberOr(existingPriceBreakdown.discount ?? booking.coupon?.discountAmount, 0);
+    const discountAppliesTo = existingPriceBreakdown.discountAppliesTo || booking.coupon?.appliesTo || null;
+    const newAmount = Math.max(1, recalculatedPrice.total - discountAmount);
 
     // Update fields if provided
     if (bookingDate) booking.bookingDate = bookingDate;
     if (startTime) booking.startTime = startTime;
     if (endTime) booking.endTime = endTime;
     if (bookingType) booking.bookingType = bookingType;
-    if (selectedAmenities) booking.selectedAmenities = selectedAmenities;
-    if (amenitiesTotal !== undefined) booking.amenitiesTotal = amenitiesTotal;
-    if (priceBreakdown) booking.priceBreakdown = priceBreakdown;
-    if (amount !== undefined) booking.amount = amount;
+    booking.selectedAmenities = nextSelectedAmenities;
+    booking.amenitiesTotal = recalculatedPrice.amenitiesTotal;
+    booking.priceBreakdown = {
+      ...recalculatedPrice,
+      discount: discountAmount,
+      discountAppliesTo,
+      couponCode: existingPriceBreakdown.couponCode || booking.coupon?.code || null,
+      total: newAmount
+    };
+    booking.amount = newAmount;
     if (customerDetails) booking.customerDetails = { ...booking.customerDetails, ...customerDetails };
 
-    // Recalculate ownerEarnings from new subtotal (base + amenities, before platform fee)
-    if (priceBreakdown?.subtotal) {
-      booking.ownerEarnings = priceBreakdown.subtotal;
-    }
+    booking.ownerEarnings = calculateVenueOwnerPayout({
+      amount: newAmount,
+      priceBreakdown: { ...recalculatedPrice, discount: discountAmount, discountAppliesTo }
+    });
 
     // paymentStatus must NOT change on modification — booking is still active
     // Only record the adjustment in ledger for tracking purposes
-    if (amount !== undefined && amount !== oldAmount) {
+    if (newAmount !== oldAmount) {
       if (!booking.paymentLedger) booking.paymentLedger = { transactions: [], adjustments: [] };
       if (!booking.paymentLedger.adjustments) booking.paymentLedger.adjustments = [];
       if (!booking.paymentLedger.transactions) booking.paymentLedger.transactions = [];
 
-      const diff = amount - oldAmount;
+      const diff = newAmount - oldAmount;
       booking.paymentLedger.adjustments.push({
         oldAmount,
-        newAmount: amount,
+        newAmount,
         difference: diff,
         reason: 'modification',
         performedBy: req.user.id,

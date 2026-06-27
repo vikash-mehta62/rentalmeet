@@ -724,6 +724,7 @@ app.use('/api/payment', require('./routes/payment'));
 app.use('/api/terms', require('./routes/terms'));
 app.use('/api/reviews', require('./routes/reviews'));
 app.use('/api/venues', require('./routes/venueReviews'));
+app.use('/api/notifications', require('./routes/notifications'));
 
 // Public coupon validation
 const { validateCoupon } = require('./controllers/couponController');

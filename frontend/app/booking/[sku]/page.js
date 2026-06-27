@@ -11,12 +11,23 @@ import Navbar from '@/components/Navbar';
 import QuotationView from '@/components/booking/QuotationView';
 import { useAuthStore } from '@/lib/store';
 import toast from 'react-hot-toast';
+import { calculatePlatformFee, formatPlatformFeeLabel, getVenueDurationBasePrice, getVenuePricingMeta, isWeekendDate, roundMoney } from '@/lib/venuePricing';
 
 function getCapacityLimit(capacity) {
   const text = String(capacity || '').trim();
   if (!text || text.toLowerCase().includes('more than')) return null;
   const values = text.match(/\d+/g)?.map(Number).filter(Number.isFinite) || [];
   return values.length ? Math.max(...values) : null;
+}
+
+function formatBookingDate(dateValue) {
+  if (!dateValue) return '-';
+  const match = String(dateValue).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const date = match
+    ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+    : new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 export default function BookingPage() {
@@ -85,7 +96,7 @@ export default function BookingPage() {
 
   const fetchPlatformSettings = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/platform-settings`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues/platform-settings/public`);
       const data = await res.json();
       if (data.success) setPlatformSettings(data.settings);
     } catch (e) { /* use defaults */ }
@@ -143,11 +154,8 @@ export default function BookingPage() {
   const calculatePrice = useCallback(() => {
     if (!venue || !bookingData) return { basePrice: 0, amenitiesTotal: 0, subtotal: 0, gst: 0, platformFee: 0, platformFeeGST: 0, total: 0 };
 
-    const duration = parseInt(bookingData.duration);
-    let basePrice = 0;
-    if (duration === 1 || duration === 2) basePrice = (venue.pricing?.perHour?.weekday || 0) * duration;
-    else if (duration === 4) basePrice = venue.pricing?.halfDay?.weekday || 0;
-    else if (duration === 8) basePrice = venue.pricing?.fullDay?.weekday || 0;
+    const duration = Math.max(1, parseInt(bookingData.duration, 10) || 1);
+    const basePrice = getVenueDurationBasePrice(venue, duration, bookingData.date);
 
     let amenitiesTotal = 0;
 
@@ -178,23 +186,39 @@ export default function BookingPage() {
     const subtotal = basePrice + amenitiesTotal;
 
     // GST rates
-    const venueCGSTRate = venue.customGST?.enabled ? venue.customGST.rate / 2 : (platformSettings?.venueCGST || 9);
-    const venueSGSTRate = venue.customGST?.enabled ? venue.customGST.rate / 2 : (platformSettings?.venueSGST || 9);
+    const pricingMeta = getVenuePricingMeta(venue, platformSettings);
+    const venueCGSTRate = pricingMeta.venueCGSTRate;
+    const venueSGSTRate = pricingMeta.venueSGSTRate;
     const gstRate = venueCGSTRate + venueSGSTRate;
-    const gst = Math.round((subtotal * gstRate) / 100);
+    const venueCGST = roundMoney((subtotal * venueCGSTRate) / 100);
+    const venueSGST = roundMoney((subtotal * venueSGSTRate) / 100);
+    const gst = roundMoney(venueCGST + venueSGST);
 
     // Platform fee
-    const pfRate = venue.customPlatformFee?.enabled ? venue.customPlatformFee.percentage : (platformSettings?.platformFeePercentage || 5);
-    const platformFee = Math.round((subtotal * pfRate) / 100);
-    const pfGSTRate = (platformSettings?.platformCGST || 9) + (platformSettings?.platformSGST || 9);
-    const platformFeeGST = Math.round((platformFee * pfGSTRate) / 100);
+    const platformFee = calculatePlatformFee(subtotal, pricingMeta.platformFeeType, pricingMeta.platformFeeValue);
+    const platformFeeCGST = roundMoney((platformFee * pricingMeta.platformCGSTRate) / 100);
+    const platformFeeSGST = roundMoney((platformFee * pricingMeta.platformSGSTRate) / 100);
+    const platformFeeGST = roundMoney(platformFeeCGST + platformFeeSGST);
+    const platformFeeTotal = roundMoney(platformFee + platformFeeGST);
 
-    const total = subtotal + gst + platformFee + platformFeeGST;
+    const total = subtotal + gst + platformFeeTotal;
 
     return {
       basePrice, amenitiesTotal, subtotal,
+      durationHours: duration,
+      venueCGST, venueSGST, venueCGSTRate, venueSGSTRate, venueHSN: pricingMeta.venueHSN,
       gst, gstRate,
-      platformFee, platformFeeGST, pfRate,
+      platformFee,
+      platformFeeType: pricingMeta.platformFeeType,
+      platformFeeValue: pricingMeta.platformFeeValue,
+      platformFeeRate: pricingMeta.platformFeeValue,
+      platformFeePercentage: pricingMeta.platformFeePercentage,
+      platformFeeCGST,
+      platformFeeSGST,
+      platformFeeCGSTRate: pricingMeta.platformCGSTRate,
+      platformFeeSGSTRate: pricingMeta.platformSGSTRate,
+      platformFeeGST,
+      platformFeeTotal,
       total
     };
   }, [venue, bookingData, selectedAmenities, quantities, platformSettings]);
@@ -265,11 +289,25 @@ export default function BookingPage() {
         basePrice: pricing.basePrice,
         amenitiesTotal: pricing.amenitiesTotal,
         subtotal: pricing.subtotal,
+        durationHours: pricing.durationHours,
         gst: pricing.gst,
         gstRate: pricing.gstRate,
+        venueCGST: pricing.venueCGST,
+        venueSGST: pricing.venueSGST,
+        venueCGSTRate: pricing.venueCGSTRate,
+        venueSGSTRate: pricing.venueSGSTRate,
+        venueHSN: pricing.venueHSN,
         platformFee: pricing.platformFee,
+        platformFeeType: pricing.platformFeeType,
+        platformFeeValue: pricing.platformFeeValue,
+        platformFeePercentage: pricing.platformFeePercentage,
+        platformFeeCGST: pricing.platformFeeCGST,
+        platformFeeSGST: pricing.platformFeeSGST,
+        platformFeeCGSTRate: pricing.platformFeeCGSTRate,
+        platformFeeSGSTRate: pricing.platformFeeSGSTRate,
         platformFeeGST: pricing.platformFeeGST,
-        platformFeeRate: pricing.pfRate,
+        platformFeeTotal: pricing.platformFeeTotal,
+        platformFeeRate: pricing.platformFeeRate,
         total: pricing.total
       };
 
@@ -393,7 +431,7 @@ export default function BookingPage() {
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Date</p>
-                    <p className="font-semibold">{bookingData.date ? new Date(bookingData.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}</p>
+                    <p className="font-semibold">{formatBookingDate(bookingData.date)}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Start Time</p>
@@ -649,7 +687,7 @@ export default function BookingPage() {
                 )}
                 {pricing.platformFee > 0 && (
                   <div className="flex justify-between text-gray-500">
-                    <span>Platform Fee ({pricing.pfRate}%)</span>
+                    <span>Platform Fee ({formatPlatformFeeLabel(pricing.platformFeeType, pricing.platformFeeValue)})</span>
                     <span>₹{pricing.platformFee.toLocaleString()}</span>
                   </div>
                 )}
@@ -682,6 +720,7 @@ export default function BookingPage() {
           venue={venue}
           bookingData={{
             ...bookingData,
+            isWeekend: isWeekendDate(bookingData?.date),
             customerName: formData.customerName,
             customerEmail: formData.customerEmail,
             customerPhone: formData.customerPhone,

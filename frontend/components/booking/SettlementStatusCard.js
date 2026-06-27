@@ -29,7 +29,10 @@ export default function SettlementStatusCard({ booking, title = 'Settlement Stat
   const status = STATUS[statusKey] || STATUS.unsettled;
   const Icon = status.icon;
   const details = booking.settlementDetails || {};
-  const payoutAmount = details.amount ?? fallbackAmount;
+  const platformTotal = Number(booking.priceBreakdown?.platformFeeTotal) || 0;
+  const maxPayoutFromPaidAmount = Math.max(0, (Number(booking.amount) || 0) - platformTotal);
+  const fallbackPayout = booking.ownerEarnings ?? fallbackAmount;
+  const payoutAmount = details.amount ?? Math.min(Number(fallbackPayout) || 0, maxPayoutFromPaidAmount || Number(fallbackPayout) || 0);
   const isEligible = booking.status === 'completed' && booking.paymentStatus === 'paid';
 
   return (

@@ -3,24 +3,14 @@ const Booking = require('../models/Booking');
 const ServiceBooking = require('../models/ServiceBooking');
 const VendorProfile = require('../models/VendorProfile');
 const { decrypt } = require('./encryption');
+const { calculateVenueOwnerPayout } = require('./venuePricing');
 
 const isValidIFSC = (ifsc) => {
   return typeof ifsc === 'string' && /^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc.trim().toUpperCase());
 };
 
 const calculateVenuePayout = (booking) => {
-  const pb = booking.priceBreakdown || {};
-  const subtotal = pb.subtotal || 0;
-  const gst = pb.gst || 0;
-  const discount = pb.discount || 0;
-  // phase2 work: check for coupon sponsorship type
-  // const isOwnerSponsored = booking.coupon?.isOwnerSponsored || false;
-  // if (isOwnerSponsored) {
-  //   return Math.round(Math.max(0, subtotal + gst - discount));
-  // } else {
-  //   return Math.round(subtotal + gst);
-  // }
-  return Math.round(Math.max(0, subtotal + gst - discount));
+  return calculateVenueOwnerPayout(booking);
 };
 
 const calculateServicePayout = (booking) => {

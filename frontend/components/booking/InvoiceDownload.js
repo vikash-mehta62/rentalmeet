@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { FileText } from 'lucide-react';
+import { formatPlatformFeeLabel } from '@/lib/venuePricing';
 
 export default function InvoiceDownload({ booking, userRole = 'customer' }) {
   if (!booking || booking.status !== 'completed') return null;
@@ -24,8 +25,12 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
   const vSGST      = pb.venueSGST  ?? (pb.gst ? pb.gst / 2 : 0);
   const vCGSTRate  = pb.venueCGSTRate ?? 9;
   const vSGSTRate  = pb.venueSGSTRate ?? 9;
+  const venueHSN   = pb.venueHSN || booking?.venueInvoice?.hsnCode || booking?.gstSettingsSnapshot?.venueHSN || '9973';
   const pfee       = pb.platformFee ?? 0;
-  const pfRate     = pb.platformFeeRate ?? 5;
+  const pfType     = pb.platformFeeType || 'percentage';
+  const pfValue    = pb.platformFeeValue ?? pb.platformFeeRate ?? pb.platformFeePercentage ?? 5;
+  const pfLabel    = formatPlatformFeeLabel(pfType, pfValue);
+  const pfShortLabel = pfType === 'fixed' ? 'Fixed' : pfLabel;
   const pfCGST     = pb.platformFeeCGST ?? (pb.platformFeeGST ? pb.platformFeeGST / 2 : 0);
   const pfSGST     = pb.platformFeeSGST ?? (pb.platformFeeGST ? pb.platformFeeGST / 2 : 0);
   const pfCGSTRate = pb.platformFeeCGSTRate ?? 9;
@@ -162,7 +167,8 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
 
         // Calculate dynamic card height based on fields
         const billedRows = 3 + (eventType ? 1 : 0) + (guests ? 1 : 0) + (custGST ? 1 : 0) + (custCompany ? 1 : 0);
-        const cardH = 10 + billedRows * 4.5 + 2;
+        const supplierRows = 6;
+        const cardH = 10 + Math.max(billedRows, supplierRows) * 4.5 + 2;
 
         // Left card
         rect(M, y, cardW, cardH, [255, 251, 235], [253, 230, 138]);
@@ -204,6 +210,7 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
         rkvLine('Venue',        venueName,                    ry); ry += 4.5;
         rkvLine('Address',      location,                     ry); ry += 4.5;
         rkvLine('GSTIN',        gstin,                        ry); ry += 4.5;
+        rkvLine('HSN Code',     venueHSN,                     ry); ry += 4.5;
         rkvLine('Booking Date', fmtD(booking?.bookingDate),   ry); ry += 4.5;
         rkvLine('Time Slot',    (booking?.startTime || '') + ' - ' + (booking?.endTime || '') + ' (' + (booking?.bookingType || '') + ')', ry);
 
@@ -278,7 +285,7 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
           ['SGST @ ' + vSGSTRate + '%', fmtAmt(vSGST), null],
         ];
         if (discount > 0) totLines.push(['Coupon Discount' + (pb.couponCode ? ' (' + pb.couponCode + ')' : ''), '- ' + fmtAmt(discount), [22, 163, 74]]);
-        const invoiceTotal = booking?.amount ?? Math.max(0, subtotal + vCGST + vSGST - discount);
+        const invoiceTotal = Math.max(0, subtotal + vCGST + vSGST - discount);
         const totH = totLines.length * 6 + 10;
         rect(M, y, CW, totH, [255, 251, 235], [253, 230, 138]);
 
@@ -380,14 +387,14 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
         setFont('normal', 7,   [107, 114, 128]);
         doc.text('Booking facilitation for ' + venueName + ' on ' + fmtD(booking?.bookingDate), colX[0] + 2, y + 8);
         setFont('normal', 8.5, [17, 24, 39]);
-        doc.text(pfRate + '% ', colX[1] + 2, y + 5.5);
+        doc.text(pfShortLabel, colX[1] + 2, y + 5.5);
         right(fmtAmt(subtotal), colX[3] - 2,           y + 5.5);
         setFont('bold', 8.5, [17, 24, 39]);
         right(fmtAmt(pfee),     colX[3] + cols[3] - 2, y + 5.5);
         y += 14;
 
         const totLines = [
-          ['Platform Service Fee (' + pfRate + '%)', fmtAmt(pfee)],
+          ['Platform Service Fee (' + pfLabel + ')', fmtAmt(pfee)],
           ['CGST @ ' + pfCGSTRate + '%',             fmtAmt(pfCGST)],
           ['SGST @ ' + pfSGSTRate + '%',             fmtAmt(pfSGST)],
         ];

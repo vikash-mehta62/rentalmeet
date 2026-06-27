@@ -22,6 +22,8 @@ export default function OwnerBookings() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [expandedAmenities, setExpandedAmenities] = useState({});
+  const [expandedDetails, setExpandedDetails] = useState({});
+  const [isProcessingConfirm, setIsProcessingConfirm] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [historyBooking, setHistoryBooking] = useState(null);
   const [activeTab, setActiveTab] = useState('bookings');
@@ -48,8 +50,8 @@ export default function OwnerBookings() {
       isOpen: true,
       title,
       message,
-      onConfirm: () => {
-        onConfirm();
+      onConfirm: async () => {
+        await onConfirm();
         closeConfirmModal();
       },
       onCancel: closeConfirmModal
@@ -603,87 +605,106 @@ export default function OwnerBookings() {
                   )}
 
                   {/* Customer Contact & Event Details */}
-                  <div className="bg-blue-50 rounded-lg p-3 mb-4">
-                    <p className="text-xs text-blue-600 font-semibold mb-2">Customer & Event Details</p>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center gap-2 text-gray-700">
-                        <Mail className="w-4 h-4 text-blue-600" />
-                        <span>{booking.customer?.email}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-gray-700">
-                        <Phone className="w-4 h-4 text-blue-600" />
-                        <span>{booking.customerDetails?.phone || booking.customer?.phone}</span>
-                      </div>
-                      {booking.customerDetails?.eventType && (
+                  <div className="mb-4 border border-blue-200 rounded-lg overflow-hidden">
+                    <button
+                      onClick={() => setExpandedDetails(prev => ({ ...prev, [`customer_${booking._id}`]: !prev[`customer_${booking._id}`] }))}
+                      className="w-full flex items-center justify-between bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
+                    >
+                      <span>Customer & Event Details</span>
+                      <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${expandedDetails[`customer_${booking._id}`] ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {expandedDetails[`customer_${booking._id}`] && (
+                      <div className="bg-blue-50/30 p-3 border-t border-blue-100 space-y-2 text-sm">
                         <div className="flex items-center gap-2 text-gray-700">
-                          <span className="font-semibold text-blue-600">Event Type:</span>
-                          <span>{booking.customerDetails.eventType}</span>
+                          <Mail className="w-4 h-4 text-blue-600" />
+                          <span>{booking.customer?.email}</span>
                         </div>
-                      )}
-                      {booking.customerDetails?.guestCount && (
                         <div className="flex items-center gap-2 text-gray-700">
-                          <Users className="w-4 h-4 text-blue-600" />
-                          <span>{booking.customerDetails.guestCount} Guests</span>
+                          <Phone className="w-4 h-4 text-blue-600" />
+                          <span>{booking.customerDetails?.phone || booking.customer?.phone}</span>
                         </div>
-                      )}
-                      {booking.customerDetails?.specialRequirements && (
-                        <div className="mt-2 pt-2 border-t border-blue-200">
-                          <p className="text-xs text-blue-600 font-semibold mb-1">Special Requirements:</p>
-                          <p className="text-xs text-gray-700">{booking.customerDetails.specialRequirements}</p>
-                        </div>
-                      )}
-                    </div>
+                        {booking.customerDetails?.eventType && (
+                          <div className="flex items-center gap-2 text-gray-700">
+                            <span className="font-semibold text-blue-600">Event Type:</span>
+                            <span>{booking.customerDetails.eventType}</span>
+                          </div>
+                        )}
+                        {booking.customerDetails?.guestCount && (
+                          <div className="flex items-center gap-2 text-gray-700">
+                            <Users className="w-4 h-4 text-blue-600" />
+                            <span>{booking.customerDetails.guestCount} Guests</span>
+                          </div>
+                        )}
+                        {booking.customerDetails?.specialRequirements && (
+                          <div className="mt-2 pt-2 border-t border-blue-200">
+                            <p className="text-xs text-blue-600 font-semibold mb-1">Special Requirements:</p>
+                            <p className="text-xs text-gray-700">{booking.customerDetails.specialRequirements}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Payment Details */}
                   {booking.paymentStatus && (
-                    <div className={`rounded-lg p-3 mb-4 ${
-                      booking.paymentStatus === 'paid' ? 'bg-green-50' : 
-                      booking.paymentStatus === 'pending' ? 'bg-yellow-50' : 'bg-red-50'
+                    <div className={`mb-4 border rounded-lg overflow-hidden ${
+                      booking.paymentStatus === 'paid' ? 'border-green-200' : 
+                      booking.paymentStatus === 'pending' ? 'border-yellow-200' : 'border-red-200'
                     }`}>
-                      <p className={`text-xs font-semibold mb-2 ${
-                        booking.paymentStatus === 'paid' ? 'text-green-600' : 
-                        booking.paymentStatus === 'pending' ? 'text-yellow-600' : 'text-red-600'
-                      }`}>
-                        Payment Details
-                      </p>
-                      <div className="space-y-1 text-sm">
-                        <div className="flex items-center justify-between">
-                          <span className="text-gray-600">Status:</span>
-                          <span className={`font-semibold px-2 py-0.5 rounded ${
-                            booking.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 
-                            booking.paymentStatus === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-                          }`}>
-                            {booking.paymentStatus.toUpperCase()}
-                          </span>
-                        </div>
-                        {booking.paymentDetails?.razorpay_payment_id && (
-                          <>
-                            <div className="flex items-center justify-between">
-                              <span className="text-gray-600">Payment ID:</span>
-                              <span className="font-mono text-xs text-gray-700">{booking.paymentDetails.razorpay_payment_id}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-gray-600">Order ID:</span>
-                              <span className="font-mono text-xs text-gray-700">{booking.paymentDetails.razorpay_order_id}</span>
-                            </div>
-                            {booking.paymentDetails.paidAt && (
-                              <div className="flex items-center justify-between">
-                                <span className="text-gray-600">Paid At:</span>
-                                <span className="text-xs text-gray-700">
-                                  {new Date(booking.paymentDetails.paidAt).toLocaleString('en-IN', {
-                                    day: '2-digit',
-                                    month: 'short',
-                                    year: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  })}
-                                </span>
+                      <button
+                        onClick={() => setExpandedDetails(prev => ({ ...prev, [`payment_${booking._id}`]: !prev[`payment_${booking._id}`] }))}
+                        className={`w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition-colors ${
+                          booking.paymentStatus === 'paid' ? 'bg-green-50 text-green-700 hover:bg-green-100' : 
+                          booking.paymentStatus === 'pending' ? 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100' : 'bg-red-50 text-red-700 hover:bg-red-100'
+                        }`}
+                      >
+                        <span>Payment Details</span>
+                        <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${expandedDetails[`payment_${booking._id}`] ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {expandedDetails[`payment_${booking._id}`] && (
+                        <div className={`p-3 text-sm space-y-1 border-t ${
+                          booking.paymentStatus === 'paid' ? 'bg-green-50/30 border-green-100' : 
+                          booking.paymentStatus === 'pending' ? 'bg-yellow-50/30 border-yellow-100' : 'bg-red-50/30 border-red-100'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-600">Status:</span>
+                            <span className={`font-semibold px-2 py-0.5 rounded ${
+                              booking.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 
+                              booking.paymentStatus === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                            }`}>
+                              {booking.paymentStatus.toUpperCase()}
+                            </span>
+                          </div>
+                          {booking.paymentDetails?.razorpay_payment_id && (
+                            <>
+                              <div className="flex items-center justify-between mt-2">
+                                <span className="text-gray-600">Payment ID:</span>
+                                <span className="font-mono text-xs text-gray-700">{booking.paymentDetails.razorpay_payment_id}</span>
                               </div>
-                            )}
-                          </>
-                        )}
-                      </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-gray-600">Order ID:</span>
+                                <span className="font-mono text-xs text-gray-700">{booking.paymentDetails.razorpay_order_id}</span>
+                              </div>
+                              {booking.paymentDetails.paidAt && (
+                                <div className="flex items-center justify-between">
+                                  <span className="text-gray-600">Paid At:</span>
+                                  <span className="text-xs text-gray-700">
+                                    {new Date(booking.paymentDetails.paidAt).toLocaleString('en-IN', {
+                                      day: '2-digit',
+                                      month: 'short',
+                                      year: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
+                                  </span>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -1010,7 +1031,7 @@ export default function OwnerBookings() {
                     {/* Balance Bar */}
                     <div className="grid grid-cols-3 divide-x divide-gray-200 dark:divide-slate-700">
                       <div className="p-3 text-center bg-white dark:bg-slate-800">
-                        <p className="text-[10px] text-gray-500 mb-0.5">Total Due</p>
+                        <p className="text-[10px] text-gray-500 mb-0.5">Total Amount</p>
                         <p className="text-base font-black text-gray-900 dark:text-slate-100">₹{currentDue.toLocaleString()}</p>
                       </div>
                       <div className="p-3 text-center bg-green-50 dark:bg-slate-800">
@@ -1019,10 +1040,10 @@ export default function OwnerBookings() {
                       </div>
                       <div className={`p-3 text-center ${refundDue > 0 ? 'bg-blue-50' : amountDue > 0 ? 'bg-red-50' : 'bg-green-50'} dark:bg-slate-800`}>
                         <p className="text-[10px] text-gray-500 mb-0.5">
-                          {refundDue > 0 ? 'Refund Due' : amountDue > 0 ? 'Balance Due' : 'Settled'}
+                          {refundDue > 0 ? 'Refund Due' : amountDue > 0 ? 'Balance Due' : 'Balance Due'}
                         </p>
                         <p className={`text-base font-black ${refundDue > 0 ? 'text-blue-600' : amountDue > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          {refundDue > 0 ? `₹${refundDue.toLocaleString()}` : amountDue > 0 ? `₹${amountDue.toLocaleString()}` : '✓ Clear'}
+                          {refundDue > 0 ? `₹${refundDue.toLocaleString()}` : amountDue > 0 ? `₹${amountDue.toLocaleString()}` : 'Fully Paid'}
                         </p>
                       </div>
                     </div>
@@ -1235,18 +1256,36 @@ export default function OwnerBookings() {
             <p className="text-sm text-gray-600 dark:text-slate-400 mb-6 leading-relaxed">{confirmModal.message}</p>
             <div className="flex gap-3">
               <button
-                onClick={() => {
-                  if (confirmModal.onConfirm) confirmModal.onConfirm();
+                disabled={isProcessingConfirm}
+                onClick={async () => {
+                  if (confirmModal.onConfirm) {
+                    setIsProcessingConfirm(true);
+                    try {
+                      await confirmModal.onConfirm();
+                    } catch (err) {
+                      console.error(err);
+                    } finally {
+                      setIsProcessingConfirm(false);
+                    }
+                  }
                 }}
-                className="flex-1 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-bold text-sm transition-colors shadow-md hover:shadow-lg"
+                className="flex-1 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-bold text-sm transition-colors shadow-md hover:shadow-lg disabled:opacity-60 flex items-center justify-center gap-1.5"
               >
-                Yes, Continue
+                {isProcessingConfirm ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Yes, Continue'
+                )}
               </button>
               <button
+                disabled={isProcessingConfirm}
                 onClick={() => {
                   if (confirmModal.onCancel) confirmModal.onCancel();
                 }}
-                className="flex-1 py-3 border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl font-bold text-sm transition-colors dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                className="flex-1 py-3 border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl font-bold text-sm transition-colors dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 disabled:opacity-60"
               >
                 Cancel
               </button>

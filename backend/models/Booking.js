@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { calculateVenueOwnerPayout } = require('../utils/venuePricing');
 
 const bookingSchema = new mongoose.Schema({
   bookingNumber: {
@@ -91,16 +92,22 @@ const bookingSchema = new mongoose.Schema({
     basePrice: Number,
     amenitiesTotal: Number,
     subtotal: Number,
+    durationHours: Number,
     // Venue GST
     venueCGST: Number,
     venueCGSTRate: Number,
     venueSGST: Number,
     venueSGSTRate: Number,
+    venueHSN: String,
     gst: Number,          // venueCGST + venueSGST (combined, for backward compat)
     gstRate: Number,      // combined rate
     // Platform Fee
     platformFee: Number,
+    platformFeeSource: String,
+    platformFeeType: { type: String, enum: ['fixed', 'percentage'] },
+    platformFeeValue: Number,
     platformFeeRate: Number,
+    platformFeePercentage: Number,
     platformFeeCGST: Number,
     platformFeeCGSTRate: Number,
     platformFeeSGST: Number,
@@ -109,6 +116,7 @@ const bookingSchema = new mongoose.Schema({
     platformFeeTotal: Number, // platformFee + platformFeeGST
     // Discount & Total
     discount: Number,
+    discountAppliesTo: String,
     couponCode: String,
     total: Number
   },
@@ -116,6 +124,7 @@ const bookingSchema = new mongoose.Schema({
   coupon: {
     couponId: { type: mongoose.Schema.Types.ObjectId, ref: 'Coupon' },
     code: String,
+    appliesTo: String,
     discountAmount: Number,
     isOwnerSponsored: { type: Boolean, default: false }
   },
@@ -156,6 +165,8 @@ const bookingSchema = new mongoose.Schema({
     venueCGST: Number,
     venueSGST: Number,
     venueHSN: String,
+    platformFeeType: String,
+    platformFeeValue: Number,
     platformFeePercentage: Number,
     platformCGST: Number,
     platformSGST: Number
@@ -286,20 +297,7 @@ bookingSchema.pre('save', function(next) {
 
     if (shouldCalculate) {
       if (this.priceBreakdown) {
-        const subtotal = this.priceBreakdown.subtotal || 0;
-        const gst = this.priceBreakdown.gst || 0;
-        const discount = this.priceBreakdown.discount || 0;
-
-        // Read directly from saved coupon field inside the booking
-        // phase2 work: check for coupon sponsorship type
-        // const isOwnerSponsored = this.coupon?.isOwnerSponsored || false;
-        // if (isOwnerSponsored) {
-        //   this.ownerEarnings = Math.max(0, subtotal + gst - discount);
-        // } else {
-        //   // Platform sponsored (global) coupon: platform bears the discount, owner gets full share
-        //   this.ownerEarnings = subtotal + gst;
-        // }
-        this.ownerEarnings = Math.max(0, subtotal + gst - discount);
+        this.ownerEarnings = calculateVenueOwnerPayout(this);
       } else if (this.priceBreakdown?.subtotal) {
         // Fallback: Use subtotal directly (this is pre-calculated owner's share)
         this.ownerEarnings = this.priceBreakdown.subtotal;
@@ -353,24 +351,29 @@ bookingSchema.methods.generateInvoiceNumbers = function() {
 // Helper method to calculate GST invoices
 bookingSchema.methods.calculateGSTInvoices = function(gstSettings) {
   const baseAmount = this.priceBreakdown?.subtotal || this.amount;
+  const feeType = gstSettings.platformFeeType === 'fixed' ? 'fixed' : 'percentage';
+  const feeValue = gstSettings.platformFeeValue ?? gstSettings.platformFeePercentage ?? 5;
+  const venueCGST = this.priceBreakdown?.venueCGSTRate ?? gstSettings.venueCGST;
+  const venueSGST = this.priceBreakdown?.venueSGSTRate ?? gstSettings.venueSGST;
+  const venueHSN = this.priceBreakdown?.venueHSN || gstSettings.venueHSN || '9973';
   
   // Venue Invoice Calculation
   this.venueInvoice = {
     invoiceNumber: this.venueInvoice?.invoiceNumber || `VEN-${this.bookingNumber}`,
     amount: baseAmount,
-    cgstRate: gstSettings.venueCGST,
-    cgst: (baseAmount * gstSettings.venueCGST) / 100,
-    sgstRate: gstSettings.venueSGST,
-    sgst: (baseAmount * gstSettings.venueSGST) / 100,
-    hsnCode: gstSettings.venueHSN || '9973'
+    cgstRate: venueCGST,
+    cgst: (baseAmount * venueCGST) / 100,
+    sgstRate: venueSGST,
+    sgst: (baseAmount * venueSGST) / 100,
+    hsnCode: venueHSN
   };
   this.venueInvoice.total = this.venueInvoice.amount + this.venueInvoice.cgst + this.venueInvoice.sgst;
   
   // Platform Invoice Calculation
-  const platformFee = (baseAmount * gstSettings.platformFeePercentage) / 100;
+  const platformFee = feeType === 'fixed' ? feeValue : (baseAmount * feeValue) / 100;
   this.platformInvoice = {
     invoiceNumber: this.platformInvoice?.invoiceNumber || `PLT-${this.bookingNumber}`,
-    platformFeeRate: gstSettings.platformFeePercentage,
+    platformFeeRate: feeValue,
     platformFee: platformFee,
     cgstRate: gstSettings.platformCGST,
     cgst: (platformFee * gstSettings.platformCGST) / 100,
@@ -382,10 +385,12 @@ bookingSchema.methods.calculateGSTInvoices = function(gstSettings) {
   
   // Save GST settings snapshot
   this.gstSettingsSnapshot = {
-    venueCGST: gstSettings.venueCGST,
-    venueSGST: gstSettings.venueSGST,
-    venueHSN: gstSettings.venueHSN,
-    platformFeePercentage: gstSettings.platformFeePercentage,
+    venueCGST,
+    venueSGST,
+    venueHSN,
+    platformFeeType: feeType,
+    platformFeeValue: feeValue,
+    platformFeePercentage: feeType === 'percentage' ? feeValue : 0,
     platformCGST: gstSettings.platformCGST,
     platformSGST: gstSettings.platformSGST
   };

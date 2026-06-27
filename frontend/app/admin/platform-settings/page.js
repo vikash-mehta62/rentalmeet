@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 import { serviceCategories } from '@/data/serviceData';
 import InvoiceDownload from '@/components/booking/InvoiceDownload';
 
-const DEFAULT_VENUE = { venueCGST: 9, venueSGST: 9, venueHSN: '', platformFeePercentage: 5, platformCGST: 9, platformSGST: 9 };
+const DEFAULT_VENUE = { venueCGST: 9, venueSGST: 9, venueHSN: '', platformFeeType: 'percentage', platformFeeValue: 5, platformFeePercentage: 5, platformCGST: 9, platformSGST: 9 };
 const DEFAULT_SVC   = { serviceCGST: 9, serviceSGST: 9, serviceHSN: '', servicePlatformFee: 5, servicePlatformCGST: 9, servicePlatformSGST: 9, serviceCategoryRates: [] };
 
 export default function PlatformSettings() {
@@ -39,7 +39,9 @@ export default function PlatformSettings() {
           venueCGST: data.settings.venueCGST ?? 9,
           venueSGST: data.settings.venueSGST ?? 9,
           venueHSN: data.settings.venueHSN ?? '',
-          platformFeePercentage: data.settings.platformFeePercentage ?? 5,
+          platformFeeType: data.settings.platformFeeType ?? 'percentage',
+          platformFeeValue: data.settings.platformFeeValue ?? data.settings.platformFeePercentage ?? 5,
+          platformFeePercentage: data.settings.platformFeeType === 'fixed' ? 0 : (data.settings.platformFeePercentage ?? data.settings.platformFeeValue ?? 5),
           platformCGST: data.settings.platformCGST ?? 9,
           platformSGST: data.settings.platformSGST ?? 9,
         });
@@ -109,7 +111,9 @@ export default function PlatformSettings() {
   const calcVenue = (amt = 10000) => {
     const cgst = amt * (venue.venueCGST || 0) / 100;
     const sgst = amt * (venue.venueSGST || 0) / 100;
-    const pFee = amt * (venue.platformFeePercentage || 0) / 100;
+    const pFee = venue.platformFeeType === 'fixed'
+      ? (venue.platformFeeValue || 0)
+      : amt * (venue.platformFeeValue || 0) / 100;
     const pCgst = pFee * (venue.platformCGST || 0) / 100;
     const pSgst = pFee * (venue.platformSGST || 0) / 100;
     return { amt, cgst, sgst, venueTotal: amt + cgst + sgst, pFee, pCgst, pSgst, pTotal: pFee + pCgst + pSgst, total: amt + cgst + sgst + pFee + pCgst + pSgst };
@@ -170,8 +174,9 @@ export default function PlatformSettings() {
               {/* Platform Fee */}
               <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
                 <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><span className="text-lg">2️⃣</span> Platform Fee (for Platform Invoice)</h3>
-                <div className="grid grid-cols-3 gap-3">
-                  <div><label className="block text-xs font-semibold text-gray-600 mb-1">Platform Fee %</label><input type="number" min="0" max="100" step="0.1" value={venue.platformFeePercentage} onChange={e => setVenue(p => ({ ...p, platformFeePercentage: parseFloat(e.target.value) || 0 }))} className={inp} /></div>
+                <div className="grid grid-cols-4 gap-3">
+                  <div><label className="block text-xs font-semibold text-gray-600 mb-1">Fee Type</label><select value={venue.platformFeeType} onChange={e => setVenue(p => ({ ...p, platformFeeType: e.target.value, platformFeePercentage: e.target.value === 'percentage' ? p.platformFeeValue : 0 }))} className="w-full px-3 py-2 text-center font-bold border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none bg-white"><option value="percentage">Percentage</option><option value="fixed">Fixed</option></select></div>
+                  <div><label className="block text-xs font-semibold text-gray-600 mb-1">Platform Fee {venue.platformFeeType === 'fixed' ? '(Rs.)' : '%'}</label><input type="number" min="0" max={venue.platformFeeType === 'fixed' ? undefined : '100'} step={venue.platformFeeType === 'fixed' ? '1' : '0.1'} value={venue.platformFeeValue} onChange={e => setVenue(p => ({ ...p, platformFeeValue: parseFloat(e.target.value) || 0, platformFeePercentage: p.platformFeeType === 'percentage' ? (parseFloat(e.target.value) || 0) : 0 }))} className={inp} /></div>
                   <div><label className="block text-xs font-semibold text-gray-600 mb-1">CGST on Fee %</label><input type="number" min="0" max="100" step="0.1" value={venue.platformCGST} onChange={e => setVenue(p => ({ ...p, platformCGST: parseFloat(e.target.value) || 0 }))} className={inp} /></div>
                   <div><label className="block text-xs font-semibold text-gray-600 mb-1">SGST on Fee %</label><input type="number" min="0" max="100" step="0.1" value={venue.platformSGST} onChange={e => setVenue(p => ({ ...p, platformSGST: parseFloat(e.target.value) || 0 }))} className={inp} /></div>
                 </div>
@@ -219,7 +224,7 @@ export default function PlatformSettings() {
                 </div>
                 <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
                   <p className="text-xs font-bold text-purple-800 mb-2">📄 Platform Invoice</p>
-                  {[[`Platform Fee (${venue.platformFeePercentage}%)`, ve.pFee], [`CGST (${venue.platformCGST}%)`, ve.pCgst], [`SGST (${venue.platformSGST}%)`, ve.pSgst]].map(([l, v]) => (
+                  {[[`Platform Fee (${venue.platformFeeType === 'fixed' ? `Fixed Rs.${venue.platformFeeValue}` : `${venue.platformFeeValue}%`})`, ve.pFee], [`CGST (${venue.platformCGST}%)`, ve.pCgst], [`SGST (${venue.platformSGST}%)`, ve.pSgst]].map(([l, v]) => (
                     <div key={l} className="flex justify-between text-sm text-gray-700"><span>{l}</span><span>₹{v.toLocaleString()}</span></div>
                   ))}
                   <div className="flex justify-between font-bold text-purple-900 border-t border-purple-200 pt-2 mt-2"><span>Platform Total</span><span>₹{ve.pTotal.toLocaleString()}</span></div>
@@ -255,7 +260,10 @@ export default function PlatformSettings() {
                       venueSGSTRate: venue.venueSGST,
                       gst: ve.cgst + ve.sgst,
                       platformFee: ve.pFee,
-                      platformFeeRate: venue.platformFeePercentage,
+                      platformFeeType: venue.platformFeeType,
+                      platformFeeValue: venue.platformFeeValue,
+                      platformFeeRate: venue.platformFeeValue,
+                      platformFeePercentage: venue.platformFeeType === 'percentage' ? venue.platformFeeValue : 0,
                       platformFeeCGST: ve.pCgst,
                       platformFeeSGST: ve.pSgst,
                       platformFeeGST: ve.pCgst + ve.pSgst,

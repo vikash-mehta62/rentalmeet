@@ -10,8 +10,11 @@ import {
   ChevronDown, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { normalizeCustomGST, normalizeCustomPlatformFee } from '@/lib/venuePricing';
 
 const LIMIT = 12;
+const DEFAULT_CUSTOM_PLATFORM_FEE = { enabled: false, feeType: 'fixed', feeValue: 0, percentage: 0, platformCGSTRate: 9, platformSGSTRate: 9 };
+const DEFAULT_CUSTOM_GST = { enabled: false, rate: 18, cgstRate: 9, sgstRate: 9, hsnCode: '9973' };
 
 export default function AdminVenues() {
   const { token } = useAuthStore();
@@ -27,8 +30,8 @@ export default function AdminVenues() {
   const [modalOpen, setModalOpen] = useState(false);
   const [platformSettings, setPlatformSettings] = useState(null);
   const [customSettings, setCustomSettings] = useState({
-    customPlatformFee: { enabled: false, feeType: 'fixed', feeValue: 0 },
-    customGST: { enabled: false, rate: 18 }
+    customPlatformFee: DEFAULT_CUSTOM_PLATFORM_FEE,
+    customGST: DEFAULT_CUSTOM_GST
   });
   const [venueTypeDropdownOpen, setVenueTypeDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -171,15 +174,15 @@ export default function AdminVenues() {
       const fullVenue = data.success ? data.venue : venue;
       setSelectedVenue(fullVenue);
       setCustomSettings({
-        customPlatformFee: fullVenue.customPlatformFee || { enabled: false, feeType: 'fixed', feeValue: 0 },
-        customGST: fullVenue.customGST || { enabled: false, rate: 18 }
+        customPlatformFee: fullVenue.customPlatformFee ? normalizeCustomPlatformFee(fullVenue.customPlatformFee, platformSettings || {}) : DEFAULT_CUSTOM_PLATFORM_FEE,
+        customGST: normalizeCustomGST(fullVenue.customGST || DEFAULT_CUSTOM_GST, platformSettings || {})
       });
     } catch {
       // Fallback to list data if fetch fails
       setSelectedVenue(venue);
       setCustomSettings({
-        customPlatformFee: venue.customPlatformFee || { enabled: false, feeType: 'fixed', feeValue: 0 },
-        customGST: venue.customGST || { enabled: false, rate: 18 }
+        customPlatformFee: venue.customPlatformFee ? normalizeCustomPlatformFee(venue.customPlatformFee, platformSettings || {}) : DEFAULT_CUSTOM_PLATFORM_FEE,
+        customGST: normalizeCustomGST(venue.customGST || DEFAULT_CUSTOM_GST, platformSettings || {})
       });
     }
     setModalOpen(true);
@@ -188,7 +191,7 @@ export default function AdminVenues() {
   const closeModal = () => {
     setSelectedVenue(null);
     setModalOpen(false);
-    setCustomSettings({ customPlatformFee: { enabled: false, feeType: 'fixed', feeValue: 0 }, customGST: { enabled: false, rate: 18 } });
+    setCustomSettings({ customPlatformFee: DEFAULT_CUSTOM_PLATFORM_FEE, customGST: DEFAULT_CUSTOM_GST });
   };
 
   const handleUpdateSettings = async (settings) => {
@@ -203,7 +206,11 @@ export default function AdminVenues() {
         toast.success('Settings updated!');
         fetchVenues(currentPage);
         setSelectedVenue(data.venue);
-        setCustomSettings(settings);
+        setCustomSettings({
+          ...settings,
+          customPlatformFee: normalizeCustomPlatformFee(settings.customPlatformFee || DEFAULT_CUSTOM_PLATFORM_FEE, platformSettings || {}),
+          customGST: normalizeCustomGST(settings.customGST || DEFAULT_CUSTOM_GST, platformSettings || {})
+        });
       } else toast.error(data.message || 'Failed to update settings');
     } catch { toast.error('Failed to update settings'); }
   };

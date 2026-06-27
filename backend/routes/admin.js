@@ -88,10 +88,11 @@ router.get('/venues', protect, authorize('admin', 'subadmin'), checkPermission('
     const Venue = require('../models/Venue');
     const Booking = require('../models/Booking');
     const VenueReview = require('../models/VenueReview');
-    const { status, search, venueType, page = 1, limit = 12, export: isExport } = req.query;
+    const { status, search, venueType, owner, page = 1, limit = 12, export: isExport } = req.query;
     const query = {};
     if (status && status !== 'all') query.status = status;
     if (venueType && venueType !== 'all') query.venueType = venueType;
+    if (owner) query.owner = owner;
     if (search) {
       query.$or = [
         { businessName: { $regex: search, $options: 'i' } },

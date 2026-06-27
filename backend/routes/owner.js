@@ -399,8 +399,16 @@ router.get('/payments', async (req, res) => {
     const venueIds = venues.map(v => v._id);
 
     const { status, venueId, page = 1, limit = 20 } = req.query;
-    const filter = { venue: { $in: venueIds } };
-    if (status && status !== 'all') filter.paymentStatus = status;
+    const filter = { 
+      venue: { $in: venueIds },
+      status: 'completed',
+      'paymentDetails.razorpay_payment_id': { $exists: true, $ne: null, $ne: '' }
+    };
+    if (status && status !== 'all') {
+      filter.paymentStatus = status;
+    } else {
+      filter.paymentStatus = 'paid';
+    }
     if (venueId) filter.venue = venueId;
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -408,7 +416,7 @@ router.get('/payments', async (req, res) => {
       Booking.find(filter)
         .populate('venue', 'businessName sku location')
         .populate('customer', 'name email phone')
-        .select('bookingNumber bookingDate amount paymentStatus paymentLedger paymentDetails status createdAt customerDetails venue customer priceBreakdown coupon')
+        .select('bookingNumber bookingDate amount paymentStatus paymentLedger paymentDetails status createdAt customerDetails venue customer priceBreakdown coupon settlementStatus settlementDetails')
         .sort('-createdAt')
         .skip(skip)
         .limit(parseInt(limit)),

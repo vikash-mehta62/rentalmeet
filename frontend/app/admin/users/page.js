@@ -47,6 +47,13 @@ export default function AdminUsers() {
   const [expandedService, setExpandedService] = useState(null);
   const [serviceActionLoading, setServiceActionLoading] = useState(false);
 
+  // Business states loaded inside the generic user modal (for owners/vendors)
+  const [userVenues, setUserVenues] = useState([]);
+  const [userServices, setUserServices] = useState([]);
+  const [businessLoading, setBusinessLoading] = useState(false);
+  const [expandedUserVenue, setExpandedUserVenue] = useState(null);
+  const [expandedUserService, setExpandedUserService] = useState(null);
+
   useEffect(() => {
     if (token) {
       fetchVendors();
@@ -92,6 +99,42 @@ export default function AdminUsers() {
       const data = await res.json();
       if (data.success) setVendors(data.vendors);
     } catch (e) { console.error('Error fetching vendors:', e); }
+  };
+
+  const fetchUserVenues = async (ownerId) => {
+    setBusinessLoading(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/venues?owner=${ownerId}&limit=1000`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setUserVenues(data.venues || []);
+      }
+    } catch (e) {
+      console.error('Error fetching user venues:', e);
+      toast.error('Failed to load owner venues');
+    } finally {
+      setBusinessLoading(false);
+    }
+  };
+
+  const fetchUserServices = async (vendorId) => {
+    setBusinessLoading(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/vendors/${vendorId}/services`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setUserServices(data.services || []);
+      }
+    } catch (e) {
+      console.error('Error fetching user services:', e);
+      toast.error('Failed to load vendor services');
+    } finally {
+      setBusinessLoading(false);
+    }
   };
 
   // Debounced search
@@ -238,6 +281,10 @@ export default function AdminUsers() {
   const openModal = async (user) => {
     setSelectedUser(user); // Show basic info immediately
     setModalOpen(true);
+    setUserVenues([]);
+    setUserServices([]);
+    setExpandedUserVenue(null);
+    setExpandedUserService(null);
     
     // Fetch full user details including KYC
     try {
@@ -247,10 +294,26 @@ export default function AdminUsers() {
       const data = await response.json();
       if (data.success) {
         setSelectedUser(data.user); // Update with full details including KYC
+        if (data.user.role === 'owner') {
+          fetchUserVenues(data.user._id);
+        } else if (data.user.role === 'vendor') {
+          fetchUserServices(data.user._id);
+        }
+      } else {
+        if (user.role === 'owner') {
+          fetchUserVenues(user._id);
+        } else if (user.role === 'vendor') {
+          fetchUserServices(user._id);
+        }
       }
     } catch (error) {
       console.error('Error fetching user details:', error);
       toast.error('Failed to load user details');
+      if (user.role === 'owner') {
+        fetchUserVenues(user._id);
+      } else if (user.role === 'vendor') {
+        fetchUserServices(user._id);
+      }
     }
   };
 
@@ -259,6 +322,10 @@ export default function AdminUsers() {
     setModalOpen(false);
     setNewPassword('');
     setShowNewPassword(false);
+    setUserVenues([]);
+    setUserServices([]);
+    setExpandedUserVenue(null);
+    setExpandedUserService(null);
   };
 
   const handleResetPassword = async () => {
@@ -1007,6 +1074,238 @@ export default function AdminUsers() {
                     </div>
                   ) : (
                     <p className="text-sm text-gray-500 text-center py-4">No documents uploaded</p>
+                  )}
+                </div>
+              )}
+
+              {/* Owner's Venues */}
+              {selectedUser.role === 'owner' && (
+                <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
+                  <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-blue-500" />
+                    Venues
+                  </h3>
+                  {businessLoading ? (
+                    <div className="flex items-center justify-center py-6">
+                      <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  ) : userVenues.length === 0 ? (
+                    <p className="text-sm text-gray-400 text-center py-4">No venues registered yet</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {userVenues.map(venue => {
+                        const featuredImg = venue.images?.find(img => img.isFeatured)?.url || venue.images?.[0]?.url;
+                        return (
+                          <div key={venue._id} className="border border-gray-200 rounded-xl overflow-hidden transition-all duration-200 hover:border-blue-300">
+                            {/* Venue Header */}
+                            <div
+                              className="flex items-center justify-between px-4 py-3 bg-gray-50 cursor-pointer select-none hover:bg-gray-100/50 transition-colors"
+                              onClick={() => setExpandedUserVenue(expandedUserVenue === venue._id ? null : venue._id)}
+                            >
+                              <div className="flex items-center gap-3">
+                                {featuredImg ? (
+                                  <img src={featuredImg} alt="" className="w-10 h-10 rounded-lg object-cover border border-gray-200" />
+                                ) : (
+                                  <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center">
+                                    <Building2 className="w-5 h-5 text-blue-500" />
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="text-sm font-semibold text-gray-800">{venue.businessName}</p>
+                                  <p className="text-xs text-gray-500">{(venue.venueType || []).join(', ') || 'Venue'} · {venue.location?.city || '—'}, {venue.location?.state || '—'}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                  venue.status === 'approved' ? 'bg-green-100 text-green-700' :
+                                  venue.status === 'pending' ? 'bg-orange-100 text-orange-700' :
+                                  venue.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                  venue.status === 'suspended' ? 'bg-gray-100 text-gray-600' :
+                                  'bg-blue-100 text-blue-700'
+                                }`}>{venue.status}</span>
+                                {expandedUserVenue === venue._id ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                              </div>
+                            </div>
+
+                            {/* Venue Details */}
+                            {expandedUserVenue === venue._id && (
+                              <div className="p-4 space-y-4 text-sm border-t border-gray-100 bg-white">
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                                  <div>
+                                    <p className="text-gray-500">Food Type</p>
+                                    <p className="font-semibold text-gray-800">{venue.foodType || '—'}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-gray-500">Capacity</p>
+                                    <p className="font-semibold text-gray-800">{venue.capacity || '—'}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-gray-500">Area (Sq.ft)</p>
+                                    <p className="font-semibold text-gray-800">{venue.areaSqft ? `${venue.areaSqft} sqft` : '—'}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-gray-500">Hourly (Weekday)</p>
+                                    <p className="font-semibold text-gray-800">₹{venue.pricing?.hourly?.weekday?.toLocaleString('en-IN') || '—'}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-gray-500">Hourly (Weekend)</p>
+                                    <p className="font-semibold text-gray-800">₹{venue.pricing?.hourly?.weekend?.toLocaleString('en-IN') || '—'}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-gray-500">Full Day (Weekday)</p>
+                                    <p className="font-semibold text-gray-800">₹{venue.pricing?.fullDay?.weekday?.toLocaleString('en-IN') || '—'}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-gray-500">Full Day (Weekend)</p>
+                                    <p className="font-semibold text-gray-800">₹{venue.pricing?.fullDay?.weekend?.toLocaleString('en-IN') || '—'}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-gray-500">Parking</p>
+                                    <p className="font-semibold text-gray-800">{venue.location?.parkingAvailability || '—'}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-gray-500">Pincode</p>
+                                    <p className="font-semibold text-gray-800">{venue.location?.pincode || '—'}</p>
+                                  </div>
+                                </div>
+
+                                {venue.location?.address && (
+                                  <div>
+                                    <p className="text-xs text-gray-500 mb-1">Full Address</p>
+                                    <p className="text-xs text-gray-700 bg-gray-50 p-2 rounded border border-gray-100">{venue.location.address} {venue.location.landmark && `(Landmark: ${venue.location.landmark})`}</p>
+                                  </div>
+                                )}
+
+                                {venue.description && (
+                                  <div>
+                                    <p className="text-xs text-gray-500 mb-1">Description</p>
+                                    <p className="text-xs text-gray-700 bg-gray-50 p-2 rounded border border-gray-100 whitespace-pre-line">{venue.description}</p>
+                                  </div>
+                                )}
+
+                                {venue.images?.length > 0 && (
+                                  <div>
+                                    <p className="text-xs font-bold text-gray-600 mb-2">Venue Photos</p>
+                                    <div className="flex gap-2 flex-wrap">
+                                      {venue.images.map((img, i) => (
+                                        <a key={i} href={img.url} target="_blank" rel="noopener noreferrer">
+                                          <img src={img.url} alt="" className="w-20 h-16 object-cover rounded-lg border border-gray-200 hover:opacity-80 transition-opacity" />
+                                        </a>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Vendor's Services */}
+              {selectedUser.role === 'vendor' && (
+                <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
+                  <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
+                    <Briefcase className="w-5 h-5 text-purple-500" />
+                    Services
+                  </h3>
+                  {businessLoading ? (
+                    <div className="flex items-center justify-center py-6">
+                      <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  ) : userServices.length === 0 ? (
+                    <p className="text-sm text-gray-400 text-center py-4">No services registered yet</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {userServices.map(svc => (
+                        <div key={svc._id} className="border border-gray-200 rounded-xl overflow-hidden transition-all duration-200 hover:border-purple-300">
+                          {/* Service Header */}
+                          <div
+                            className="flex items-center justify-between px-4 py-3 bg-gray-50 cursor-pointer select-none hover:bg-gray-100/50 transition-colors"
+                            onClick={() => setExpandedUserService(expandedUserService === svc._id ? null : svc._id)}
+                          >
+                            <div className="flex items-center gap-3">
+                              {svc.featuredImage ? (
+                                <img src={svc.featuredImage} alt="" className="w-10 h-10 rounded-lg object-cover border border-gray-200" />
+                              ) : (
+                                <div className="w-10 h-10 rounded-lg bg-purple-50 border border-purple-200 flex items-center justify-center">
+                                  <Briefcase className="w-5 h-5 text-purple-500" />
+                                </div>
+                              )}
+                              <div>
+                                <p className="text-sm font-semibold text-gray-800">{svc.title}</p>
+                                <p className="text-xs text-gray-500">{svc.category || 'Service'} · {svc.city || '—'}, {svc.state || '—'}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                svc.status === 'approved' ? 'bg-green-100 text-green-700' :
+                                svc.status === 'pending' ? 'bg-orange-100 text-orange-700' :
+                                svc.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                svc.status === 'suspended' ? 'bg-gray-100 text-gray-600' :
+                                'bg-blue-100 text-blue-700'
+                              }`}>{svc.status}</span>
+                              {expandedUserService === svc._id ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                            </div>
+                          </div>
+
+                          {/* Service Detail */}
+                          {expandedUserService === svc._id && (
+                            <div className="p-4 space-y-4 text-sm border-t border-gray-100 bg-white">
+                              <div className="grid grid-cols-2 gap-3 text-xs">
+                                <div>
+                                  <p className="text-gray-500">Company</p>
+                                  <p className="font-semibold text-gray-800">{svc.companyName || '—'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-gray-500">Brand</p>
+                                  <p className="font-semibold text-gray-800">{svc.brandName || '—'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-gray-500">Experience</p>
+                                  <p className="font-semibold text-gray-800">{svc.experienceYears ? `${svc.experienceYears} yrs` : '—'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-gray-500">Starting Price</p>
+                                  <p className="font-semibold text-green-700">₹{svc.startingPrice?.toLocaleString('en-IN') || '—'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-gray-500">Address</p>
+                                  <p className="font-semibold text-gray-800">{svc.officeAddress || '—'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-gray-500">Pincode</p>
+                                  <p className="font-semibold text-gray-800">{svc.pincode || '—'}</p>
+                                </div>
+                              </div>
+
+                              {svc.description && (
+                                <div>
+                                  <p className="text-xs text-gray-500 mb-1">Description</p>
+                                  <p className="text-xs text-gray-700 bg-gray-50 p-2 rounded border border-gray-100 whitespace-pre-line">{svc.description}</p>
+                                </div>
+                              )}
+
+                              {svc.images?.length > 0 && (
+                                <div>
+                                  <p className="text-xs font-bold text-gray-600 mb-2">Portfolio Photos</p>
+                                  <div className="flex gap-2 flex-wrap">
+                                    {svc.images.map((img, i) => (
+                                      <a key={i} href={img} target="_blank" rel="noopener noreferrer">
+                                        <img src={img} alt="" className="w-20 h-16 object-cover rounded-lg border border-gray-200 hover:opacity-80 transition-opacity" />
+                                      </a>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               )}

@@ -7,6 +7,10 @@ import {
   Image as ImageIcon, Utensils, CheckCircle, XCircle, Ban,
   Phone, Mail, User, CreditCard, FileCheck, Download
 } from 'lucide-react';
+import { normalizeCustomGST, normalizeCustomPlatformFee } from '@/lib/venuePricing';
+
+const DEFAULT_CUSTOM_PLATFORM_FEE = { enabled: false, feeType: 'fixed', feeValue: 0, percentage: 0, platformCGSTRate: 9, platformSGSTRate: 9 };
+const DEFAULT_CUSTOM_GST = { enabled: false, rate: 18, cgstRate: 9, sgstRate: 9, hsnCode: '9973' };
 
 export default function VenueDetailsModal({ 
   venue, 
@@ -19,9 +23,28 @@ export default function VenueDetailsModal({
 }) {
   const [activeTab, setActiveTab] = useState('basic');
   const [localCustomSettings, setLocalCustomSettings] = useState(customSettings || {
-    customPlatformFee: { enabled: false, feeType: 'fixed', feeValue: 0 },
-    customGST: { enabled: false, rate: 18 }
+    customPlatformFee: DEFAULT_CUSTOM_PLATFORM_FEE,
+    customGST: DEFAULT_CUSTOM_GST
   });
+  const normalizedVenuePlatformFee = normalizeCustomPlatformFee(venue.customPlatformFee, platformSettings || {});
+  const normalizedVenueGST = normalizeCustomGST(venue.customGST || DEFAULT_CUSTOM_GST, platformSettings || {});
+  const localCustomGST = normalizeCustomGST(localCustomSettings.customGST || DEFAULT_CUSTOM_GST, platformSettings || {});
+  const localCustomPlatformFee = normalizeCustomPlatformFee(localCustomSettings.customPlatformFee || DEFAULT_CUSTOM_PLATFORM_FEE, platformSettings || {});
+  const effectiveVenueGST = localCustomGST.enabled
+    ? localCustomGST
+    : normalizeCustomGST({ enabled: true, cgstRate: platformSettings?.venueCGST, sgstRate: platformSettings?.venueSGST, hsnCode: platformSettings?.venueHSN }, platformSettings || {});
+  const effectivePlatformFee = localCustomPlatformFee.enabled
+    ? localCustomPlatformFee
+    : normalizeCustomPlatformFee({
+        enabled: true,
+        feeType: platformSettings?.platformFeeType || 'percentage',
+        feeValue: platformSettings?.platformFeeValue ?? platformSettings?.platformFeePercentage,
+        platformCGSTRate: platformSettings?.platformCGST,
+        platformSGSTRate: platformSettings?.platformSGST
+      }, platformSettings || {});
+  const effectivePlatformFeeLabel = effectivePlatformFee.feeType === 'fixed'
+    ? `Rs.${effectivePlatformFee.feeValue}`
+    : `${effectivePlatformFee.feeValue}%`;
 
   const tabs = [
     { id: 'basic', label: 'Basic Info', icon: Building2 },
@@ -41,7 +64,11 @@ export default function VenueDetailsModal({
 
   const handleUpdateSettings = () => {
     if (onUpdateSettings) {
-      onUpdateSettings(localCustomSettings);
+      onUpdateSettings({
+        ...localCustomSettings,
+        customPlatformFee: normalizeCustomPlatformFee(localCustomSettings.customPlatformFee, platformSettings || {}),
+        customGST: normalizeCustomGST(localCustomSettings.customGST, platformSettings || {})
+      });
     }
   };
 
@@ -461,14 +488,16 @@ export default function VenueDetailsModal({
                   <div>
                     <p className="text-xs text-gray-500 mb-0.5">GST Rate</p>
                     <p className="text-sm font-semibold text-gray-900">
-                      {venue.customGST?.enabled ? `${venue.customGST.rate}% (Custom)` : 'Default'}
+                      {normalizedVenueGST.enabled
+                        ? `CGST ${normalizedVenueGST.cgstRate}% + SGST ${normalizedVenueGST.sgstRate}% (Custom)`
+                        : 'Default'}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 mb-0.5">Platform Fee</p>
                     <p className="text-sm font-semibold text-gray-900">
-                      {venue.customPlatformFee?.enabled 
-                        ? `${venue.customPlatformFee.feeType === 'fixed' ? '₹' : ''}${venue.customPlatformFee.feeValue}${venue.customPlatformFee.feeType === 'percentage' ? '%' : ''} (Custom)` 
+                      {normalizedVenuePlatformFee.enabled 
+                        ? `${normalizedVenuePlatformFee.feeType === 'fixed' ? 'Rs.' : ''}${normalizedVenuePlatformFee.feeValue}${normalizedVenuePlatformFee.feeType === 'percentage' ? '%' : ''} (Custom)` 
                         : 'Default'}
                     </p>
                   </div>
@@ -867,21 +896,25 @@ export default function VenueDetailsModal({
           {/* Custom Settings Tab (Admin Only) */}
           {activeTab === 'settings' && showActions && (venue.status === 'approved' || venue.status === 'suspended') && (
             <div className="space-y-4">
-              {/* Default Platform Settings Reference */}
+              {/* Effective Settings Preview */}
               {platformSettings && (
                 <div className="bg-gray-100 rounded-lg p-3 border border-gray-300">
-                  <h3 className="text-xs font-semibold text-gray-600 mb-2">Default Platform Settings</h3>
+                  <h3 className="text-xs font-semibold text-gray-600 mb-2">Effective Booking Settings</h3>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="bg-white rounded p-2">
-                      <span className="text-gray-500 block mb-0.5">GST Rate</span>
-                      <span className="font-semibold text-gray-900">{platformSettings.gstRate || 18}%</span>
+                      <span className="text-gray-500 block mb-0.5">Venue GST</span>
+                      <span className="font-semibold text-gray-900">
+                        CGST {effectiveVenueGST.cgstRate}% + SGST {effectiveVenueGST.sgstRate}%
+                      </span>
+                      <span className="text-[10px] text-gray-500 block mt-0.5">
+                        HSN {effectiveVenueGST.hsnCode} {localCustomGST.enabled ? '(Custom)' : '(Default)'}
+                      </span>
                     </div>
                     <div className="bg-white rounded p-2">
                       <span className="text-gray-500 block mb-0.5">Platform Fee</span>
-                      <span className="font-semibold text-gray-900">
-                        {platformSettings.platformFeeType === 'fixed' 
-                          ? `₹${platformSettings.platformFeeValue || 0}` 
-                          : `${platformSettings.platformFeeValue || 0}%`}
+                      <span className="font-semibold text-gray-900">{effectivePlatformFeeLabel}</span>
+                      <span className="text-[10px] text-gray-500 block mt-0.5">
+                        CGST {effectivePlatformFee.platformCGSTRate}% + SGST {effectivePlatformFee.platformSGSTRate}% {localCustomPlatformFee.enabled ? '(Custom)' : '(Default)'}
                       </span>
                     </div>
                   </div>
@@ -891,35 +924,70 @@ export default function VenueDetailsModal({
               {/* Custom GST */}
               <div className="bg-white rounded-lg p-4 border border-gray-200">
                 <div className="flex items-center justify-between mb-3">
-                  <label className="text-sm font-semibold text-gray-700">Custom GST Rate</label>
+                  <label className="text-sm font-semibold text-gray-700">Custom Venue GST</label>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={localCustomSettings.customGST.enabled}
+                      checked={localCustomGST.enabled}
                       onChange={(e) => setLocalCustomSettings({
                         ...localCustomSettings,
-                        customGST: { ...localCustomSettings.customGST, enabled: e.target.checked }
+                        customGST: { ...localCustomGST, enabled: e.target.checked }
                       })}
                       className="sr-only peer"
                     />
                     <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-500"></div>
                   </label>
                 </div>
-                {localCustomSettings.customGST.enabled && (
-                  <div>
-                    <label className="text-xs text-gray-500 mb-1.5 block">GST Rate (%)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
-                      value={localCustomSettings.customGST.rate}
-                      onChange={(e) => setLocalCustomSettings({
-                        ...localCustomSettings,
-                        customGST: { ...localCustomSettings.customGST, rate: parseFloat(e.target.value) || 0 }
-                      })}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                    />
+                {localCustomGST.enabled && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1.5 block">CGST %</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={localCustomGST.cgstRate}
+                        onChange={(e) => {
+                          const cgstRate = parseFloat(e.target.value) || 0;
+                          const next = { ...localCustomGST, cgstRate, rate: cgstRate + localCustomGST.sgstRate };
+                          setLocalCustomSettings({ ...localCustomSettings, customGST: next });
+                        }}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1.5 block">SGST %</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={localCustomGST.sgstRate}
+                        onChange={(e) => {
+                          const sgstRate = parseFloat(e.target.value) || 0;
+                          const next = { ...localCustomGST, sgstRate, rate: localCustomGST.cgstRate + sgstRate };
+                          setLocalCustomSettings({ ...localCustomSettings, customGST: next });
+                        }}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1.5 block">HSN Code</label>
+                      <input
+                        type="text"
+                        value={localCustomGST.hsnCode}
+                        onChange={(e) => setLocalCustomSettings({
+                          ...localCustomSettings,
+                          customGST: { ...localCustomGST, hsnCode: e.target.value }
+                        })}
+                        placeholder={platformSettings?.venueHSN || '9973'}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      />
+                    </div>
+                    <p className="md:col-span-3 text-xs text-gray-500">
+                      Total GST: {(localCustomGST.cgstRate + localCustomGST.sgstRate).toLocaleString('en-IN')}%
+                    </p>
                   </div>
                 )}
               </div>
@@ -931,25 +999,25 @@ export default function VenueDetailsModal({
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={localCustomSettings.customPlatformFee.enabled}
+                      checked={localCustomPlatformFee.enabled}
                       onChange={(e) => setLocalCustomSettings({
                         ...localCustomSettings,
-                        customPlatformFee: { ...localCustomSettings.customPlatformFee, enabled: e.target.checked }
+                        customPlatformFee: { ...localCustomPlatformFee, enabled: e.target.checked }
                       })}
                       className="sr-only peer"
                     />
                     <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-500"></div>
                   </label>
                 </div>
-                {localCustomSettings.customPlatformFee.enabled && (
-                  <div className="space-y-3">
+                {localCustomPlatformFee.enabled && (
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                     <div>
                       <label className="text-xs text-gray-500 mb-1.5 block">Fee Type</label>
                       <select
-                        value={localCustomSettings.customPlatformFee.feeType}
+                        value={localCustomPlatformFee.feeType}
                         onChange={(e) => setLocalCustomSettings({
                           ...localCustomSettings,
-                          customPlatformFee: { ...localCustomSettings.customPlatformFee, feeType: e.target.value }
+                          customPlatformFee: { ...localCustomPlatformFee, feeType: e.target.value }
                         })}
                         className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white"
                       >
@@ -959,20 +1027,53 @@ export default function VenueDetailsModal({
                     </div>
                     <div>
                       <label className="text-xs text-gray-500 mb-1.5 block">
-                        Fee Value {localCustomSettings.customPlatformFee.feeType === 'fixed' ? '(₹)' : '(%)'}
+                        Fee Value {localCustomPlatformFee.feeType === 'fixed' ? '(Rs.)' : '(%)'}
                       </label>
                       <input
                         type="number"
                         min="0"
-                        step={localCustomSettings.customPlatformFee.feeType === 'fixed' ? '1' : '0.01'}
-                        value={localCustomSettings.customPlatformFee.feeValue}
+                        step={localCustomPlatformFee.feeType === 'fixed' ? '1' : '0.01'}
+                        value={localCustomPlatformFee.feeValue}
                         onChange={(e) => setLocalCustomSettings({
                           ...localCustomSettings,
-                          customPlatformFee: { ...localCustomSettings.customPlatformFee, feeValue: parseFloat(e.target.value) || 0 }
+                          customPlatformFee: { ...localCustomPlatformFee, feeValue: parseFloat(e.target.value) || 0 }
                         })}
                         className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                       />
                     </div>
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1.5 block">CGST on Fee %</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={localCustomPlatformFee.platformCGSTRate}
+                        onChange={(e) => setLocalCustomSettings({
+                          ...localCustomSettings,
+                          customPlatformFee: { ...localCustomPlatformFee, platformCGSTRate: parseFloat(e.target.value) || 0 }
+                        })}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1.5 block">SGST on Fee %</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={localCustomPlatformFee.platformSGSTRate}
+                        onChange={(e) => setLocalCustomSettings({
+                          ...localCustomSettings,
+                          customPlatformFee: { ...localCustomPlatformFee, platformSGSTRate: parseFloat(e.target.value) || 0 }
+                        })}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      />
+                    </div>
+                    <p className="md:col-span-4 text-xs text-gray-500">
+                      Platform fee GST: {(localCustomPlatformFee.platformCGSTRate + localCustomPlatformFee.platformSGSTRate).toLocaleString('en-IN')}%
+                    </p>
                   </div>
                 )}
               </div>

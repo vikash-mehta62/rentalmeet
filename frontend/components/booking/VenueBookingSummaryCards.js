@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Building2, FileText, Mail, MapPin, Package, Phone, User, Users, ChevronDown } from 'lucide-react';
+import { formatPlatformFeeLabel } from '@/lib/venuePricing';
 
 const money = (value) => `₹${Math.round(Number(value) || 0).toLocaleString('en-IN')}`;
 
@@ -96,11 +97,13 @@ export function getVenueBookingBreakdown(booking) {
   const [platformCGST, platformSGST] = splitGst(pb.platformFeeGST, pb.platformFeeCGST, pb.platformFeeSGST);
   const platformCGSTRate = pb.platformFeeCGSTRate ?? 9;
   const platformSGSTRate = pb.platformFeeSGSTRate ?? 9;
-  const platformFeeRate = pb.platformFeeRate ?? pb.platformFeePercentage ?? 0;
+  const platformFeeType = pb.platformFeeType || 'percentage';
+  const platformFeeValue = pb.platformFeeValue ?? pb.platformFeeRate ?? pb.platformFeePercentage ?? 0;
+  const platformFeeLabel = formatPlatformFeeLabel(platformFeeType, platformFeeValue);
   const venueTotal = subtotal + venueCGST + venueSGST;
   const platformTotal = Number(pb.platformFeeTotal ?? (platformFee + platformCGST + platformSGST)) || 0;
   const discount = Number(pb.discount ?? booking?.coupon?.discountAmount) || 0;
-  const grandTotal = Number(booking?.amount ?? pb.total ?? Math.max(0, venueTotal + platformTotal - discount)) || 0;
+  const grandTotal = Math.max(0, venueTotal + platformTotal - discount);
 
   return {
     basePrice,
@@ -116,7 +119,9 @@ export function getVenueBookingBreakdown(booking) {
     platformSGST,
     platformCGSTRate,
     platformSGSTRate,
-    platformFeeRate,
+    platformFeeType,
+    platformFeeValue,
+    platformFeeLabel,
     platformTotal,
     discount,
     couponCode: pb.couponCode || booking?.coupon?.code,
@@ -292,7 +297,7 @@ export function VenueInvoiceBreakdownCards({ booking }) {
             <FileText className="w-3.5 h-3.5" /> Platform Invoice
           </p>
           <div className="flex justify-between text-gray-600 dark:text-slate-300">
-            <span>Platform Fee{d.platformFeeRate ? ` (${d.platformFeeRate}%)` : ''}</span><span>{money(d.platformFee)}</span>
+            <span>Platform Fee{d.platformFeeValue ? ` (${d.platformFeeLabel})` : ''}</span><span>{money(d.platformFee)}</span>
           </div>
           {d.platformCGST > 0 && (
             <div className="flex justify-between text-gray-600 dark:text-slate-300"><span>CGST ({d.platformCGSTRate}%)</span><span>{money(d.platformCGST)}</span></div>

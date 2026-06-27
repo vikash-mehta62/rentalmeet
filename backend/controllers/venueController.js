@@ -568,6 +568,8 @@ exports.getPublicPlatformSettings = async (req, res) => {
   try {
     const PlatformSettings = require('../models/PlatformSettings');
     const settings = await PlatformSettings.getSettings();
+    const platformFeeType = settings.platformFeeType || 'percentage';
+    const platformFeeValue = settings.platformFeeValue ?? settings.platformFeePercentage ?? 5;
     
     // Return only the necessary fields for booking calculations
     res.json({
@@ -575,15 +577,18 @@ exports.getPublicPlatformSettings = async (req, res) => {
       settings: {
         gstRate: settings.gstRate || 18,
         platformFee: {
-          feeType: settings.platformFeeType || 'percentage',
-          feeValue: settings.platformFeePercentage ?? settings.platformFeeValue ?? 5
+          feeType: platformFeeType,
+          feeValue: platformFeeValue
         },
         venueCGST: settings.venueCGST || 9,
         venueSGST: settings.venueSGST || 9,
+        venueHSN: settings.venueHSN || '',
         platformCGST: settings.platformCGST || 9,
         platformSGST: settings.platformSGST || 9,
         // Also expose flat fields for BookingForm compatibility
-        platformFeePercentage: settings.platformFeePercentage ?? settings.platformFeeValue ?? 5,
+        platformFeeType,
+        platformFeeValue,
+        platformFeePercentage: platformFeeType === 'percentage' ? platformFeeValue : 0,
         gstInvoiceSignature: settings.gstInvoiceSignature || null,
         platformInvoiceSignature: settings.platformInvoiceSignature || null
       }

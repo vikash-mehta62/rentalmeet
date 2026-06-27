@@ -201,8 +201,16 @@ router.get('/payments', async (req, res) => {
   try {
     const ServiceBooking = require('../models/ServiceBooking');
     const { status, page = 1, limit = 20 } = req.query;
-    const filter = { vendor: req.user.id };
-    if (status && status !== 'all') filter.paymentStatus = status;
+    const filter = { 
+      vendor: req.user.id,
+      status: 'completed',
+      'paymentDetails.razorpay_payment_id': { $exists: true, $ne: null, $ne: '' }
+    };
+    if (status && status !== 'all') {
+      filter.paymentStatus = status;
+    } else {
+      filter.paymentStatus = 'paid';
+    }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const [bookings, total] = await Promise.all([

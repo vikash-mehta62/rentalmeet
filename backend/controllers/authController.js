@@ -214,7 +214,7 @@ exports.sendEmailOtp = async (req, res) => {
       { emailOtp, isEmailVerified: false, expiresAt },
       { upsert: true, new: true }
     );
-
+console.log("EMAIL OTP",emailOtp)
     // Send Email OTP
     await sendOtpVerificationEmail(email.toLowerCase(), name, emailOtp);
 

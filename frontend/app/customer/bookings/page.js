@@ -14,6 +14,7 @@ import toast from 'react-hot-toast';
 import InvoiceDownload from '@/components/booking/InvoiceDownload';
 import InvitationShare from '@/components/booking/InvitationShare';
 import { VenueAmenitiesDetails, VenueBookingPartyCards, VenueInvoiceBreakdownCards } from '@/components/booking/VenueBookingSummaryCards';
+import { calculatePlatformFee, formatPlatformFeeLabel, numberOr, roundMoney } from '@/lib/venuePricing';
 
 export default function CustomerBookings() {
   const router = useRouter();
@@ -208,8 +209,53 @@ export default function CustomerBookings() {
     const gst = (orig.gst || 0) + (amenitiesDelta * gstRate / 100);
     const platformFee = (orig.platformFee || 0) + (amenitiesDelta * pfRate / 100);
     const platformFeeGST = (orig.platformFeeGST || 0) + (amenitiesDelta * pfRate / 100 * pfGSTRate / 100);
+    void amenitiesDelta;
+    void taxMultiplier;
+    void origAmount;
+    void total;
+    void gst;
+    void platformFee;
+    void platformFeeGST;
 
-    return { basePrice, amenitiesTotal, subtotal, discount, gst, gstRate, platformFee, platformFeeGST, pfRate, total };
+    const venueCGSTRate = numberOr(orig.venueCGSTRate, orig.gstRate ? orig.gstRate / 2 : 0);
+    const venueSGSTRate = numberOr(orig.venueSGSTRate, orig.gstRate ? orig.gstRate / 2 : 0);
+    const recalculatedVenueCGST = roundMoney((subtotal * venueCGSTRate) / 100);
+    const recalculatedVenueSGST = roundMoney((subtotal * venueSGSTRate) / 100);
+    const recalculatedGST = roundMoney(recalculatedVenueCGST + recalculatedVenueSGST);
+    const recalculatedGSTRate = venueCGSTRate + venueSGSTRate;
+    const platformFeeType = orig.platformFeeType || 'percentage';
+    const platformFeeValue = numberOr(orig.platformFeeValue ?? orig.platformFeeRate ?? orig.platformFeePercentage, 5);
+    const recalculatedPlatformFee = calculatePlatformFee(subtotal, platformFeeType, platformFeeValue);
+    const platformFeeCGSTRate = numberOr(orig.platformFeeCGSTRate, platformSettings?.platformCGST || 9);
+    const platformFeeSGSTRate = numberOr(orig.platformFeeSGSTRate, platformSettings?.platformSGST || 9);
+    const platformFeeCGST = roundMoney((recalculatedPlatformFee * platformFeeCGSTRate) / 100);
+    const platformFeeSGST = roundMoney((recalculatedPlatformFee * platformFeeSGSTRate) / 100);
+    const recalculatedPlatformFeeGST = roundMoney(platformFeeCGST + platformFeeSGST);
+    const platformFeeTotal = roundMoney(recalculatedPlatformFee + recalculatedPlatformFeeGST);
+    const recalculatedTotal = Math.max(1, roundMoney(subtotal + recalculatedGST + platformFeeTotal - discount));
+
+    return {
+      basePrice, amenitiesTotal, subtotal, discount,
+      venueCGST: recalculatedVenueCGST,
+      venueSGST: recalculatedVenueSGST,
+      venueCGSTRate,
+      venueSGSTRate,
+      gst: recalculatedGST,
+      gstRate: recalculatedGSTRate,
+      platformFee: recalculatedPlatformFee,
+      platformFeeType,
+      platformFeeValue,
+      platformFeeLabel: formatPlatformFeeLabel(platformFeeType, platformFeeValue),
+      platformFeeRate: platformFeeValue,
+      platformFeePercentage: platformFeeType === 'percentage' ? platformFeeValue : 0,
+      platformFeeCGST,
+      platformFeeSGST,
+      platformFeeCGSTRate,
+      platformFeeSGSTRate,
+      platformFeeGST: recalculatedPlatformFeeGST,
+      platformFeeTotal,
+      total: recalculatedTotal
+    };
   };
 
   const handleModifySubmit = async (e) => {
@@ -249,11 +295,23 @@ export default function CustomerBookings() {
             subtotal: mp.subtotal,
             discount: mp.discount,
             couponCode: modifyBooking.priceBreakdown?.couponCode || null,
+            venueCGST: mp.venueCGST,
+            venueSGST: mp.venueSGST,
+            venueCGSTRate: mp.venueCGSTRate,
+            venueSGSTRate: mp.venueSGSTRate,
             gst: mp.gst,
             gstRate: mp.gstRate,
             platformFee: mp.platformFee,
+            platformFeeType: mp.platformFeeType,
+            platformFeeValue: mp.platformFeeValue,
+            platformFeePercentage: mp.platformFeePercentage,
+            platformFeeCGST: mp.platformFeeCGST,
+            platformFeeSGST: mp.platformFeeSGST,
+            platformFeeCGSTRate: mp.platformFeeCGSTRate,
+            platformFeeSGSTRate: mp.platformFeeSGSTRate,
             platformFeeGST: mp.platformFeeGST,
-            platformFeeRate: mp.pfRate,
+            platformFeeTotal: mp.platformFeeTotal,
+            platformFeeRate: mp.platformFeeRate,
             total: mp.total
           }
         })
@@ -651,7 +709,7 @@ export default function CustomerBookings() {
                     {/* Balance Bar */}
                     <div className="grid grid-cols-3 divide-x divide-gray-200 dark:divide-slate-700">
                       <div className="p-3 text-center bg-white dark:bg-slate-800">
-                        <p className="text-[10px] text-gray-500 mb-0.5">Booking Total</p>
+                        <p className="text-[10px] text-gray-500 mb-0.5">Total Amount</p>
                         <p className="text-base font-black text-gray-900 dark:text-slate-100">₹{currentDue.toLocaleString()}</p>
                       </div>
                       <div className="p-3 text-center bg-green-50 dark:bg-slate-800">
@@ -660,10 +718,10 @@ export default function CustomerBookings() {
                       </div>
                       <div className={`p-3 text-center ${refundDue > 0 ? 'bg-blue-50' : isOverpaid ? 'bg-orange-50' : amountDue > 0 ? 'bg-red-50' : 'bg-green-50'} dark:bg-slate-800`}>
                         <p className="text-[10px] text-gray-500 mb-0.5">
-                          {refundDue > 0 ? 'Refund Due' : isOverpaid ? 'Overpaid' : amountDue > 0 ? 'Balance Due' : 'Settled'}
+                          {refundDue > 0 ? 'Refund Due' : isOverpaid ? 'Overpaid' : amountDue > 0 ? 'Balance Due' : 'Balance Due'}
                         </p>
                         <p className={`text-base font-black ${refundDue > 0 ? 'text-blue-600' : isOverpaid ? 'text-orange-500' : amountDue > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          {refundDue > 0 ? `₹${refundDue.toLocaleString()}` : isOverpaid ? `₹${Math.abs(balance).toLocaleString()}` : amountDue > 0 ? `₹${amountDue.toLocaleString()}` : '✓ Clear'}
+                          {refundDue > 0 ? `₹${refundDue.toLocaleString()}` : isOverpaid ? `₹${Math.abs(balance).toLocaleString()}` : amountDue > 0 ? `₹${amountDue.toLocaleString()}` : 'Fully Paid'}
                         </p>
                       </div>
                     </div>
@@ -1297,7 +1355,7 @@ export default function CustomerBookings() {
                         )}
                         {mp.platformFee > 0 && (
                           <div className="flex justify-between text-gray-500 text-xs">
-                            <span>Platform Fee ({mp.pfRate}%)</span>
+                            <span>Platform Fee ({mp.platformFeeLabel})</span>
                             <span>₹{mp.platformFee.toLocaleString()}</span>
                           </div>
                         )}

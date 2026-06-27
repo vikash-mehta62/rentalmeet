@@ -4607,6 +4607,13 @@
             }
           },
           {
+            "name": "owner",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "page",
             "in": "query",
             "schema": {
@@ -8056,13 +8063,13 @@
                   "selectedAmenities": {
                     "example": "any"
                   },
-                  "amenitiesTotal": {
-                    "example": "any"
-                  },
                   "priceBreakdown": {
                     "example": "any"
                   },
                   "couponCode": {
+                    "example": "any"
+                  },
+                  "paymentDetails": {
                     "example": "any"
                   }
                 }
@@ -8194,9 +8201,6 @@
           "200": {
             "description": "OK"
           },
-          "400": {
-            "description": "Bad Request"
-          },
           "401": {
             "description": "Unauthorized"
           },
@@ -8208,44 +8212,6 @@
           },
           "500": {
             "description": "Internal Server Error"
-          }
-        },
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "bookingDate": {
-                    "example": "any"
-                  },
-                  "startTime": {
-                    "example": "any"
-                  },
-                  "endTime": {
-                    "example": "any"
-                  },
-                  "bookingType": {
-                    "example": "any"
-                  },
-                  "selectedAmenities": {
-                    "example": "any"
-                  },
-                  "amenitiesTotal": {
-                    "example": "any"
-                  },
-                  "priceBreakdown": {
-                    "example": "any"
-                  },
-                  "amount": {
-                    "example": "any"
-                  },
-                  "customerDetails": {
-                    "example": "any"
-                  }
-                }
-              }
-            }
           }
         },
         "tags": [
@@ -9247,6 +9213,92 @@
         "tags": [
           "Venues"
         ]
+      }
+    },
+    "/api/notifications/": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/notifications/read-all": {
+      "put": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/notifications/{id}/read": {
+      "put": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
       }
     },
     "/api/faqs/": {

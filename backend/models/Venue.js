@@ -214,6 +214,28 @@ const venueSchema = new mongoose.Schema({
       type: Boolean,
       default: false
     },
+    feeType: {
+      type: String,
+      enum: ['fixed', 'percentage'],
+      default: 'percentage'
+    },
+    feeValue: {
+      type: Number,
+      default: 5,
+      min: 0
+    },
+    platformCGSTRate: {
+      type: Number,
+      default: 9,
+      min: 0,
+      max: 100
+    },
+    platformSGSTRate: {
+      type: Number,
+      default: 9,
+      min: 0,
+      max: 100
+    },
     percentage: {
       type: Number,
       default: 5,
@@ -227,6 +249,22 @@ const venueSchema = new mongoose.Schema({
     enabled: {
       type: Boolean,
       default: false
+    },
+    cgstRate: {
+      type: Number,
+      default: 9,
+      min: 0,
+      max: 100
+    },
+    sgstRate: {
+      type: Number,
+      default: 9,
+      min: 0,
+      max: 100
+    },
+    hsnCode: {
+      type: String,
+      default: ''
     },
     rate: {
       type: Number,

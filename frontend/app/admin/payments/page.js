@@ -7,7 +7,8 @@ import PermissionGuard from '@/components/admin/PermissionGuard';
 import {
   CreditCard, Search, Filter, Eye, X, Calendar, IndianRupee,
   CheckCircle, XCircle, Clock, AlertCircle, User, Building2,
-  TrendingUp, Download, Plus, RefreshCw, History, Coins
+  TrendingUp, Download, Plus, RefreshCw, History, Coins,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import InvoiceDownload from '@/components/booking/InvoiceDownload';
@@ -36,6 +37,9 @@ export default function AdminPayments() {
   const [fyFilter, setFyFilter] = useState('');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
 
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
@@ -45,16 +49,31 @@ export default function AdminPayments() {
     return `${y}-${String(y + 1).slice(-2)}`;
   });
 
-  useEffect(() => { if (token) fetchPayments(); }, [token]);
   useEffect(() => { if (token && showAnalytics) fetchAnalytics(); }, [token, analyticsPeriod, showAnalytics]);
-  useEffect(() => {
-    if (token) fetchPayments();
-  }, [statusFilter, dateFilter, yearFilter, fyFilter, customFrom, customTo, searchQuery]);
 
-  const fetchPayments = async () => {
+  // Fetch payments when page changes
+  useEffect(() => {
+    if (token) {
+      fetchPayments(page);
+    }
+  }, [token, page]);
+
+  // Reset page to 1 when filters change. If page is already 1, manually fetch page 1.
+  useEffect(() => {
+    if (!token) return;
+    if (page === 1) {
+      fetchPayments(1);
+    } else {
+      setPage(1);
+    }
+  }, [token, statusFilter, dateFilter, yearFilter, fyFilter, customFrom, customTo, searchQuery]);
+
+  const fetchPayments = async (pageNum = 1) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
+      params.set('page', pageNum);
+      params.set('limit', 10);
       if (statusFilter !== 'all') params.set('status', statusFilter);
       if (dateFilter !== 'all') params.set('dateFilter', dateFilter);
       if (dateFilter === 'year' && yearFilter) params.set('year', yearFilter);
@@ -71,6 +90,8 @@ export default function AdminPayments() {
       if (data.success) {
         setPayments(data.payments);
         setFilteredPayments(data.payments);
+        setTotalPages(data.totalPages || 1);
+        setTotal(data.total || 0);
         if (data.stats) setStats(data.stats);
       }
     } catch (error) {
@@ -100,65 +121,94 @@ export default function AdminPayments() {
   // filterPayments removed — backend handles all filtering
 
   // CSV Export — exports currently filtered data
-  const exportCSV = () => {
+  const exportCSV = async () => {
     if (filteredPayments.length === 0) { toast.error('No data to export'); return; }
 
-    // Build filename with active filter info
-    let filterLabel = 'all';
-    if (dateFilter === 'today') filterLabel = 'today';
-    else if (dateFilter === 'week') filterLabel = 'this_week';
-    else if (dateFilter === 'month') filterLabel = 'this_month';
-    else if (dateFilter === 'year' && yearFilter) filterLabel = `year_${yearFilter}`;
-    else if (dateFilter === 'fy' && fyFilter) filterLabel = `FY_${fyFilter}`;
-    else if (dateFilter === 'custom' && customFrom && customTo) filterLabel = `${customFrom}_to_${customTo}`;
-    if (statusFilter !== 'all') filterLabel += `_${statusFilter}`;
+    const loadToast = toast.loading('Preparing CSV export...');
+    try {
+      const params = new URLSearchParams();
+      params.set('export', 'true');
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+      if (dateFilter !== 'all') params.set('dateFilter', dateFilter);
+      if (dateFilter === 'year' && yearFilter) params.set('year', yearFilter);
+      if (dateFilter === 'fy' && fyFilter) params.set('fyYear', fyFilter.split('-')[0]);
+      if (dateFilter === 'custom' && customFrom) params.set('from', customFrom);
+      if (dateFilter === 'custom' && customTo) params.set('to', customTo);
+      if (searchQuery) params.set('search', searchQuery);
 
-    const headers = [
-      'S.No', 'Booking No', 'Payment ID', 'Order ID',
-      'Customer', 'Email', 'Phone',
-      'Venue', 'City',
-      'Booking Date', 'Booking Type',
-      'Base Price', 'GST', 'Platform Fee', 'Discount', 'Total Amount',
-      'Owner Earnings', 'Payment Status', 'Booking Status',
-      'Paid At', 'Created At'
-    ];
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/payments?${params.toString()}`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
+      const data = await response.json();
+      if (!data.success || !data.payments || data.payments.length === 0) {
+        toast.dismiss(loadToast);
+        toast.error('No data to export');
+        return;
+      }
 
-    const rows = filteredPayments.map((p, i) => {
-      const pb = p.priceBreakdown || {};
-      return [
-        i + 1,
-        p.bookingNumber || 'N/A',
-        p.paymentDetails?.razorpay_payment_id || 'N/A',
-        p.paymentDetails?.razorpay_order_id || 'N/A',
-        p.customer?.name || '',
-        p.customer?.email || '',
-        p.customerDetails?.phone || p.customer?.phone || '',
-        p.venue?.businessName || '',
-        p.venue?.location?.city || '',
-        p.bookingDate ? new Date(p.bookingDate).toLocaleDateString('en-IN') : '',
-        p.bookingType || '',
-        pb.basePrice || 0,
-        pb.gst || 0,
-        pb.platformFee || 0,
-        pb.discount || 0,
-        p.amount || 0,
-        p.ownerEarnings || 0,
-        p.paymentStatus || '',
-        p.status || '',
-        p.paymentDetails?.paidAt ? new Date(p.paymentDetails.paidAt).toLocaleDateString('en-IN') : '',
-        new Date(p.createdAt).toLocaleDateString('en-IN')
+      // Build filename with active filter info
+      let filterLabel = 'all';
+      if (dateFilter === 'today') filterLabel = 'today';
+      else if (dateFilter === 'week') filterLabel = 'this_week';
+      else if (dateFilter === 'month') filterLabel = 'this_month';
+      else if (dateFilter === 'year' && yearFilter) filterLabel = `year_${yearFilter}`;
+      else if (dateFilter === 'fy' && fyFilter) filterLabel = `FY_${fyFilter}`;
+      else if (dateFilter === 'custom' && customFrom && customTo) filterLabel = `${customFrom}_to_${customTo}`;
+      if (statusFilter !== 'all') filterLabel += `_${statusFilter}`;
+
+      const headers = [
+        'S.No', 'Booking No', 'Payment ID', 'Order ID',
+        'Customer', 'Email', 'Phone',
+        'Venue', 'City',
+        'Booking Date', 'Booking Type',
+        'Base Price', 'GST', 'Platform Fee', 'Discount', 'Total Amount',
+        'Owner Earnings', 'Payment Status', 'Booking Status',
+        'Paid At', 'Created At'
       ];
-    });
 
-    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `payments_${filterLabel}_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success(`${filteredPayments.length} records exported!`);
+      const rows = data.payments.map((p, i) => {
+        const pb = p.priceBreakdown || {};
+        return [
+          i + 1,
+          p.bookingNumber || 'N/A',
+          p.paymentDetails?.razorpay_payment_id || 'N/A',
+          p.paymentDetails?.razorpay_order_id || 'N/A',
+          p.customer?.name || '',
+          p.customer?.email || '',
+          p.customerDetails?.phone || p.customer?.phone || '',
+          p.venue?.businessName || '',
+          p.venue?.location?.city || '',
+          p.bookingDate ? new Date(p.bookingDate).toLocaleDateString('en-IN') : '',
+          p.bookingType || '',
+          pb.basePrice || 0,
+          pb.gst || 0,
+          pb.platformFee || 0,
+          pb.discount || 0,
+          p.amount || 0,
+          p.ownerEarnings || 0,
+          p.paymentStatus || '',
+          p.status || '',
+          p.paymentDetails?.paidAt ? new Date(p.paymentDetails.paidAt).toLocaleDateString('en-IN') : '',
+          new Date(p.createdAt).toLocaleDateString('en-IN')
+        ];
+      });
+
+      const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `payments_${filterLabel}_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.dismiss(loadToast);
+      toast.success(`${data.payments.length} records exported!`);
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.dismiss(loadToast);
+      toast.error('Failed to export CSV');
+    }
   };
 
   const openModal = (payment) => {
@@ -468,7 +518,7 @@ export default function AdminPayments() {
               </div>
             )}
           </div>
-          <p className="text-xs text-gray-500">Showing {filteredPayments.length} payments</p>
+          <p className="text-xs text-gray-500">Showing {filteredPayments.length} of {total} payments</p>
         </div>
       </div>
 
@@ -501,15 +551,23 @@ export default function AdminPayments() {
                 filteredPayments.map((payment, index) => (
                   <tr key={payment._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
-                      <span className="font-semibold text-gray-700">{index + 1}</span>
+                      <span className="font-semibold text-gray-700">{(page - 1) * 10 + index + 1}</span>
                     </td>
                     <td className="px-6 py-4">
-                      <p className="font-mono text-xs font-semibold text-dark-800">
-                        {payment.paymentDetails?.razorpay_payment_id?.slice(0, 20) || 'N/A'}...
-                      </p>
-                      <p className="font-mono text-xs text-gray-500">
-                        {payment.paymentDetails?.razorpay_order_id?.slice(0, 20) || 'N/A'}...
-                      </p>
+                      {payment.paymentDetails?.razorpay_payment_id ? (
+                        <p className="font-mono text-xs font-semibold text-dark-800">
+                          {payment.paymentDetails.razorpay_payment_id.slice(0, 20)}...
+                        </p>
+                      ) : (
+                        <p className="font-mono text-xs font-semibold text-gray-400">N/A</p>
+                      )}
+                      {payment.paymentDetails?.razorpay_order_id ? (
+                        <p className="font-mono text-xs text-gray-500">
+                          {payment.paymentDetails.razorpay_order_id.slice(0, 20)}...
+                        </p>
+                      ) : (
+                        <p className="font-mono text-xs text-gray-400">N/A</p>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
@@ -546,8 +604,8 @@ export default function AdminPayments() {
                       {payment.paymentStatus === 'paid' && payment.status === 'completed' ? (
                         <div>
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize ${
-                            payment.settlementStatus === 'settled' ? 'bg-green-100 text-green-700' :
-                            payment.settlementStatus === 'failed' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                             payment.settlementStatus === 'settled' ? 'bg-green-100 text-green-700' :
+                             payment.settlementStatus === 'failed' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
                           }`}>
                             {payment.settlementStatus || 'unsettled'}
                           </span>
@@ -593,6 +651,29 @@ export default function AdminPayments() {
           </table>
         </div>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-5">
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="p-2 rounded-xl border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed bg-white"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <span className="text-sm text-gray-600 font-medium bg-white px-3 py-1.5 rounded-xl border border-gray-200">
+            Page {page} of {totalPages}
+          </span>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            className="p-2 rounded-xl border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed bg-white"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Payment Details Modal */}
       {modalOpen && selectedPayment && (
@@ -1025,7 +1106,7 @@ export default function AdminPayments() {
                     {/* Balance Summary */}
                     <div className="grid grid-cols-3 divide-x divide-gray-200 bg-white">
                       <div className="p-4 text-center">
-                        <p className="text-xs text-gray-500 mb-1">Total Due</p>
+                        <p className="text-xs text-gray-500 mb-1">Total Amount</p>
                         <p className="text-xl font-black text-gray-900">₹{selectedPayment.amount?.toLocaleString()}</p>
                       </div>
                       <div className="p-4 text-center bg-green-50">
@@ -1033,9 +1114,9 @@ export default function AdminPayments() {
                         <p className="text-xl font-black text-green-600">₹{totalPaid.toLocaleString()}</p>
                       </div>
                       <div className={`p-4 text-center ${refundDue > 0 ? 'bg-blue-50' : amountDue > 0 ? 'bg-red-50' : 'bg-green-50'}`}>
-                        <p className="text-xs text-gray-500 mb-1">{refundDue > 0 ? '🔵 Refund Due' : amountDue > 0 ? '🔴 Balance Due' : '✅ Settled'}</p>
+                        <p className="text-xs text-gray-500 mb-1">{refundDue > 0 ? '🔵 Refund Due' : amountDue > 0 ? '🔴 Balance Due' : '✅ Balance Due'}</p>
                         <p className={`text-xl font-black ${refundDue > 0 ? 'text-blue-600' : amountDue > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          {refundDue > 0 ? `₹${refundDue.toLocaleString()}` : amountDue > 0 ? `₹${amountDue.toLocaleString()}` : 'Clear'}
+                          {refundDue > 0 ? `₹${refundDue.toLocaleString()}` : amountDue > 0 ? `₹${amountDue.toLocaleString()}` : 'Fully Paid'}
                         </p>
                       </div>
                     </div>

@@ -20,6 +20,7 @@ import BookingForm from '@/components/booking/BookingForm';
 import VenueReviews from '@/components/venue/VenueReviews';
 import Navbar from '@/components/Navbar';
 import { useAuthStore } from '@/lib/store';
+import { getDateRateKey, getVenueDurationBasePrice } from '@/lib/venuePricing';
 import toast from 'react-hot-toast';
 
 // ── Amenity icon map ─────────────────────────────────────────────────────
@@ -437,21 +438,16 @@ export default function VenueDetail() {
     }
   };
 
+  const quickBookingRateKey = getDateRateKey(quickBooking.date);
+  const quickBookingRateLabel = quickBookingRateKey === 'weekend' ? 'Weekend' : 'Weekday';
+  const getQuickBookingBasePrice = (duration = quickBooking.duration) => (
+    getVenueDurationBasePrice(venue, duration, quickBooking.date)
+  );
+
   // Calculate estimate price
   const calculateEstimate = () => {
     if (!venue?.pricing || !quickBooking.duration) return 0;
-    
-    // Calculate base price
-    const duration = parseInt(quickBooking.duration);
-    let basePrice = 0;
-    
-    if (duration === 1 || duration === 2) {
-      basePrice = (venue.pricing.perHour?.weekday || 0) * duration;
-    } else if (duration === 4) {
-      basePrice = venue.pricing.halfDay?.weekday || 0;
-    } else if (duration === 8) {
-      basePrice = venue.pricing.fullDay?.weekday || 0;
-    }
+    const basePrice = getQuickBookingBasePrice();
     
     // Calculate amenities total
     let amenitiesTotal = 0;
@@ -1107,7 +1103,7 @@ export default function VenueDetail() {
             {/* Pricing - Card Format */}
             {venue.pricing && (
               <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-6">
-                <h2 className="font-serif text-xl font-bold text-dark-800 dark:text-slate-100 mb-4">Pricing (Weekday)</h2>
+                <h2 className="font-serif text-xl font-bold text-dark-800 dark:text-slate-100 mb-4">Pricing ({quickBookingRateLabel})</h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* 1 Hour Card - Only show if enabled */}
                   {venue.pricing.enabledOptions?.perHour && venue.pricing.perHour && (
@@ -1121,7 +1117,7 @@ export default function VenueDetail() {
                     >
                       <div className="text-center">
                         <h3 className="font-semibold text-sm mb-0.5 text-gray-900 dark:text-slate-100">1 Hour</h3>
-                        <p className="text-lg font-bold text-primary-600">₹{venue.pricing.perHour.weekday?.toLocaleString()}</p>
+                        <p className="text-lg font-bold text-primary-600">₹{getQuickBookingBasePrice('1').toLocaleString()}</p>
                       </div>
                     </div>
                   )}
@@ -1139,7 +1135,7 @@ export default function VenueDetail() {
                       <div className="text-center">
                         <h3 className="font-semibold text-sm mb-0.5 text-gray-900 dark:text-slate-100">Half Day</h3>
                         <p className="text-xs text-gray-400 dark:text-slate-500 mb-0.5">4 hours</p>
-                        <p className="text-lg font-bold text-primary-600">₹{venue.pricing.halfDay.weekday?.toLocaleString()}</p>
+                        <p className="text-lg font-bold text-primary-600">₹{getQuickBookingBasePrice('4').toLocaleString()}</p>
                       </div>
                     </div>
                   )}
@@ -1157,7 +1153,7 @@ export default function VenueDetail() {
                       <div className="text-center">
                         <h3 className="font-semibold text-sm mb-0.5 text-gray-900 dark:text-slate-100">Full Day</h3>
                         <p className="text-xs text-gray-400 dark:text-slate-500 mb-0.5">8 hours</p>
-                        <p className="text-lg font-bold text-primary-600">₹{venue.pricing.fullDay.weekday?.toLocaleString()}</p>
+                        <p className="text-lg font-bold text-primary-600">₹{getQuickBookingBasePrice('8').toLocaleString()}</p>
                       </div>
                     </div>
                   )}
@@ -1193,9 +1189,9 @@ export default function VenueDetail() {
                     const opts = p?.enabledOptions || {};
                     // Find the lowest enabled price
                     const prices = [];
-                    if (opts.perHour && p?.perHour?.weekday) prices.push({ label: '/hour', val: p.perHour.weekday });
-                    if (opts.halfDay && p?.halfDay?.weekday) prices.push({ label: '/half day', val: p.halfDay.weekday });
-                    if (opts.fullDay && p?.fullDay?.weekday) prices.push({ label: '/full day', val: p.fullDay.weekday });
+                    if (opts.perHour && p?.perHour?.[quickBookingRateKey]) prices.push({ label: '/hour', val: p.perHour[quickBookingRateKey] });
+                    if (opts.halfDay && p?.halfDay?.[quickBookingRateKey]) prices.push({ label: '/half day', val: p.halfDay[quickBookingRateKey] });
+                    if (opts.fullDay && p?.fullDay?.[quickBookingRateKey]) prices.push({ label: '/full day', val: p.fullDay[quickBookingRateKey] });
                     const min = prices.length > 0 ? prices.reduce((a, b) => a.val < b.val ? a : b) : null;
                     return min ? (
                       <>
@@ -1271,9 +1267,9 @@ export default function VenueDetail() {
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200 mb-1">Select Duration</label>
                     <div className="grid grid-cols-2 gap-1.5">
-                      {venue.pricing?.enabledOptions?.perHour && venue.pricing?.perHour?.weekday && (
+                      {venue.pricing?.enabledOptions?.perHour && venue.pricing?.perHour?.[quickBookingRateKey] && (
                         <>
-                          {[{ dur: '1', label: '1h', price: venue.pricing.perHour.weekday }, { dur: '2', label: '2h', price: venue.pricing.perHour.weekday * 2 }].map(({ dur, label, price }) => (
+                          {[{ dur: '1', label: '1h', price: getQuickBookingBasePrice('1') }, { dur: '2', label: '2h', price: getQuickBookingBasePrice('2') }].map(({ dur, label, price }) => (
                             <button
                               key={dur}
                               type="button"
@@ -1290,7 +1286,7 @@ export default function VenueDetail() {
                           ))}
                         </>
                       )}
-                      {venue.pricing?.enabledOptions?.halfDay && venue.pricing?.halfDay?.weekday && (
+                      {venue.pricing?.enabledOptions?.halfDay && venue.pricing?.halfDay?.[quickBookingRateKey] && (
                         <button
                           type="button"
                           onClick={() => setQuickBooking(prev => ({ ...prev, duration: '4' }))}
@@ -1301,10 +1297,10 @@ export default function VenueDetail() {
                           }`}
                         >
                           <span className="block text-xs font-bold text-gray-900 dark:text-slate-100">Half Day</span>
-                          <span className={`text-xs font-semibold ${quickBooking.duration === '4' ? 'text-primary-600' : 'text-gray-500 dark:text-slate-400'}`}>₹{venue.pricing.halfDay.weekday.toLocaleString('en-IN')}</span>
+                          <span className={`text-xs font-semibold ${quickBooking.duration === '4' ? 'text-primary-600' : 'text-gray-500 dark:text-slate-400'}`}>₹{getQuickBookingBasePrice('4').toLocaleString('en-IN')}</span>
                         </button>
                       )}
-                      {venue.pricing?.enabledOptions?.fullDay && venue.pricing?.fullDay?.weekday && (
+                      {venue.pricing?.enabledOptions?.fullDay && venue.pricing?.fullDay?.[quickBookingRateKey] && (
                         <button
                           type="button"
                           onClick={() => setQuickBooking(prev => ({ ...prev, duration: '8' }))}
@@ -1315,7 +1311,7 @@ export default function VenueDetail() {
                           }`}
                         >
                           <span className="block text-xs font-bold text-gray-900 dark:text-slate-100">Full Day</span>
-                          <span className={`text-xs font-semibold ${quickBooking.duration === '8' ? 'text-primary-600' : 'text-gray-500 dark:text-slate-400'}`}>₹{venue.pricing.fullDay.weekday.toLocaleString('en-IN')}</span>
+                          <span className={`text-xs font-semibold ${quickBooking.duration === '8' ? 'text-primary-600' : 'text-gray-500 dark:text-slate-400'}`}>₹{getQuickBookingBasePrice('8').toLocaleString('en-IN')}</span>
                         </button>
                       )}
                     </div>

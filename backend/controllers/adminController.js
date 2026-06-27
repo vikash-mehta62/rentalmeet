@@ -4,6 +4,7 @@ const CommissionSettings = require('../models/CommissionSettings');
 const TermsConditions = require('../models/TermsConditions');
 const { sendVenueApprovalEmail, sendVenueRejectionEmail } = require('../utils/emailService');
 const User = require('../models/User');
+const { normalizeCustomPlatformFee, normalizeCustomGST } = require('../utils/venuePricing');
 
 // @desc    Get dashboard statistics
 // @route   GET /api/admin/dashboard-stats
@@ -96,10 +97,10 @@ exports.approveVenue = async (req, res) => {
     
     // Set custom settings if provided
     if (customPlatformFee) {
-      venue.customPlatformFee = customPlatformFee;
+      venue.customPlatformFee = normalizeCustomPlatformFee(customPlatformFee);
     }
     if (customGST) {
-      venue.customGST = customGST;
+      venue.customGST = normalizeCustomGST(customGST);
     }
     if (customCommission) {
       venue.customCommission = customCommission;
@@ -256,10 +257,10 @@ exports.updateVenueSettings = async (req, res) => {
     
     // Update custom settings
     if (customPlatformFee !== undefined) {
-      venue.customPlatformFee = customPlatformFee;
+      venue.customPlatformFee = normalizeCustomPlatformFee(customPlatformFee);
     }
     if (customGST !== undefined) {
-      venue.customGST = customGST;
+      venue.customGST = normalizeCustomGST(customGST);
     }
     if (customCommission !== undefined) {
       venue.customCommission = customCommission;
@@ -332,9 +333,11 @@ exports.getPlatformSettings = async (req, res) => {
     // Get current settings (only one document)
     const settings = await PlatformSettings.getSettings();
     
-    // Add platformFeePercentage for frontend compatibility
     const settingsObj = settings.toObject();
-    settingsObj.platformFeePercentage = settingsObj.platformFeeValue;
+    const platformFeeValue = settingsObj.platformFeeValue ?? settingsObj.platformFeePercentage ?? 5;
+    settingsObj.platformFeeType = settingsObj.platformFeeType || 'percentage';
+    settingsObj.platformFeeValue = platformFeeValue;
+    settingsObj.platformFeePercentage = settingsObj.platformFeeType === 'percentage' ? platformFeeValue : 0;
     
     res.json({
       success: true,
@@ -369,7 +372,9 @@ exports.updatePlatformSettings = async (req, res) => {
       settings.gstRate = gstRate !== undefined ? gstRate : settings.gstRate;
       settings.platformFeeType = platformFeeType || settings.platformFeeType;
       settings.platformFeeValue = feeValue !== undefined ? feeValue : settings.platformFeeValue;
-      settings.platformFeePercentage = feeValue !== undefined ? feeValue : settings.platformFeePercentage;
+      settings.platformFeePercentage = (settings.platformFeeType === 'percentage' && feeValue !== undefined)
+        ? feeValue
+        : settings.platformFeePercentage;
       settings.venueCGST = venueCGST !== undefined ? venueCGST : settings.venueCGST;
       settings.venueSGST = venueSGST !== undefined ? venueSGST : settings.venueSGST;
       settings.venueHSN = venueHSN !== undefined ? venueHSN : settings.venueHSN;
@@ -399,7 +404,8 @@ exports.updatePlatformSettings = async (req, res) => {
     } else {
       const newSettings = {
         gstRate: gstRate || 18, platformFeeType: platformFeeType || 'percentage',
-        platformFeeValue: feeValue || 5, platformFeePercentage: feeValue || 5,
+        platformFeeValue: feeValue || 5,
+        platformFeePercentage: (platformFeeType || 'percentage') === 'percentage' ? (feeValue || 5) : 0,
         venueCGST: venueCGST || 9, venueSGST: venueSGST || 9, venueHSN: venueHSN || '',
         platformCGST: platformCGST || 9, platformSGST: platformSGST || 9,
         serviceCGST: serviceCGST || 9, serviceSGST: serviceSGST || 9,
@@ -937,9 +943,8 @@ exports.getAllPayments = async (req, res) => {
       dateMatch = { createdAt: { $gte: new Date(from + 'T00:00:00'), $lte: new Date(to + 'T23:59:59') } };
     }
 
-    // ── Build filter ──────────────────────────────────────────────────────────
+    // ── Build filter (fetch all matching date range to compute global stats) ──
     const filter = { paymentStatus: { $exists: true }, ...dateMatch };
-    if (status && status !== 'all') filter.paymentStatus = status;
 
     // ── Fetch Venue Bookings ──────────────────────────────────────────────────
     let venuePayments = await Booking.find(filter)
@@ -1026,17 +1031,25 @@ exports.getAllPayments = async (req, res) => {
       }, 0),
     };
 
+    // ── Filter display payments by status (defaulting to completed 'paid' and 'refunded') ──
+    let displayPayments = payments.filter(p => p.paymentDetails?.razorpay_payment_id && p.status === 'completed');
+    if (status && status !== 'all') {
+      displayPayments = displayPayments.filter(p => p.paymentStatus === status);
+    } else {
+      displayPayments = displayPayments.filter(p => p.paymentStatus === 'paid');
+    }
+
     if (isExport === 'true') {
       res.set('Cache-Control', 'no-store');
-      return res.json({ success: true, count: payments.length, payments, stats });
+      return res.json({ success: true, count: displayPayments.length, payments: displayPayments, stats });
     }
 
     const limitNum = parseInt(limit || 10);
     const pageNum = parseInt(page || 1);
     const skip = (pageNum - 1) * limitNum;
 
-    const total = payments.length;
-    const paginatedPayments = payments.slice(skip, skip + limitNum);
+    const total = displayPayments.length;
+    const paginatedPayments = displayPayments.slice(skip, skip + limitNum);
 
     res.set('Cache-Control', 'no-store');
     res.json({

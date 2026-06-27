@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import QuotationView from './QuotationView';
+import { calculatePlatformFee, formatPlatformFeeLabel, getVenuePricingMeta, isWeekendDate, numberOr, roundMoney } from '@/lib/venuePricing';
 
 function getCapacityLimit(capacity) {
   const text = String(capacity || '').trim();
@@ -32,6 +33,7 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
     gstRate: 18,
     venueCGST: 9,
     venueSGST: 9,
+    venueHSN: '9973',
     platformCGST: 9,
     platformSGST: 9,
     platformFeeType: 'percentage',
@@ -72,15 +74,20 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues/platform-settings/public`);
       const data = await response.json();
       if (data.success && data.settings) {
-        const pfv = parseFloat(data.settings.platformFeePercentage) || parseFloat(data.settings.platformFee?.feeValue) || 5;
+        const feeType = data.settings.platformFeeType || data.settings.platformFee?.feeType || 'percentage';
+        const feeValue = numberOr(
+          data.settings.platformFeeValue ?? data.settings.platformFee?.feeValue ?? data.settings.platformFeePercentage,
+          5
+        );
         setPlatformSettings({
           gstRate: parseFloat(data.settings.gstRate) || 18,
           venueCGST: parseFloat(data.settings.venueCGST) || 9,
           venueSGST: parseFloat(data.settings.venueSGST) || 9,
+          venueHSN: data.settings.venueHSN || '9973',
           platformCGST: parseFloat(data.settings.platformCGST) || 9,
           platformSGST: parseFloat(data.settings.platformSGST) || 9,
-          platformFeeType: data.settings.platformFee?.feeType || 'percentage',
-          platformFeeValue: pfv
+          platformFeeType: feeType,
+          platformFeeValue: feeValue
         });
       }
     } catch (error) {
@@ -129,6 +136,16 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
     return date;
   };
 
+  const parseDateInput = (value) => {
+    if (!value) return null;
+    const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (match) {
+      return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+
   // Get first enabled duration for this venue
   const getDefaultDuration = () => {
     if (initialData?.duration) return initialData.duration;
@@ -146,7 +163,7 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
     bookingDate: formatDateForInput(initialData?.date) || '',
     startTime: initialData?.startTime || '',
     endTime: calculateEndTime(initialData?.startTime, getDefaultDuration()) || initialData?.endTime || '',
-    isWeekend: initialData?.date ? (new Date(initialData.date).getDay() === 0 || new Date(initialData.date).getDay() === 6) : false,
+    isWeekend: isWeekendDate(initialData?.date),
     customerName: user?.name || '',
     customerEmail: user?.email || '',
     customerPhone: user?.phone || '',
@@ -184,12 +201,13 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
   const [couponLoading, setCouponLoading] = useState(false);
 
   // Calculate base price
-  const calculateBasePrice = (type, isWeekendDay) => {
+  const calculateBasePrice = (type, isWeekendDay, duration = formData.duration) => {
     if (!venue?.pricing) return 0;
     const dayType = isWeekendDay ? 'weekend' : 'weekday';
+    const hours = Math.max(1, parseInt(duration) || 1);
     
     switch (type) {
-      case 'hourly': return venue.pricing.perHour?.[dayType] || 0;
+      case 'hourly': return (venue.pricing.perHour?.[dayType] || 0) * hours;
       case 'halfday': return venue.pricing.halfDay?.[dayType] || 0;
       case 'fullday': return venue.pricing.fullDay?.[dayType] || 0;
       default: return 0;
@@ -266,78 +284,53 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
   // Update total price with GST and Platform Fee
   useEffect(() => {
     if (formData.bookingType) {
-      const basePrice = calculateBasePrice(formData.bookingType, formData.isWeekend);
+      const basePrice = calculateBasePrice(formData.bookingType, formData.isWeekend, formData.duration);
       const amenitiesTotal = calculateAmenitiesTotal();
       const subtotal = basePrice + amenitiesTotal;
-      
-      // Calculate GST - Priority: Owner's hasGST > Custom GST > Platform Default
-      let gstRate = 0;
-      let gst = 0;
-      
-      // First check if owner has GST registration
-      if (venue.ownerInfo?.hasGST) {
-        if (venue.customGST?.enabled) {
-          // Venue has custom GST rate (combined)
-          gstRate = venue.customGST.rate;
-        } else {
-          // Use platform CGST + SGST (venue invoice rates)
-          const cgst = parseFloat(platformSettings.venueCGST) || 9;
-          const sgst = parseFloat(platformSettings.venueSGST) || 9;
-          gstRate = cgst + sgst;
-        }
-        gst = (subtotal * gstRate) / 100;
-      }
-      
-      // Calculate Platform Fee (check if venue has custom fee)
-      let platformFee = 0;
-      if (venue.customPlatformFee?.enabled) {
-        const pct = parseFloat(venue.customPlatformFee.percentage) || 0;
-        platformFee = (subtotal * pct) / 100;
-      } else {
-        const feeType = platformSettings.platformFeeType || 'percentage';
-        const feeValue = parseFloat(platformSettings.platformFeeValue) || 0;
-        platformFee = feeType === 'fixed'
-          ? feeValue
-          : (subtotal * feeValue) / 100;
-      }
+      const pricingMeta = getVenuePricingMeta(venue, platformSettings);
+      const venueCGSTRate = pricingMeta.venueCGSTRate;
+      const venueSGSTRate = pricingMeta.venueSGSTRate;
+      const venueCGST = roundMoney((subtotal * venueCGSTRate) / 100);
+      const venueSGST = roundMoney((subtotal * venueSGSTRate) / 100);
+      const gst = roundMoney(venueCGST + venueSGST);
+      const gstRate = venueCGSTRate + venueSGSTRate;
+      const platformFee = calculatePlatformFee(
+        subtotal,
+        pricingMeta.platformFeeType,
+        pricingMeta.platformFeeValue
+      );
 
       // Platform Fee GST (CGST + SGST on platform fee)
-      const platformCGSTRate = parseFloat(platformSettings.platformCGST) || 9;
-      const platformSGSTRate = parseFloat(platformSettings.platformSGST) || 9;
-      const platformFeeCGST = Math.round((platformFee * platformCGSTRate) / 100 * 100) / 100;
-      const platformFeeSGST = Math.round((platformFee * platformSGSTRate) / 100 * 100) / 100;
-      const platformFeeGST = Math.round((platformFeeCGST + platformFeeSGST) * 100) / 100;
-      const platformFeeTotal = Math.round((platformFee + platformFeeGST) * 100) / 100;
-
-      // Venue GST breakdown
-      const venueCGSTRate = venue.customGST?.enabled
-        ? Math.round(venue.customGST.rate / 2)
-        : (parseFloat(platformSettings.venueCGST) || 9);
-      const venueSGSTRate = venue.customGST?.enabled
-        ? Math.round(venue.customGST.rate / 2)
-        : (parseFloat(platformSettings.venueSGST) || 9);
-      const venueCGST = Math.round((subtotal * venueCGSTRate) / 100 * 100) / 100;
-      const venueSGST = Math.round((subtotal * venueSGSTRate) / 100 * 100) / 100;
+      const platformCGSTRate = pricingMeta.platformCGSTRate;
+      const platformSGSTRate = pricingMeta.platformSGSTRate;
+      const platformFeeCGST = roundMoney((platformFee * platformCGSTRate) / 100);
+      const platformFeeSGST = roundMoney((platformFee * platformSGSTRate) / 100);
+      const platformFeeGST = roundMoney(platformFeeCGST + platformFeeSGST);
+      const platformFeeTotal = roundMoney(platformFee + platformFeeGST);
 
       const rawTotal = subtotal + gst + platformFeeTotal;
-      const total = Math.round(rawTotal * 100) / 100;
+      const total = roundMoney(rawTotal);
 
       setCalculatedPrice({
         basePrice,
         amenitiesTotal,
         subtotal,
+        durationHours: Math.max(1, parseInt(formData.duration) || 1),
         // Venue GST
         venueCGST,
         venueCGSTRate,
         venueSGST,
         venueSGSTRate,
+        venueHSN: pricingMeta.venueHSN,
         gst,
         gstRate,
         // Platform Fee
         platformFee,
-        platformFeeRate: venue.customPlatformFee?.enabled
-          ? (parseFloat(venue.customPlatformFee.percentage) || 0)
-          : (parseFloat(platformSettings.platformFeeValue) || 5),
+        platformFeeSource: pricingMeta.platformFeeSource,
+        platformFeeType: pricingMeta.platformFeeType,
+        platformFeeValue: pricingMeta.platformFeeValue,
+        platformFeeRate: pricingMeta.platformFeeValue,
+        platformFeePercentage: pricingMeta.platformFeePercentage,
         platformFeeCGST,
         platformFeeCGSTRate: platformCGSTRate,
         platformFeeSGST,
@@ -351,14 +344,10 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
         total: appliedCoupon ? Math.max(0, total - appliedCoupon.discountAmount) : total
       });
     }
-  }, [formData.bookingType, formData.isWeekend, selectedAmenities, quantities, platformSettings, venue, appliedCoupon]);
+  }, [formData.bookingType, formData.duration, formData.isWeekend, selectedAmenities, quantities, platformSettings, venue, appliedCoupon]);
 
-  // Check weekend
   const checkIfWeekend = (dateString) => {
-    if (!dateString) return false;
-    const date = new Date(dateString);
-    const day = date.getDay();
-    return day === 0 || day === 6;
+    return isWeekendDate(dateString);
   };
 
   const handleChange = (e) => {
@@ -453,7 +442,7 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
   };
 
   // Handle Razorpay Payment
-  const handlePayment = async (bookingId, amount) => {
+  const handlePayment = async (bookingData, amount) => {
     try {
       // Load Razorpay script
       const res = await initializeRazorpay();
@@ -471,7 +460,7 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
         },
         body: JSON.stringify({
           amount: amount,
-          bookingId: bookingId
+          bookingType: 'venue'
         })
       });
 
@@ -491,20 +480,22 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
         description: `Booking Payment - ${venue.businessName}`,
         order_id: orderData.order.id,
         handler: async function (response) {
-          // Verify payment
+          // Verify and create booking
           try {
-            const verifyResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payment/verify`, {
+            setSubmitting(true);
+            const verifyResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bookings`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
               },
               body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-                bookingId: bookingId,
-                paidAmount: amount
+                ...bookingData,
+                paymentDetails: {
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature
+                }
               })
             });
 
@@ -512,17 +503,19 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
 
             if (verifyData.success) {
               toast.success('Payment successful! Booking confirmed 🎉');
-              localStorage.removeItem('pendingBooking');
+              setSubmitting(false);
               setBookingSuccess({
                 bookingNumber: verifyData.booking?.bookingNumber || '',
-                bookingId: bookingId
+                bookingId: verifyData.booking?._id || ''
               });
             } else {
-              toast.error('Payment verification failed');
+              toast.error(verifyData.message || 'Payment verification failed');
+              setSubmitting(false);
             }
           } catch (error) {
             console.error('Payment verification error:', error);
             toast.error('Payment verification failed');
+            setSubmitting(false);
           }
         },
         prefill: {
@@ -653,35 +646,38 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
         }
       };
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bookings`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(bookingData)
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        // Booking created successfully, now initiate payment
-        // Use the finalAmount from backend (after coupon applied correctly)
-        setSubmitting(false);
-        await handlePayment(result.booking._id, result.booking.amount);
-      } else if (result.kycRequired) {
+      // Check KYC verification in frontend first
+      if (user?.role === 'customer' && (!user?.kyc?.idProof || !user?.kyc?.selfie)) {
         toast.error('Please complete your KYC verification to book a venue.');
         setSubmitting(false);
         onClose();
         router.push('/customer/profile?tab=kyc');
-      } else {
-        toast.error(result.message || 'Failed to create booking');
-        setSubmitting(false);
+        return;
       }
+
+      // Check slot availability pre-check
+      const bookedDatesRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bookings/booked-dates/${venue.sku}`);
+      const bookedDatesData = await bookedDatesRes.json();
+      if (bookedDatesData.success && bookedDatesData.dates) {
+        const target = new Date(formData.bookingDate);
+        const isBooked = bookedDatesData.dates.some(d => {
+          const date = new Date(d);
+          return date.getFullYear() === target.getFullYear() &&
+                 date.getMonth() === target.getMonth() &&
+                 date.getDate() === target.getDate();
+        });
+        if (isBooked) {
+          toast.error('This venue was just booked by someone else! Please select another date.');
+          setSubmitting(false);
+          return;
+        }
+      }
+
+      setSubmitting(false);
+      await handlePayment(bookingData, bookingData.priceBreakdown.total);
     } catch (error) {
       console.error('Booking error:', error);
       toast.error('Something went wrong');
-    } finally {
       setSubmitting(false);
     }
   };
@@ -713,6 +709,18 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
               Back to Venue
             </button>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (submitting) {
+    return (
+      <div className="fixed inset-0 z-[250] bg-black/70 backdrop-blur-md flex flex-col items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm text-center p-8 flex flex-col items-center">
+          <div className="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mb-6"></div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Processing Your Booking</h2>
+          <p className="text-sm text-gray-500">Please do not close this window or refresh the page. We are verifying your payment and securing your reservation...</p>
         </div>
       </div>
     );
@@ -767,8 +775,7 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
                 if (opts.fullDay) options.push({ hours: '8', label: 'Full Day' });
                 return options.map(({ hours, label }) => {
                   const bookingType = mapDurationToBookingType(hours);
-                  const price = calculateBasePrice(bookingType, formData.isWeekend);
-                  const displayPrice = hours === '1' || hours === '2' ? price * parseInt(hours) : price;
+                  const displayPrice = calculateBasePrice(bookingType, formData.isWeekend, hours);
                   return (
                     <button
                       key={hours}
@@ -792,10 +799,10 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
             <div>
               <label className="block text-sm font-semibold text-dark-700 dark:text-slate-200 mb-2">Select Date *</label>
               <DatePicker
-                selected={formData.bookingDate ? new Date(formData.bookingDate) : null}
+                selected={parseDateInput(formData.bookingDate)}
                 onChange={(date) => {
                   if (!date) return;
-                  const iso = date.toISOString().split('T')[0];
+                  const iso = formatDateForInput(date);
                   handleDateChange({ target: { value: iso } });
                 }}
                 minDate={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d; })()}
@@ -909,7 +916,7 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
                 <span>Subtotal:</span>
                 <span className="font-semibold">₹{calculatedPrice.subtotal.toLocaleString()}</span>
               </div>
-              {venue.ownerInfo?.hasGST && calculatedPrice.gst > 0 && (
+              {calculatedPrice.gst > 0 && (
                 <>
                   <div className="flex justify-between text-xs text-gray-500">
                     <span>Venue CGST ({calculatedPrice.venueCGSTRate || 9}%):</span>
@@ -926,7 +933,7 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
                 </>
               )}
               <div className="flex justify-between text-xs text-gray-500">
-                <span>Platform Fee ({calculatedPrice.platformFeeRate || 5}%):</span>
+                <span>Platform Fee ({formatPlatformFeeLabel(calculatedPrice.platformFeeType, calculatedPrice.platformFeeValue)}):</span>
                 <span>₹{(calculatedPrice.platformFee || 0).toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-xs text-gray-500">
