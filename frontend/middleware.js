@@ -5,6 +5,8 @@ const PROTECTED_PREFIXES = ['/admin', '/owner', '/vendor', '/customer', '/employ
 // Routes that logged-in users should not access
 const AUTH_ONLY = ['/login', '/register', '/register-customer'];
 
+const matchesRoute = (pathname, route) => pathname === route || pathname.startsWith(`${route}/`);
+
 export function middleware(request) {
   const { pathname } = request.nextUrl;
 
@@ -12,8 +14,8 @@ export function middleware(request) {
   // We use a cookie set by the frontend as a signal (not the actual token)
   const authSignal = request.cookies.get('auth-present')?.value;
 
-  const isProtected = PROTECTED_PREFIXES.some(p => pathname.startsWith(p));
-  const isAuthPage  = AUTH_ONLY.some(p => pathname.startsWith(p));
+  const isProtected = PROTECTED_PREFIXES.some(p => matchesRoute(pathname, p));
+  const isAuthPage  = AUTH_ONLY.some(p => matchesRoute(pathname, p));
 
   // Redirect unauthenticated users away from protected pages
   if (isProtected && !authSignal) {
