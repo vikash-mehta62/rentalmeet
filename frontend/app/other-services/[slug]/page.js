@@ -264,6 +264,8 @@ export default function ServiceDetailPage() {
   const serviceSgst = Math.round(subtotal * sgstPct / 100);
   const platformFee = Math.round(subtotal * platformFeePct / 100);
   const platformFeeGst = Math.round(platformFee * (platformCgstPct + platformSgstPct) / 100);
+  const platformFeeCgst = Math.round(platformFee * platformCgstPct / 100);
+  const platformFeeSgst = platformFeeGst - platformFeeCgst;
   const total = subtotal + serviceCgst + serviceSgst + platformFee + platformFeeGst;
   const hasItems = subtotal > 0;
   const setQty = (i, delta) => {
@@ -770,7 +772,8 @@ export default function ServiceDetailPage() {
                       <div className="flex justify-between text-gray-600"><span>CGST ({cgstPct}%)</span><span>₹{serviceCgst.toLocaleString()}</span></div>
                       <div className="flex justify-between text-gray-600"><span>SGST ({sgstPct}%)</span><span>₹{serviceSgst.toLocaleString()}</span></div>
                       <div className="flex justify-between text-gray-600"><span>Platform Fee ({platformFeePct}%)</span><span>₹{platformFee.toLocaleString()}</span></div>
-                      <div className="flex justify-between text-gray-600"><span>Platform GST ({platformCgstPct + platformSgstPct}%)</span><span>₹{platformFeeGst.toLocaleString()}</span></div>
+                      <div className="flex justify-between text-gray-600"><span>Platform CGST ({platformCgstPct}%)</span><span>₹{platformFeeCgst.toLocaleString()}</span></div>
+                      <div className="flex justify-between text-gray-600"><span>Platform SGST ({platformSgstPct}%)</span><span>₹{platformFeeSgst.toLocaleString()}</span></div>
                       {couponApplied && (
                         <div className="flex justify-between text-green-600 font-semibold">
                           <span>Coupon ({couponApplied.code})</span>

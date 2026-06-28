@@ -182,15 +182,26 @@ router.put('/services/:id/blocked-dates', async (req, res) => {
 router.get('/service-bookings', async (req, res) => {
   try {
     const ServiceBooking = require('../models/ServiceBooking');
-    const bookings = await ServiceBooking.find({ vendor: req.user.id })
+    const bookings = await ServiceBooking.find({
+      vendor: req.user.id,
+      status: { $ne: 'enquiry' }
+    })
       .populate('service', 'title category')
       .sort('-createdAt');
+
+    const [enquiryCount, pendingCount, confirmedCount, cancelledCount] = await Promise.all([
+      ServiceBooking.countDocuments({ vendor: req.user.id, status: 'enquiry' }),
+      ServiceBooking.countDocuments({ vendor: req.user.id, status: 'pending' }),
+      ServiceBooking.countDocuments({ vendor: req.user.id, status: 'confirmed' }),
+      ServiceBooking.countDocuments({ vendor: req.user.id, status: 'cancelled' }),
+    ]);
+
     const stats = {
-      total:     bookings.length,
-      enquiry:   bookings.filter(b => b.status === 'enquiry').length,
-      pending:   bookings.filter(b => b.status === 'pending').length,
-      confirmed: bookings.filter(b => b.status === 'confirmed').length,
-      cancelled: bookings.filter(b => b.status === 'cancelled').length,
+      total:     pendingCount + confirmedCount + cancelledCount,
+      enquiry:   enquiryCount,
+      pending:   pendingCount,
+      confirmed: confirmedCount,
+      cancelled: cancelledCount,
     };
     res.json({ success: true, bookings, stats });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }

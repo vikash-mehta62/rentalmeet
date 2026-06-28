@@ -210,7 +210,8 @@ export default function QuotationView({
       .card-label{width:90px;flex-shrink:0;font-size:10.5px;color:#6b7280;font-weight:500}
       .card-val{flex-grow:1;font-size:10.5px;font-weight:700;color:#111827;word-break:break-all}
       table{width:100%;border-collapse:collapse;margin-bottom:8px}
-      th{padding:5px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#fff}
+      th{height:26px;padding:0 8px;text-align:left;vertical-align:middle;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#fff}
+      .th-label{display:block;position:relative;top:-6px;line-height:10px}
       td{padding:5px 8px;border-bottom:1px solid #f3f4f6;font-size:11px;vertical-align:middle}
       .right{text-align:right}
       .totals{border-radius:6px;padding:8px 10px;margin-bottom:8px}
@@ -268,7 +269,7 @@ export default function QuotationView({
       <div class="inv-section" style="border-color:#93c5fd;background:linear-gradient(135deg,#eff6ff,#fff)">
         <div class="inv-section-title" style="color:#1e40af;border-color:#93c5fd">📄 VENUE RENTAL ESTIMATE &nbsp;<span style="font-size:11px;font-weight:600;color:#6b7280">${quotationNumber}-V</span></div>
         <table>
-          <thead><tr style="background:#F59E0B"><th>Description</th><th>Qty</th><th class="right">Rate</th><th class="right">Amount</th></tr></thead>
+          <thead><tr style="background:#F59E0B"><th><span class="th-label">Description</span></th><th><span class="th-label">Qty</span></th><th class="right"><span class="th-label">Rate</span></th><th class="right"><span class="th-label">Amount</span></th></tr></thead>
           <tbody>
             <tr><td><strong>Venue Rental – ${venue.businessName}</strong><br><span style="font-size:10px;color:#6b7280">${fmtDate(fd.bookingDate || fd.date)} | ${fd.startTime || ''} – ${fd.endTime || ''}</span></td><td style="text-transform:capitalize">${fd.bookingType || ''}</td><td class="right">—</td><td class="right"><strong>₹${fmt(cp.basePrice || 0)}</strong></td></tr>
             ${amenRows.length ? `<tr style="background:#fef9c3"><td colspan="4" style="font-size:11px;font-weight:700;color:#92400e;padding:4px 9px">AMENITIES & SERVICES</td></tr>${amenRows.join('')}` : ''}
@@ -287,7 +288,7 @@ export default function QuotationView({
       <div class="inv-section" style="border-color:#c4b5fd;background:linear-gradient(135deg,#faf5ff,#fff)">
         <div class="inv-section-title" style="color:#6d28d9;border-color:#c4b5fd">📄 PLATFORM FEE ESTIMATE &nbsp;<span style="font-size:11px;font-weight:600;color:#6b7280">${quotationNumber}-P</span></div>
         <table>
-          <thead><tr style="background:#7c3aed"><th>Description</th><th>Rate</th><th class="right">Base Amount</th><th class="right">Amount</th></tr></thead>
+          <thead><tr style="background:#7c3aed"><th><span class="th-label">Description</span></th><th><span class="th-label">Rate</span></th><th class="right"><span class="th-label">Base Amount</span></th><th class="right"><span class="th-label">Amount</span></th></tr></thead>
           <tbody>
             <tr><td><strong>Platform Service Fee</strong><br><span style="font-size:10px;color:#6b7280">Booking facilitation for ${venue.businessName} on ${fmtDate(fd.bookingDate || fd.date)}</span></td><td>${platformInvoice.feeLabel}</td><td class="right">₹${fmt(venueInvoice.baseAmount)}</td><td class="right"><strong>₹${fmt(platformInvoice.platformFee)}</strong></td></tr>
           </tbody>
@@ -388,7 +389,8 @@ export default function QuotationView({
         .card-label{width:90px;flex-shrink:0;font-size:10.5px;color:#6b7280;font-weight:500}
         .card-val{flex-grow:1;font-size:10.5px;font-weight:700;color:#111827;word-break:break-all}
         table{width:100%;border-collapse:collapse;margin-bottom:8px}
-        th{padding:5px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#fff}
+        th{height:26px;padding:0 8px;text-align:left;vertical-align:middle;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#fff}
+        .th-label{display:block;position:relative;top:-6px;line-height:10px}
         td{padding:5px 8px;border-bottom:1px solid #f3f4f6;font-size:11px;vertical-align:middle}
         .right{text-align:right}
         .totals{border-radius:6px;padding:8px 10px;margin-bottom:8px}
@@ -445,7 +447,7 @@ export default function QuotationView({
         <div class="inv-section" style="border-color:#93c5fd;background:linear-gradient(135deg,#eff6ff,#fff)">
           <div class="inv-section-title" style="color:#1e40af;border-color:#93c5fd">📄 VENUE RENTAL ESTIMATE &nbsp;<span style="font-size:11px;font-weight:600;color:#6b7280">${quotationNumber}-V</span></div>
           <table>
-            <thead><tr style="background:#F59E0B"><th>Description</th><th>Qty</th><th class="right">Rate</th><th class="right">Amount</th></tr></thead>
+            <thead><tr style="background:#F59E0B"><th><span class="th-label">Description</span></th><th><span class="th-label">Qty</span></th><th class="right"><span class="th-label">Rate</span></th><th class="right"><span class="th-label">Amount</span></th></tr></thead>
             <tbody>
               <tr><td><strong>Venue Rental – ${venue.businessName}</strong><br><span style="font-size:10px;color:#6b7280">${fmtDate(fd.bookingDate || fd.date)} | ${fd.startTime || ''} – ${fd.endTime || ''}</span></td><td style="text-transform:capitalize">${fd.bookingType || ''}</td><td class="right">—</td><td class="right"><strong>₹${fmt(cp.basePrice || 0)}</strong></td></tr>
               ${amenRows.length ? `<tr style="background:#fef9c3"><td colspan="4" style="font-size:11px;font-weight:700;color:#92400e;padding:4px 9px">AMENITIES & SERVICES</td></tr>${amenRows.join('')}` : ''}
@@ -463,7 +465,7 @@ export default function QuotationView({
         <div class="inv-section" style="border-color:#c4b5fd;background:linear-gradient(135deg,#faf5ff,#fff)">
           <div class="inv-section-title" style="color:#6d28d9;border-color:#c4b5fd">📄 PLATFORM FEE ESTIMATE &nbsp;<span style="font-size:11px;font-weight:600;color:#6b7280">${quotationNumber}-P</span></div>
           <table>
-            <thead><tr style="background:#7c3aed"><th>Description</th><th>Rate</th><th class="right">Base Amount</th><th class="right">Amount</th></tr></thead>
+            <thead><tr style="background:#7c3aed"><th><span class="th-label">Description</span></th><th><span class="th-label">Rate</span></th><th class="right"><span class="th-label">Base Amount</span></th><th class="right"><span class="th-label">Amount</span></th></tr></thead>
             <tbody>
               <tr><td><strong>Platform Service Fee</strong><br><span style="font-size:10px;color:#6b7280">Booking facilitation for ${venue.businessName} on ${fmtDate(fd.bookingDate || fd.date)}</span></td><td>${platformInvoice.feeLabel}</td><td class="right">₹${fmt(venueInvoice.baseAmount)}</td><td class="right"><strong>₹${fmt(platformInvoice.platformFee)}</strong></td></tr>
             </tbody>

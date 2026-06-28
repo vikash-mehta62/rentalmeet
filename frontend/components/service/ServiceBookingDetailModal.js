@@ -116,6 +116,12 @@ export default function ServiceBookingDetailModal({ booking: b, onClose, onStatu
                 {new Date(b.eventDate).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
               </span>
             )}
+            {b.createdAt && (
+              <span className="flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full" title="Booked On">
+                <Clock className="w-3 h-3 text-purple-600" />
+                Booked On: {new Date(b.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
+              </span>
+            )}
             {canChangeStatus && onStatusChange && (
               <div className="ml-auto flex items-center gap-2">
                 {b.status === 'enquiry' && (
@@ -353,7 +359,27 @@ export default function ServiceBookingDetailModal({ booking: b, onClose, onStatu
               <div className="bg-purple-50 rounded-xl p-4 border border-purple-100 text-xs space-y-1.5">
                 <p className="font-bold text-purple-800 mb-2">📄 Platform Invoice</p>
                 <div className="flex justify-between text-gray-600"><span>Platform Fee ({b.pricing.platformFeePct || 0}%)</span><span>₹{(b.pricing.platformFee || 0).toLocaleString()}</span></div>
-                <div className="flex justify-between text-gray-600"><span>Platform GST</span><span>₹{(b.pricing.platformFeeGST || b.pricing.platformFeeGst || 0).toLocaleString()}</span></div>
+                {(() => {
+                  const gstVal = b.pricing.platformFeeGST || b.pricing.platformFeeGst || 0;
+                  const feeVal = b.pricing.platformFee || 0;
+                  const totalGstPct = feeVal ? Math.round((gstVal / feeVal) * 100) : 18;
+                  const cgstPct = totalGstPct / 2;
+                  const sgstPct = totalGstPct / 2;
+                  const cgstVal = gstVal / 2;
+                  const sgstVal = gstVal / 2;
+                  return (
+                    <>
+                      <div className="flex justify-between text-gray-600">
+                        <span>CGST ({cgstPct}%)</span>
+                        <span>₹{cgstVal.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex justify-between text-gray-600">
+                        <span>SGST ({sgstPct}%)</span>
+                        <span>₹{sgstVal.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
+                      </div>
+                    </>
+                  );
+                })()}
                 <div className="flex justify-between font-bold text-purple-900 border-t border-purple-200 pt-1.5 mt-1">
                   <span>Platform Total</span><span>₹{platTotal.toLocaleString()}</span>
                 </div>
