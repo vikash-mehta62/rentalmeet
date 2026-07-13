@@ -7,12 +7,10 @@ import FeaturedVenues from '@/components/FeaturedVenues';
 import VenueCategoriesSection from '@/components/VenueCategoriesSection';
 import PremiumServicesSection from '@/components/PremiumServicesSection';
 import FacilitiesSection from '@/components/FacilitiesSection';
-import AboutRentalMeet from '@/components/AboutRentalMeet';
 import WhyChooseRentalMeet from '@/components/WhyChooseRentalMeet';
 import TestimonialsSection from '@/components/TestimonialsSection';
 import CTASection from '@/components/CTASection';
 import LatestBlogsSection from '@/components/LatestBlogsSection';
-import HomeFAQSection from '@/components/HomeFAQSection';
 import Footer from '@/components/Footer';
 
 
@@ -49,9 +47,6 @@ export default function Home() {
         {/* Facilities Section */}
         <FacilitiesSection />
 
-        {/* About RentalMeet Section */}
-        <AboutRentalMeet />
-
         {/* Why Choose RentalMeet Section */}
         <WhyChooseRentalMeet />
 
@@ -60,9 +55,6 @@ export default function Home() {
 
         {/* Latest Blog Posts */}
         <LatestBlogsSection />
-
-        {/* FAQ Section */}
-        <HomeFAQSection />
 
         {/* CTA Section */}
         <CTASection />

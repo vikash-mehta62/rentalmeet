@@ -18,10 +18,25 @@ function LoginInner() {
   const [selectedRole, setSelectedRole] = useState('customer');
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
+  const [customImages, setCustomImages] = useState(null);
 
   useEffect(() => {
     setHydrated(true);
+    fetchCustomImages();
   }, []);
+
+  const fetchCustomImages = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth-images`);
+      const data = await res.json();
+      if (data.success && data.data) {
+        setCustomImages(data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch custom auth images:', error);
+    }
+  };
+
 
   useEffect(() => {
     if (!hydrated) return;
@@ -128,8 +143,17 @@ function LoginInner() {
         imgFit: 'object-contain opacity-100 p-4'
       }
     };
+    
+    const roleKey = selectedRole === 'owner' ? 'venueLogin' : 
+                    selectedRole === 'vendor' ? 'vendorLogin' : 
+                    selectedRole === 'employee' ? 'employeeLogin' : 'customerLogin';
+    
+    if (customImages && customImages[roleKey]) {
+      meta[selectedRole].image = customImages[roleKey];
+    }
+    
     return meta[selectedRole] || meta.customer;
-  }, [selectedRole]);
+  }, [selectedRole, customImages]);
 
   if (!hydrated || (token && user)) {
     return (

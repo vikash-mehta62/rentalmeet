@@ -45,8 +45,12 @@ const {
 } = require('../controllers/adminController');
 const { protect, authorize, checkPermission } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
+const { uploadAuthImage } = require('../controllers/authImagesController');
 
 const router = express.Router();
+
+// Auth Images Route
+router.post('/auth-images', protect, authorize('admin', 'subadmin'), upload.single('image'), uploadAuthImage);
 
 // Hero Slides routes (with explicit auth)
 router.get('/hero-slides', protect, authorize('admin'), checkPermission('heroSlides'), getAllHeroSlides);

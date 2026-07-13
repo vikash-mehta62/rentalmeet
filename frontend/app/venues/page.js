@@ -295,7 +295,7 @@ function BrowseVenuesContent() {
       <div className="pt-28 lg:pt-32 pb-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
           <span className="inline-block border border-gray-300 text-gray-600 text-xs font-semibold px-3 py-1 rounded-full mb-4">Browse Venues</span>
-          <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-900 dark:text-slate-100 mb-3">Explore Premium Venues for Every Business Event</h1>
+          <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-900 dark:text-slate-100 mb-3">Explore Premium Venues for Every Event</h1>
           <p className="text-gray-500 dark:text-slate-400 max-w-2xl">Finding the right venue is essential for the success of any meeting, conference, training session, or corporate event. RentalMeet brings together a wide range of verified venues across India, allowing businesses and event organizers to discover, compare, and book the perfect space with ease.</p>
         </div>
       </div>

@@ -25,7 +25,7 @@ const quickLinks = [
   // { name: 'Home',               href: '/'               },
   // { name: 'Browse Venues',      href: '/venues'         },
   // { name: 'Premium Services',   href: '/other-services' },
-  { name: 'How to Use',         href: '/faqs'           },
+  { name: 'How to Use',         href: '/how-to-use'     },
   { name: 'About Us',           href: '/about'          },
   { name: 'FAQs',               href: '/faqs'           },
   { name: 'Terms & Conditions', href: '/terms'          },

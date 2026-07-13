@@ -38,6 +38,7 @@ export default function AdminLayout({ children, title, subtitle }) {
   const navigation = [
     { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard, permission: 'dashboard', section: 'Overview' },
     { name: 'Hero Slides', href: '/admin/hero-slides', icon: ImageIcon, permission: 'heroSlides', section: 'System' },
+    { name: 'Auth Custom Images', href: '/admin/auth-images', icon: ImageIcon, permission: 'authImages', section: 'System' },
 
     { name: 'Venues', href: '/admin/venues', icon: Building2, permission: 'venues', section: 'Venues' },
     { name: 'Venue Types', href: '/admin/venue-types', icon: Grid3x3, permission: 'venueTypes', section: 'Venues' },

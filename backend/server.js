@@ -743,6 +743,7 @@ app.use('/api/blogs', require('./routes/blog'));
 
 // Chatbot routes
 app.use('/api/chatbot', require('./routes/chatbot'));
+app.use('/api/auth-images', require('./routes/authImages'));
 
 // Health check
 app.get('/health', (req, res) => {

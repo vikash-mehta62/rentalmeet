@@ -34,6 +34,24 @@ function RegisterInner() {
   const [referralError, setReferralError] = useState('');
   const [error, setError] = useState('');
   const [selectedStateCode, setSelectedStateCode] = useState('');
+  const [customImages, setCustomImages] = useState(null);
+
+  useEffect(() => {
+    fetchCustomImages();
+  }, []);
+
+  const fetchCustomImages = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth-images`);
+      const data = await res.json();
+      if (data.success && data.data) {
+        setCustomImages(data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch custom auth images:', error);
+    }
+  };
+
 
   const stateOptions = useMemo(() => State.getStatesOfCountry('IN'), []);
   const cityOptions = useMemo(
@@ -318,6 +336,12 @@ function RegisterInner() {
         overlay: '',
         imgFit: 'object-contain opacity-100 p-4'
       };
+
+  const roleKey = isVendor ? 'vendorRegister' : 'venueRegister';
+  if (customImages && customImages[roleKey]) {
+    targetMeta.image = customImages[roleKey];
+  }
+
 
   return (
     <div className="min-h-screen bg-white">

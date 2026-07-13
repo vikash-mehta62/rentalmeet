@@ -57,6 +57,24 @@ function CustomerRegisterInner() {
   // Back side required for Aadhaar and Voter ID
   const needsBack = ['Aadhaar', 'Voter ID'].includes(idProofType);
 
+  const [customImages, setCustomImages] = useState(null);
+
+  useEffect(() => {
+    fetchCustomImages();
+  }, []);
+
+  const fetchCustomImages = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth-images`);
+      const data = await res.json();
+      if (data.success && data.data) {
+        setCustomImages(data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch custom auth images:', error);
+    }
+  };
+
   const handleChange = e => { setForm(p => ({ ...p, [e.target.name]: e.target.value })); setError(''); };
   const stateOptions = useMemo(() => State.getStatesOfCountry('IN'), []);
   const cityOptions = useMemo(
@@ -108,8 +126,16 @@ function CustomerRegisterInner() {
         imgFit: 'object-contain opacity-100 p-4'
       }
     };
+    
+    const roleKey = targetType === 'venue' ? 'venueRegister' : 
+                    targetType === 'vendor' ? 'vendorRegister' : 'customerRegister';
+    
+    if (customImages && customImages[roleKey]) {
+      config[targetType].heroImage = customImages[roleKey];
+    }
+    
     return config[targetType] || config.customer;
-  }, [targetType]);
+  }, [targetType, customImages]);
 
   useEffect(() => {
     const targetParam = (searchParams.get('target') || '').toLowerCase();
