@@ -19,7 +19,7 @@ export default function CTASection() {
 
           <div className="flex flex-wrap items-center gap-3">
             <a
-              href="https://example.com/ios-app"
+              href="https://apps.apple.com/in/app/rentalmeet/id6785021879"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 bg-white hover:bg-gray-100 text-gray-900 font-bold px-5 py-3 rounded-xl transition-all duration-300 shadow-lg"
@@ -43,9 +43,13 @@ export default function CTASection() {
         <div id="app-download" className="w-full md:w-auto grid grid-cols-2 gap-6 bg-white/20 px-6 py-5 rounded-2xl backdrop-blur-sm border border-white/30">
           <div className="flex flex-col items-center gap-3">
             <div className="bg-white p-3 rounded-xl shadow-lg">
-              <div className="w-28 h-28 bg-gray-200 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-400">
-                <span className="text-[9px] text-gray-500 font-bold uppercase">iOS QR</span>
-              </div>
+              <Image
+                src="/ios-qr.png"
+                alt="iOS QR Code"
+                width={112}
+                height={112}
+                className="rounded-lg"
+              />
             </div>
             <p className="text-sm font-semibold text-gray-900">Scan for iOS</p>
           </div>
