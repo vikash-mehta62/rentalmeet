@@ -9,6 +9,18 @@ const connectDB = require('./config/database');
 
 const app = express();
 
+const parseTrustProxy = (value) => {
+  if (value === undefined || value === null || value === '') return 1;
+  const normalized = String(value).trim().toLowerCase();
+  if (normalized === 'false' || normalized === '0') return false;
+  if (normalized === 'true') return 1;
+  const numericValue = Number(normalized);
+  if (Number.isInteger(numericValue) && numericValue >= 0) return numericValue;
+  return value;
+};
+
+app.set('trust proxy', parseTrustProxy(process.env.TRUST_PROXY));
+
 const { startAutoCancelCron, startAutoDeleteCron } = require('./utils/cronJobs');
 const { calculateServiceConfirmationDeadline } = require('./utils/confirmationDeadline');
 const { normalizeRefundAttempt } = require('./utils/refundHelper');
