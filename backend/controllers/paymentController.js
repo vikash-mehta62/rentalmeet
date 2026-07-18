@@ -130,6 +130,32 @@ exports.handleRazorpayWebhook = async (req, res) => {
     }
 
     const payload = JSON.parse(rawBody.toString('utf8'));
+    const refund = payload?.payload?.refund?.entity;
+    const payment = payload?.payload?.payment?.entity;
+    console.log('[RAZORPAY_WEBHOOK] Received webhook:', JSON.stringify({
+      eventId,
+      event: payload?.event,
+      accountId: payload?.account_id,
+      refund: refund ? {
+        id: refund.id,
+        paymentId: refund.payment_id,
+        amount: refund.amount,
+        status: refund.status,
+        speedProcessed: refund.speed_processed,
+        notes: refund.notes
+      } : null,
+      payment: payment ? {
+        id: payment.id,
+        orderId: payment.order_id,
+        amount: payment.amount,
+        status: payment.status,
+        refundStatus: payment.refund_status
+      } : null
+    }, null, 2));
+    if (process.env.RAZORPAY_WEBHOOK_DEBUG === 'true') {
+      console.log('[RAZORPAY_WEBHOOK] Full payload:', JSON.stringify(payload, null, 2));
+    }
+
     const result = await handleRefundWebhook(payload, eventId);
 
     return res.status(200).json({ success: true, ...result });

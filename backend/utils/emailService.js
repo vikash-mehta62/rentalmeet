@@ -72,11 +72,11 @@ exports.sendVenueSubmissionEmail = async (ownerEmail, venueName) => {
     if (owner) {
       const Notification = require('../models/Notification');
       await Notification.create({
-        recipient: owner._id,
+        userId: owner._id,
         type: 'general',
         title: 'Venue Registration Under Review',
-        message: `Thank you for registering ${venueName}. Your venue is currently under review.`,
-        link: '/owner/dashboard'
+        body: `Thank you for registering ${venueName}. Your venue is currently under review.`,
+        data: { link: '/owner/dashboard' }
       });
       console.log(`[NOTIFICATION] Created submission notification for owner ${ownerEmail}`);
     }
@@ -118,11 +118,11 @@ exports.sendVenueApprovalEmail = async (ownerEmail, venueName) => {
     if (owner) {
       const Notification = require('../models/Notification');
       await Notification.create({
-        recipient: owner._id,
+        userId: owner._id,
         type: 'general',
         title: '🎉 Venue Approved!',
-        message: `Congratulations! Your venue ${venueName} has been approved and is now live.`,
-        link: '/owner/dashboard'
+        body: `Congratulations! Your venue ${venueName} has been approved and is now live.`,
+        data: { link: '/owner/dashboard' }
       });
       console.log(`[NOTIFICATION] Created approval notification for owner ${ownerEmail}`);
     }
@@ -165,11 +165,11 @@ exports.sendVenueRejectionEmail = async (ownerEmail, venueName, reason) => {
     if (owner) {
       const Notification = require('../models/Notification');
       await Notification.create({
-        recipient: owner._id,
+        userId: owner._id,
         type: 'general',
         title: 'Venue Registration Update',
-        message: `We regret to inform you that your venue ${venueName} could not be approved. Reason: ${reason}`,
-        link: '/owner/dashboard'
+        body: `We regret to inform you that your venue ${venueName} could not be approved. Reason: ${reason}`,
+        data: { link: '/owner/dashboard' }
       });
       console.log(`[NOTIFICATION] Created rejection notification for owner ${ownerEmail}`);
     }
@@ -414,11 +414,11 @@ exports.sendBookingEmail = async (booking, eventType) => {
       const custId = booking.customer?._id || booking.customer;
       if (custId) {
         notificationsToCreate.push({
-          recipient: custId,
+          userId: custId,
           type: typeStr,
           title: customerTitle,
-          message: customerMsg,
-          link: '/customer/bookings'
+          body: customerMsg,
+          data: { link: '/customer/bookings' }
         });
       }
 
@@ -426,11 +426,11 @@ exports.sendBookingEmail = async (booking, eventType) => {
       const ownerId = booking.venue?.owner?._id || booking.venue?.owner;
       if (ownerId) {
         notificationsToCreate.push({
-          recipient: ownerId,
+          userId: ownerId,
           type: typeStr,
           title: ownerTitle,
-          message: ownerMsg,
-          link: '/owner/bookings'
+          body: ownerMsg,
+          data: { link: '/owner/bookings' }
         });
       }
 

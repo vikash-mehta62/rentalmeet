@@ -41,7 +41,15 @@ const notificationSchema = new mongoose.Schema(
       index: true
     }
   },
-  { timestamps: true }
+  { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );
+
+notificationSchema.virtual("message").get(function () {
+  return this.body;
+});
+
+notificationSchema.virtual("link").get(function () {
+  return this.data?.link || "";
+});
 
 module.exports = mongoose.model("Notification", notificationSchema);
