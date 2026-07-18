@@ -308,6 +308,9 @@ function CustomerRegisterInner() {
 
     setLoading(true);
     try {
+      const { getOrCreateDeviceId } = require('@/lib/pushNotification');
+      const deviceId = getOrCreateDeviceId();
+      
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -319,7 +322,8 @@ function CustomerRegisterInner() {
           role: targetConfig.role,
           city: form.city,
           state: form.state,
-          referralCode: referralCode || undefined
+          referralCode: referralCode || undefined,
+          deviceId
         })
       });
       const data = await res.json();

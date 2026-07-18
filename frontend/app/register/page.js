@@ -267,6 +267,9 @@ function RegisterInner() {
 
     setLoading(true);
     try {
+      const { getOrCreateDeviceId } = require('@/lib/pushNotification');
+      const deviceId = getOrCreateDeviceId();
+      
       const body = {
         name: formData.name,
         email: formData.email,
@@ -276,6 +279,7 @@ function RegisterInner() {
         referralCode: formData.referralCode || undefined,
         city: formData.city || undefined,
         state: formData.state || undefined,
+        deviceId,
         ...(formData.role === 'vendor' && {
           accountType: 'company'
         })

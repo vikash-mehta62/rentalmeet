@@ -6,6 +6,7 @@ const {
   calculateVenueConfirmationDeadline,
   calculateServiceConfirmationDeadline
 } = require('./confirmationDeadline');
+const { normalizeRefundAttempt } = require('./refundHelper');
 
 /**
  * Process refund via Razorpay — refund goes back to original payment source
@@ -44,7 +45,7 @@ const processRefund = async (booking) => {
     );
 
     console.log(`[CRON-REFUND] ✅ Success — refund ID: ${refund.id} | speed: ${refund.speed}`);
-    return { success: true, refundId: refund.id, speed: refund.speed };
+    return { success: true, ...normalizeRefundAttempt(refund, 'Auto-cancelled: confirmation timeout'), speed: refund.speed };
   } catch (err) {
     console.error(`[CRON-REFUND] ❌ Failed for ${booking.bookingNumber}:`);
     console.error(`[CRON-REFUND]    Code   : ${err.error?.code || err.statusCode || 'N/A'}`);
@@ -111,15 +112,34 @@ const startAutoCancelCron = () => {
             refundAmount: booking.paymentStatus === 'paid' ? booking.amount : 0,
             refundStatus: booking.paymentStatus !== 'paid'
               ? 'pending'                                          // no payment, no refund needed
-              : refundResult.success ? 'processed' : 'failed',   // paid → refund attempted
+              : refundResult.success ? refundResult.refundStatus : 'failed',   // paid -> refund attempted
             refundId: refundResult.refundId || null,
-            refundedAt: refundResult.success ? new Date() : null,
+            refundedAt: refundResult.success ? refundResult.refundedAt : null,
             refundReason: 'Auto-cancel: owner confirmation timeout'
           };
 
           // Only update paymentStatus if refund actually went through
-          if (booking.paymentStatus === 'paid' && refundResult.success) {
+          if (booking.paymentStatus === 'paid' && refundResult.success && refundResult.refundStatus === 'processed') {
             booking.paymentStatus = 'refunded';
+          }
+          if (refundResult.success) {
+            if (!booking.paymentLedger) booking.paymentLedger = { transactions: [], adjustments: [] };
+            if (!booking.paymentLedger.transactions) booking.paymentLedger.transactions = [];
+            const existingRefundTxn = booking.paymentLedger.transactions.find((txn) => txn.txnId === refundResult.refundId);
+            if (existingRefundTxn) {
+              existingRefundTxn.status = refundResult.ledgerStatus;
+              existingRefundTxn.amount = booking.amount || 0;
+              existingRefundTxn.note = 'Auto-cancel: owner confirmation timeout';
+            } else {
+              booking.paymentLedger.transactions.push({
+                txnId: refundResult.refundId,
+                type: 'refund',
+                amount: booking.amount || 0,
+                status: refundResult.ledgerStatus,
+                note: 'Auto-cancel: owner confirmation timeout',
+                date: new Date()
+              });
+            }
           }
           // If refund failed, keep paymentStatus = 'paid' so admin can retry manually
 
@@ -185,13 +205,13 @@ const startAutoCancelCron = () => {
             refundAmount: booking.paymentStatus === 'paid' ? (booking.amount || booking.pricing?.total || 0) : 0,
             refundStatus: booking.paymentStatus !== 'paid'
               ? 'pending'
-              : refundResult.success ? 'processed' : 'failed',
+              : refundResult.success ? refundResult.refundStatus : 'failed',
             refundId: refundResult.refundId || null,
-            refundedAt: refundResult.success ? new Date() : null,
+            refundedAt: refundResult.success ? refundResult.refundedAt : null,
             refundReason: 'Auto-cancel: vendor confirmation timeout'
           };
 
-          if (booking.paymentStatus === 'paid' && refundResult.success) {
+          if (booking.paymentStatus === 'paid' && refundResult.success && refundResult.refundStatus === 'processed') {
             booking.paymentStatus = 'refunded';
           }
 

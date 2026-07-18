@@ -1,11 +1,13 @@
 const Booking = require('../models/Booking');
 const Venue = require('../models/Venue');
 const Counter = require('../models/Counter');
+const pushService = require('../utils/pushNotificationService');
 const Coupon = require('../models/Coupon');
 const PlatformSettings = require('../models/PlatformSettings');
 const { getCityCode, getStateCode } = require('../utils/cityCodes');
 const { calculateVenueConfirmationDeadline } = require('../utils/confirmationDeadline');
 const { calculateVenueBookingPrice, calculateVenueOwnerPayout, numberOr } = require('../utils/venuePricing');
+const { normalizeRefundAttempt } = require('../utils/refundHelper');
 
 // Helper function to generate booking number
 // Format: STATE(2) + CITY(3) + YEAR(2) + VENUETYPE(2) + SERIAL(6)
@@ -398,6 +400,13 @@ exports.createBooking = async (req, res) => {
       console.error('Failed to send booking creation email:', emailErr.message);
     }
     
+    // Send push notification
+    try {
+      await pushService.sendBookingPushNotification(booking, 'created');
+    } catch (pushErr) {
+      console.error('Failed to send booking creation push notification:', pushErr.message);
+    }
+    
     res.status(201).json({
       success: true,
       message: 'Booking created successfully',
@@ -652,6 +661,13 @@ exports.updateBookingStatus = async (req, res) => {
     } catch (emailErr) {
       console.error('Failed to send status update email:', emailErr.message);
     }
+
+    // Send push notification
+    try {
+      await pushService.sendBookingPushNotification(booking, status);
+    } catch (pushErr) {
+      console.error('Failed to send booking status push notification:', pushErr.message);
+    }
     
     res.json({
       success: true,
@@ -699,6 +715,13 @@ exports.approveSoon = async (req, res) => {
     );
     booking.approveSoonUsed = true;
     await booking.save();
+
+    // Send push notification
+    try {
+      await pushService.sendBookingPushNotification(booking, 'approve_soon');
+    } catch (pushErr) {
+      console.error('Failed to send approve_soon push notification:', pushErr.message);
+    }
 
     res.json({
       success: true,
@@ -896,6 +919,13 @@ exports.modifyBooking = async (req, res) => {
     await booking.populate('venue', 'businessName location sku images');
     await booking.populate('customer', 'name email phone');
 
+    // Send push notification
+    try {
+      await pushService.sendBookingPushNotification(booking, 'modified');
+    } catch (pushErr) {
+      console.error('Failed to send booking modified push notification:', pushErr.message);
+    }
+
     res.json({
       success: true,
       message: 'Booking modified successfully',
@@ -1022,7 +1052,7 @@ exports.cancelBooking = async (req, res) => {
               }
             );
             console.log(`[CANCEL] ✅ Refund success — ID: ${refund.id} | Speed: ${refund.speed}`);
-            refundResult = { success: true, refundId: refund.id };
+            refundResult = { success: true, ...normalizeRefundAttempt(refund, refundPolicy) };
           }
         } catch (err) {
           console.error(`[CANCEL] ❌ Razorpay refund error:`);
@@ -1050,19 +1080,19 @@ exports.cancelBooking = async (req, res) => {
       refundAmount,
       refundStatus: !refundEligible || booking.paymentStatus !== 'paid'
         ? 'pending'
-        : refundResult.success ? 'processed' : 'failed',
+        : refundResult.success ? refundResult.refundStatus : 'failed',
       refundId: refundResult.refundId || null,
-      refundedAt: refundResult.success ? new Date() : null,
+      refundedAt: refundResult.success ? refundResult.refundedAt : null,
       refundReason: refundPolicy
     };
 
-    if (refundResult.success) booking.paymentStatus = 'refunded';
+    if (refundResult.success && refundResult.refundStatus === 'processed') booking.paymentStatus = 'refunded';
 
     if (!booking.paymentLedger) booking.paymentLedger = { transactions: [], adjustments: [] };
     if (refundResult.success) {
       booking.paymentLedger.transactions.push({
         txnId: refundResult.refundId, type: 'refund', amount: refundAmount,
-        status: 'completed', note: refundPolicy, performedBy: req.user.id, date: new Date()
+        status: refundResult.ledgerStatus, note: refundPolicy, performedBy: req.user.id, date: new Date()
       });
     }
 
@@ -1089,13 +1119,21 @@ exports.cancelBooking = async (req, res) => {
       console.error('Failed to send booking cancellation email:', emailErr.message);
     }
 
+    // Send push notification
+    try {
+      await pushService.sendBookingPushNotification(booking, 'cancelled');
+    } catch (pushErr) {
+      console.error('Failed to send booking cancellation push notification:', pushErr.message);
+    }
+
     res.json({
       success: true,
       message: 'Booking cancelled',
       refundEligible,
       refundAmount,
       refundPolicy,
-      refundProcessed: refundResult.success,
+      refundProcessed: refundResult.refundStatus === 'processed',
+      refundInitiated: refundResult.success,
       refundFailReason: !refundResult.success ? refundResult.reason : undefined,
       booking
     });

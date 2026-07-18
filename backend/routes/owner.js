@@ -3,6 +3,7 @@ const router = express.Router();
 const { protect, authorize } = require('../middleware/auth');
 const Venue = require('../models/Venue');
 const Booking = require('../models/Booking');
+const { normalizeRefundAttempt } = require('../utils/refundHelper');
 const {
   createCoupon,
   getOwnerCoupons,
@@ -333,7 +334,7 @@ router.put('/bookings/:id/cancel', async (req, res) => {
           notes: { bookingNumber: booking.bookingNumber, reason: reason || 'Cancelled by venue owner' }
         });
         console.log(`[OWNER-CANCEL] ✅ Refund OK — ${refund.id}`);
-        refundResult = { success: true, refundId: refund.id };
+        refundResult = { success: true, ...normalizeRefundAttempt(refund, 'Full refund - cancelled by venue owner') };
       } catch (err) {
         console.error(`[OWNER-CANCEL] ❌ Refund failed: ${err.error?.description || err.message}`);
         refundResult = { success: false, reason: err.error?.description || err.message };
@@ -349,17 +350,17 @@ router.put('/bookings/:id/cancel', async (req, res) => {
     booking.cancellationType = 'manual';
     booking.refundDetails = {
       refundAmount,
-      refundStatus: booking.paymentStatus !== 'paid' ? 'pending' : refundResult.success ? 'processed' : 'failed',
+      refundStatus: booking.paymentStatus !== 'paid' ? 'pending' : refundResult.success ? refundResult.refundStatus : 'failed',
       refundId: refundResult.refundId || null,
-      refundedAt: refundResult.success ? new Date() : null,
+      refundedAt: refundResult.success ? refundResult.refundedAt : null,
       refundReason: 'Full refund — cancelled by venue owner'
     };
-    if (refundResult.success) booking.paymentStatus = 'refunded';
+    if (refundResult.success && refundResult.refundStatus === 'processed') booking.paymentStatus = 'refunded';
     if (!booking.paymentLedger) booking.paymentLedger = { transactions: [], adjustments: [] };
     if (refundResult.success) {
       booking.paymentLedger.transactions.push({
         txnId: refundResult.refundId, type: 'refund', amount: refundAmount,
-        status: 'completed', note: 'Full refund — cancelled by venue owner',
+        status: refundResult.ledgerStatus, note: 'Full refund — cancelled by venue owner',
         performedBy: req.user.id, date: new Date()
       });
     }
@@ -385,7 +386,7 @@ router.put('/bookings/:id/cancel', async (req, res) => {
       console.error('Failed to send owner booking cancellation email:', emailErr.message);
     }
 
-    res.json({ success: true, message: 'Booking cancelled with full refund', refundProcessed: refundResult.success, refundFailReason: !refundResult.success ? refundResult.reason : undefined, booking });
+    res.json({ success: true, message: 'Booking cancelled with full refund', refundProcessed: refundResult.refundStatus === 'processed', refundInitiated: refundResult.success, refundFailReason: !refundResult.success ? refundResult.reason : undefined, booking });
   } catch (e) {
     console.error(`[OWNER-CANCEL] 💥`, e);
     res.status(500).json({ success: false, message: e.message });

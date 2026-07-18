@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const Booking = require('../models/Booking');
 const ServiceBooking = require('../models/ServiceBooking');
 const { calculateServiceConfirmationDeadline } = require('../utils/confirmationDeadline');
+const { handleRefundWebhook, verifyWebhookSignature } = require('../utils/refundHelper');
 
 // Create Razorpay Order
 exports.createOrder = async (req, res) => {
@@ -109,5 +110,31 @@ exports.verifyPayment = async (req, res) => {
   } catch (error) {
     console.error('Verify payment error:', error);
     res.status(500).json({ success: false, message: 'Payment verification failed', error: error.message });
+  }
+};
+exports.handleRazorpayWebhook = async (req, res) => {
+  try {
+    const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+    if (!secret) {
+      console.error('[RAZORPAY_WEBHOOK] RAZORPAY_WEBHOOK_SECRET is not configured');
+      return res.status(500).json({ success: false, message: 'Webhook secret not configured' });
+    }
+
+    const signature = req.headers['x-razorpay-signature'];
+    const eventId = req.headers['x-razorpay-event-id'];
+    const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.from('');
+
+    if (!verifyWebhookSignature(rawBody, signature, secret)) {
+      console.warn('[RAZORPAY_WEBHOOK] Invalid webhook signature');
+      return res.status(400).json({ success: false, message: 'Invalid webhook signature' });
+    }
+
+    const payload = JSON.parse(rawBody.toString('utf8'));
+    const result = await handleRefundWebhook(payload, eventId);
+
+    return res.status(200).json({ success: true, ...result });
+  } catch (error) {
+    console.error('[RAZORPAY_WEBHOOK] Error:', error);
+    return res.status(500).json({ success: false, message: 'Webhook processing failed' });
   }
 };

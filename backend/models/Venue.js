@@ -359,7 +359,12 @@ const venueSchema = new mongoose.Schema({
       enum: ['Savings', 'Current']
     },
     bankProofUrl: String,
-    bankProofPublicId: String
+    bankProofPublicId: String,
+    razorpayAccountId: String,
+    linkedAccountId: String,
+    razorpayAccountStatus: String,
+    razorpayAccountCreatedAt: Date,
+    razorpayAccountSyncedAt: Date
   },
   
   // STEP 7: Terms & Conditions

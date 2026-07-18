@@ -11,6 +11,7 @@ const app = express();
 
 const { startAutoCancelCron, startAutoDeleteCron } = require('./utils/cronJobs');
 const { calculateServiceConfirmationDeadline } = require('./utils/confirmationDeadline');
+const { normalizeRefundAttempt } = require('./utils/refundHelper');
 
 // Security middleware
 app.use(helmet({
@@ -63,10 +64,12 @@ app.use((req, res, next) => {
 
 // Body parsers — normal routes get 1mb, upload routes get 50mb
 app.use((req, res, next) => {
+  if (req.originalUrl.startsWith('/api/payment/webhook/razorpay')) return next();
   const isUpload = req.path.startsWith('/api/upload') || req.path.startsWith('/api/vendor/upload');
   express.json({ limit: isUpload ? '50mb' : '1mb' })(req, res, next);
 });
 app.use((req, res, next) => {
+  if (req.originalUrl.startsWith('/api/payment/webhook/razorpay')) return next();
   const isUpload = req.path.startsWith('/api/upload') || req.path.startsWith('/api/vendor/upload');
   express.urlencoded({ extended: true, limit: isUpload ? '50mb' : '1mb' })(req, res, next);
 });
@@ -674,7 +677,7 @@ app.put('/api/service-bookings/:id/cancel', require('./middleware/auth').protect
               notes: { bookingNumber: booking.bookingNumber, reason: reason || refundPolicy }
             }
           );
-          refundResult = { success: true, refundId: refund.id };
+          refundResult = { success: true, ...normalizeRefundAttempt(refund, refundPolicy) };
         } catch (err) {
           console.error(`[SVC-CANCEL] Refund error:`, err);
           refundResult = { success: false, reason: err.error?.description || err.message };
@@ -691,13 +694,13 @@ app.put('/api/service-bookings/:id/cancel', require('./middleware/auth').protect
       refundAmount,
       refundStatus: !refundEligible || booking.paymentStatus !== 'paid'
         ? 'pending'
-        : refundResult.success ? 'processed' : 'failed',
+        : refundResult.success ? refundResult.refundStatus : 'failed',
       refundId: refundResult.refundId || null,
-      refundedAt: refundResult.success ? new Date() : null,
+      refundedAt: refundResult.success ? refundResult.refundedAt : null,
       refundReason: refundPolicy
     };
 
-    if (refundResult.success) {
+    if (refundResult.success && refundResult.refundStatus === 'processed') {
       booking.paymentStatus = 'refunded';
     }
 
@@ -709,7 +712,8 @@ app.put('/api/service-bookings/:id/cancel', require('./middleware/auth').protect
       refundEligible,
       refundAmount,
       refundPolicy,
-      refundProcessed: refundResult.success,
+      refundProcessed: refundResult.refundStatus === 'processed',
+      refundInitiated: refundResult.success,
       refundFailReason: !refundResult.success ? refundResult.reason : undefined,
       booking
     });

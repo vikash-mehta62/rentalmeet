@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
 import PermissionGuard from '@/components/admin/PermissionGuard';
-import { Download, Calendar, IndianRupee, Building2, Users, BookOpen, PieChart, Package, Star, Briefcase, TrendingUp, Coins, Tag, Percent, Receipt, CheckCircle, AlertCircle, Clock } from 'lucide-react';
+import { Download, Calendar, IndianRupee, Building2, Users, BookOpen, PieChart, Package, Star, Briefcase, TrendingUp, Coins, Tag, Percent, Receipt, CheckCircle, AlertCircle, Clock, RefreshCw } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import toast from 'react-hot-toast';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -40,6 +40,7 @@ export default function AdminReports() {
   const [endDate, setEndDate] = useState(null);
   const [financialYears, setFinancialYears] = useState([]);
   const [selectedRecord, setSelectedRecord] = useState(null);
+  const [retryingSettlement, setRetryingSettlement] = useState(false);
 
   useEffect(() => {
     const years = [];
@@ -81,6 +82,58 @@ export default function AdminReports() {
       if (json.success) setData(json.reports);
     } catch { toast.error('Failed to load reports'); }
     finally { setLoading(false); }
+  };
+
+  const mergeSettlementRecord = (record, booking) => ({
+    ...record,
+    settlementStatus: booking.settlementStatus || 'unsettled',
+    settlementDetails: booking.settlementDetails || {},
+    completedAt: booking.settlementDetails?.settledAt || record.completedAt
+  });
+
+  const handleRetrySettlement = async () => {
+    if (!selectedRecord || retryingSettlement) return;
+
+    setRetryingSettlement(true);
+    const loadingToast = toast.loading('Registering Razorpay account and retrying payout...');
+
+    try {
+      const route = selectedRecord.type === 'service' ? 'service-bookings' : 'bookings';
+      const endpoint = process.env.NEXT_PUBLIC_API_URL + '/admin/' + route + '/' + selectedRecord.id + '/settle';
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ method: 'automatic' })
+      });
+      const json = await res.json();
+      toast.dismiss(loadingToast);
+
+      if (json.booking) {
+        const updatedRecord = mergeSettlementRecord(selectedRecord, json.booking);
+        setSelectedRecord(updatedRecord);
+        setData(prev => prev ? {
+          ...prev,
+          settlements: {
+            ...prev.settlements,
+            records: (prev.settlements?.records || []).map(r =>
+              String(r.id) === String(updatedRecord.id) && r.type === updatedRecord.type ? updatedRecord : r
+            )
+          }
+        } : prev);
+      }
+
+      if (json.success) {
+        toast.success('Payout settled successfully!');
+        fetchReports();
+      } else {
+        toast.error(json.message || 'Automatic payout retry failed');
+      }
+    } catch {
+      toast.dismiss(loadingToast);
+      toast.error('Network error while retrying payout');
+    } finally {
+      setRetryingSettlement(false);
+    }
   };
 
   const handleExport = () => {
@@ -745,7 +798,17 @@ export default function AdminReports() {
               </div>
 
               {/* Footer / Done Button */}
-              <div className="pt-4 border-t border-gray-100 flex justify-end">
+              <div className="pt-4 border-t border-gray-100 flex justify-end gap-2">
+                {selectedRecord.settlementStatus === 'failed' && (
+                  <button
+                    onClick={handleRetrySettlement}
+                    disabled={retryingSettlement}
+                    className="mr-auto px-4 py-2 rounded-xl text-sm font-semibold text-white bg-green-600 hover:bg-green-700 transition-colors shadow-sm disabled:opacity-60 flex items-center gap-2"
+                  >
+                    <RefreshCw className={'w-4 h-4' + (retryingSettlement ? ' animate-spin' : '')} />
+                    {retryingSettlement ? 'Retrying...' : 'Retry Auto-Payout'}
+                  </button>
+                )}
                 <button
                   onClick={() => setSelectedRecord(null)}
                   className="px-5 py-2 rounded-xl text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 transition-colors shadow-sm"

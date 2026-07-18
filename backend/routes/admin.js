@@ -46,6 +46,7 @@ const {
 const { protect, authorize, checkPermission } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
 const { uploadAuthImage } = require('../controllers/authImagesController');
+const { normalizeRefundAttempt } = require('../utils/refundHelper');
 
 const router = express.Router();
 
@@ -555,7 +556,7 @@ router.put('/bookings/:id/cancel', protect, authorize('admin'), async (req, res)
           notes: { bookingNumber: booking.bookingNumber, reason: reason || 'Cancelled by admin' }
         });
         console.log(`[ADMIN-CANCEL] ✅ Refund OK — ${refund.id}`);
-        refundResult = { success: true, refundId: refund.id };
+        refundResult = { success: true, ...normalizeRefundAttempt(refund, reason || 'Cancelled by admin') };
       } catch (err) {
         console.error(`[ADMIN-CANCEL] ❌ Refund failed: ${err.error?.description || err.message}`);
         refundResult = { success: false, reason: err.error?.description || err.message };
@@ -571,23 +572,23 @@ router.put('/bookings/:id/cancel', protect, authorize('admin'), async (req, res)
     booking.cancellationType = 'manual';
     booking.refundDetails = {
       refundAmount,
-      refundStatus: booking.paymentStatus !== 'paid' ? 'pending' : refundResult.success ? 'processed' : 'failed',
+      refundStatus: booking.paymentStatus !== 'paid' ? 'pending' : refundResult.success ? refundResult.refundStatus : 'failed',
       refundId: refundResult.refundId || null,
-      refundedAt: refundResult.success ? new Date() : null,
+      refundedAt: refundResult.success ? refundResult.refundedAt : null,
       refundReason: 'Full refund — cancelled by admin'
     };
-    if (refundResult.success) booking.paymentStatus = 'refunded';
+    if (refundResult.success && refundResult.refundStatus === 'processed') booking.paymentStatus = 'refunded';
     if (!booking.paymentLedger) booking.paymentLedger = { transactions: [], adjustments: [] };
     if (refundResult.success) {
       booking.paymentLedger.transactions.push({
         txnId: refundResult.refundId, type: 'refund', amount: refundAmount,
-        status: 'completed', note: 'Full refund — cancelled by admin',
+        status: refundResult.ledgerStatus, note: 'Full refund — cancelled by admin',
         performedBy: req.user.id, date: new Date()
       });
     }
     await booking.save();
     console.log(`[ADMIN-CANCEL] ✅ Done — refundStatus:${booking.refundDetails.refundStatus}\n`);
-    res.json({ success: true, message: 'Booking cancelled', refundProcessed: refundResult.success, refundFailReason: !refundResult.success ? refundResult.reason : undefined, booking });
+    res.json({ success: true, message: 'Booking cancelled', refundProcessed: refundResult.refundStatus === 'processed', refundInitiated: refundResult.success, refundFailReason: !refundResult.success ? refundResult.reason : undefined, booking });
   } catch (e) {
     console.error(`[ADMIN-CANCEL] 💥`, e);
     res.status(500).json({ success: false, message: e.message });
@@ -634,34 +635,35 @@ router.post('/bookings/:id/retry-refund', protect, authorize('admin'), async (re
     });
 
     console.log(`[RETRY-REFUND] ✅ Refund OK — ${refund.id}`);
+    const refundResult = { success: true, ...normalizeRefundAttempt(refund, 'Retry refund by admin') };
 
     // Update booking
     booking.refundDetails = {
       ...booking.refundDetails,
-      refundStatus: 'processed',
-      refundId: refund.id,
-      refundedAt: new Date(),
+      refundStatus: refundResult.refundStatus,
+      refundId: refundResult.refundId,
+      refundedAt: refundResult.refundedAt,
       refundReason: (booking.refundDetails?.refundReason || '') + ' (Retried by admin)'
     };
     // Only change paymentStatus if booking is cancelled
-    if (booking.status === 'cancelled') {
+    if (booking.status === 'cancelled' && refundResult.refundStatus === 'processed') {
       booking.paymentStatus = 'refunded';
     }
 
     if (!booking.paymentLedger) booking.paymentLedger = { transactions: [], adjustments: [] };
     if (!booking.paymentLedger.transactions) booking.paymentLedger.transactions = [];
     booking.paymentLedger.transactions.push({
-      txnId: refund.id,
+      txnId: refundResult.refundId,
       type: 'refund',
       amount: refundAmount,
-      status: 'completed',
+      status: refundResult.ledgerStatus,
       note: `Refund retried by admin — ₹${refundAmount.toLocaleString('en-IN')}`,
       performedBy: req.user.id,
       date: new Date()
     });
 
     await booking.save();
-    res.json({ success: true, message: `Refund of ₹${refundAmount.toLocaleString('en-IN')} processed successfully`, refundId: refund.id, booking });
+    res.json({ success: true, message: refundResult.refundStatus === 'processed' ? `Refund of ₹${refundAmount.toLocaleString('en-IN')} processed successfully` : `Refund of ₹${refundAmount.toLocaleString('en-IN')} initiated; final status will update via webhook`, refundId: refundResult.refundId, refundStatus: refundResult.refundStatus, booking });
   } catch (err) {
     console.error(`[RETRY-REFUND] ❌`, err);
     const msg = err.error?.description || err.message || 'Razorpay refund failed';
@@ -1330,7 +1332,7 @@ router.put('/service-bookings/:id/cancel', protect, authorize('admin'), checkPer
           amount: Math.round(refundAmount * 100), speed: 'normal',
           notes: { bookingNumber: booking.bookingNumber, reason: reason || 'Cancelled by admin' }
         });
-        refundResult = { success: true, refundId: refund.id };
+        refundResult = { success: true, ...normalizeRefundAttempt(refund, reason || 'Cancelled by admin') };
       } catch (err) {
         console.error(`[ADMIN-SVC-CANCEL] Refund failed:`, err);
         refundResult = { success: false, reason: err.error?.description || err.message };
@@ -1344,14 +1346,14 @@ router.put('/service-bookings/:id/cancel', protect, authorize('admin'), checkPer
     booking.cancellationType = 'manual';
     booking.refundDetails = {
       refundAmount,
-      refundStatus: booking.paymentStatus !== 'paid' ? 'pending' : refundResult.success ? 'processed' : 'failed',
+      refundStatus: booking.paymentStatus !== 'paid' ? 'pending' : refundResult.success ? refundResult.refundStatus : 'failed',
       refundId: refundResult.refundId || null,
-      refundedAt: refundResult.success ? new Date() : null,
+      refundedAt: refundResult.success ? refundResult.refundedAt : null,
       refundReason: 'Full refund — cancelled by admin'
     };
-    if (refundResult.success) booking.paymentStatus = 'refunded';
+    if (refundResult.success && refundResult.refundStatus === 'processed') booking.paymentStatus = 'refunded';
     await booking.save();
-    res.json({ success: true, message: 'Booking cancelled', refundProcessed: refundResult.success, refundFailReason: !refundResult.success ? refundResult.reason : undefined, booking });
+    res.json({ success: true, message: 'Booking cancelled', refundProcessed: refundResult.refundStatus === 'processed', refundInitiated: refundResult.success, refundFailReason: !refundResult.success ? refundResult.reason : undefined, booking });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }

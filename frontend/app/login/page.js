@@ -78,10 +78,13 @@ function LoginInner() {
 
     setLoading(true);
     try {
+      const { getOrCreateDeviceId } = require('@/lib/pushNotification');
+      const deviceId = getOrCreateDeviceId();
+      
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({ ...formData, deviceId })
       });
       const data = await response.json();
 

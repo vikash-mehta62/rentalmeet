@@ -130,6 +130,7 @@ const userSchema = new mongoose.Schema({
     faqs:                 { type: Boolean, default: false },
     chatbot:              { type: Boolean, default: false },
     settings:             { type: Boolean, default: false },
+    notifications:        { type: Boolean, default: false },
   },
   // Referral System
   referralCode: {
@@ -186,6 +187,11 @@ const userSchema = new mongoose.Schema({
     uppercase: true,
     trim: true
   },
+
+  razorpayAccountId: String,
+  linkedAccountId: String,
+  razorpayAccountStatus: String,
+  razorpayAccountSyncedAt: Date,
   
   // Employee-specific fields
   employeeDetails: {

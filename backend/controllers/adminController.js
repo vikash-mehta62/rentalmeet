@@ -2375,15 +2375,20 @@ exports.settleBookingManual = async (req, res) => {
     const { method, transactionId, remarks } = req.body;
     const { settleBooking } = require('../utils/settlementHelper');
 
+    const isManualSettlement = method === 'manual';
     const booking = await settleBooking(req.params.id, 'venue', {
       method: method || 'automatic',
       transactionId,
       remarks
     });
 
-    res.json({
-      success: true,
-      message: method === 'manual' ? 'Booking settled manually' : 'Automatic settlement processed',
+    const automaticSettlementFailed = !isManualSettlement && booking.settlementStatus === 'failed';
+
+    res.status(automaticSettlementFailed ? 400 : 200).json({
+      success: !automaticSettlementFailed,
+      message: automaticSettlementFailed
+        ? booking.settlementDetails?.remarks || 'Automatic settlement failed'
+        : isManualSettlement ? 'Booking settled manually' : 'Automatic settlement processed',
       booking
     });
   } catch (error) {
@@ -2399,15 +2404,20 @@ exports.settleServiceBookingManual = async (req, res) => {
     const { method, transactionId, remarks } = req.body;
     const { settleBooking } = require('../utils/settlementHelper');
 
+    const isManualSettlement = method === 'manual';
     const booking = await settleBooking(req.params.id, 'service', {
       method: method || 'automatic',
       transactionId,
       remarks
     });
 
-    res.json({
-      success: true,
-      message: method === 'manual' ? 'Service booking settled manually' : 'Automatic service settlement processed',
+    const automaticSettlementFailed = !isManualSettlement && booking.settlementStatus === 'failed';
+
+    res.status(automaticSettlementFailed ? 400 : 200).json({
+      success: !automaticSettlementFailed,
+      message: automaticSettlementFailed
+        ? booking.settlementDetails?.remarks || 'Automatic service settlement failed'
+        : isManualSettlement ? 'Service booking settled manually' : 'Automatic service settlement processed',
       booking
     });
   } catch (error) {

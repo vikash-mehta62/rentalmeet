@@ -63,6 +63,7 @@ export default function AdminLayout({ children, title, subtitle }) {
     { name: 'Reports', href: '/admin/reports', icon: BarChart3, permission: 'reports', section: 'System' },
     { name: 'Reviews', href: '/admin/reviews', icon: MessageSquare, permission: 'reviews', section: 'System' },
     { name: 'GST/Platform', href: '/admin/platform-settings', icon: Settings, permission: 'platformSettings', section: 'System' },
+    { name: 'Push Notifications', href: '/admin/push-notifications', icon: Bell, permission: 'notifications', section: 'System' },
     { name: 'Settings', href: '/admin/settings', icon: Settings, permission: 'settings', section: 'System' },
   ];
 

@@ -1,9 +1,29 @@
 const Razorpay = require('razorpay');
 const Booking = require('../models/Booking');
 const ServiceBooking = require('../models/ServiceBooking');
+const pushService = require('./pushNotificationService');
 const VendorProfile = require('../models/VendorProfile');
 const { decrypt } = require('./encryption');
 const { calculateVenueOwnerPayout } = require('./venuePricing');
+const { ensureRazorpayLinkedAccount } = require('./razorpayAccountHelper');
+
+const getRazorpayErrorInfo = (err) => {
+  const error = err?.error || err?.response?.data?.error || {};
+  const statusCode = err?.statusCode || err?.response?.status;
+  const description = error.description || err?.description || err?.message || (typeof err === 'string' ? err : '') || 'Unknown Razorpay error';
+  const context = [
+    statusCode ? `status ${statusCode}` : null,
+    error.code ? `code ${error.code}` : null,
+    error.field ? `field ${error.field}` : null,
+    error.reason ? `reason ${error.reason}` : null,
+    error.step ? `step ${error.step}` : null
+  ].filter(Boolean).join(', ');
+
+  return {
+    message: context ? `${description} (${context})` : description,
+    raw: JSON.stringify({ statusCode, error, message: err?.message }, null, 2)
+  };
+};
 
 const isValidIFSC = (ifsc) => {
   return typeof ifsc === 'string' && /^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc.trim().toUpperCase());
@@ -38,6 +58,7 @@ exports.settleBooking = async (bookingId, bookingType, manualOptions = null) => 
     let payoutAmount = 0;
     let bankDetails = null;
     let beneficiaryUser = null;
+    let vendorProfile = null;
 
     if (bookingType === 'venue') {
       booking = await Booking.findById(bookingId).populate({
@@ -77,12 +98,29 @@ exports.settleBooking = async (bookingId, bookingType, manualOptions = null) => 
       beneficiaryUser = booking.vendor;
 
       if (beneficiaryUser) {
-        const vendorProfile = await VendorProfile.findOne({ user: beneficiaryUser._id });
+        vendorProfile = await VendorProfile.findOne({ user: beneficiaryUser._id });
         bankDetails = vendorProfile?.bankDetails;
       }
     } else {
       throw new Error(`Invalid booking type: ${bookingType}`);
     }
+
+    const triggerPush = async (b) => {
+      try {
+        const isSuccess = b.settlementStatus === 'settled';
+        await pushService.sendSettlementPushNotification(
+          b,
+          bookingType,
+          isSuccess,
+          {
+            amount: payoutAmount,
+            remarks: b.settlementDetails?.remarks
+          }
+        );
+      } catch (err) {
+        console.error('[SETTLEMENT] Settlement push notification error:', err.message);
+      }
+    };
 
     if (booking.status !== 'completed') {
       throw new Error(`Booking status must be 'completed' to settle. Current: ${booking.status}`);
@@ -109,6 +147,7 @@ exports.settleBooking = async (bookingId, bookingType, manualOptions = null) => 
 
       await booking.save();
       console.log(`[SETTLEMENT] ✅ Manually settled booking ${booking.bookingNumber} with amount ₹${payoutAmount}`);
+      await triggerPush(booking);
       return booking;
     }
 
@@ -122,6 +161,7 @@ exports.settleBooking = async (bookingId, bookingType, manualOptions = null) => 
 
       await booking.save();
       console.log(`[SETTLEMENT] ❌ Settlement failed for ${booking.bookingNumber}: Missing bank details.`);
+      await triggerPush(booking);
       return booking;
     }
 
@@ -147,6 +187,7 @@ exports.settleBooking = async (bookingId, bookingType, manualOptions = null) => 
 
       await booking.save();
       console.log(`[SETTLEMENT] ❌ Settlement failed for ${booking.bookingNumber}: Incomplete bank details.`);
+      await triggerPush(booking);
       return booking;
     }
 
@@ -160,8 +201,18 @@ exports.settleBooking = async (bookingId, bookingType, manualOptions = null) => 
 
       await booking.save();
       console.log(`[SETTLEMENT] ❌ Settlement failed for ${booking.bookingNumber}: Invalid IFSC ${ifsc}.`);
+      await triggerPush(booking);
       return booking;
     }
+
+    const settlementBankDetails = {
+      ...bankDetails,
+      accountNumber: rawAccountNumber,
+      accountNumberCard: rawAccountNumber,
+      ifscCode: ifsc,
+      ifsc,
+      accountHolderName: holderName
+    };
 
     const razorpayKeyId = process.env.RAZORPAY_KEY_ID;
     const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET;
@@ -181,6 +232,7 @@ exports.settleBooking = async (bookingId, bookingType, manualOptions = null) => 
 
       await booking.save();
       console.log(`[SETTLEMENT] ✅ [SIMULATION] Automatic settlement completed for ${booking.bookingNumber}`);
+      await triggerPush(booking);
       return booking;
     }
 
@@ -192,15 +244,19 @@ exports.settleBooking = async (bookingId, bookingType, manualOptions = null) => 
 
       console.log(`[SETTLEMENT] 🌐 Live Razorpay API transaction initiated for ${booking.bookingNumber}. Amount: ₹${payoutAmount}`);
 
-      const linkedAccountId = beneficiaryUser?.razorpayAccountId || beneficiaryUser?.linkedAccountId;
-
-      if (!linkedAccountId) {
-        throw new Error('Beneficiary has no linked Razorpay sub-account ID.');
-      }
-
       if (!booking.paymentDetails?.razorpay_payment_id) {
         throw new Error('No Razorpay payment ID found on booking.');
       }
+
+      const linkedAccountId = await ensureRazorpayLinkedAccount({
+        razorpay,
+        bookingType,
+        beneficiaryUser,
+        venue: bookingType === 'venue' ? booking.venue : null,
+        vendorProfile,
+        bankDetails,
+        settlementBankDetails
+      });
 
       const transferResponse = await razorpay.payments.transfer(
         booking.paymentDetails.razorpay_payment_id,
@@ -232,18 +288,22 @@ exports.settleBooking = async (bookingId, bookingType, manualOptions = null) => 
 
       await booking.save();
       console.log(`[SETTLEMENT] ✅ Live settlement transfer successful for ${booking.bookingNumber}`);
+      await triggerPush(booking);
       return booking;
     } catch (apiErr) {
-      console.error(`[SETTLEMENT] ❌ Razorpay transfer failed for ${booking.bookingNumber}:`, apiErr.message);
+      const razorpayError = getRazorpayErrorInfo(apiErr);
+      console.error(`[SETTLEMENT] ❌ Razorpay transfer failed for ${booking.bookingNumber}:`, razorpayError.message);
+      console.error(`[SETTLEMENT] Razorpay error raw:`, razorpayError.raw);
 
       booking.settlementStatus = 'failed';
       booking.settlementDetails = {
         amount: payoutAmount,
-        remarks: `Razorpay API Error: ${apiErr.error?.description || apiErr.message}`,
+        remarks: `Razorpay API Error: ${razorpayError.message}`,
         settledAt: new Date()
       };
 
       await booking.save();
+      await triggerPush(booking);
       return booking;
     }
   } catch (err) {

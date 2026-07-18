@@ -86,7 +86,12 @@ const vendorProfileSchema = new mongoose.Schema({
     branchName:        String,
     accountType:       { type: String, enum: ['savings', 'current'], default: 'savings' },
     upiId:             String,
-    proof:             String
+    proof:             String,
+    razorpayAccountId: String,
+    linkedAccountId:   String,
+    razorpayAccountStatus: String,
+    razorpayAccountCreatedAt: Date,
+    razorpayAccountSyncedAt: Date
   },
 
   // Availability

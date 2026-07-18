@@ -46,7 +46,7 @@ const generateToken = (id) => {
 // @route   POST /api/auth/register
 exports.register = async (req, res) => {
   try {
-    const { name, email, phone, password, role, referralCode, city, state, accountType, companyName, gstNumber, panNumber, vendorCategory } = req.body;
+    const { name, email, phone, password, role, referralCode, city, state, accountType, companyName, gstNumber, panNumber, vendorCategory, deviceId } = req.body;
     
     // Validate required fields
     if (!name?.trim() || !email?.trim() || !phone?.trim() || !password) {
@@ -159,6 +159,15 @@ exports.register = async (req, res) => {
     
     const token = generateToken(user._id);
     
+    if (deviceId) {
+      try {
+        const pushService = require('../utils/pushNotificationService');
+        await pushService.migrateGuestTokenToUser(user._id, user.role, deviceId);
+      } catch (pushErr) {
+        console.error('[AUTH] Failed to migrate guest token on register:', pushErr.message);
+      }
+    }
+
     res.status(201).json({
       success: true,
       token,
@@ -376,7 +385,7 @@ exports.verifyPhoneOtp = async (req, res) => {
 // @route   POST /api/auth/login
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, deviceId } = req.body;
     
     if (!email || !password) {
       return res.status(400).json({
@@ -428,6 +437,15 @@ exports.login = async (req, res) => {
       .select('-password -resetPasswordToken -resetPasswordExpire')
       .populate('referrals.user', 'name email role')
       .populate('referredBy', 'name referralCode');
+
+    if (deviceId) {
+      try {
+        const pushService = require('../utils/pushNotificationService');
+        await pushService.migrateGuestTokenToUser(user._id, user.role, deviceId);
+      } catch (pushErr) {
+        console.error('[AUTH] Failed to migrate guest token on login:', pushErr.message);
+      }
+    }
 
     res.json({
       success: true,
