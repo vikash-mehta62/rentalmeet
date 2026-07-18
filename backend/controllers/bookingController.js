@@ -8,6 +8,7 @@ const { getCityCode, getStateCode } = require('../utils/cityCodes');
 const { calculateVenueConfirmationDeadline } = require('../utils/confirmationDeadline');
 const { calculateVenueBookingPrice, calculateVenueOwnerPayout, numberOr } = require('../utils/venuePricing');
 const { normalizeRefundAttempt } = require('../utils/refundHelper');
+const { sendBookingNotifications } = require('../utils/bookingNotificationHelper');
 
 // Helper function to generate booking number
 // Format: STATE(2) + CITY(3) + YEAR(2) + VENUETYPE(2) + SERIAL(6)
@@ -655,9 +656,7 @@ exports.updateBookingStatus = async (req, res) => {
     // Send email notification
     try {
       const { sendBookingEmail } = require('../utils/emailService');
-      if (status === 'confirmed' || status === 'completed') {
-        await sendBookingEmail(booking, status);
-      }
+      await sendBookingEmail(booking, status);
     } catch (emailErr) {
       console.error('Failed to send status update email:', emailErr.message);
     }
@@ -716,11 +715,11 @@ exports.approveSoon = async (req, res) => {
     booking.approveSoonUsed = true;
     await booking.save();
 
-    // Send push notification
+    // Send email and push notifications
     try {
-      await pushService.sendBookingPushNotification(booking, 'approve_soon');
-    } catch (pushErr) {
-      console.error('Failed to send approve_soon push notification:', pushErr.message);
+      await sendBookingNotifications(booking, 'approve_soon', { bookingType: 'venue' });
+    } catch (notifyErr) {
+      console.error('Failed to send approve_soon notifications:', notifyErr.message);
     }
 
     res.json({
@@ -916,14 +915,10 @@ exports.modifyBooking = async (req, res) => {
 
     await booking.save();
 
-    await booking.populate('venue', 'businessName location sku images');
-    await booking.populate('customer', 'name email phone');
-
-    // Send push notification
     try {
-      await pushService.sendBookingPushNotification(booking, 'modified');
-    } catch (pushErr) {
-      console.error('Failed to send booking modified push notification:', pushErr.message);
+      await sendBookingNotifications(booking, 'modified', { bookingType: 'venue' });
+    } catch (notifyErr) {
+      console.error('Failed to send booking modified notifications:', notifyErr.message);
     }
 
     res.json({

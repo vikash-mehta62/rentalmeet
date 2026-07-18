@@ -24,6 +24,7 @@ app.set('trust proxy', parseTrustProxy(process.env.TRUST_PROXY));
 const { startAutoCancelCron, startAutoDeleteCron } = require('./utils/cronJobs');
 const { calculateServiceConfirmationDeadline } = require('./utils/confirmationDeadline');
 const { normalizeRefundAttempt } = require('./utils/refundHelper');
+const { sendBookingNotifications } = require('./utils/bookingNotificationHelper');
 
 // Security middleware
 app.use(helmet({
@@ -268,6 +269,8 @@ app.post('/api/service-bookings', async (req, res) => {
     const svc = await VendorService.findById(serviceId);
     if (!svc) return res.status(404).json({ success: false, message: 'Service not found' });
 
+    const authUser = await getOptionalAuthenticatedUser(req);
+
     // Coupon validation
     let appliedCoupon = null;
     let discountAmount = 0;
@@ -324,10 +327,11 @@ app.post('/api/service-bookings', async (req, res) => {
     const booking = await ServiceBooking.create({
       service: serviceId,
       vendor:  svc.vendor,
+      customer: authUser?._id,
       eventDate: new Date(eventDate),
       customerInfo: {
         ...customerInfo,
-        gstNumber: customerInfo?.gstNumber || req.user?.gstNumber || '',  // Save customer GST
+        gstNumber: customerInfo?.gstNumber || authUser?.gstNumber || '',  // Save customer GST
       },
       serviceSnapshot: { 
         title: svc.title, 
@@ -369,6 +373,12 @@ app.post('/api/service-bookings', async (req, res) => {
       await appliedCoupon.save();
     }
 
+    try {
+      await sendBookingNotifications(booking, isPaidBooking ? 'created' : 'enquiry', { bookingType: 'service' });
+    } catch (notifyErr) {
+      console.error('[ServiceBooking] Failed to send creation notifications:', notifyErr.message);
+    }
+
     res.status(201).json({ success: true, booking, bookingNumber: booking.bookingNumber, quotationNumber: booking.quotationNumber || booking.bookingNumber, discountAmount, finalTotal });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
@@ -381,6 +391,21 @@ async function resolveServiceId(serviceId) {
   if (isObjectId) return serviceId; // already an ObjectId string
   const svc = await VendorService.findOne({ slug: serviceId }).select('_id');
   return svc ? svc._id.toString() : null;
+}
+
+async function getOptionalAuthenticatedUser(req) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) return null;
+
+  try {
+    const jwt = require('jsonwebtoken');
+    const User = require('./models/User');
+    const decoded = jwt.verify(authHeader.split(' ')[1], process.env.JWT_SECRET);
+    return await User.findById(decoded.id).select('name email phone role gstNumber companyName');
+  } catch (error) {
+    console.warn('[ServiceBooking] Ignoring invalid optional auth token:', error.message);
+    return null;
+  }
 }
 
 // GET/POST service coupons (public)
@@ -555,6 +580,12 @@ app.put('/api/service-bookings/:id/confirm', require('./middleware/auth').protec
     // Increment vendor service booking count
     await VendorService.findByIdAndUpdate(booking.service, { $inc: { totalBookings: 1 } });
 
+    try {
+      await sendBookingNotifications(booking, 'confirmed', { bookingType: 'service' });
+    } catch (notifyErr) {
+      console.error('[ServiceBooking] Failed to send confirmed notifications:', notifyErr.message);
+    }
+
     res.json({ success: true, message: 'Booking confirmed successfully', booking });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
@@ -604,6 +635,12 @@ app.put('/api/service-bookings/:id/complete', require('./middleware/auth').prote
       });
     } catch (settleErr) {
       console.error(`[SETTLEMENT] Failed to initialize service settlement trigger in complete route for ${booking.bookingNumber}:`, settleErr);
+    }
+
+    try {
+      await sendBookingNotifications(booking, 'completed', { bookingType: 'service' });
+    } catch (notifyErr) {
+      console.error('[ServiceBooking] Failed to send completed notifications:', notifyErr.message);
     }
 
     res.json({ success: true, message: 'Booking marked as completed successfully', booking });
@@ -717,6 +754,12 @@ app.put('/api/service-bookings/:id/cancel', require('./middleware/auth').protect
     }
 
     await booking.save();
+
+    try {
+      await sendBookingNotifications(booking, 'cancelled', { bookingType: 'service' });
+    } catch (notifyErr) {
+      console.error('[ServiceBooking] Failed to send cancelled notifications:', notifyErr.message);
+    }
 
     res.json({
       success: true,

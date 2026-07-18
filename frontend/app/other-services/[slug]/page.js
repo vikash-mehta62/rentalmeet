@@ -375,6 +375,11 @@ export default function ServiceDetailPage() {
       ...extra
     };
   };
+  const getServiceBookingHeaders = () => {
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    return headers;
+  };
 
   // Download quotation without payment (opens modal with temporary quotation)
   const handleDownloadQuotation = () => {
@@ -409,7 +414,7 @@ export default function ServiceDetailPage() {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/service-bookings`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getServiceBookingHeaders(),
         body: JSON.stringify(buildBookingPayload({
           status: 'enquiry',
           paymentStatus: 'pending'
@@ -471,7 +476,7 @@ export default function ServiceDetailPage() {
             // Step 4: Create booking only after successful payment verification
             const bookingRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/service-bookings`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: getServiceBookingHeaders(),
               body: JSON.stringify(buildBookingPayload({
                 status: 'pending',
                 paymentStatus: 'paid',
@@ -1002,7 +1007,7 @@ export default function ServiceDetailPage() {
                   <p className="text-xs text-gray-400 mb-6">Payment successful. The vendor will contact you within 24 hours.</p>
                   <div className="flex flex-col gap-3">
                   
-                    <button onClick={() => { setBookingModal(false); router.push('/customer/bookings'); }}
+                    <button onClick={() => { setBookingModal(false); router.push('/customer/service-bookings'); }}
                       className="w-full py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-bold text-sm transition-colors">
                       Manage Bookings
                     </button>

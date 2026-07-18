@@ -4,6 +4,7 @@ const { protect, authorize } = require('../middleware/auth');
 const Venue = require('../models/Venue');
 const Booking = require('../models/Booking');
 const { normalizeRefundAttempt } = require('../utils/refundHelper');
+const { sendBookingNotifications } = require('../utils/bookingNotificationHelper');
 const {
   createCoupon,
   getOwnerCoupons,
@@ -367,23 +368,11 @@ router.put('/bookings/:id/cancel', async (req, res) => {
     await booking.save();
     console.log(`[OWNER-CANCEL] ✅ Done — refundStatus:${booking.refundDetails.refundStatus}\n`);
 
-    // Populate for email notification
+    // Send email and push notifications
     try {
-      await booking.populate([
-        {
-          path: 'venue',
-          select: 'businessName location sku images owner',
-          populate: { path: 'owner', select: 'name email phone' }
-        },
-        {
-          path: 'customer',
-          select: 'name email phone'
-        }
-      ]);
-      const { sendBookingEmail } = require('../utils/emailService');
-      await sendBookingEmail(booking, 'cancelled');
-    } catch (emailErr) {
-      console.error('Failed to send owner booking cancellation email:', emailErr.message);
+      await sendBookingNotifications(booking, 'cancelled', { bookingType: 'venue' });
+    } catch (notifyErr) {
+      console.error('Failed to send owner booking cancellation notifications:', notifyErr.message);
     }
 
     res.json({ success: true, message: 'Booking cancelled with full refund', refundProcessed: refundResult.refundStatus === 'processed', refundInitiated: refundResult.success, refundFailReason: !refundResult.success ? refundResult.reason : undefined, booking });

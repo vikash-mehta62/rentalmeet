@@ -239,128 +239,220 @@ const getHtmlTemplate = (title, recipientName, messageText, bookingDetails = nul
 
 exports.sendBookingEmail = async (booking, eventType) => {
   try {
-    const customerEmail = booking.customer?.email || booking.customerDetails?.email;
-    const ownerEmail = booking.venue?.owner?.email;
-    const venueName = booking.venue?.businessName || 'Venue';
-    const bookingNo = booking.bookingNumber;
-    const bookingDateStr = booking.bookingDate ? new Date(booking.bookingDate).toLocaleDateString('en-IN') : 'N/A';
-    const amountStr = `₹${(booking.amount || 0).toLocaleString('en-IN')}`;
+    const isServiceBooking = !booking.venue && (booking.service || booking.serviceSnapshot || booking.vendor || booking.customerInfo);
+    const providerLabel = isServiceBooking ? 'Service Vendor' : 'Venue Owner';
+    const itemLabel = isServiceBooking ? 'Service Name' : 'Venue Name';
+    const itemType = isServiceBooking ? 'service' : 'venue';
+    const reviewerLabel = isServiceBooking ? 'service vendor' : 'venue owner';
 
-    if (!customerEmail && !ownerEmail) {
-      console.warn('[EMAIL] No customer or owner email found for booking:', bookingNo);
+    const customerEmail = booking.customer?.email || booking.customerDetails?.email || booking.customerInfo?.email;
+    const providerEmail = isServiceBooking ? booking.vendor?.email : booking.venue?.owner?.email;
+    const customerName = booking.customer?.name || booking.customerDetails?.name || booking.customerInfo?.name || 'Customer';
+    const businessName = isServiceBooking
+      ? (booking.service?.title || booking.serviceSnapshot?.title || booking.title || 'Service')
+      : (booking.venue?.businessName || 'Venue');
+    const bookingNo = booking.bookingNumber || booking.quotationNumber || booking._id?.toString()?.slice(-8)?.toUpperCase() || 'N/A';
+    const bookingDate = booking.bookingDate || booking.eventDate;
+    const bookingDateStr = bookingDate ? new Date(bookingDate).toLocaleDateString('en-IN') : 'N/A';
+    const serviceTime = String(booking.customerInfo?.notes || '').match(/Preferred Time:\s*([^|]+)/i)?.[1]?.trim();
+    const timeSlot = isServiceBooking ? (serviceTime || 'N/A') : `${booking.startTime || 'N/A'} - ${booking.endTime || 'N/A'}`;
+    const amount = Number(booking.amount ?? booking.pricing?.total ?? 0);
+    const amountStr = `₹${amount.toLocaleString('en-IN')}`;
+    const serviceVendorEarnings = Math.max(
+      Number(booking.pricing?.total ?? booking.amount ?? 0) -
+      Number(booking.pricing?.platformFee ?? 0) -
+      Number(booking.pricing?.platformFeeGST ?? 0),
+      0
+    );
+    const providerEarnings = isServiceBooking
+      ? Number(booking.settlementDetails?.amount ?? serviceVendorEarnings)
+      : Number(booking.ownerEarnings || 0);
+    const providerEarningsStr = `₹${providerEarnings.toLocaleString('en-IN')}`;
+
+    if (!customerEmail && !providerEmail) {
+      console.warn(`[EMAIL] No customer or ${isServiceBooking ? 'vendor' : 'owner'} email found for booking:`, bookingNo);
       return;
     }
 
+    const bookingDetails = [
+      { label: 'Booking Number', value: `#${bookingNo}` },
+      { label: itemLabel, value: businessName },
+      { label: 'Date', value: bookingDateStr },
+      { label: 'Time Slot', value: timeSlot }
+    ];
+
+    const customerDetails = [
+      ...bookingDetails,
+      { label: 'Total Amount', value: amountStr, style: 'color: #10b981; font-weight: 700;' }
+    ];
+
+    const providerDetails = [
+      { label: 'Booking Number', value: `#${bookingNo}` },
+      { label: 'Customer Name', value: customerName },
+      { label: 'Date', value: bookingDateStr },
+      { label: 'Time Slot', value: timeSlot },
+      { label: 'Your Earnings', value: providerEarningsStr, style: 'color: #ea580c; font-weight: 700;' }
+    ];
+
     let subject = '';
     let customerHtml = '';
-    let ownerHtml = '';
+    let providerHtml = '';
+    let customerTitle = '';
+    let customerMsg = '';
+    let providerTitle = '';
+    let providerMsg = '';
+    let typeStr = 'general';
 
     switch (eventType) {
+      case 'enquiry':
+        subject = `New Service Enquiry #${bookingNo} - RentalMeet`;
+        customerTitle = 'Service Enquiry Received';
+        customerMsg = `Your enquiry for ${businessName} has been received. Enquiry No: #${bookingNo}`;
+        providerTitle = 'New Service Enquiry';
+        providerMsg = `You have received a new service enquiry for ${businessName}. Enquiry No: #${bookingNo}`;
+        typeStr = 'booking_created';
+        customerHtml = getHtmlTemplate(
+          customerTitle,
+          customerName,
+          `Your enquiry for <strong>${businessName}</strong> has been received. The service vendor can review the enquiry and contact you for the next step.`,
+          customerDetails
+        );
+        providerHtml = getHtmlTemplate(
+          providerTitle,
+          providerLabel,
+          `You have received a new enquiry for your service <strong>${businessName}</strong>. Please review the customer details in your vendor dashboard.`,
+          providerDetails
+        );
+        break;
+
       case 'created':
         subject = `New Booking Request #${bookingNo} - RentalMeet`;
+        customerTitle = 'Booking Request Received';
+        customerMsg = `Your booking request for ${businessName} has been received and is pending ${reviewerLabel} confirmation. Booking No: #${bookingNo}`;
+        providerTitle = 'New Booking Request';
+        providerMsg = `You have received a new booking request for ${businessName}. Booking No: #${bookingNo}`;
+        typeStr = 'booking_created';
         customerHtml = getHtmlTemplate(
-          'Booking Request Received',
-          booking.customer?.name || 'Customer',
-          `Your booking request for <strong>${venueName}</strong> has been received and is pending owner confirmation. We will notify you once the venue owner reviews your request.`,
-          [
-            { label: 'Booking Number', value: `#${bookingNo}` },
-            { label: 'Venue Name', value: venueName },
-            { label: 'Date', value: bookingDateStr },
-            { label: 'Time Slot', value: `${booking.startTime} - ${booking.endTime}` },
-            { label: 'Total Amount', value: amountStr, style: 'color: #10b981; font-weight: 700;' }
-          ]
+          customerTitle,
+          customerName,
+          `Your booking request for <strong>${businessName}</strong> has been received and is pending ${reviewerLabel} confirmation. We will notify you once it is reviewed.`,
+          customerDetails
         );
-        ownerHtml = getHtmlTemplate(
+        providerHtml = getHtmlTemplate(
           'New Booking Request Received',
-          'Venue Owner',
-          `You have received a new booking request for your venue <strong>${venueName}</strong>. Please log in to your dashboard to Accept or Reject this booking before the deadline.`,
-          [
-            { label: 'Booking Number', value: `#${bookingNo}` },
-            { label: 'Customer Name', value: booking.customer?.name || booking.customerDetails?.name || 'N/A' },
-            { label: 'Date', value: bookingDateStr },
-            { label: 'Time Slot', value: `${booking.startTime} - ${booking.endTime}` },
-            { label: 'Your Earnings', value: `₹${(booking.ownerEarnings || 0).toLocaleString('en-IN')}`, style: 'color: #ea580c; font-weight: 700;' }
-          ]
+          providerLabel,
+          `You have received a new booking request for your ${itemType} <strong>${businessName}</strong>. Please log in to your dashboard to review this booking before the deadline.`,
+          providerDetails
         );
         break;
 
       case 'confirmed':
         subject = `Booking Confirmed #${bookingNo} - RentalMeet`;
+        customerTitle = 'Booking Confirmed 🎉';
+        customerMsg = `Great news! Your booking request for ${businessName} has been confirmed. Booking No: #${bookingNo}`;
+        providerTitle = 'Booking Confirmed Successfully';
+        providerMsg = `You have successfully confirmed booking #${bookingNo} for ${businessName}.`;
+        typeStr = 'booking_confirmed';
         customerHtml = getHtmlTemplate(
-          'Booking Confirmed 🎉',
-          booking.customer?.name || 'Customer',
-          `Great news! Your booking request for <strong>${venueName}</strong> has been confirmed by the venue owner. If you haven't completed your payment, please log in to complete it to secure your slot.`,
-          [
-            { label: 'Booking Number', value: `#${bookingNo}` },
-            { label: 'Venue Name', value: venueName },
-            { label: 'Date', value: bookingDateStr },
-            { label: 'Time Slot', value: `${booking.startTime} - ${booking.endTime}` },
-            { label: 'Total Amount', value: amountStr, style: 'color: #10b981; font-weight: 700;' }
-          ]
+          customerTitle,
+          customerName,
+          `Great news! Your booking request for <strong>${businessName}</strong> has been confirmed.`,
+          customerDetails
         );
-        ownerHtml = getHtmlTemplate(
-          'Booking Confirmed Successfully',
-          'Venue Owner',
-          `You have successfully confirmed the booking <strong>#${bookingNo}</strong> for <strong>${venueName}</strong>. Details of the booking are outlined below.`,
-          [
-            { label: 'Booking Number', value: `#${bookingNo}` },
-            { label: 'Customer Name', value: booking.customer?.name || 'N/A' },
-            { label: 'Date', value: bookingDateStr },
-            { label: 'Time Slot', value: `${booking.startTime} - ${booking.endTime}` },
-            { label: 'Your Earnings', value: `₹${(booking.ownerEarnings || 0).toLocaleString('en-IN')}`, style: 'color: #ea580c; font-weight: 700;' }
-          ]
+        providerHtml = getHtmlTemplate(
+          providerTitle,
+          providerLabel,
+          `You have successfully confirmed the booking <strong>#${bookingNo}</strong> for <strong>${businessName}</strong>.`,
+          providerDetails
         );
         break;
 
       case 'completed':
         subject = `Booking Completed #${bookingNo} - RentalMeet`;
+        customerTitle = 'Booking Completed';
+        customerMsg = `Your booking #${bookingNo} for ${businessName} has been marked as completed.`;
+        providerTitle = 'Booking Completed';
+        providerMsg = `The booking #${bookingNo} for ${businessName} has been completed.`;
+        typeStr = 'booking_completed';
         customerHtml = getHtmlTemplate(
-          'Booking Completed',
-          booking.customer?.name || 'Customer',
-          `Your booking <strong>#${bookingNo}</strong> for <strong>${venueName}</strong> has been marked as completed. Thank you for choosing RentalMeet! We hope you had a great experience.`,
-          [
-            { label: 'Booking Number', value: `#${bookingNo}` },
-            { label: 'Venue Name', value: venueName },
-            { label: 'Date', value: bookingDateStr },
-            { label: 'Time Slot', value: `${booking.startTime} - ${booking.endTime}` }
-          ]
+          customerTitle,
+          customerName,
+          `Your booking <strong>#${bookingNo}</strong> for <strong>${businessName}</strong> has been marked as completed. Thank you for choosing RentalMeet.`,
+          bookingDetails
         );
-        ownerHtml = getHtmlTemplate(
-          'Booking Completed',
-          'Venue Owner',
-          `The booking <strong>#${bookingNo}</strong> for <strong>${venueName}</strong> has been marked as completed. The earnings have been credited to your venue statistics.`,
-          [
-            { label: 'Booking Number', value: `#${bookingNo}` },
-            { label: 'Date', value: bookingDateStr },
-            { label: 'Time Slot', value: `${booking.startTime} - ${booking.endTime}` },
-            { label: 'Your Earnings', value: `₹${(booking.ownerEarnings || 0).toLocaleString('en-IN')}`, style: 'color: #ea580c; font-weight: 700;' }
-          ]
+        providerHtml = getHtmlTemplate(
+          providerTitle,
+          providerLabel,
+          `The booking <strong>#${bookingNo}</strong> for <strong>${businessName}</strong> has been marked as completed. Settlement will be processed as configured.`,
+          providerDetails
         );
         break;
 
-      case 'cancelled':
+      case 'cancelled': {
         subject = `Booking Cancelled #${bookingNo} - RentalMeet`;
         const reasonStr = booking.cancellationReason || 'No reason specified';
+        const refundText = booking.refundDetails?.refundAmount > 0
+          ? `<br><br><span style="color: #10b981; font-weight: 600;">A refund of ₹${Number(booking.refundDetails.refundAmount || 0).toLocaleString('en-IN')} has been initiated to your original payment method.</span>`
+          : '';
+        customerTitle = 'Booking Cancelled';
+        customerMsg = `Your booking for ${businessName} has been cancelled. Booking No: #${bookingNo}`;
+        providerTitle = 'Booking Cancelled';
+        providerMsg = `The booking #${bookingNo} for ${businessName} has been cancelled.`;
+        typeStr = 'booking_cancelled';
         customerHtml = getHtmlTemplate(
-          'Booking Cancelled',
-          booking.customer?.name || 'Customer',
-          `We regret to inform you that your booking <strong>#${bookingNo}</strong> for <strong>${venueName}</strong> has been cancelled.<br><br><strong>Reason for cancellation:</strong> ${reasonStr}${booking.refundDetails?.refundAmount > 0 ? `<br><br><span style="color: #10b981; font-weight: 600;">A refund of ₹${booking.refundDetails.refundAmount.toLocaleString('en-IN')} has been initiated to your original payment method.</span>` : ''}`,
-          [
-            { label: 'Booking Number', value: `#${bookingNo}` },
-            { label: 'Venue Name', value: venueName },
-            { label: 'Date', value: bookingDateStr },
-            { label: 'Time Slot', value: `${booking.startTime} - ${booking.endTime}` }
-          ]
+          customerTitle,
+          customerName,
+          `We regret to inform you that your booking <strong>#${bookingNo}</strong> for <strong>${businessName}</strong> has been cancelled.<br><br><strong>Reason for cancellation:</strong> ${reasonStr}${refundText}`,
+          bookingDetails
         );
-        ownerHtml = getHtmlTemplate(
-          'Booking Cancelled',
-          'Venue Owner',
-          `The booking <strong>#${bookingNo}</strong> for your venue <strong>${venueName}</strong> has been cancelled.<br><br><strong>Reason for cancellation:</strong> ${reasonStr}`,
-          [
-            { label: 'Booking Number', value: `#${bookingNo}` },
-            { label: 'Date', value: bookingDateStr },
-            { label: 'Time Slot', value: `${booking.startTime} - ${booking.endTime}` }
-          ]
+        providerHtml = getHtmlTemplate(
+          providerTitle,
+          providerLabel,
+          `The booking <strong>#${bookingNo}</strong> for your ${itemType} <strong>${businessName}</strong> has been cancelled.<br><br><strong>Reason for cancellation:</strong> ${reasonStr}`,
+          bookingDetails
+        );
+        break;
+      }
+
+      case 'modified':
+        subject = `Booking Modified #${bookingNo} - RentalMeet`;
+        customerTitle = 'Booking Modified';
+        customerMsg = `Your booking #${bookingNo} for ${businessName} has been updated.`;
+        providerTitle = 'Booking Modified';
+        providerMsg = `The booking #${bookingNo} for ${businessName} has been updated.`;
+        typeStr = 'booking_modified';
+        customerHtml = getHtmlTemplate(
+          customerTitle,
+          customerName,
+          `Your booking <strong>#${bookingNo}</strong> for <strong>${businessName}</strong> has been updated.`,
+          customerDetails
+        );
+        providerHtml = getHtmlTemplate(
+          providerTitle,
+          providerLabel,
+          `The booking <strong>#${bookingNo}</strong> for <strong>${businessName}</strong> has been updated. Please review the latest details in your dashboard.`,
+          providerDetails
+        );
+        break;
+
+      case 'approve_soon':
+        subject = `Booking Confirmation Deadline Extended #${bookingNo} - RentalMeet`;
+        customerTitle = 'Confirmation Deadline Extended';
+        customerMsg = `The confirmation window for booking #${bookingNo} has been extended by the ${reviewerLabel}.`;
+        providerTitle = 'Confirmation Deadline Extended';
+        providerMsg = `You extended the confirmation window for booking #${bookingNo}.`;
+        typeStr = 'booking_approve_soon';
+        customerHtml = getHtmlTemplate(
+          customerTitle,
+          customerName,
+          `The ${reviewerLabel} needs more time. The confirmation window for your booking <strong>#${bookingNo}</strong> has been extended.`,
+          customerDetails
+        );
+        providerHtml = getHtmlTemplate(
+          providerTitle,
+          providerLabel,
+          `You extended the confirmation window for booking <strong>#${bookingNo}</strong> for <strong>${businessName}</strong>.`,
+          providerDetails
         );
         break;
 
@@ -368,69 +460,33 @@ exports.sendBookingEmail = async (booking, eventType) => {
         return;
     }
 
-    // 1. Generate DB Notifications (Run before sending emails so email failure doesn't block it)
     try {
       const Notification = require('../models/Notification');
       const notificationsToCreate = [];
-
-      let customerTitle = '';
-      let customerMsg = '';
-      let ownerTitle = '';
-      let ownerMsg = '';
-      let typeStr = 'general';
-
-      switch (eventType) {
-        case 'created':
-          customerTitle = 'Booking Request Received';
-          customerMsg = `Your booking request for ${venueName} has been received and is pending owner confirmation. Booking No: #${bookingNo}`;
-          ownerTitle = 'New Booking Request';
-          ownerMsg = `You have received a new booking request for your venue ${venueName}. Booking No: #${bookingNo}`;
-          typeStr = 'booking_created';
-          break;
-        case 'confirmed':
-          customerTitle = 'Booking Confirmed 🎉';
-          customerMsg = `Great news! Your booking request for ${venueName} has been confirmed by the venue owner. Booking No: #${bookingNo}`;
-          ownerTitle = 'Booking Confirmed Successfully';
-          ownerMsg = `You have successfully confirmed the booking #${bookingNo} for ${venueName}.`;
-          typeStr = 'booking_confirmed';
-          break;
-        case 'completed':
-          customerTitle = 'Booking Completed';
-          customerMsg = `Your booking #${bookingNo} for ${venueName} has been marked as completed.`;
-          ownerTitle = 'Booking Completed';
-          ownerMsg = `The booking #${bookingNo} for ${venueName} has been completed.`;
-          typeStr = 'booking_completed';
-          break;
-        case 'cancelled':
-          customerTitle = 'Booking Cancelled';
-          customerMsg = `Your booking for ${venueName} has been cancelled. Booking No: #${bookingNo}`;
-          ownerTitle = 'Booking Cancelled';
-          ownerMsg = `The booking #${bookingNo} for ${venueName} has been cancelled.`;
-          typeStr = 'booking_cancelled';
-          break;
-      }
-
-      // Add customer notification
       const custId = booking.customer?._id || booking.customer;
+      const providerId = isServiceBooking
+        ? (booking.vendor?._id || booking.vendor)
+        : (booking.venue?.owner?._id || booking.venue?.owner);
+      const customerLink = isServiceBooking ? '/customer/service-bookings' : '/customer/bookings';
+      const providerLink = isServiceBooking ? '/vendor/bookings' : '/owner/bookings';
+
       if (custId) {
         notificationsToCreate.push({
           userId: custId,
           type: typeStr,
           title: customerTitle,
           body: customerMsg,
-          data: { link: '/customer/bookings' }
+          data: { link: customerLink, bookingId: booking._id, bookingNumber: bookingNo }
         });
       }
 
-      // Add owner notification
-      const ownerId = booking.venue?.owner?._id || booking.venue?.owner;
-      if (ownerId) {
+      if (providerId) {
         notificationsToCreate.push({
-          userId: ownerId,
+          userId: providerId,
           type: typeStr,
-          title: ownerTitle,
-          body: ownerMsg,
-          data: { link: '/owner/bookings' }
+          title: providerTitle,
+          body: providerMsg,
+          data: { link: providerLink, bookingId: booking._id, bookingNumber: bookingNo }
         });
       }
 
@@ -442,34 +498,22 @@ exports.sendBookingEmail = async (booking, eventType) => {
       console.error('[NOTIFICATION] Failed to create DB notifications:', notifErr.message);
     }
 
-    // 2. Send Emails (Wrap in try-catch so it is non-blocking)
     try {
       const emailPromises = [];
-      if (customerEmail) {
-        emailPromises.push(
-          this.sendEmail({
-            email: customerEmail,
-            subject,
-            html: customerHtml
-          })
-        );
+      if (customerEmail && customerHtml) {
+        emailPromises.push(exports.sendEmail({ email: customerEmail, subject, html: customerHtml }));
       }
-      if (ownerEmail) {
-        emailPromises.push(
-          this.sendEmail({
-            email: ownerEmail,
-            subject,
-            html: ownerHtml
-          })
-        );
+      if (providerEmail && providerHtml) {
+        emailPromises.push(exports.sendEmail({ email: providerEmail, subject, html: providerHtml }));
       }
 
-      await Promise.all(emailPromises);
-      console.log(`[EMAIL] Sent ${eventType} booking notification emails for #${bookingNo}`);
+      if (emailPromises.length > 0) {
+        await Promise.all(emailPromises);
+        console.log(`[EMAIL] Sent ${eventType} booking notification emails for #${bookingNo}`);
+      }
     } catch (emailErr) {
       console.error(`[EMAIL] Email delivery failed for booking #${bookingNo}:`, emailErr.message);
     }
-
   } catch (error) {
     console.error(`[EMAIL] Error in sendBookingEmail:`, error.message);
   }

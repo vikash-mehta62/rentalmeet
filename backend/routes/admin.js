@@ -47,6 +47,7 @@ const { protect, authorize, checkPermission } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
 const { uploadAuthImage } = require('../controllers/authImagesController');
 const { normalizeRefundAttempt } = require('../utils/refundHelper');
+const { sendBookingNotifications } = require('../utils/bookingNotificationHelper');
 
 const router = express.Router();
 
@@ -588,6 +589,11 @@ router.put('/bookings/:id/cancel', protect, authorize('admin'), async (req, res)
     }
     await booking.save();
     console.log(`[ADMIN-CANCEL] ✅ Done — refundStatus:${booking.refundDetails.refundStatus}\n`);
+    try {
+      await sendBookingNotifications(booking, 'cancelled', { bookingType: 'venue' });
+    } catch (notifyErr) {
+      console.error('[ADMIN-CANCEL] Failed to send cancellation notifications:', notifyErr.message);
+    }
     res.json({ success: true, message: 'Booking cancelled', refundProcessed: refundResult.refundStatus === 'processed', refundInitiated: refundResult.success, refundFailReason: !refundResult.success ? refundResult.reason : undefined, booking });
   } catch (e) {
     console.error(`[ADMIN-CANCEL] 💥`, e);
@@ -1308,6 +1314,12 @@ router.put('/service-bookings/:id/status', protect, authorize('admin'), checkPer
       }
     }
 
+    try {
+      const notificationEvent = status === 'pending' ? 'created' : status;
+      await sendBookingNotifications(booking, notificationEvent, { bookingType: 'service' });
+    } catch (notifyErr) {
+      console.error('[ADMIN-SVC-STATUS] Failed to send status notifications:', notifyErr.message);
+    }
     res.json({ success: true, booking });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
@@ -1353,6 +1365,11 @@ router.put('/service-bookings/:id/cancel', protect, authorize('admin'), checkPer
     };
     if (refundResult.success && refundResult.refundStatus === 'processed') booking.paymentStatus = 'refunded';
     await booking.save();
+    try {
+      await sendBookingNotifications(booking, 'cancelled', { bookingType: 'service' });
+    } catch (notifyErr) {
+      console.error('[ADMIN-SVC-CANCEL] Failed to send cancellation notifications:', notifyErr.message);
+    }
     res.json({ success: true, message: 'Booking cancelled', refundProcessed: refundResult.refundStatus === 'processed', refundInitiated: refundResult.success, refundFailReason: !refundResult.success ? refundResult.reason : undefined, booking });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });

@@ -7,23 +7,41 @@ const {
   calculateServiceConfirmationDeadline
 } = require('./confirmationDeadline');
 const { normalizeRefundAttempt } = require('./refundHelper');
+const { sendBookingNotifications } = require('./bookingNotificationHelper');
 
 /**
  * Process refund via Razorpay — refund goes back to original payment source
  * (UPI → UPI, card → card, netbanking → bank account, wallet → wallet)
  * Razorpay handles routing automatically via payment_id
  */
-const processRefund = async (booking) => {
+const getRefundableAmount = (booking) => {
+  const candidates = [
+    booking.paymentLedger?.totalPaid,
+    booking.amount,
+    booking.pricing?.total
+  ].map(Number).filter((amount) => Number.isFinite(amount) && amount > 0);
+
+  return candidates[0] || 0;
+};
+
+const processRefund = async (booking, options = {}) => {
   if (!booking.paymentDetails?.razorpay_payment_id) {
     console.log(`[CRON-REFUND] ⚠️  No payment ID for booking ${booking.bookingNumber}`);
     return { success: false, reason: 'No Razorpay payment ID found' };
   }
 
-  const refundAmt = booking.amount || booking.pricing?.total || 0;
+  const refundAmt = Number(options.refundAmount ?? getRefundableAmount(booking));
+  const refundReason = options.reason || 'Auto-cancel: confirmation timeout';
+
+  if (!refundAmt || refundAmt <= 0) {
+    console.log(`[CRON-REFUND] ⏭️  No refundable amount for booking ${booking.bookingNumber}`);
+    return { success: false, reason: 'No refundable amount' };
+  }
 
   console.log(`[CRON-REFUND] 🔄 Processing refund for ${booking.bookingNumber}`);
   console.log(`[CRON-REFUND] Payment ID : ${booking.paymentDetails.razorpay_payment_id}`);
   console.log(`[CRON-REFUND] Amount     : ₹${refundAmt} (${Math.round(refundAmt * 100)} paise)`);
+  console.log(`[CRON-REFUND] Reason     : ${refundReason}`);
   console.log(`[CRON-REFUND] RZP Key    : ${process.env.RAZORPAY_KEY_ID}`);
 
   try {
@@ -39,13 +57,14 @@ const processRefund = async (booking) => {
         speed: 'normal',
         notes: {
           bookingNumber: booking.bookingNumber,
-          reason: 'Auto-cancelled: owner did not confirm within the required time'
+          reason: refundReason,
+          refundAmount: refundAmt
         }
       }
     );
 
     console.log(`[CRON-REFUND] ✅ Success — refund ID: ${refund.id} | speed: ${refund.speed}`);
-    return { success: true, ...normalizeRefundAttempt(refund, 'Auto-cancelled: confirmation timeout'), speed: refund.speed };
+    return { success: true, ...normalizeRefundAttempt(refund, refundReason), speed: refund.speed };
   } catch (err) {
     console.error(`[CRON-REFUND] ❌ Failed for ${booking.bookingNumber}:`);
     console.error(`[CRON-REFUND]    Code   : ${err.error?.code || err.statusCode || 'N/A'}`);
@@ -96,10 +115,12 @@ const startAutoCancelCron = () => {
             }
           }
 
+          const refundAmount = booking.paymentStatus === 'paid' ? getRefundableAmount(booking) : 0;
+          const refundPolicy = 'Full refund - auto-cancel: owner confirmation timeout';
           let refundResult = { success: false, reason: 'Payment not completed' };
 
-          if (booking.paymentStatus === 'paid') {
-            refundResult = await processRefund(booking);
+          if (booking.paymentStatus === 'paid' && refundAmount > 0) {
+            refundResult = await processRefund(booking, { refundAmount, reason: refundPolicy });
           }
           // If paymentStatus is 'pending' — no money was captured, nothing to refund
 
@@ -107,36 +128,35 @@ const startAutoCancelCron = () => {
           booking.cancellationReason = 'Auto-cancelled: owner did not confirm within the required time';
           booking.cancelledByRole = 'system';
           booking.cancellationType = 'auto';
-
           booking.refundDetails = {
-            refundAmount: booking.paymentStatus === 'paid' ? booking.amount : 0,
+            refundAmount,
             refundStatus: booking.paymentStatus !== 'paid'
-              ? 'pending'                                          // no payment, no refund needed
-              : refundResult.success ? refundResult.refundStatus : 'failed',   // paid -> refund attempted
+              ? 'pending'
+              : refundResult.success ? refundResult.refundStatus : 'failed',
             refundId: refundResult.refundId || null,
             refundedAt: refundResult.success ? refundResult.refundedAt : null,
-            refundReason: 'Auto-cancel: owner confirmation timeout'
+            refundReason: refundPolicy
           };
 
-          // Only update paymentStatus if refund actually went through
           if (booking.paymentStatus === 'paid' && refundResult.success && refundResult.refundStatus === 'processed') {
             booking.paymentStatus = 'refunded';
           }
+
           if (refundResult.success) {
             if (!booking.paymentLedger) booking.paymentLedger = { transactions: [], adjustments: [] };
             if (!booking.paymentLedger.transactions) booking.paymentLedger.transactions = [];
             const existingRefundTxn = booking.paymentLedger.transactions.find((txn) => txn.txnId === refundResult.refundId);
             if (existingRefundTxn) {
               existingRefundTxn.status = refundResult.ledgerStatus;
-              existingRefundTxn.amount = booking.amount || 0;
-              existingRefundTxn.note = 'Auto-cancel: owner confirmation timeout';
+              existingRefundTxn.amount = refundAmount;
+              existingRefundTxn.note = refundPolicy;
             } else {
               booking.paymentLedger.transactions.push({
                 txnId: refundResult.refundId,
                 type: 'refund',
-                amount: booking.amount || 0,
+                amount: refundAmount,
                 status: refundResult.ledgerStatus,
-                note: 'Auto-cancel: owner confirmation timeout',
+                note: refundPolicy,
                 date: new Date()
               });
             }
@@ -145,17 +165,16 @@ const startAutoCancelCron = () => {
 
           await booking.save();
 
-          // Send email notification
           try {
-            const { sendBookingEmail } = require('./emailService');
-            await sendBookingEmail(booking, 'cancelled');
-          } catch (emailErr) {
-            console.error('[CRON] Failed to send auto-cancel email:', emailErr.message);
+            await sendBookingNotifications(booking, 'cancelled', { bookingType: 'venue' });
+          } catch (notifyErr) {
+            console.error('[CRON] Failed to send venue auto-cancel notifications:', notifyErr.message);
           }
 
           console.log(
             `[CRON] Cancelled ${booking.bookingNumber} | ` +
             `Payment: ${booking.paymentStatus} | ` +
+            `RefundAmount: ₹${refundAmount} | ` +
             `Refund: ${refundResult.success ? refundResult.refundId : refundResult.reason}`
           );
         }
@@ -165,7 +184,10 @@ const startAutoCancelCron = () => {
       const expiredServices = await ServiceBooking.find({
         status: 'pending',
         confirmationDeadline: { $lte: now }
-      }).populate('service', 'title availability confirmationHours');
+      })
+      .populate('service', 'title availability confirmationHours')
+      .populate('vendor', 'name email phone companyName')
+      .populate('customer', 'name email phone');
 
       if (expiredServices.length > 0) {
         console.log(`[CRON] ${expiredServices.length} expired service booking(s) to auto-cancel`);
@@ -190,25 +212,26 @@ const startAutoCancelCron = () => {
             }
           }
 
+          const refundAmount = booking.paymentStatus === 'paid' ? getRefundableAmount(booking) : 0;
+          const refundPolicy = 'Full refund - auto-cancel: vendor confirmation timeout';
           let refundResult = { success: false, reason: 'Payment not completed' };
 
-          if (booking.paymentStatus === 'paid') {
-            refundResult = await processRefund(booking);
+          if (booking.paymentStatus === 'paid' && refundAmount > 0) {
+            refundResult = await processRefund(booking, { refundAmount, reason: refundPolicy });
           }
 
           booking.status = 'cancelled';
           booking.cancellationReason = 'Auto-cancelled: vendor did not confirm within the required time';
           booking.cancelledByRole = 'system';
           booking.cancellationType = 'auto';
-
           booking.refundDetails = {
-            refundAmount: booking.paymentStatus === 'paid' ? (booking.amount || booking.pricing?.total || 0) : 0,
+            refundAmount,
             refundStatus: booking.paymentStatus !== 'paid'
               ? 'pending'
               : refundResult.success ? refundResult.refundStatus : 'failed',
             refundId: refundResult.refundId || null,
             refundedAt: refundResult.success ? refundResult.refundedAt : null,
-            refundReason: 'Auto-cancel: vendor confirmation timeout'
+            refundReason: refundPolicy
           };
 
           if (booking.paymentStatus === 'paid' && refundResult.success && refundResult.refundStatus === 'processed') {
@@ -217,9 +240,16 @@ const startAutoCancelCron = () => {
 
           await booking.save();
 
+          try {
+            await sendBookingNotifications(booking, 'cancelled', { bookingType: 'service' });
+          } catch (notifyErr) {
+            console.error('[CRON] Failed to send service auto-cancel notifications:', notifyErr.message);
+          }
+
           console.log(
             `[CRON] Cancelled Service Booking ${booking.bookingNumber} | ` +
             `Payment: ${booking.paymentStatus} | ` +
+            `RefundAmount: ₹${refundAmount} | ` +
             `Refund: ${refundResult.success ? refundResult.refundId : refundResult.reason}`
           );
         }

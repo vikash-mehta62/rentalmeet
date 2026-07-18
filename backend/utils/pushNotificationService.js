@@ -310,125 +310,115 @@ const sendBookingPushNotification = async (booking, event) => {
   try {
     if (!booking) return;
 
+    const isServiceBooking = !booking.venue;
     const customerId = booking.customer?._id || booking.customer;
-    const bookingNum = booking.bookingNumber;
-    
-    let venueOwnerId = null;
-    let serviceVendorId = null;
-    let businessName = 'Venue';
-
-    if (booking.venue) {
-      venueOwnerId = booking.venue.owner?._id || booking.venue.owner;
-      businessName = booking.venue.businessName || 'Venue';
-    } else if (booking.vendor) {
-      serviceVendorId = booking.vendor?._id || booking.vendor;
-      businessName = booking.title || 'Service';
-    }
+    const providerId = isServiceBooking
+      ? (booking.vendor?._id || booking.vendor)
+      : (booking.venue?.owner?._id || booking.venue?.owner);
+    const bookingNum = booking.bookingNumber || booking.quotationNumber || booking._id?.toString()?.slice(-8)?.toUpperCase();
+    const businessName = isServiceBooking
+      ? (booking.service?.title || booking.serviceSnapshot?.title || booking.title || 'Service')
+      : (booking.venue?.businessName || 'Venue');
+    const reviewerLabel = isServiceBooking ? 'vendor' : 'owner';
 
     const payloadData = {
       bookingId: booking._id.toString(),
       bookingNumber: bookingNum,
-      type: booking.venue ? 'venue' : 'service'
+      type: isServiceBooking ? 'service' : 'venue',
+      link: isServiceBooking ? '/customer/service-bookings' : '/customer/bookings'
+    };
+    const providerPayloadData = {
+      ...payloadData,
+      link: isServiceBooking ? '/vendor/bookings' : '/owner/bookings'
+    };
+
+    const notifyCustomer = async (title, body) => {
+      if (!customerId) return;
+      await sendPushToUser(customerId, title, body, 'booking', payloadData);
+    };
+
+    const notifyProvider = async (title, body) => {
+      if (!providerId) return;
+      await sendPushToUser(providerId, title, body, 'booking', providerPayloadData);
     };
 
     switch (event) {
-      case 'created':
-        // Notify Customer
-        await sendPushToUser(
-          customerId,
-          'Booking Initiated! 📅',
-          `Your booking request for "${businessName}" (Booking: #${bookingNum}) is pending owner confirmation.`,
-          'booking',
-          payloadData
+      case 'enquiry':
+        await notifyCustomer(
+          'Service Enquiry Received',
+          `Your enquiry for "${businessName}" (Enquiry: #${bookingNum}) has been received.`
         );
-        // Notify Owner / Vendor
-        const ownerId = venueOwnerId || serviceVendorId;
-        if (ownerId) {
-          await sendPushToUser(
-            ownerId,
-            'New Booking Request! 🔔',
-            `You have received a new booking request for "${businessName}" (Booking: #${bookingNum}).`,
-            'booking',
-            payloadData
-          );
-        }
+        await notifyProvider(
+          'New Service Enquiry',
+          `You have received a new enquiry for "${businessName}" (Enquiry: #${bookingNum}).`
+        );
+        break;
+
+      case 'created':
+        await notifyCustomer(
+          'Booking Initiated! 📅',
+          `Your booking request for "${businessName}" (Booking: #${bookingNum}) is pending ${reviewerLabel} confirmation.`
+        );
+        await notifyProvider(
+          'New Booking Request! 🔔',
+          `You have received a new booking request for "${businessName}" (Booking: #${bookingNum}).`
+        );
         break;
 
       case 'confirmed':
-        // Notify Customer
-        await sendPushToUser(
-          customerId,
+        await notifyCustomer(
           'Booking Confirmed! 🎉',
-          `Great news! Your booking for "${businessName}" (Booking: #${bookingNum}) has been confirmed.`,
-          'booking',
-          payloadData
+          `Great news! Your booking for "${businessName}" (Booking: #${bookingNum}) has been confirmed.`
+        );
+        await notifyProvider(
+          'Booking Confirmed',
+          `Booking #${bookingNum} for "${businessName}" has been confirmed.`
         );
         break;
 
       case 'completed':
-        // Notify Customer
-        await sendPushToUser(
-          customerId,
+        await notifyCustomer(
           'Booking Completed! Check-out Successful',
-          `Thank you for using RentalMeet. Your booking for "${businessName}" (Booking: #${bookingNum}) is complete. Please share your review!`,
-          'booking',
-          payloadData
+          `Thank you for using RentalMeet. Your booking for "${businessName}" (Booking: #${bookingNum}) is complete.`
         );
-        // Notify Owner / Vendor
-        const completionOwnerId = venueOwnerId || serviceVendorId;
-        if (completionOwnerId) {
-          await sendPushToUser(
-            completionOwnerId,
-            'Booking Completed!',
-            `The event for Booking #${bookingNum} has concluded successfully. Settlement will be initiated shortly.`,
-            'booking',
-            payloadData
-          );
-        }
+        await notifyProvider(
+          'Booking Completed!',
+          `The event for Booking #${bookingNum} has concluded successfully. Settlement will be initiated shortly.`
+        );
         break;
 
-      case 'cancelled':
+      case 'cancelled': {
         const reason = booking.cancellationReason || 'Cancelled by user/admin';
-        // Notify Customer
-        await sendPushToUser(
-          customerId,
+        await notifyCustomer(
           'Booking Cancelled ❌',
-          `Your booking for "${businessName}" (Booking: #${bookingNum}) was cancelled. Reason: ${reason}`,
-          'booking',
-          payloadData
+          `Your booking for "${businessName}" (Booking: #${bookingNum}) was cancelled. Reason: ${reason}`
         );
-        // Notify Owner / Vendor
-        const cancelOwnerId = venueOwnerId || serviceVendorId;
-        if (cancelOwnerId) {
-          await sendPushToUser(
-            cancelOwnerId,
-            'Booking Cancelled ❌',
-            `Booking #${bookingNum} for "${businessName}" was cancelled. Reason: ${reason}`,
-            'booking',
-            payloadData
-          );
-        }
+        await notifyProvider(
+          'Booking Cancelled ❌',
+          `Booking #${bookingNum} for "${businessName}" was cancelled. Reason: ${reason}`
+        );
         break;
+      }
 
       case 'modified':
-        // Notify Customer
-        await sendPushToUser(
-          customerId,
+        await notifyCustomer(
           'Booking Modified ✏️',
-          `Your booking #${bookingNum} details (date/time/amenities) have been successfully updated.`,
-          'booking',
-          payloadData
+          `Your booking #${bookingNum} details have been updated.`
+        );
+        await notifyProvider(
+          'Booking Modified',
+          `Booking #${bookingNum} for "${businessName}" has been updated.`
         );
         break;
 
       case 'approve_soon':
-        // Notify Customer
-        await sendPushToUser(
-          customerId,
-          'Approve Soon Action Taken ⏳',
-          `The host needs more time. The confirmation window for Booking #${bookingNum} has been extended by 1 hour.`,
-          'booking',
-          payloadData
+        await notifyCustomer(
+          'Confirmation Window Extended ⏳',
+          `The ${reviewerLabel} needs more time. The confirmation window for Booking #${bookingNum} has been extended.`
+        );
+        await notifyProvider(
+          'Confirmation Window Extended',
+          `You extended the confirmation window for Booking #${bookingNum}.`
         );
         break;
 
@@ -456,7 +446,7 @@ const sendSettlementPushNotification = async (booking, type, isSuccess, details 
       businessName = booking.venue?.businessName || 'Venue';
     } else if (type === 'service') {
       beneficiaryId = booking.vendor?._id || booking.vendor;
-      businessName = booking.title || 'Service';
+      businessName = booking.service?.title || booking.serviceSnapshot?.title || booking.title || 'Service';
     }
 
     if (!beneficiaryId) return;
