@@ -5,6 +5,45 @@ const ServiceBooking = require('../models/ServiceBooking');
 const { calculateServiceConfirmationDeadline } = require('../utils/confirmationDeadline');
 const { handleRefundWebhook, verifyWebhookSignature } = require('../utils/refundHelper');
 
+const getHeaderValue = (req, headerName) => {
+  const normalizedName = headerName.toLowerCase();
+  const directValue = req.get?.(headerName) || req.headers?.[normalizedName] || req.headers?.[headerName];
+  if (Array.isArray(directValue)) return directValue[0];
+  if (directValue) return directValue;
+
+  const rawHeaders = Array.isArray(req.rawHeaders) ? req.rawHeaders : [];
+  for (let i = 0; i < rawHeaders.length; i += 2) {
+    if (String(rawHeaders[i]).toLowerCase() === normalizedName) {
+      return rawHeaders[i + 1];
+    }
+  }
+
+  return undefined;
+};
+
+const getFirstHeaderValue = (req, headerNames) => {
+  for (const headerName of headerNames) {
+    const value = getHeaderValue(req, headerName);
+    if (value) return value;
+  }
+  return undefined;
+};
+
+const getRazorpayHeaderNames = (req) => {
+  const names = new Set();
+  Object.keys(req.headers || {}).forEach((name) => {
+    if (name.toLowerCase().includes('razorpay')) names.add(name);
+  });
+
+  const rawHeaders = Array.isArray(req.rawHeaders) ? req.rawHeaders : [];
+  for (let i = 0; i < rawHeaders.length; i += 2) {
+    const name = String(rawHeaders[i] || '');
+    if (name.toLowerCase().includes('razorpay')) names.add(name);
+  }
+
+  return Array.from(names).sort();
+};
+
 // Create Razorpay Order
 exports.createOrder = async (req, res) => {
   try {
@@ -120,8 +159,8 @@ exports.handleRazorpayWebhook = async (req, res) => {
       return res.status(500).json({ success: false, message: 'Webhook secret not configured' });
     }
 
-    const signature = req.headers['x-razorpay-signature'];
-    const eventId = req.headers['x-razorpay-event-id'];
+    const signature = getFirstHeaderValue(req, ['x-razorpay-signature', 'x_razorpay_signature']);
+    const eventId = getFirstHeaderValue(req, ['x-razorpay-event-id', 'x_razorpay_event_id']);
     const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.from('');
 
     if (!verifyWebhookSignature(rawBody, signature, secret)) {
@@ -131,12 +170,13 @@ exports.handleRazorpayWebhook = async (req, res) => {
         .digest('hex');
       console.warn('[RAZORPAY_WEBHOOK] Invalid webhook signature:', JSON.stringify({
         eventId,
-        contentType: req.headers['content-type'],
+        contentType: getHeaderValue(req, 'content-type'),
         hasSignature: Boolean(signature),
         signatureLength: signature ? String(signature).length : 0,
         expectedSignatureLength: expectedSignature.length,
         signaturePrefix: signature ? String(signature).slice(0, 8) : null,
         expectedSignaturePrefix: expectedSignature.slice(0, 8),
+        razorpayHeaderNames: getRazorpayHeaderNames(req),
         rawBodyLength: rawBody.length,
         rawBodySha256: crypto.createHash('sha256').update(rawBody).digest('hex'),
         webhookSecretConfigured: Boolean(secret),
