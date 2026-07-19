@@ -825,6 +825,34 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
+const getSecretDiagnostics = (value) => {
+  if (!value) {
+    return { configured: false, length: 0 };
+  }
+
+  const crypto = require('crypto');
+  const firstCharCode = value.charCodeAt(0);
+  const lastCharCode = value.charCodeAt(value.length - 1);
+
+  return {
+    configured: true,
+    length: value.length,
+    sha256Prefix: crypto.createHash('sha256').update(value, 'utf8').digest('hex').slice(0, 12),
+    hasEdgeWhitespace: value.trim() !== value,
+    startsWithQuote: firstCharCode === 34 || firstCharCode === 39,
+    endsWithQuote: lastCharCode === 34 || lastCharCode === 39,
+    firstCharCode,
+    lastCharCode
+  };
+};
+
+const logRazorpayWebhookConfig = () => {
+  console.log('[RAZORPAY_CONFIG]', JSON.stringify({
+    keyIdPrefix: process.env.RAZORPAY_KEY_ID ? process.env.RAZORPAY_KEY_ID.slice(0, 8) : null,
+    webhookSecret: getSecretDiagnostics(process.env.RAZORPAY_WEBHOOK_SECRET)
+  }));
+};
+
 const startServer = async () => {
   try {
     await connectDB();
@@ -833,6 +861,7 @@ const startServer = async () => {
 
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
+      logRazorpayWebhookConfig();
     });
   } catch (error) {
     console.error('❌ Server startup failed:', error.message);
