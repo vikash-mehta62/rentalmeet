@@ -41,7 +41,12 @@ const {
   deleteSubAdmin,
   toggleSubAdminStatus,
   settleBookingManual,
-  settleServiceBookingManual
+  settleServiceBookingManual,
+  getAllAmbassadors,
+  getAmbassadorDetails,
+  updateAmbassadorStatus,
+  getAllAmbassadorPayouts,
+  updateAmbassadorPayoutStatus
 } = require('../controllers/adminController');
 const { protect, authorize, checkPermission } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
@@ -94,22 +99,40 @@ router.get('/venues', protect, authorize('admin', 'subadmin'), checkPermission('
     const Venue = require('../models/Venue');
     const Booking = require('../models/Booking');
     const VenueReview = require('../models/VenueReview');
-    const { status, search, venueType, owner, page = 1, limit = 12, export: isExport } = req.query;
+    const { status, search, venueType, owner, ambassador, source, listingSource, page = 1, limit = 12, export: isExport } = req.query;
     const query = {};
     if (status && status !== 'all') query.status = status;
     if (venueType && venueType !== 'all') query.venueType = venueType;
     if (owner) query.owner = owner;
+    if (ambassador) query.ambassador = ambassador;
+
+    const sourceFilter = source || listingSource;
+    if (sourceFilter === 'ambassador') {
+      query.$or = [{ listingSource: 'ambassador' }, { ambassador: { $exists: true, $ne: null } }];
+    } else if (sourceFilter === 'owner') {
+      query.listingSource = { $ne: 'ambassador' };
+      query.ambassador = null;
+    }
+
     if (search) {
-      query.$or = [
+      const searchConditions = [
         { businessName: { $regex: search, $options: 'i' } },
         { 'location.city': { $regex: search, $options: 'i' } },
         { 'location.area': { $regex: search, $options: 'i' } },
+        { sku: { $regex: search, $options: 'i' } }
       ];
+      if (query.$or) {
+        query.$and = [{ $or: query.$or }, { $or: searchConditions }];
+        delete query.$or;
+      } else {
+        query.$or = searchConditions;
+      }
     }
 
     if (isExport === 'true') {
       const venues = await Venue.find(query)
         .populate('owner', 'name email phone')
+        .populate('ambassador', 'name email phone referralCode')
         .sort('-createdAt');
       
       // Calculate stats for all venues in export
@@ -165,6 +188,7 @@ router.get('/venues', protect, authorize('admin', 'subadmin'), checkPermission('
     const [venues, total] = await Promise.all([
       Venue.find(query)
         .populate('owner', 'name email phone')
+        .populate('ambassador', 'name email phone referralCode')
         .sort('-createdAt')
         .skip(skip)
         .limit(parseInt(limit)),
@@ -708,6 +732,13 @@ router.route('/terms')
 router.get('/reports', protect, authorize('admin'), checkPermission('reports'), getReports);
 router.get('/earnings', protect, authorize('admin'), checkPermission('reports'), getEarningsReport);
 router.get('/stats', protect, authorize('admin'), checkPermission('dashboard'), getDashboardStats);
+
+// Ambassador Management routes
+router.get('/ambassadors', protect, authorize('admin', 'subadmin'), getAllAmbassadors);
+router.get('/ambassadors/:id', protect, authorize('admin', 'subadmin'), getAmbassadorDetails);
+router.put('/ambassadors/:id/status', protect, authorize('admin', 'subadmin'), updateAmbassadorStatus);
+router.get('/ambassador-payouts', protect, authorize('admin', 'subadmin'), getAllAmbassadorPayouts);
+router.put('/ambassador-payouts/:id/status', protect, authorize('admin', 'subadmin'), updateAmbassadorPayoutStatus);
 
 // Admin: Get all coupons (global + venue-specific)
 router.get('/coupons', protect, authorize('admin'), async (req, res) => {

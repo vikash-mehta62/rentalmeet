@@ -13,6 +13,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
  * Change 21600 → 3600 for 1-hour refresh, → 86400 for once a day.
  */
 export const revalidate = 21600; // seconds
+export const dynamic = 'force-dynamic';
 
 // Static public pages
 const staticRoutes = [

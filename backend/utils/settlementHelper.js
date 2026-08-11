@@ -147,6 +147,17 @@ exports.settleBooking = async (bookingId, bookingType, manualOptions = null) => 
 
       await booking.save();
       console.log(`[SETTLEMENT] ✅ Manually settled booking ${booking.bookingNumber} with amount ₹${payoutAmount}`);
+      
+      // If venue booking, credit 25% profit share to ambassador (if listed via ambassador within 12 months)
+      if (bookingType === 'venue') {
+        try {
+          const { processBookingProfitShare } = require('./ambassadorRewardHelper');
+          await processBookingProfitShare(booking);
+        } catch (ambErr) {
+          console.error('[AMBASSADOR] Error processing booking profit share:', ambErr.message);
+        }
+      }
+
       await triggerPush(booking);
       return booking;
     }
@@ -288,6 +299,17 @@ exports.settleBooking = async (bookingId, bookingType, manualOptions = null) => 
 
       await booking.save();
       console.log(`[SETTLEMENT] ✅ Live settlement transfer successful for ${booking.bookingNumber}`);
+      
+      // If venue booking, credit 25% profit share to ambassador (if listed via ambassador within 12 months)
+      if (bookingType === 'venue') {
+        try {
+          const { processBookingProfitShare } = require('./ambassadorRewardHelper');
+          await processBookingProfitShare(booking);
+        } catch (ambErr) {
+          console.error('[AMBASSADOR] Error processing booking profit share:', ambErr.message);
+        }
+      }
+
       await triggerPush(booking);
       return booking;
     } catch (apiErr) {

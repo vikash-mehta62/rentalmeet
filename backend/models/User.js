@@ -29,7 +29,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['owner', 'admin', 'subadmin', 'customer', 'employee', 'vendor'],
+    enum: ['owner', 'admin', 'subadmin', 'customer', 'employee', 'vendor', 'ambassador'],
     default: 'customer'
   },
   password: {
@@ -334,6 +334,7 @@ userSchema.pre('save', async function(next) {
 userSchema.methods.generateReferralCode = function() {
   const prefix = this.role === 'owner' ? 'OWN' : 
                  this.role === 'employee' ? 'EMP' :
+                 this.role === 'ambassador' ? 'AMB' :
                  this.role === 'subadmin' ? 'SUB' : 'USR';
   const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
   return `${prefix}${randomStr}`;

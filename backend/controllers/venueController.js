@@ -1,7 +1,8 @@
 const Venue = require('../models/Venue');
+const User = require('../models/User');
 const { uploadToStorage } = require('../config/storage');
 const { encrypt } = require('../utils/encryption');
-const { sendVenueSubmissionEmail } = require('../utils/emailService');
+const { sendVenueSubmissionEmail, sendVenueOwnerWelcomeCredentialsEmail } = require('../utils/emailService');
 
 const normalizeFoodType = (value) => {
   const key = String(value || '').toLowerCase().replace(/[\s_-]+/g, '');
@@ -16,49 +17,112 @@ const normalizeFoodType = (value) => {
 exports.createVenue = async (req, res) => {
   try {
     console.log('=== VENUE CREATION DEBUG ===');
-    console.log('1. User:', req.user?.name, '(', req.user?.email, ')');
-    console.log('2. Owner ID:', req.user?.id);
+    console.log('1. User:', req.user?.name, '(', req.user?.email, ') Role:', req.user?.role);
+    console.log('2. Requester ID:', req.user?.id);
     
     const venueData = req.body;
     console.log('3. Received data keys:', Object.keys(venueData));
     console.log('4. Business Name:', venueData.businessName);
     console.log('5. City:', venueData.location?.city);
-    console.log('6. Amenities received:', {
-      basic: venueData.amenities?.basic?.length || 0,
-      beverages: venueData.amenities?.beverages?.length || 0,
-      food: venueData.amenities?.refreshmentFood?.length || 0,
-      thalis: venueData.amenities?.lunchThalis?.length || 0,
-      kitchenAccess: venueData.amenities?.kitchenAccess?.available,
-      diningArea: venueData.amenities?.diningArea?.available,
-      additional: venueData.amenities?.additional?.length || 0
-    });
-    console.log('7. Images received:', venueData.images?.length || 0);
-    console.log('8. Documents received:', {
-      idProofFront: !!venueData.documents?.idProof?.frontUrl,
-      idProofBack: !!venueData.documents?.idProof?.backUrl,
-      selfie: !!venueData.documents?.selfieUrl,
-      businessProof: !!venueData.documents?.businessProof?.documentUrl
-    });
-    console.log('9. Bank details received:', {
-      accountHolder: !!venueData.bankDetails?.accountHolderName,
-      accountNumber: !!venueData.bankDetails?.accountNumber,
-      ifsc: !!venueData.bankDetails?.ifscCode
-    });
     
     // Encrypt bank account number
     if (venueData.bankDetails && venueData.bankDetails.accountNumber) {
-      console.log('10. Encrypting bank details...');
       venueData.bankDetails.accountNumber = encrypt(venueData.bankDetails.accountNumber);
     }
     
-    // Set owner
-    venueData.owner = req.user.id;
+    let ownerUser = null;
+    let autoPassword = null;
+    let isNewAccount = false;
+
+    // Set Owner & Ambassador
+    if (req.user.role === 'ambassador') {
+      const ownerInfo = venueData.ownerInfo || {};
+      const ownerMobile = (ownerInfo.mobile || '').trim();
+      const ownerEmail = (ownerInfo.email || '').trim().toLowerCase();
+      const ownerName = (ownerInfo.fullName || venueData.businessName + ' Owner').trim();
+
+      if (!ownerMobile && !ownerEmail) {
+        return res.status(400).json({
+          success: false,
+          message: 'Venue owner contact information (mobile or email) is required to onboard a venue.'
+        });
+      }
+
+      // Look up existing owner user by mobile or email
+      if (ownerMobile) {
+        ownerUser = await User.findOne({ phone: ownerMobile });
+      }
+      if (!ownerUser && ownerEmail) {
+        ownerUser = await User.findOne({ email: ownerEmail });
+      }
+
+      if (ownerUser) {
+        // Upgrade customer to owner role if needed
+        if (ownerUser.role === 'customer') {
+          ownerUser.role = 'owner';
+          await ownerUser.save();
+        }
+        console.log(`[AMBASSADOR ONBOARDING] Linked venue to existing Owner user: ${ownerUser._id} (${ownerUser.phone || ownerUser.email})`);
+      } else {
+        // Auto-create new Owner account
+        isNewAccount = true;
+        const fallbackEmail = ownerEmail || `owner.${ownerMobile || Date.now()}@rentalmeet.com`;
+        autoPassword = `RM@${(ownerMobile || '1234567890').slice(-4)}${Math.floor(100 + Math.random() * 900)}`;
+        
+        ownerUser = await User.create({
+          name: ownerName,
+          phone: ownerMobile || undefined,
+          email: fallbackEmail,
+          password: autoPassword,
+          role: 'owner',
+          isPhoneVerified: true,
+          isEmailVerified: !!ownerEmail
+        });
+        console.log(`[AMBASSADOR ONBOARDING] ✨ Auto-created new Owner Account: ID=${ownerUser._id}, Phone=${ownerUser.phone}, Email=${ownerUser.email}`);
+      }
+
+      venueData.owner = ownerUser._id;
+      venueData.ambassador = req.user.id;
+      venueData.listingSource = 'ambassador';
+    } else {
+      venueData.owner = req.user.id;
+    }
     console.log('11. Owner set:', venueData.owner);
     
     // Create venue
     console.log('12. Creating venue in database...');
     const venue = await Venue.create(venueData);
-    console.log('13. Venue created successfully!');
+
+    if (req.user.role === 'ambassador') {
+      try {
+        const AmbassadorProfile = require('../models/AmbassadorProfile');
+        await AmbassadorProfile.findOneAndUpdate(
+          { user: req.user.id },
+          { $inc: { totalVenuesSubmitted: 1 } }
+        );
+      } catch (err) {
+        console.error('Error updating ambassador profile count:', err);
+      }
+
+      // Send Welcome & Login Credentials Email to Venue Owner
+      if (ownerUser && ownerUser.email) {
+        try {
+          await sendVenueOwnerWelcomeCredentialsEmail({
+            ownerEmail: ownerUser.email,
+            ownerName: ownerUser.name,
+            venueName: venue.businessName,
+            ambassadorName: req.user.name,
+            ambassadorPhone: req.user.phone,
+            loginEmail: ownerUser.email,
+            temporaryPassword: autoPassword,
+            isNewAccount
+          });
+        } catch (emailErr) {
+          console.error('[EMAIL] Failed to send owner credentials email:', emailErr.message);
+        }
+      }
+    }
+    console.log('13. Venue created successfully! ID:', venue._id, 'SKU:', venue.sku);
     console.log('   - ID:', venue._id);
     console.log('   - SKU:', venue.sku);
     console.log('   - Status:', venue.status);
@@ -71,12 +135,14 @@ exports.createVenue = async (req, res) => {
     console.log('   - Images saved:', venue.images?.length || 0);
     console.log('   - Bank details encrypted:', !!venue.bankDetails?.accountNumber);
     
-    // Send confirmation email
+    // Send confirmation email to submitter
     try {
-      await sendVenueSubmissionEmail(req.user.email, venueData.businessName);
-      console.log('14. Confirmation email sent');
+      if (req.user.email) {
+        await sendVenueSubmissionEmail(req.user.email, venueData.businessName);
+        console.log('14. Confirmation email sent to submitter');
+      }
     } catch (emailError) {
-      console.log('14. Email send failed (non-critical):', emailError.message);
+      console.log('14. Submitter email send failed (non-critical):', emailError.message);
     }
     
     res.status(201).json({
@@ -434,6 +500,13 @@ exports.getVenue = async (req, res) => {
 // @route   GET /api/venues/:id/edit
 exports.getVenueForEdit = async (req, res) => {
   try {
+    if (req.user.role === 'ambassador') {
+      return res.status(403).json({
+        success: false,
+        message: 'Ambassadors have view-only access. Only the Venue Owner or Administrator can edit venue listings.'
+      });
+    }
+
     const venue = await Venue.findById(req.params.id)
       .populate('owner', 'name email phone');
 
@@ -442,7 +515,7 @@ exports.getVenueForEdit = async (req, res) => {
     }
 
     // Only owner or admin can access full data
-    if (venue.owner._id.toString() !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'subadmin') {
+    if (venue.owner?._id?.toString() !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'subadmin') {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
@@ -464,8 +537,16 @@ exports.getVenueForEdit = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
 exports.updateVenue = async (req, res) => {
   try {
+    if (req.user.role === 'ambassador') {
+      return res.status(403).json({
+        success: false,
+        message: 'Ambassadors have view-only access. Only the Venue Owner or Administrator can edit venue listings.'
+      });
+    }
+
     let venue = await Venue.findById(req.params.id);
     
     if (!venue) {
@@ -476,7 +557,7 @@ exports.updateVenue = async (req, res) => {
     }
     
     // Check ownership
-    if (venue.owner.toString() !== req.user.id && req.user.role !== 'admin') {
+    if (venue.owner?.toString() !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'subadmin') {
       return res.status(403).json({
         success: false,
         message: 'Not authorized'
@@ -511,6 +592,13 @@ exports.updateVenue = async (req, res) => {
 // @route   DELETE /api/venues/:id
 exports.deleteVenue = async (req, res) => {
   try {
+    if (req.user.role === 'ambassador') {
+      return res.status(403).json({
+        success: false,
+        message: 'Ambassadors cannot delete venue listings.'
+      });
+    }
+
     const venue = await Venue.findById(req.params.id);
     
     if (!venue) {
@@ -521,7 +609,7 @@ exports.deleteVenue = async (req, res) => {
     }
     
     // Check ownership
-    if (venue.owner.toString() !== req.user.id && req.user.role !== 'admin') {
+    if (venue.owner?.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Not authorized'
@@ -542,11 +630,15 @@ exports.deleteVenue = async (req, res) => {
   }
 };
 
-// @desc    Get owner's venues
+// @desc    Get owner's or ambassador's venues
 // @route   GET /api/venues/my-venues
 exports.getMyVenues = async (req, res) => {
   try {
-    const venues = await Venue.find({ owner: req.user.id })
+    const query = req.user.role === 'ambassador'
+      ? { ambassador: req.user.id }
+      : { owner: req.user.id };
+    const venues = await Venue.find(query)
+      .populate('owner', 'name email phone')
       .sort('-createdAt');
     
     res.json({

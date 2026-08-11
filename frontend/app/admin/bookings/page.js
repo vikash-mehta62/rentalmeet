@@ -7,7 +7,7 @@ import PermissionGuard from '@/components/admin/PermissionGuard';
 import {
   BookOpen, Search, Filter, Eye, X, Calendar, Clock, MapPin,
   User, Building2, IndianRupee, CheckCircle, XCircle, AlertCircle,
-  Phone, Mail, CreditCard, Download, ChevronDown, Ban, RefreshCw
+  Phone, Mail, CreditCard, Download, ChevronDown, Ban, RefreshCw, Award
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import InvoiceDownload from '@/components/booking/InvoiceDownload';
@@ -27,6 +27,7 @@ export default function AdminBookings() {
     cancelled: 0
   });
   const [statusFilter, setStatusFilter] = useState('all');
+  const [sourceFilter, setSourceFilter] = useState('all'); // 'all' | 'owner' | 'ambassador'
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -81,7 +82,7 @@ export default function AdminBookings() {
 
   useEffect(() => {
     fetchBookings();
-  }, [currentPage, itemsPerPage, statusFilter, selectedVenue, searchQuery, selectedStatsVenue, selectedVenueType]);
+  }, [currentPage, itemsPerPage, statusFilter, sourceFilter, selectedVenue, searchQuery, selectedStatsVenue, selectedVenueType]);
 
   useEffect(() => {
     if (token && activeMainTab === 'cancellations') fetchCancellations();
@@ -112,6 +113,7 @@ export default function AdminBookings() {
         page: currentPage,
         limit: itemsPerPage,
         status: statusFilter,
+        ...(sourceFilter && sourceFilter !== 'all' && { source: sourceFilter }),
         ...(selectedVenue && { venue: selectedVenue._id }),
         ...(searchQuery && { search: searchQuery }),
         ...(selectedStatsVenue && { statsVenue: selectedStatsVenue._id }),
@@ -316,6 +318,7 @@ export default function AdminBookings() {
       if (selectedVenue) params.set('venue', selectedVenue._id);
       if (selectedStatsVenue) params.set('statsVenue', selectedStatsVenue._id);
       if (selectedVenueType && selectedVenueType !== 'all') params.set('venueType', selectedVenueType);
+      if (sourceFilter && sourceFilter !== 'all') params.set('source', sourceFilter);
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/bookings?${params}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -328,7 +331,7 @@ export default function AdminBookings() {
 
       const allBookings = data.bookings;
       const headers = [
-        'S.No', 'Booking Number', 'Venue Name', 'Venue Location',
+        'S.No', 'Booking Number', 'Venue Name', 'Source', 'Ambassador Name', 'Ambassador Phone', 'Ambassador 25% Share (₹)', 'Venue Location',
         'Customer Name', 'Customer Email', 'Customer Phone',
         'Booked On', 'Booking Date', 'Time Slot', 'Event Type', 'Guest Count',
         'Venue Rental', 'Amenities & Services',
@@ -356,11 +359,17 @@ export default function AdminBookings() {
         const platformCGSTRate = pb.platformFeeCGSTRate || 9;
         const platformSGSTRate = pb.platformFeeSGSTRate || 9;
         const grandTotal   = pb.total || booking.amount || 0;
+        const isAmb = booking.venue?.listingSource === 'ambassador' || booking.venue?.ambassador;
+        const ambShare = isAmb ? Math.round((booking.commissionAmount || (grandTotal * 0.15)) * 0.25) : 0;
 
         return [
           index + 1,
           booking.bookingNumber || `#${booking._id.slice(-8).toUpperCase()}`,
           booking.venue?.businessName || 'N/A',
+          isAmb ? 'Ambassador' : 'Direct Owner',
+          booking.venue?.ambassador?.name || 'N/A',
+          booking.venue?.ambassador?.phone || 'N/A',
+          isAmb ? `₹${ambShare}` : '₹0',
           `${booking.venue?.location?.city || ''} ${booking.venue?.location?.area || ''}`.trim() || 'N/A',
           booking.customer?.name || 'N/A',
           booking.customer?.email || 'N/A',
@@ -895,19 +904,28 @@ export default function AdminBookings() {
             )}
           </div>
 
-          {/* Status Filter */}
+          {/* Status & Source Filter */}
           <div className="flex items-center gap-2">
             <Filter className="w-5 h-5 text-gray-600" />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white"
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white text-sm"
             >
               <option value="all">All Status</option>
               <option value="pending">Pending</option>
               <option value="confirmed">Confirmed</option>
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
+            </select>
+            <select
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white text-sm font-medium"
+            >
+              <option value="all">All Sources</option>
+              <option value="ambassador">Ambassador Venues 🏆</option>
+              <option value="owner">Direct Owner Venues 🏢</option>
             </select>
           </div>
 
@@ -972,6 +990,8 @@ export default function AdminBookings() {
                   const platformFee  = pb.platformFee || 0;
                   const platformGST  = pb.platformFeeGST != null ? pb.platformFeeGST : (pb.platformFeeCGST != null ? pb.platformFeeCGST + pb.platformFeeSGST : 0);
                   const grandTotal   = pb.total || booking.amount || 0;
+                  const isAmbVenue   = booking.venue?.listingSource === 'ambassador' || booking.venue?.ambassador;
+                  const ambShareEst  = isAmbVenue ? Math.round((booking.commissionAmount || (grandTotal * 0.15)) * 0.25) : 0;
 
                   return (
                   <tr key={booking._id} className="hover:bg-gray-50">
@@ -986,6 +1006,22 @@ export default function AdminBookings() {
                     <td className="px-4 py-3">
                       <p className="text-xs font-semibold text-dark-800">{booking.venue?.businessName}</p>
                       <p className="text-xs text-gray-500">{booking.venue?.location?.city}, {booking.venue?.location?.area}</p>
+                      {isAmbVenue ? (
+                        <div className="mt-1 flex flex-col gap-0.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold text-[10px] border border-amber-200 w-fit" title={booking.venue.ambassador?.email || ''}>
+                            <Award className="w-3 h-3 text-amber-600" /> Amb: {booking.venue.ambassador?.name || 'Ambassador'}
+                          </span>
+                          <span className="text-[10px] font-semibold text-purple-700">
+                            25% Profit Share: ₹{ambShareEst.toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="mt-1">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gray-100 text-gray-600 text-[10px]">
+                            Direct Owner
+                          </span>
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <p className="text-xs font-medium text-dark-800">{booking.customer?.name}</p>

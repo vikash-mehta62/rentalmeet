@@ -568,3 +568,95 @@ exports.sendPasswordResetEmail = async (email, name, otp) => {
     html
   });
 };
+
+exports.sendVenueOwnerWelcomeCredentialsEmail = async ({
+  ownerEmail,
+  ownerName,
+  venueName,
+  ambassadorName,
+  ambassadorPhone,
+  loginEmail,
+  temporaryPassword,
+  isNewAccount
+}) => {
+  const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login`;
+  
+  const credentialsHtml = isNewAccount ? `
+    <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 2px solid #86efac; border-radius: 14px; padding: 20px; margin: 24px 0;">
+      <h3 style="color: #166534; margin-top: 0; margin-bottom: 12px; font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+        🔐 Your Venue Owner Login Credentials
+      </h3>
+      <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+        <tr>
+          <td style="padding: 6px 0; color: #4b5563; font-weight: 600; width: 140px;">Login Portal:</td>
+          <td style="padding: 6px 0;"><a href="${loginUrl}" style="color: #ea580c; font-weight: 700; text-decoration: underline;">${loginUrl}</a></td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #4b5563; font-weight: 600;">Registered Email:</td>
+          <td style="padding: 6px 0; color: #1e293b; font-weight: 700; font-family: monospace;">${loginEmail}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #4b5563; font-weight: 600;">Temporary Password:</td>
+          <td style="padding: 6px 0;">
+            <span style="background-color: #ffffff; border: 1px dashed #22c55e; border-radius: 6px; padding: 4px 10px; font-family: monospace; font-size: 16px; font-weight: 800; color: #15803d; letter-spacing: 1px;">
+              ${temporaryPassword}
+            </span>
+          </td>
+        </tr>
+      </table>
+      <p style="margin: 12px 0 0; color: #15803d; font-size: 12px;">
+        💡 <strong>Security Tip:</strong> Please change your password after your first login under Profile Settings.
+      </p>
+    </div>
+  ` : `
+    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; margin: 20px 0;">
+      <p style="margin: 0; color: #334155; font-size: 14px;">
+        Since you already have a registered RentalMeet Owner Account with <strong>${loginEmail}</strong>, this venue has been automatically added to your dashboard! You can log in using your existing password.
+      </p>
+      <div style="margin-top: 14px;">
+        <a href="${loginUrl}" style="display: inline-block; background-color: #ea580c; color: #ffffff; font-weight: 700; font-size: 13px; padding: 10px 20px; border-radius: 8px; text-decoration: none;">
+          Go to Owner Dashboard →
+        </a>
+      </div>
+    </div>
+  `;
+
+  const ambassadorSection = ambassadorName ? `
+    <div style="background-color: #fff7ed; border-left: 4px solid #ea580c; border-radius: 8px; padding: 14px 18px; margin: 18px 0;">
+      <p style="margin: 0; color: #9a3412; font-size: 13px; line-height: 1.5;">
+        🤝 <strong>Onboarded via RentalMeet Ambassador Partner:</strong><br/>
+        This venue was registered on your behalf by our authorized partner <strong>${ambassadorName}</strong>${ambassadorPhone ? ` (Phone: ${ambassadorPhone})` : ''}.
+      </p>
+    </div>
+  ` : '';
+
+  const benefitsHtml = `
+    <div style="margin: 24px 0;">
+      <h4 style="color: #1e293b; margin-bottom: 10px; font-size: 14px;">What you can do in your Venue Owner Portal:</h4>
+      <ul style="color: #475569; font-size: 13px; line-height: 1.8; padding-left: 20px; margin: 0;">
+        <li><strong>Calendar & Availability:</strong> Block unavailable dates and manage hourly slots.</li>
+        <li><strong>Direct Payouts:</strong> 100% of your venue booking earnings are transferred directly into your bank account.</li>
+        <li><strong>Venue Customization:</strong> Update photos, pricing, banquet menus, and amenity packages anytime.</li>
+      </ul>
+    </div>
+  `;
+
+  const html = getHtmlTemplate(
+    '🎉 Welcome to RentalMeet - Venue Onboarding Confirmation',
+    ownerName || 'Venue Owner',
+    `Congratulations! Your venue <strong>"${venueName}"</strong> has been successfully registered on RentalMeet.`,
+    null,
+    `${ambassadorSection}${credentialsHtml}${benefitsHtml}`
+  );
+
+  try {
+    await exports.sendEmail({
+      email: ownerEmail,
+      subject: `🎉 Welcome to RentalMeet - Login Credentials for "${venueName}"`,
+      html
+    });
+    console.log(`[EMAIL] Sent Owner welcome & credentials email to ${ownerEmail}`);
+  } catch (err) {
+    console.error(`[EMAIL] Failed to send owner credentials email to ${ownerEmail}:`, err.message);
+  }
+};

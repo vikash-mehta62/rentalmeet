@@ -193,10 +193,10 @@ exports.register = async (req, res) => {
 // @route   POST /api/auth/send-email-otp
 exports.sendEmailOtp = async (req, res) => {
   try {
-    const { name, email } = req.body;
+    const { name, email, purpose } = req.body;
 
-    if (!email?.trim() || !name?.trim()) {
-      return res.status(400).json({ success: false, message: 'Name and email are required' });
+    if (!email?.trim()) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
     }
 
     // Email format validation
@@ -204,13 +204,15 @@ exports.sendEmailOtp = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid email format' });
     }
 
-    // Check if user already exists
-    const userExists = await User.findOne({ email: email.toLowerCase() });
-    if (userExists) {
-      return res.status(400).json({
-        success: false,
-        message: 'User already exists with this email address'
-      });
+    // Check if user already exists (only for new self-registration)
+    if (purpose !== 'owner_verification') {
+      const userExists = await User.findOne({ email: email.toLowerCase() });
+      if (userExists) {
+        return res.status(400).json({
+          success: false,
+          message: 'User already exists with this email address'
+        });
+      }
     }
 
     // Generate random 6-digit OTP
@@ -223,9 +225,9 @@ exports.sendEmailOtp = async (req, res) => {
       { emailOtp, isEmailVerified: false, expiresAt },
       { upsert: true, new: true }
     );
-console.log("EMAIL OTP",emailOtp)
+    console.log("EMAIL OTP:", emailOtp);
     // Send Email OTP
-    await sendOtpVerificationEmail(email.toLowerCase(), name, emailOtp);
+    await sendOtpVerificationEmail(email.toLowerCase(), name || 'Venue Owner', emailOtp);
 
     res.status(200).json({
       success: true,
@@ -289,10 +291,10 @@ exports.verifyEmailOtp = async (req, res) => {
 // @route   POST /api/auth/send-phone-otp
 exports.sendPhoneOtp = async (req, res) => {
   try {
-    const { name, phone } = req.body;
+    const { name, phone, purpose } = req.body;
 
-    if (!phone?.trim() || !name?.trim()) {
-      return res.status(400).json({ success: false, message: 'Name and phone are required' });
+    if (!phone?.trim()) {
+      return res.status(400).json({ success: false, message: 'Phone is required' });
     }
 
     // Phone validation (10 digits)
@@ -300,13 +302,15 @@ exports.sendPhoneOtp = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Phone must be 10 digits' });
     }
 
-    // Check if user already exists
-    const userExists = await User.findOne({ phone });
-    if (userExists) {
-      return res.status(400).json({
-        success: false,
-        message: 'User already exists with this phone number'
-      });
+    // Check if user already exists (only for new self-registration)
+    if (purpose !== 'owner_verification') {
+      const userExists = await User.findOne({ phone });
+      if (userExists) {
+        return res.status(400).json({
+          success: false,
+          message: 'User already exists with this phone number'
+        });
+      }
     }
 
     // Generate random 6-digit OTP
@@ -321,7 +325,7 @@ exports.sendPhoneOtp = async (req, res) => {
     );
 
     // Send SMS OTP
-    await sendSMS(phone, name, phoneOtp);
+    await sendSMS(phone, name || 'Venue Owner', phoneOtp);
 
     res.status(200).json({
       success: true,

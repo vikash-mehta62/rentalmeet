@@ -152,6 +152,7 @@ app.use('/api/venues', require('./routes/venues'));
 app.use('/api/venue-types', require('./routes/venueTypes'));
 app.use('/api/owner', require('./routes/owner'));
 app.use('/api/vendor', require('./routes/vendor'));
+app.use('/api/ambassador', require('./routes/ambassador'));
 app.use('/api/admin', require('./routes/admin'));
 
 // Public: get service platform settings (for quotation calculation)

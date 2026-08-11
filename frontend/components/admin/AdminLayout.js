@@ -9,7 +9,7 @@ import Image from 'next/image';
 import {
   LayoutDashboard, Building2, Users, BookOpen, Settings,
   LogOut, Menu, X, IndianRupee, Shield, BarChart3, Bell, 
-  Grid3x3, MessageSquare, Image as ImageIcon, ChevronLeft, ChevronRight, Tag, FileText, HelpCircle, Briefcase, Package, Wallet, Home
+  Grid3x3, MessageSquare, Image as ImageIcon, ChevronLeft, ChevronRight, Tag, FileText, HelpCircle, Briefcase, Package, Wallet, Home, Award
 } from 'lucide-react';
 
 export default function AdminLayout({ children, title, subtitle }) {
@@ -54,6 +54,7 @@ export default function AdminLayout({ children, title, subtitle }) {
     { name: 'Service Quotations', href: '/admin/service-quotation-downloads', icon: Package, permission: 'serviceQuotations', section: 'Vendors' },
 
     { name: 'Users', href: '/admin/users', icon: Users, permission: 'users', section: 'System' },
+    { name: 'Ambassadors', href: '/admin/ambassadors', icon: Award, permission: 'ambassadors', section: 'System' },
     { name: 'Employees', href: '/admin/employees', icon: Users, permission: 'employees', section: 'System' },
     { name: 'SubAdmins', href: '/admin/subadmins', icon: Shield, permission: 'subadmins', section: 'System' },
     { name: 'FAQ Management', href: '/admin/faqs', icon: HelpCircle, permission: 'faqs', section: 'System' },

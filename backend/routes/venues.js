@@ -20,9 +20,9 @@ const router = express.Router();
 
 router.route('/')
   .get(getVenues)
-  .post(protect, authorize('owner', 'admin'), createVenue);
+  .post(protect, authorize('owner', 'ambassador', 'admin'), createVenue);
 
-router.get('/my-venues', protect, authorize('owner'), getMyVenues);
+router.get('/my-venues', protect, authorize('owner', 'ambassador'), getMyVenues);
 
 // Locations endpoint
 router.get('/locations/all', getLocations);
@@ -55,12 +55,12 @@ router.get('/:id/edit', protect, getVenueForEdit);
 
 router.route('/:id')
   .get(getVenue)
-  .put(protect, authorize('owner', 'admin'), updateVenue)
+  .put(protect, authorize('owner', 'ambassador', 'admin'), updateVenue)
   .delete(protect, authorize('owner', 'admin'), deleteVenue);
 
 router.post('/:id/images', 
   protect, 
-  authorize('owner', 'admin'), 
+  authorize('owner', 'ambassador', 'admin'), 
   upload.array('images', 20), 
   uploadImages
 );

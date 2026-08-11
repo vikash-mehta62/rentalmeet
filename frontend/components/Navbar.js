@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, X, LogOut, LayoutDashboard, ChevronDown, User, Settings, Moon, Sun } from 'lucide-react';
+import { Menu, X, LogOut, LayoutDashboard, ChevronDown, User, Settings, Moon, Sun, Award } from 'lucide-react';
 import { useAuthStore, useThemeStore } from '@/lib/store';
 
 export default function Navbar() {
@@ -47,7 +47,14 @@ export default function Navbar() {
 
   const getDashboardLink = () => {
     if (!user) return '/login';
-    const roles = { owner: '/owner/dashboard', admin: '/admin/dashboard', customer: '/customer/dashboard', vendor: '/vendor/dashboard', employee: '/employee/dashboard' };
+    const roles = {
+      owner: '/owner/dashboard',
+      admin: '/admin/dashboard',
+      customer: '/customer/dashboard',
+      vendor: '/vendor/dashboard',
+      employee: '/employee/dashboard',
+      ambassador: '/ambassador/dashboard'
+    };
     return roles[user.role] || '/';
   };
 
@@ -58,7 +65,7 @@ export default function Navbar() {
     { name: 'Home', href: '/' },
     { name: 'Venues', href: '/venues' },
     { name: 'Premium Services', href: '/other-services' },
-    // { name: 'Blog', href: '/blog' },`
+   
   ];
 
   return (
@@ -150,7 +157,7 @@ export default function Navbar() {
                         <LayoutDashboard className="w-4 h-4" /> Dashboard
                       </Link>
                       <Link
-                        href={user?.role === 'vendor' ? '/vendor/onboarding' : user?.role === 'owner' ? '/owner/profile' : user?.role === 'employee' ? '/employee/profile' : '/customer/profile'}
+                        href={user?.role === 'vendor' ? '/vendor/onboarding' : user?.role === 'owner' ? '/owner/profile' : user?.role === 'ambassador' ? '/ambassador/profile' : user?.role === 'employee' ? '/employee/profile' : '/customer/profile'}
                         onClick={() => setDropdownOpen(false)}
                         className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-primary-50 dark:hover:bg-slate-700 hover:text-primary-600 transition-colors">
                         <User className="w-4 h-4" /> My Profile
@@ -187,6 +194,9 @@ export default function Navbar() {
                         <Link href="/login?role=vendor" onClick={() => setLoginDropdownOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
                           <Settings className="w-4 h-4" /> Service Login
                         </Link>
+                        <Link href="/login?role=ambassador" onClick={() => setLoginDropdownOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-slate-700 transition-colors">
+                          <Award className="w-4 h-4 text-amber-500" /> Ambassador Login
+                        </Link>
                       </div>
                     )}
                   </div>
@@ -213,6 +223,9 @@ export default function Navbar() {
                         </Link>
                         <Link href="/register?role=vendor" onClick={() => setRegisterDropdownOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
                           <Settings className="w-4 h-4" /> List Your Service
+                        </Link>
+                        <Link href="/register-ambassador" onClick={() => setRegisterDropdownOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-slate-700 transition-colors">
+                          <Award className="w-4 h-4 text-amber-500" /> Venue Ambassador
                         </Link>
                       </div>
                     )}

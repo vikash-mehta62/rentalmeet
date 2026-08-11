@@ -7,7 +7,7 @@ import VenueDetailsModal from '@/components/venue/VenueDetailsModal';
 import PermissionGuard from '@/components/admin/PermissionGuard';
 import {
   Building2, Eye, Search, Filter, Download,
-  ChevronDown, ChevronLeft, ChevronRight
+  ChevronDown, ChevronLeft, ChevronRight, Award, User
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { normalizeCustomGST, normalizeCustomPlatformFee } from '@/lib/venuePricing';
@@ -23,6 +23,7 @@ export default function AdminVenues() {
   const [stats, setStats] = useState({ total: 0, approved: 0, pending: 0, rejected: 0, resubmitted: 0, suspended: 0 });
   const [statusFilter, setStatusFilter] = useState('all');
   const [venueTypeFilter, setVenueTypeFilter] = useState('all');
+  const [sourceFilter, setSourceFilter] = useState('all'); // 'all' | 'owner' | 'ambassador'
   const [venueTypes, setVenueTypes] = useState([]);
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -47,6 +48,7 @@ export default function AdminVenues() {
       const params = new URLSearchParams({ page: 1, limit: 10000 });
       if (statusFilter !== 'all') params.set('status', statusFilter);
       if (venueTypeFilter !== 'all') params.set('venueType', venueTypeFilter);
+      if (sourceFilter !== 'all') params.set('source', sourceFilter);
       if (searchQuery) params.set('search', searchQuery);
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/venues?${params}`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -54,9 +56,12 @@ export default function AdminVenues() {
       const data = await res.json();
       if (!data.success) { toast.error('Export failed'); return; }
       const allVenues = data.venues;
-      const headers = ['S.No','Venue Name','SKU','Owner Name','Owner Email','Owner Phone','City','Area','State','Capacity','Food Type','Total Bookings','Rating','Total Earnings','Status'];
+      const headers = ['S.No','Venue Name','SKU','Source','Ambassador Name','Ambassador Phone','Owner Name','Owner Email','Owner Phone','City','Area','State','Capacity','Food Type','Total Bookings','Rating','Total Earnings','Status'];
       const rows = allVenues.map((v, i) => [
         i+1, v.businessName||'N/A', v.sku||'N/A',
+        v.listingSource === 'ambassador' || v.ambassador ? 'Ambassador' : 'Direct Owner',
+        v.ambassador?.name || 'N/A',
+        v.ambassador?.phone || 'N/A',
         v.owner?.name||'N/A', v.owner?.email||'N/A', v.owner?.phone||'N/A',
         v.location?.city||'N/A', v.location?.area||'N/A', v.location?.state||'N/A',
         v.capacity||'N/A', v.foodType || 'Veg', v.totalBookings||0,
@@ -80,6 +85,7 @@ export default function AdminVenues() {
       const params = new URLSearchParams({ page, limit: LIMIT });
       if (statusFilter !== 'all') params.set('status', statusFilter);
       if (venueTypeFilter !== 'all') params.set('venueType', venueTypeFilter);
+      if (sourceFilter !== 'all') params.set('source', sourceFilter);
       if (searchQuery) params.set('search', searchQuery);
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/venues?${params}`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -96,35 +102,7 @@ export default function AdminVenues() {
     } finally {
       setLoading(false);
     }
-  }, [token, statusFilter, venueTypeFilter, searchQuery]);
-
-  useEffect(() => {
-    if (token) { fetchPlatformSettings(); fetchVenueTypes(); }
-  }, [token]);
-
-  useEffect(() => {
-    if (token) { setCurrentPage(1); fetchVenues(1); }
-  }, [token, statusFilter, venueTypeFilter, searchQuery]);
-
-  // Debounced search
-  useEffect(() => {
-    const t = setTimeout(() => setSearchQuery(searchInput), 400);
-    return () => clearTimeout(t);
-  }, [searchInput]);
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setVenueTypeDropdownOpen(false);
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
-    fetchVenues(page);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  }, [token, statusFilter, venueTypeFilter, sourceFilter, searchQuery]);
 
   const fetchPlatformSettings = async () => {
     try {
@@ -133,84 +111,97 @@ export default function AdminVenues() {
       });
       const data = await res.json();
       if (data.success) setPlatformSettings(data.settings);
-    } catch {}
+    } catch (e) {
+      console.error('Failed to fetch platform settings', e);
+    }
   };
 
   const fetchVenueTypes = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venue-types`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues/types`);
       const data = await res.json();
-      if (data.success) setVenueTypes(data.venueTypes);
-    } catch {}
+      if (data.success) setVenueTypes(data.types || []);
+    } catch (e) {
+      console.error('Failed to fetch venue types', e);
+    }
   };
 
-  const handleStatusUpdate = async (venueId, action, reason = '') => {
+  useEffect(() => {
+    if (token) { fetchPlatformSettings(); fetchVenueTypes(); }
+  }, [token]);
+
+  useEffect(() => {
+    if (token) { setCurrentPage(1); fetchVenues(1); }
+  }, [token, statusFilter, venueTypeFilter, sourceFilter, searchQuery]);
+
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchQuery(searchInput.trim());
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setVenueTypeDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const openModal = (venue) => {
+    setSelectedVenue(venue);
+    setCustomSettings({
+      customPlatformFee: normalizeCustomPlatformFee(venue.customPlatformFee),
+      customGST: normalizeCustomGST(venue.customGST)
+    });
+    setModalOpen(true);
+  };
+
+  const handleStatusChange = async (venueId, newStatus, reason = '') => {
     try {
-      const body = action === 'reject' ? { reason } : {};
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/venues/${venueId}/${action}`, {
+      const endpoint = newStatus === 'approved' ? 'approve' :
+                       newStatus === 'rejected' ? 'reject' :
+                       newStatus === 'suspended' ? 'suspend' : 'activate';
+      const body = newStatus === 'rejected' ? { reason } : {};
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/venues/${venueId}/${endpoint}`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
       const data = await res.json();
       if (data.success) {
-        toast.success(`Venue ${action}d successfully!`);
+        toast.success(`Venue ${newStatus} successfully`);
         fetchVenues(currentPage);
-        setModalOpen(false);
+        if (selectedVenue && selectedVenue._id === venueId) {
+          setSelectedVenue({ ...selectedVenue, status: newStatus });
+        }
         setRejectModal({ open: false, venueId: null, reason: '' });
       } else {
-        toast.error(data.message || `Failed to ${action} venue`);
+        toast.error(data.message || 'Failed to update status');
       }
-    } catch { toast.error(`Failed to ${action} venue`); }
-  };
-
-  const openModal = async (venue) => {
-    // Fetch full venue data (with documents/bankDetails) via edit route
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues/${venue._id}/edit`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
-      const fullVenue = data.success ? data.venue : venue;
-      setSelectedVenue(fullVenue);
-      setCustomSettings({
-        customPlatformFee: fullVenue.customPlatformFee ? normalizeCustomPlatformFee(fullVenue.customPlatformFee, platformSettings || {}) : DEFAULT_CUSTOM_PLATFORM_FEE,
-        customGST: normalizeCustomGST(fullVenue.customGST || DEFAULT_CUSTOM_GST, platformSettings || {})
-      });
     } catch {
-      // Fallback to list data if fetch fails
-      setSelectedVenue(venue);
-      setCustomSettings({
-        customPlatformFee: venue.customPlatformFee ? normalizeCustomPlatformFee(venue.customPlatformFee, platformSettings || {}) : DEFAULT_CUSTOM_PLATFORM_FEE,
-        customGST: normalizeCustomGST(venue.customGST || DEFAULT_CUSTOM_GST, platformSettings || {})
-      });
+      toast.error('Failed to update status');
     }
-    setModalOpen(true);
   };
 
-  const closeModal = () => {
-    setSelectedVenue(null);
-    setModalOpen(false);
-    setCustomSettings({ customPlatformFee: DEFAULT_CUSTOM_PLATFORM_FEE, customGST: DEFAULT_CUSTOM_GST });
-  };
-
-  const handleUpdateSettings = async (settings) => {
+  const handleSaveCustomSettings = async () => {
+    if (!selectedVenue) return;
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/venues/${selectedVenue._id}/settings`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(settings)
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(customSettings)
       });
       const data = await res.json();
       if (data.success) {
-        toast.success('Settings updated!');
+        toast.success('Custom settings saved');
+        setSelectedVenue({ ...selectedVenue, ...customSettings });
         fetchVenues(currentPage);
-        setSelectedVenue(data.venue);
-        setCustomSettings({
-          ...settings,
-          customPlatformFee: normalizeCustomPlatformFee(settings.customPlatformFee || DEFAULT_CUSTOM_PLATFORM_FEE, platformSettings || {}),
-          customGST: normalizeCustomGST(settings.customGST || DEFAULT_CUSTOM_GST, platformSettings || {})
-        });
       } else toast.error(data.message || 'Failed to update settings');
     } catch { toast.error('Failed to update settings'); }
   };
@@ -291,13 +282,19 @@ export default function AdminVenues() {
             <div className="flex items-center gap-2">
               <Filter className="w-5 h-5 text-gray-600" />
               <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white">
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white text-sm">
                 <option value="all">All Status</option>
                 <option value="approved">Approved</option>
                 <option value="pending">Pending</option>
                 <option value="resubmitted">Resubmitted ↩</option>
                 <option value="rejected">Rejected</option>
                 <option value="suspended">Suspended</option>
+              </select>
+              <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white text-sm font-medium">
+                <option value="all">All Sources</option>
+                <option value="ambassador">Ambassador Listed 🏆</option>
+                <option value="owner">Direct Owner 🏢</option>
               </select>
             </div>
             <button onClick={handleExportCSV} disabled={exporting || totalVenues === 0}
@@ -335,6 +332,19 @@ export default function AdminVenues() {
                     <td className="px-4 py-3 text-xs font-semibold text-gray-700">{(currentPage - 1) * LIMIT + index + 1}</td>
                     <td className="px-4 py-3">
                       <p className="text-xs font-semibold text-dark-800">{venue.businessName}</p>
+                      {(venue.listingSource === 'ambassador' || venue.ambassador) ? (
+                        <div className="mt-1 flex items-center gap-1">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold text-[10px] border border-amber-200" title={venue.ambassador?.email || ''}>
+                            <Award className="w-3 h-3 text-amber-600" /> Amb: {venue.ambassador?.name || 'Ambassador Partner'}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="mt-1 flex items-center gap-1">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gray-100 text-gray-600 text-[10px]">
+                            Direct Owner
+                          </span>
+                        </div>
+                      )}
                       {venue.status === 'resubmitted' && venue.rejectionReason && (
                         <p className="text-[10px] text-blue-600 mt-0.5 max-w-[180px] truncate">↩ {venue.rejectionReason}</p>
                       )}
@@ -389,75 +399,41 @@ export default function AdminVenues() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <p className="text-sm text-gray-600">
-                Showing {(currentPage - 1) * LIMIT + 1}–{Math.min(currentPage * LIMIT, totalVenues)} of {totalVenues} venues
-              </p>
+            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+              <div className="text-xs text-gray-500">
+                Showing {((currentPage - 1) * LIMIT) + 1} to {Math.min(currentPage * LIMIT, totalVenues)} of {totalVenues} venues
+              </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}
-                  className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
-                  <ChevronLeft className="w-4 h-4" />
+                <button onClick={() => { const p = Math.max(1, currentPage - 1); setCurrentPage(p); fetchVenues(p); }}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1 border border-gray-300 rounded text-xs disabled:opacity-50 hover:bg-gray-50 flex items-center gap-1">
+                  <ChevronLeft className="w-3 h-3" /> Prev
                 </button>
-                <div className="flex gap-1">
-                  {[...Array(totalPages)].map((_, i) => {
-                    const page = i + 1;
-                    if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
-                      return (
-                        <button key={page} onClick={() => handlePageChange(page)}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-medium ${currentPage === page ? 'bg-primary-500 text-white' : 'border border-gray-300 hover:bg-gray-50'}`}>
-                          {page}
-                        </button>
-                      );
-                    } else if (page === currentPage - 2 || page === currentPage + 2) {
-                      return <span key={page} className="px-2 text-gray-400">...</span>;
-                    }
-                    return null;
-                  })}
-                </div>
-                <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}
-                  className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
-                  <ChevronRight className="w-4 h-4" />
+                <span className="text-xs font-semibold text-gray-700">{currentPage} / {totalPages}</span>
+                <button onClick={() => { const p = Math.min(totalPages, currentPage + 1); setCurrentPage(p); fetchVenues(p); }}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1 border border-gray-300 rounded text-xs disabled:opacity-50 hover:bg-gray-50 flex items-center gap-1">
+                  Next <ChevronRight className="w-3 h-3" />
                 </button>
               </div>
             </div>
           )}
         </div>
-
-        {/* Venue Details Modal */}
-        {modalOpen && selectedVenue && (
-          <VenueDetailsModal
-            venue={selectedVenue}
-            onClose={closeModal}
-            onStatusUpdate={(id, action) => action === 'reject' ? setRejectModal({ open: true, venueId: id, reason: '' }) : handleStatusUpdate(id, action)}
-            showActions={true}
-            platformSettings={platformSettings}
-            customSettings={customSettings}
-            onUpdateSettings={handleUpdateSettings}
-          />
-        )}
-
-        {/* Reject Reason Modal */}
-        {rejectModal.open && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-2">Reject Venue</h3>
-              <p className="text-sm text-gray-500 mb-4">Please provide a reason for rejection.</p>
-              <textarea value={rejectModal.reason}
-                onChange={e => setRejectModal(prev => ({ ...prev, reason: e.target.value }))}
-                rows={4} placeholder="e.g. Documents incomplete, Images not clear..."
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 text-sm resize-none mb-4" />
-              <div className="flex gap-3">
-                <button onClick={() => setRejectModal({ open: false, venueId: null, reason: '' })}
-                  className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-semibold text-sm hover:bg-gray-50">Cancel</button>
-                <button onClick={() => {
-                  if (!rejectModal.reason.trim()) { toast.error('Rejection reason is required'); return; }
-                  handleStatusUpdate(rejectModal.venueId, 'reject', rejectModal.reason);
-                }} className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold text-sm">Confirm Reject</button>
-              </div>
-            </div>
-          </div>
-        )}
       </PermissionGuard>
+
+      {/* Modal */}
+      {selectedVenue && (
+        <VenueDetailsModal
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          venue={selectedVenue}
+          onStatusChange={handleStatusChange}
+          customSettings={customSettings}
+          setCustomSettings={setCustomSettings}
+          onSaveCustomSettings={handleSaveCustomSettings}
+          platformSettings={platformSettings}
+        />
+      )}
     </AdminLayout>
   );
 }

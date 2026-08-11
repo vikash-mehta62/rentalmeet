@@ -41,7 +41,7 @@ function LoginInner() {
   useEffect(() => {
     if (!hydrated) return;
     const role = (searchParams.get('role') || 'customer').toLowerCase();
-    const normalized = role === 'owner' || role === 'vendor' || role === 'customer' ? role : 'customer';
+    const normalized = role === 'owner' || role === 'vendor' || role === 'ambassador' || role === 'customer' ? role : 'customer';
     setSelectedRole(normalized);
   }, [hydrated, searchParams]);
 
@@ -59,6 +59,7 @@ function LoginInner() {
     else if (user.role === 'admin' || user.role === 'subadmin') router.push('/admin/dashboard');
     else if (user.role === 'employee') router.push('/employee/dashboard');
     else if (user.role === 'vendor') router.push('/vendor/dashboard');
+    else if (user.role === 'ambassador') router.push('/ambassador/dashboard');
     else router.push('/');
   }, [hydrated, token, user, router, searchParams]);
 
@@ -105,6 +106,7 @@ function LoginInner() {
       else if (data.user.role === 'admin' || data.user.role === 'subadmin') router.push('/admin/dashboard');
       else if (data.user.role === 'employee') router.push('/employee/dashboard');
       else if (data.user.role === 'vendor') router.push('/vendor/dashboard');
+      else if (data.user.role === 'ambassador') router.push('/ambassador/dashboard');
       else router.push('/');
     } catch {
       setError('Something went wrong. Please try again.');
@@ -144,11 +146,22 @@ function LoginInner() {
         theme: 'light',
         overlay: '',
         imgFit: 'object-contain opacity-100 p-4'
+      },
+      ambassador: {
+        badge: 'Ambassador Login',
+        title: 'Venue Ambassador',
+        subtitle: 'Access your listing rewards, challenge streaks, wallet & recurring revenue share.',
+        image: '/login/venues.jpg',
+        bg: 'bg-[#fffaf0]',
+        theme: 'light',
+        overlay: '',
+        imgFit: 'object-contain opacity-100 p-4'
       }
     };
     
     const roleKey = selectedRole === 'owner' ? 'venueLogin' : 
                     selectedRole === 'vendor' ? 'vendorLogin' : 
+                    selectedRole === 'ambassador' ? 'ambassadorLogin' :
                     selectedRole === 'employee' ? 'employeeLogin' : 'customerLogin';
     
     if (customImages && customImages[roleKey]) {
@@ -242,7 +255,7 @@ function LoginInner() {
                 <p className="text-gray-500">
                   Login as{' '}
                   <span className="text-primary-600 font-semibold uppercase text-sm tracking-wider">
-                    {selectedRole === 'customer' ? 'Client (User)' : selectedRole === 'owner' ? 'Venue Owner' : 'Vendor'}
+                    {selectedRole === 'customer' ? 'Client (User)' : selectedRole === 'owner' ? 'Venue Owner' : selectedRole === 'ambassador' ? 'Venue Ambassador' : 'Vendor'}
                   </span>
                 </p>
               </div>
@@ -306,7 +319,13 @@ function LoginInner() {
               <p className="text-center text-sm text-gray-500 mt-6">
                 Don&apos;t have an account?{' '}
                 <Link
-                  href={selectedRole === 'customer' ? '/register-customer' : `/register?role=${selectedRole}`}
+                  href={
+                    selectedRole === 'customer'
+                      ? '/register-customer'
+                      : selectedRole === 'ambassador'
+                      ? '/register-ambassador'
+                      : `/register?role=${selectedRole}`
+                  }
                   className="text-primary-500 font-semibold hover:text-primary-600"
                 >
                   Register here

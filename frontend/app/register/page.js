@@ -86,6 +86,12 @@ function RegisterInner() {
       return;
     }
 
+    if (role === 'ambassador') {
+      const refParam = ref ? `?ref=${ref}` : '';
+      router.replace('/register-ambassador' + refParam);
+      return;
+    }
+
     const normalizedRole = role === 'vendor' ? 'vendor' : 'owner';
     setFormData((prev) => ({
       ...prev,

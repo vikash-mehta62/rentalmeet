@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { uploadToStorage, deleteFromStorage } = require('../config/storage');
-const { protect } = require('../middleware/auth');
+const { optionalAuth } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
 
 const parseDataUri = (value, fallbackPattern = /^data:[^;]+;base64,/) => {
@@ -36,7 +36,7 @@ const sendUploadResponse = (res, result) => {
 
 // @desc    Upload file to S3
 // @route   POST /api/upload
-router.post('/', protect, (req, res, next) => {
+router.post('/', optionalAuth, (req, res, next) => {
   // Skip multer if content-type is application/json (base64)
   if (req.headers['content-type']?.includes('application/json')) {
     return next();
@@ -81,7 +81,7 @@ router.post('/', protect, (req, res, next) => {
 
 // @desc    Upload image to S3 (alternative endpoint)
 // @route   POST /api/upload/image
-router.post('/image', protect, (req, res, next) => {
+router.post('/image', optionalAuth, (req, res, next) => {
   // Skip multer if content-type is application/json (base64)
   if (req.headers['content-type']?.includes('application/json')) {
     return next();
@@ -132,7 +132,7 @@ router.post('/image', protect, (req, res, next) => {
 
 // @desc    Upload multiple images to S3
 // @route   POST /api/upload/images
-router.post('/images', protect, upload.array('images', 20), async (req, res) => {
+router.post('/images', optionalAuth, upload.array('images', 20), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({
@@ -176,7 +176,7 @@ router.post('/images', protect, upload.array('images', 20), async (req, res) => 
 
 // @desc    Upload document to S3 (PDF, DOC, etc.)
 // @route   POST /api/upload/document
-router.post('/document', protect, (req, res, next) => {
+router.post('/document', optionalAuth, (req, res, next) => {
   // Skip multer if content-type is application/json (base64)
   if (req.headers['content-type']?.includes('application/json')) {
     return next();
@@ -227,7 +227,7 @@ router.post('/document', protect, (req, res, next) => {
 
 // @desc    Delete uploaded file from configured storage
 // @route   DELETE /api/upload/:publicId
-router.delete('/:publicId', protect, async (req, res) => {
+router.delete('/:publicId', optionalAuth, async (req, res) => {
   try {
     const publicId = req.params.publicId.replace(/--/g, '/');
     await deleteFromStorage(publicId);

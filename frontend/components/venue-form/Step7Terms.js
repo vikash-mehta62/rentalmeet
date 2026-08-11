@@ -31,7 +31,7 @@ const DEFAULT_TERMS = `RentalMeet Venue Owner Agreement
 export default function Step7Terms() {
   const router = useRouter();
   const { formData, setStep, resetForm } = useVenueFormStore();
-  const { token } = useAuthStore();
+  const { token, user } = useAuthStore();
   const [accepted, setAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [termsText, setTermsText] = useState(DEFAULT_TERMS);
@@ -235,7 +235,8 @@ export default function Step7Terms() {
         setTimeout(() => {
           localStorage.removeItem('venue-form-storage');
           resetForm();
-          router.push('/owner/dashboard');
+          const target = user?.role === 'ambassador' ? '/ambassador/venues' : '/owner/dashboard';
+          router.push(target);
         }, 1500);
       } else {
         toast.error(data.message || `Failed to ${isEditMode ? 'update' : 'submit'} venue`);

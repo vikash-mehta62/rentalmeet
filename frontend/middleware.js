@@ -1,15 +1,14 @@
 import { NextResponse } from 'next/server';
 
 // Routes that require authentication
-const PROTECTED_PREFIXES = ['/admin', '/owner', '/vendor', '/customer', '/employee'];
+const PROTECTED_PREFIXES = ['/admin', '/owner', '/vendor', '/customer', '/employee', '/ambassador'];
 // Routes that logged-in users should not access
-const AUTH_ONLY = ['/login', '/register', '/register-customer'];
+const AUTH_ONLY = ['/login', '/register', '/register-customer', '/register-ambassador'];
 
 const matchesRoute = (pathname, route) => pathname === route || pathname.startsWith(`${route}/`);
 
 export function middleware(request) {
   const { pathname } = request.nextUrl;
-
   // Read auth from sessionStorage is not possible in middleware (server-side)
   // We use a cookie set by the frontend as a signal (not the actual token)
   const authSignal = request.cookies.get('auth-present')?.value;

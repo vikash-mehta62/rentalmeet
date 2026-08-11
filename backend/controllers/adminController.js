@@ -107,6 +107,16 @@ exports.approveVenue = async (req, res) => {
     }
     
     await venue.save();
+
+    // If venue was listed by an ambassador, process listing reward & daily challenge bonus
+    if (venue.ambassador) {
+      try {
+        const { processVenueApprovalReward } = require('../utils/ambassadorRewardHelper');
+        await processVenueApprovalReward(venue._id);
+      } catch (rewardErr) {
+        console.error('[AMBASSADOR] Error processing listing reward:', rewardErr.message);
+      }
+    }
     
     // Send approval email
     try {
@@ -747,6 +757,9 @@ exports.getAllBookings = async (req, res) => {
       search,
       statsVenue, // Separate venue filter for stats
       venueType, // Venue type filter
+      source, // 'all' | 'owner' | 'ambassador'
+      listingSource,
+      ambassador,
       export: isExport
     } = req.query;
 
@@ -759,6 +772,41 @@ exports.getAllBookings = async (req, res) => {
     
     if (venue && venue !== 'all') {
       query.venue = venue;
+    }
+    
+    // Source filter (ambassador vs direct owner)
+    const sourceFilter = source || listingSource;
+    if (sourceFilter === 'ambassador') {
+      const ambVenues = await Venue.find({
+        $or: [{ listingSource: 'ambassador' }, { ambassador: { $exists: true, $ne: null } }]
+      }).select('_id');
+      const ambIds = ambVenues.map(v => v._id);
+      if (query.venue) {
+        query.venue = { $in: ambIds, $eq: query.venue };
+      } else {
+        query.venue = { $in: ambIds };
+      }
+    } else if (sourceFilter === 'owner') {
+      const ownerVenues = await Venue.find({
+        listingSource: { $ne: 'ambassador' },
+        ambassador: null
+      }).select('_id');
+      const ownerIds = ownerVenues.map(v => v._id);
+      if (query.venue) {
+        query.venue = { $in: ownerIds, $eq: query.venue };
+      } else {
+        query.venue = { $in: ownerIds };
+      }
+    }
+
+    if (ambassador) {
+      const ambVenues = await Venue.find({ ambassador }).select('_id');
+      const ambIds = ambVenues.map(v => v._id);
+      if (query.venue) {
+        query.venue = { $in: ambIds, $eq: query.venue };
+      } else {
+        query.venue = { $in: ambIds };
+      }
     }
     
     // Venue type filter
@@ -795,17 +843,19 @@ exports.getAllBookings = async (req, res) => {
       ];
     }
 
+    const venuePopulate = {
+      path: 'venue',
+      select: 'businessName location images owner ambassador listingSource venueType sku',
+      populate: [
+        { path: 'owner', select: 'name email phone' },
+        { path: 'ambassador', select: 'name email phone referralCode' }
+      ]
+    };
+
     if (isExport === 'true') {
       const bookings = await Booking.find(query)
-        .populate('venue', 'businessName location images owner venueType')
+        .populate(venuePopulate)
         .populate('customer', 'name email phone')
-        .populate({
-          path: 'venue',
-          populate: {
-            path: 'owner',
-            select: 'name email phone'
-          }
-        })
         .sort('-createdAt');
       return res.json({ success: true, bookings });
     }
@@ -819,15 +869,8 @@ exports.getAllBookings = async (req, res) => {
     
     // Fetch paginated bookings
     const bookings = await Booking.find(query)
-      .populate('venue', 'businessName location images owner venueType')
+      .populate(venuePopulate)
       .populate('customer', 'name email phone')
-      .populate({
-        path: 'venue',
-        populate: {
-          path: 'owner',
-          select: 'name email phone'
-        }
-      })
       .sort('-createdAt')
       .skip(skip)
       .limit(parseInt(limit));
@@ -2425,4 +2468,245 @@ exports.settleServiceBookingManual = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// ==========================================
+// AMBASSADOR MANAGEMENT (ADMIN)
+// ==========================================
+
+// @desc    Get all ambassadors
+// @route   GET /api/admin/ambassadors
+exports.getAllAmbassadors = async (req, res) => {
+  try {
+    const AmbassadorProfile = require('../models/AmbassadorProfile');
+    const { status, level, search, page = 1, limit = 20 } = req.query;
+
+    const query = {};
+    if (status && status !== 'all') {
+      query.$or = [
+        { applicationStatus: status },
+        { status: status }
+      ];
+    }
+    if (level && level !== 'all') {
+      query.$or = [
+        { assignedLevel: level },
+        { level: level }
+      ];
+    }
+
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    let profiles = await AmbassadorProfile.find(query)
+      .populate('user', 'name email phone city state referralCode createdAt')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum);
+
+    if (search) {
+      const s = search.toLowerCase();
+      profiles = profiles.filter(p => 
+        p.ambassadorId?.toLowerCase().includes(s) ||
+        p.user?.name?.toLowerCase().includes(s) ||
+        p.user?.email?.toLowerCase().includes(s) ||
+        p.user?.phone?.includes(s) ||
+        p.addressDetails?.city?.toLowerCase().includes(s)
+      );
+    }
+
+    const total = await AmbassadorProfile.countDocuments(query);
+
+    const enrichedProfiles = profiles.map(p => {
+      const pObj = p.toObject();
+      pObj.status = p.applicationStatus || p.status || 'pending';
+      pObj.level = p.assignedLevel || p.level || 'LV.1 Venue Explorer';
+      return pObj;
+    });
+
+    res.json({
+      success: true,
+      count: enrichedProfiles.length,
+      total,
+      pages: Math.ceil(total / limitNum),
+      currentPage: pageNum,
+      ambassadors: enrichedProfiles
+    });
+  } catch (error) {
+    console.error('Get all ambassadors error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Get single ambassador details
+// @route   GET /api/admin/ambassadors/:id
+exports.getAmbassadorDetails = async (req, res) => {
+  try {
+    const AmbassadorProfile = require('../models/AmbassadorProfile');
+    const AmbassadorReward = require('../models/AmbassadorReward');
+    const { decrypt } = require('../utils/encryption');
+
+    const profile = await AmbassadorProfile.findById(req.params.id)
+      .populate('user', 'name email phone city state referralCode createdAt');
+
+    if (!profile) {
+      return res.status(404).json({ success: false, message: 'Ambassador profile not found' });
+    }
+
+    const venues = await Venue.find({ ambassador: profile.user?._id })
+      .select('businessName sku location status totalBookings totalEarnings createdAt')
+      .sort({ createdAt: -1 });
+
+    const rewards = await AmbassadorReward.find({ ambassador: profile.user?._id })
+      .sort({ createdAt: -1 })
+      .limit(20);
+
+    const profileObj = profile.toObject();
+    profileObj.status = profile.applicationStatus || profile.status || 'pending';
+    profileObj.level = profile.assignedLevel || profile.level || 'LV.1 Venue Explorer';
+
+    if (profileObj.bankDetails?.accountNumber) {
+      try {
+        profileObj.bankDetails.accountNumber = decrypt(profileObj.bankDetails.accountNumber);
+      } catch {}
+    }
+
+    res.json({
+      success: true,
+      ambassador: profileObj,
+      venues,
+      rewards
+    });
+  } catch (error) {
+    console.error('Get ambassador details error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Update ambassador application status (Approve / Reject / Assign ID & Level)
+// @route   PUT /api/admin/ambassadors/:id/status
+exports.updateAmbassadorStatus = async (req, res) => {
+  try {
+    const AmbassadorProfile = require('../models/AmbassadorProfile');
+    const User = require('../models/User');
+    const { status, ambassadorId, assignedLevel, level, badge, cityPartnerCode, rejectionReason } = req.body;
+
+    const profile = await AmbassadorProfile.findById(req.params.id);
+    if (!profile) {
+      return res.status(404).json({ success: false, message: 'Ambassador not found' });
+    }
+
+    const targetStatus = status || req.body.applicationStatus;
+    if (targetStatus) {
+      profile.applicationStatus = targetStatus;
+      profile.status = targetStatus;
+    }
+    if (ambassadorId) profile.ambassadorId = ambassadorId;
+    
+    const targetLevel = assignedLevel || level;
+    if (targetLevel) {
+      profile.assignedLevel = targetLevel;
+      profile.level = targetLevel;
+    }
+    
+    if (badge) profile.badge = badge;
+    if (cityPartnerCode) profile.cityPartnerCode = cityPartnerCode;
+    if (rejectionReason) profile.rejectionReason = rejectionReason;
+
+    if (targetStatus === 'approved') {
+      profile.verifiedBy = req.user._id;
+      profile.verifiedAt = new Date();
+
+      // Upgrade user role to ambassador in User collection
+      if (profile.user) {
+        await User.findByIdAndUpdate(profile.user, { role: 'ambassador' });
+        console.log(`[AMBASSADOR APPROVAL] Upgraded user ${profile.user} role to 'ambassador'`);
+      }
+    }
+
+    await profile.save();
+
+    const profileObj = profile.toObject();
+    profileObj.status = profile.applicationStatus || targetStatus;
+    profileObj.level = profile.assignedLevel || targetLevel;
+
+    res.json({
+      success: true,
+      message: `Ambassador application updated to ${targetStatus}`,
+      ambassador: profileObj
+    });
+  } catch (error) {
+    console.error('Update ambassador status error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Get all ambassador payout requests
+// @route   GET /api/admin/ambassador-payouts
+exports.getAllAmbassadorPayouts = async (req, res) => {
+  try {
+    const AmbassadorPayout = require('../models/AmbassadorPayout');
+    const { status } = req.query;
+
+    const query = {};
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+
+    const payouts = await AmbassadorPayout.find(query)
+      .populate('ambassador', 'name email phone referralCode')
+      .populate('profile', 'ambassadorId assignedLevel badge')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: payouts.length,
+      payouts
+    });
+  } catch (error) {
+    console.error('Get all ambassador payouts error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Update ambassador payout status (Complete / Reject)
+// @route   PUT /api/admin/ambassador-payouts/:id/status
+exports.updateAmbassadorPayoutStatus = async (req, res) => {
+  try {
+    const AmbassadorPayout = require('../models/AmbassadorPayout');
+    const AmbassadorProfile = require('../models/AmbassadorProfile');
+    const { status, transactionReference, rejectionReason, notes } = req.body;
+
+    const payout = await AmbassadorPayout.findById(req.params.id);
+    if (!payout) {
+      return res.status(404).json({ success: false, message: 'Payout request not found' });
+    }
+
+    payout.status = status;
+    payout.processedBy = req.user._id;
+    payout.processedAt = new Date();
+    if (transactionReference) payout.transactionReference = transactionReference;
+    if (rejectionReason) payout.rejectionReason = rejectionReason;
+    if (notes) payout.notes = notes;
+
+    await payout.save();
+
+    // If rejected, refund the amount back to ambassador's wallet
+    if (status === 'rejected') {
+      await AmbassadorProfile.findByIdAndUpdate(payout.profile, {
+        $inc: { walletBalance: payout.amount }
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Payout request marked as ${status}`,
+      payout
+    });
+  } catch (error) {
+    console.error('Update ambassador payout status error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 

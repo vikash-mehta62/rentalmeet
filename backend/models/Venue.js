@@ -46,6 +46,23 @@ const venueSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  // Ambassador who listed the venue (if listed via Ambassador Program)
+  ambassador: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    index: true
+  },
+  listingSource: {
+    type: String,
+    enum: ['owner', 'ambassador', 'admin'],
+    default: 'owner'
+  },
+  ambassadorListingApprovedAt: {
+    type: Date
+  },
+  ambassadorProfitShareExpiresAt: {
+    type: Date
+  },
   
   // SKU for URL-friendly unique identifier
   sku: {

@@ -311,6 +311,34 @@ export function VenueInvoiceBreakdownCards({ booking }) {
         </div>
       </div>
 
+      {/* Ambassador 25% Profit Share Breakdown Card */}
+      {(booking?.venue?.ambassador || booking?.listingSource === 'ambassador' || booking?.ambassadorReward) && (
+        <div className="mt-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-slate-800 dark:to-slate-800 rounded-xl p-4 border border-amber-200 dark:border-slate-700 text-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1.5 text-xs">
+              🏆 Ambassador Partner Profit Share (25% Platform Fee)
+            </p>
+            <span className="px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-bold text-[10px]">
+              25% Platform Fee Share
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center pt-1">
+            <div className="bg-white/80 dark:bg-slate-900/60 p-2 rounded-lg border border-amber-100 dark:border-slate-700">
+              <span className="text-[10px] text-gray-500 block">Platform Fee</span>
+              <span className="font-bold text-gray-800 dark:text-white">{money(d.platformFee)}</span>
+            </div>
+            <div className="bg-emerald-50 dark:bg-emerald-950/40 p-2 rounded-lg border border-emerald-200 dark:border-emerald-800">
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold block">Ambassador 25% Share</span>
+              <span className="font-extrabold text-emerald-700 dark:text-emerald-300">{money(Math.round(d.platformFee * 0.25))}</span>
+            </div>
+            <div className="bg-blue-50 dark:bg-blue-950/40 p-2 rounded-lg border border-blue-200 dark:border-blue-800">
+              <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold block">Net Platform Revenue</span>
+              <span className="font-extrabold text-blue-700 dark:text-blue-300">{money(d.platformFee - Math.round(d.platformFee * 0.25))}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mt-3 bg-gradient-to-r from-primary-50 to-orange-50 dark:from-slate-800 dark:to-slate-800 rounded-xl p-4 border border-primary-200 dark:border-slate-700 text-sm space-y-2">
         {d.discount > 0 && (
           <div className="flex justify-between text-green-600">

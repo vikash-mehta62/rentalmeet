@@ -32,6 +32,7 @@ const quickLinks = [
 ];
 
 const businessLinks = [
+  { name: 'Become an Ambassador 🏆', href: '/ambassador-program', highlight: true },
   { name: 'List Your Venue',    href: '/register-venue'     },
   { name: 'Register as Vendor', href: '/register?role=vendor'},
   { name: 'User Registration',  href: '/register-customer'  },
@@ -129,7 +130,13 @@ export default function Footer() {
             <ul className="space-y-2 text-sm text-gray-500 dark:text-slate-400">
               {businessLinks.map(item => (
                 <li key={item.name}>
-                  <Link href={item.href} className="hover:text-gray-900 dark:hover:text-slate-100 transition-colors">
+                  <Link
+                    href={item.href}
+                    className={item.highlight
+                      ? "text-amber-600 dark:text-amber-400 font-bold hover:text-amber-700 dark:hover:text-amber-300 transition-colors flex items-center gap-1"
+                      : "hover:text-gray-900 dark:hover:text-slate-100 transition-colors"
+                    }
+                  >
                     {item.name}
                   </Link>
                 </li>
