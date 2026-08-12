@@ -422,17 +422,61 @@ export default function AdminVenues() {
       </PermissionGuard>
 
       {/* Modal */}
-      {selectedVenue && (
+      {selectedVenue && modalOpen && (
         <VenueDetailsModal
-          isOpen={modalOpen}
-          onClose={() => setModalOpen(false)}
           venue={selectedVenue}
-          onStatusChange={handleStatusChange}
-          customSettings={customSettings}
-          setCustomSettings={setCustomSettings}
-          onSaveCustomSettings={handleSaveCustomSettings}
+          onClose={() => setModalOpen(false)}
+          onStatusUpdate={(venueId, action) => {
+            if (action === 'reject') {
+              setRejectModal({ open: true, venueId, reason: '' });
+            } else {
+              handleStatusChange(venueId, action);
+            }
+          }}
+          showActions={true}
           platformSettings={platformSettings}
+          customSettings={customSettings}
+          onUpdateSettings={handleSaveCustomSettings}
         />
+      )}
+
+      {/* Reject Modal */}
+      {rejectModal.open && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <h3 className="text-lg font-bold text-dark-800 mb-4">Reject Venue</h3>
+            <p className="text-sm text-gray-600 mb-4">Please provide a reason for rejection:</p>
+            <textarea
+              value={rejectModal.reason}
+              onChange={(e) => setRejectModal({ ...rejectModal, reason: e.target.value })}
+              placeholder="Enter rejection reason..."
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 resize-none"
+              rows={4}
+            />
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setRejectModal({ open: false, venueId: null, reason: '' })}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (!rejectModal.reason.trim()) {
+                    toast.error('Please provide a rejection reason');
+                    return;
+                  }
+                  handleStatusChange(rejectModal.venueId, 'rejected', rejectModal.reason);
+                  setModalOpen(false);
+                }}
+                disabled={!rejectModal.reason.trim()}
+                className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold disabled:opacity-50"
+              >
+                Reject Venue
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </AdminLayout>
   );
