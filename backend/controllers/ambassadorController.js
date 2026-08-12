@@ -224,6 +224,22 @@ exports.getAmbassadorDashboard = async (req, res) => {
     const pendingVenues = venues.filter(v => v.status === 'pending');
     const rejectedVenues = venues.filter(v => v.status === 'rejected');
 
+    // Auto catch-up any approved venues missing their instant listing reward
+    for (const av of approvedVenues) {
+      const alreadyRewarded = await AmbassadorReward.exists({ venue: av._id, rewardType: 'listing_reward' });
+      if (!alreadyRewarded) {
+        try {
+          await processVenueApprovalReward(av._id);
+        } catch (catchUpErr) {
+          console.error('[AMBASSADOR REWARD CATCHUP] Error:', catchUpErr.message);
+        }
+      }
+    }
+
+    // Refresh profile and rewards breakdown
+    const updatedProfile = await AmbassadorProfile.findOne({ user: req.user._id });
+    const profileToUse = updatedProfile || profile;
+
     // Get rewards breakdown
     const rewards = await AmbassadorReward.find({ ambassador: req.user._id })
       .sort({ createdAt: -1 });
@@ -253,10 +269,10 @@ exports.getAmbassadorDashboard = async (req, res) => {
     if (approvedCount >= 500) {
       nextTierTarget = 1000;
       currentTierBase = 500;
-    } else if (approvedCount >= 201) {
+    } else if (approvedCount >= 200) {
       nextTierTarget = 500;
-      currentTierBase = 201;
-    } else if (approvedCount >= 51) {
+      currentTierBase = 200;
+    } else if (approvedCount >= 50) {
       nextTierTarget = 200;
       currentTierBase = 51;
     }
@@ -279,14 +295,14 @@ exports.getAmbassadorDashboard = async (req, res) => {
       success: true,
       data: {
         profile: {
-          ambassadorId: profile?.ambassadorId || `RM-AMB-${req.user._id.toString().slice(-4)}`,
+          ambassadorId: profileToUse?.ambassadorId || `RM-AMB-${req.user._id.toString().slice(-4)}`,
           assignedLevel: tier.level,
           tierTitle: tier.title,
           listingRate: tier.rate,
           badge,
-          walletBalance: profile?.walletBalance || 0,
+          walletBalance: profileToUse?.walletBalance || 0,
           totalEarnings,
-          applicationStatus: profile?.applicationStatus || 'approved'
+          applicationStatus: profileToUse?.applicationStatus || 'approved'
         },
         stats: {
           totalSubmitted,
@@ -337,6 +353,21 @@ exports.getAmbassadorVenues = async (req, res) => {
       .lean();
 
     const venueIds = venues.map(v => v._id);
+
+    // Auto catch-up any approved venues missing their instant listing reward
+    const { processVenueApprovalReward } = require('../utils/ambassadorRewardHelper');
+    for (const v of venues) {
+      if (v.status === 'approved') {
+        const alreadyRewarded = await AmbassadorReward.exists({ venue: v._id, rewardType: 'listing_reward' });
+        if (!alreadyRewarded) {
+          try {
+            await processVenueApprovalReward(v._id);
+          } catch (catchUpErr) {
+            console.error('[AMBASSADOR REWARD CATCHUP] Error:', catchUpErr.message);
+          }
+        }
+      }
+    }
 
     // Aggregate real bookings for these venues
     const Booking = require('../models/Booking');
@@ -408,6 +439,17 @@ exports.getAmbassadorVenues = async (req, res) => {
 // @access  Private (Ambassador)
 exports.getAmbassadorEarnings = async (req, res) => {
   try {
+    const venues = await Venue.find({ ambassador: req.user._id, status: 'approved' });
+    const { processVenueApprovalReward } = require('../utils/ambassadorRewardHelper');
+    for (const v of venues) {
+      const alreadyRewarded = await AmbassadorReward.exists({ venue: v._id, rewardType: 'listing_reward' });
+      if (!alreadyRewarded) {
+        try {
+          await processVenueApprovalReward(v._id);
+        } catch {}
+      }
+    }
+
     const rewards = await AmbassadorReward.find({ ambassador: req.user._id })
       .populate('venue', 'businessName sku location images')
       .populate('booking', 'bookingNumber amount bookingDate')
@@ -429,16 +471,27 @@ exports.getAmbassadorEarnings = async (req, res) => {
 
     const totalEarnings = instantListingEarnings + challengeBonusEarnings + bookingShareEarnings;
 
-    res.json({
-      success: true,
+    const payload = {
       walletBalance: profile?.walletBalance || 0,
       totalEarnings,
+      breakdown: {
+        listingRewards: instantListingEarnings,
+        challengeBonuses: challengeBonusEarnings,
+        bookingShare: bookingShareEarnings
+      },
       summary: {
         instantListingEarnings,
         challengeBonusEarnings,
         bookingShareEarnings
       },
+      recentRewards: rewards,
       rewards
+    };
+
+    res.json({
+      success: true,
+      ...payload,
+      data: payload
     });
   } catch (error) {
     console.error('Get ambassador earnings error:', error);

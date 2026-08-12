@@ -55,7 +55,7 @@ export default function AmbassadorEarningsPage() {
       const earnJson = await earnRes.json();
       const payJson = await payRes.json();
 
-      if (earnJson.success) setData(earnJson.data);
+      if (earnJson.success) setData(earnJson.data || earnJson);
       if (payJson.success) setPayouts(payJson.payouts || []);
     } catch (err) {
       console.error('Error fetching earnings:', err);
@@ -130,7 +130,13 @@ export default function AmbassadorEarningsPage() {
     }
   };
 
-  const { walletBalance, breakdown, recentRewards } = data || {};
+  const walletBalance = data?.walletBalance || 0;
+  const breakdown = {
+    listingRewards: data?.breakdown?.listingRewards ?? data?.summary?.instantListingEarnings ?? 0,
+    challengeBonuses: data?.breakdown?.challengeBonuses ?? data?.summary?.challengeBonusEarnings ?? 0,
+    bookingShare: data?.breakdown?.bookingShare ?? data?.summary?.bookingShareEarnings ?? 0
+  };
+  const recentRewards = data?.recentRewards || data?.rewards || [];
 
   return (
     <div className="space-y-8 animate-fade-in">

@@ -232,6 +232,16 @@ exports.activateVenue = async (req, res) => {
     venue.status = 'approved';
     venue.suspensionReason = undefined; // Clear suspension reason
     await venue.save();
+
+    // If venue was listed by an ambassador, process listing reward
+    if (venue.ambassador) {
+      try {
+        const { processVenueApprovalReward } = require('../utils/ambassadorRewardHelper');
+        await processVenueApprovalReward(venue._id);
+      } catch (rewardErr) {
+        console.error('[AMBASSADOR] Error processing listing reward on activate:', rewardErr.message);
+      }
+    }
     
     res.json({
       success: true,
