@@ -574,16 +574,29 @@ export default function AdminAmbassadorsPage() {
                     {payouts.map((p) => (
                       <tr key={p._id} className="hover:bg-gray-50/60">
                         <td className="p-4">
-                          <div className="font-bold text-gray-900">{p.userId?.name}</div>
-                          <div className="text-[11px] text-gray-500">{p.userId?.email}</div>
+                          <div className="font-bold text-gray-900">
+                            {p.ambassador?.name || p.profile?.personalInfo?.fullName || p.userId?.name || 'Ambassador Partner'}
+                          </div>
+                          <div className="text-[11px] text-gray-500">
+                            {p.ambassador?.email || p.profile?.personalInfo?.email || p.userId?.email || 'N/A'}
+                          </div>
+                          <div className="text-[10px] text-amber-700 font-semibold mt-0.5">
+                            ID: {p.profile?.ambassadorId || p.payoutNumber} {p.ambassador?.phone ? `• ${p.ambassador.phone}` : ''}
+                          </div>
                         </td>
                         <td className="p-4 font-black text-gray-900 text-sm">₹{p.amount}</td>
                         <td className="p-4">
-                          <span className="px-2 py-0.5 rounded bg-gray-100 uppercase text-[10px] font-bold mr-1">
-                            {p.payoutMethod}
+                          <span className="px-2 py-0.5 rounded bg-gray-100 uppercase text-[10px] font-bold mr-1.5">
+                            {p.payoutMethod || 'UPI'}
                           </span>
-                          <span className="text-gray-700">
-                            {p.payoutMethod === 'upi' ? p.upiId : `${p.bankDetails?.bankName} (A/C: ${p.bankDetails?.accountNumber})`}
+                          <span className="text-gray-800 text-xs font-semibold">
+                            {(p.payoutMethod?.toLowerCase().includes('upi') || p.payoutDetails?.upiId || p.upiId) ? (
+                              <span className="font-mono text-primary-600">{p.payoutDetails?.upiId || p.upiId || 'N/A'}</span>
+                            ) : (
+                              <span>
+                                {p.payoutDetails?.bankName || p.bankDetails?.bankName || 'Bank'} (A/C: <span className="font-mono">{p.payoutDetails?.accountNumber || p.bankDetails?.accountNumber || 'N/A'}</span>, IFSC: <span className="font-mono">{p.payoutDetails?.ifscCode || p.bankDetails?.ifscCode || 'N/A'}</span>)
+                              </span>
+                            )}
                           </span>
                         </td>
                         <td className="p-4">
@@ -940,11 +953,17 @@ export default function AdminAmbassadorsPage() {
                 </button>
               </div>
 
-              <div className="p-4 bg-gray-50 rounded-2xl text-xs space-y-1">
-                <p><span className="font-semibold">Ambassador:</span> {selectedPayout.userId?.name}</p>
-                <p><span className="font-semibold">Amount:</span> ₹{selectedPayout.amount}</p>
-                <p><span className="font-semibold">Method:</span> {selectedPayout.payoutMethod?.toUpperCase()}</p>
-                <p><span className="font-semibold">Destination:</span> {selectedPayout.payoutMethod === 'upi' ? selectedPayout.upiId : `${selectedPayout.bankDetails?.bankName} - ${selectedPayout.bankDetails?.accountNumber}`}</p>
+              <div className="p-4 bg-gray-50 rounded-2xl text-xs space-y-1.5">
+                <p><span className="font-semibold text-gray-700">Ambassador:</span> {selectedPayout.ambassador?.name || selectedPayout.profile?.personalInfo?.fullName || selectedPayout.userId?.name || 'Ambassador Partner'}</p>
+                <p><span className="font-semibold text-gray-700">Contact:</span> {selectedPayout.ambassador?.email || selectedPayout.profile?.personalInfo?.email} {selectedPayout.ambassador?.phone ? `(${selectedPayout.ambassador.phone})` : ''}</p>
+                <p><span className="font-semibold text-gray-700">Ambassador ID:</span> {selectedPayout.profile?.ambassadorId || selectedPayout.payoutNumber}</p>
+                <p><span className="font-semibold text-gray-700">Withdrawal Amount:</span> <span className="font-black text-green-700 text-sm">₹{selectedPayout.amount}</span></p>
+                <p><span className="font-semibold text-gray-700">Method:</span> <span className="uppercase font-bold">{selectedPayout.payoutMethod || 'UPI'}</span></p>
+                <p><span className="font-semibold text-gray-700">Destination:</span> {(selectedPayout.payoutMethod?.toLowerCase().includes('upi') || selectedPayout.payoutDetails?.upiId || selectedPayout.upiId) ? (
+                  <span className="font-mono font-bold text-primary-600">{selectedPayout.payoutDetails?.upiId || selectedPayout.upiId}</span>
+                ) : (
+                  <span className="font-semibold">{selectedPayout.payoutDetails?.bankName || selectedPayout.bankDetails?.bankName || 'Bank'} | A/C: <span className="font-mono">{selectedPayout.payoutDetails?.accountNumber || selectedPayout.bankDetails?.accountNumber}</span> | IFSC: <span className="font-mono">{selectedPayout.payoutDetails?.ifscCode || selectedPayout.bankDetails?.ifscCode}</span> ({selectedPayout.payoutDetails?.accountHolderName || selectedPayout.bankDetails?.accountHolderName || ''})</span>
+                )}</p>
               </div>
 
               <form onSubmit={handleUpdatePayoutStatus} className="space-y-3">

@@ -25,7 +25,8 @@ import {
   ArrowLeft,
   Sparkles,
   Award,
-  ShieldCheck
+  ShieldCheck,
+  Clock
 } from 'lucide-react';
 
 const VENUE_NETWORK_OPTIONS = [
@@ -49,6 +50,8 @@ export default function RegisterAmbassadorPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [assignedAmbassadorId, setAssignedAmbassadorId] = useState('');
 
   // OTP Verification States
   const [emailOtpSent, setEmailOtpSent] = useState(false);
@@ -77,10 +80,8 @@ export default function RegisterAmbassadorPage() {
     phone: '',
     password: '',
     confirmPassword: '',
-    parentName: '',
     dateOfBirth: '',
     gender: 'Male',
-    whatsAppNumber: '',
     aadhaarNumber: '',
     panNumber: '',
 
@@ -132,6 +133,9 @@ export default function RegisterAmbassadorPage() {
 
     // Step 6: Documents & Declaration
     passportPhoto: '',
+    aadhaarFront: '',
+    aadhaarBack: '',
+    panCard: '',
     identityProof: '',
     identityProofBack: '',
     identityProofType: 'Aadhaar',
@@ -327,8 +331,16 @@ export default function RegisterAmbassadorPage() {
   const handleNextStep = () => {
     setError('');
     if (step === 1) {
-      if (!formData.name || !formData.email || !formData.phone || !formData.password) {
+      if (!formData.name || !formData.email || !formData.phone || !formData.password || !formData.confirmPassword) {
         setError('Please fill all required personal fields');
+        return;
+      }
+      if (!formData.gender) {
+        setError('Please select your Gender');
+        return;
+      }
+      if (!formData.aadhaarNumber || formData.aadhaarNumber.replace(/\s/g, '').length < 12) {
+        setError('Please enter a valid 12-digit Aadhaar Card Number');
         return;
       }
       if (formData.password !== formData.confirmPassword) {
@@ -344,8 +356,8 @@ export default function RegisterAmbassadorPage() {
         return;
       }
     } else if (step === 2) {
-      if (!formData.currentAddress || !formData.state || !formData.city || !formData.pincode) {
-        setError('Please complete the address and coverage area details');
+      if (!formData.currentAddress || !formData.state || !formData.city) {
+        setError('Please complete the current address, state, and city');
         return;
       }
     }
@@ -356,6 +368,11 @@ export default function RegisterAmbassadorPage() {
   const handleSubmitApplication = async (e) => {
     e.preventDefault();
     setError('');
+
+    if (!formData.aadhaarFront && !formData.identityProof) {
+      setError('Please upload your Aadhaar Card (Front Side)');
+      return;
+    }
 
     if (!formData.declarationAgreed) {
       setError('Please accept the declaration terms to complete your application');
@@ -372,11 +389,10 @@ export default function RegisterAmbassadorPage() {
         referralCode: formData.referralCode || undefined,
         personalInfo: {
           fullName: formData.name,
-          parentName: formData.parentName,
           dateOfBirth: formData.dateOfBirth,
           gender: formData.gender,
           mobileNumber: formData.phone,
-          whatsAppNumber: formData.whatsAppNumber || formData.phone,
+          whatsAppNumber: formData.phone,
           email: formData.email,
           aadhaarNumber: formData.aadhaarNumber,
           panNumber: formData.panNumber
@@ -386,7 +402,7 @@ export default function RegisterAmbassadorPage() {
           city: formData.city,
           district: formData.district,
           state: formData.state,
-          pincode: formData.pincode,
+          pincode: formData.pincode || '',
           areaCoverage: formData.areaCoverage || formData.city
         },
         professionalDetails: {
@@ -419,9 +435,12 @@ export default function RegisterAmbassadorPage() {
         },
         documents: {
           passportPhoto: formData.passportPhoto,
-          identityProof: formData.identityProof,
-          identityProofBack: formData.identityProofBack,
-          identityProofType: formData.identityProofType,
+          aadhaarFront: formData.aadhaarFront || formData.identityProof,
+          aadhaarBack: formData.aadhaarBack || formData.identityProofBack,
+          panCard: formData.panCard,
+          identityProof: formData.aadhaarFront || formData.identityProof,
+          identityProofBack: formData.aadhaarBack || formData.identityProofBack,
+          identityProofType: 'Aadhaar',
           bankProof: formData.bankProof,
           addressProof: formData.addressProof
         },
@@ -440,8 +459,9 @@ export default function RegisterAmbassadorPage() {
       const data = await res.json();
 
       if (data.success) {
-        setAuth(data.user, data.token);
-        router.push('/ambassador/dashboard');
+        setAssignedAmbassadorId(data.ambassadorId || `RMA${formData.phone.replace(/\D/g, '').slice(-10)}`);
+        setSubmitted(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         setError(data.message || 'Application submission failed');
       }
@@ -454,6 +474,74 @@ export default function RegisterAmbassadorPage() {
 
   const inputClass =
     'w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary-500 focus:bg-white dark:focus:bg-slate-800 text-sm outline-none transition-all';
+
+  if (submitted) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+        <Navbar />
+        <main className="max-w-2xl mx-auto px-4 sm:px-6 py-16 pt-36">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-8 sm:p-12 text-center space-y-6 animate-fade-in">
+            <div className="w-20 h-20 mx-auto rounded-full bg-amber-100 dark:bg-amber-950/60 border-2 border-amber-500 text-amber-600 dark:text-amber-400 flex items-center justify-center shadow-lg shadow-amber-500/20">
+              <Clock className="w-10 h-10 animate-pulse" />
+            </div>
+
+            <div>
+              <span className="px-3.5 py-1 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-xs font-black uppercase tracking-wider border border-amber-300 dark:border-amber-800">
+                Application Submitted
+              </span>
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mt-3">
+                Your Application is Under Review
+              </h1>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-2 max-w-md mx-auto">
+                Thank you for applying to become a RentalMeet Venue Ambassador. Your application has been submitted to Admin for verification and approval.
+              </p>
+            </div>
+
+            {/* Application Details Summary Card */}
+            <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-left space-y-3 text-sm">
+              <div className="flex justify-between py-1.5 border-b border-slate-200 dark:border-slate-700">
+                <span className="text-slate-500">Applicant Name:</span>
+                <span className="font-bold text-slate-900 dark:text-white">{formData.name}</span>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-slate-200 dark:border-slate-700">
+                <span className="text-slate-500">Assigned Ambassador ID:</span>
+                <span className="font-mono font-black text-amber-600 dark:text-amber-400">{assignedAmbassadorId}</span>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-slate-200 dark:border-slate-700">
+                <span className="text-slate-500">Referral Code:</span>
+                <span className="font-mono font-black text-slate-900 dark:text-white">{assignedAmbassadorId}</span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-slate-500">Application Status:</span>
+                <span className="font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" /> Pending Approval
+                </span>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-xs text-blue-900 dark:text-blue-200 text-left">
+              💡 <strong>Login Notice:</strong> You will be able to log in to your Ambassador Portal with your registered email and password as soon as your application is approved by the admin team.
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <Link
+                href="/login"
+                className="flex-1 py-3.5 bg-primary-600 hover:bg-primary-700 text-white font-bold text-sm rounded-xl shadow-lg active:scale-95 transition-all text-center"
+              >
+                Go to Login Page
+              </Link>
+              <Link
+                href="/"
+                className="flex-1 py-3.5 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold text-sm rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-center transition-colors"
+              >
+                Back to Home
+              </Link>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -512,47 +600,34 @@ export default function RegisterAmbassadorPage() {
                 Part A: Personal Information &amp; Account Setup
               </h2>
 
+              <div>
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Full Name *</label>
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  placeholder="Enter your full name as per Aadhaar"
+                  className={inputClass}
+                  required
+                />
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Full Name *</label>
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Date of Birth *</label>
                   <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
+                    type="date"
+                    name="dateOfBirth"
+                    value={formData.dateOfBirth}
                     onChange={handleChange}
-                    placeholder="Enter your full name"
                     className={inputClass}
                     required
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Father / Mother Name</label>
-                  <input
-                    type="text"
-                    name="parentName"
-                    value={formData.parentName}
-                    onChange={handleChange}
-                    placeholder="Parent's Name"
-                    className={inputClass}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Date of Birth (DD/MM/YYYY)</label>
-                  <input
-                    type="text"
-                    name="dateOfBirth"
-                    value={formData.dateOfBirth}
-                    onChange={handleChange}
-                    placeholder="DD/MM/YYYY"
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Gender</label>
-                  <select name="gender" value={formData.gender} onChange={handleChange} className={inputClass}>
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Gender *</label>
+                  <select name="gender" value={formData.gender} onChange={handleChange} className={inputClass} required>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
                     <option value="Other">Other</option>
@@ -614,7 +689,9 @@ export default function RegisterAmbassadorPage() {
 
               {/* Phone with OTP */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">Mobile Number *</label>
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
+                  Phone Number (WhatsApp Number) *
+                </label>
                 <div className="relative">
                   <input
                     type="tel"
@@ -665,27 +742,31 @@ export default function RegisterAmbassadorPage() {
                 )}
               </div>
 
+              {/* Separate Aadhaar & PAN Card Fields */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">WhatsApp Number</label>
-                  <input
-                    type="tel"
-                    name="whatsAppNumber"
-                    value={formData.whatsAppNumber}
-                    onChange={handleChange}
-                    placeholder="WhatsApp Number (if different)"
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Aadhaar / PAN Number</label>
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Aadhaar Card Number *</label>
                   <input
                     type="text"
                     name="aadhaarNumber"
                     value={formData.aadhaarNumber}
-                    onChange={handleChange}
-                    placeholder="Aadhaar or PAN Number"
+                    onChange={(e) => setFormData((p) => ({ ...p, aadhaarNumber: e.target.value.replace(/\D/g, '').slice(0, 12) }))}
+                    placeholder="12-digit Aadhaar Number"
+                    maxLength="12"
                     className={inputClass}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">PAN Card Number (Optional)</label>
+                  <input
+                    type="text"
+                    name="panNumber"
+                    value={formData.panNumber}
+                    onChange={(e) => setFormData((p) => ({ ...p, panNumber: e.target.value.toUpperCase().slice(0, 10) }))}
+                    placeholder="10-digit PAN (e.g. ABCDE1234F)"
+                    maxLength="10"
+                    className={inputClass + ' uppercase'}
                   />
                 </div>
               </div>
@@ -804,7 +885,7 @@ export default function RegisterAmbassadorPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Pin Code *</label>
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Pin Code (Optional)</label>
                   <input
                     type="text"
                     name="pincode"
@@ -813,7 +894,6 @@ export default function RegisterAmbassadorPage() {
                     placeholder="6-digit Pincode"
                     maxLength="6"
                     className={inputClass}
-                    required
                   />
                 </div>
               </div>
@@ -1082,7 +1162,46 @@ export default function RegisterAmbassadorPage() {
               </h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Photo */}
+                {/* Aadhaar Card Front - Mandatory */}
+                <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-center">
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">
+                    Aadhaar Card (Front Side) *
+                  </p>
+                  <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl text-xs font-semibold mt-2 hover:border-primary-500">
+                    <Upload className="w-4 h-4 text-primary-600" />
+                    {uploading.aadhaarFront ? 'Uploading...' : formData.aadhaarFront ? 'Change Front' : 'Upload Aadhaar Front'}
+                    <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => handleFileUpload(e, 'aadhaarFront')} />
+                  </label>
+                  {formData.aadhaarFront && <p className="text-[11px] text-green-600 font-bold mt-1">✓ Uploaded</p>}
+                </div>
+
+                {/* Aadhaar Card Back - Optional */}
+                <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-center">
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">
+                    Aadhaar Card (Back Side)
+                  </p>
+                  <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl text-xs font-semibold mt-2 hover:border-primary-500">
+                    <Upload className="w-4 h-4 text-primary-600" />
+                    {uploading.aadhaarBack ? 'Uploading...' : formData.aadhaarBack ? 'Change Back' : 'Upload Aadhaar Back'}
+                    <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => handleFileUpload(e, 'aadhaarBack')} />
+                  </label>
+                  {formData.aadhaarBack && <p className="text-[11px] text-green-600 font-bold mt-1">✓ Uploaded</p>}
+                </div>
+
+                {/* PAN Card - Optional */}
+                <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-center">
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">
+                    PAN Card (Optional)
+                  </p>
+                  <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl text-xs font-semibold mt-2 hover:border-primary-500">
+                    <Upload className="w-4 h-4 text-primary-600" />
+                    {uploading.panCard ? 'Uploading...' : formData.panCard ? 'Change PAN' : 'Upload PAN Card'}
+                    <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => handleFileUpload(e, 'panCard')} />
+                  </label>
+                  {formData.panCard && <p className="text-[11px] text-green-600 font-bold mt-1">✓ Uploaded</p>}
+                </div>
+
+                {/* Passport Photo */}
                 <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-center">
                   <p className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">Passport Size Photo</p>
                   <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl text-xs font-semibold mt-2 hover:border-primary-500">
@@ -1091,17 +1210,6 @@ export default function RegisterAmbassadorPage() {
                     <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'passportPhoto')} />
                   </label>
                   {formData.passportPhoto && <p className="text-[11px] text-green-600 font-bold mt-1">✓ Uploaded</p>}
-                </div>
-
-                {/* Identity Proof */}
-                <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-center">
-                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">Identity Proof (Aadhaar / PAN)</p>
-                  <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl text-xs font-semibold mt-2 hover:border-primary-500">
-                    <Upload className="w-4 h-4 text-primary-600" />
-                    {uploading.identityProof ? 'Uploading...' : formData.identityProof ? 'Change ID' : 'Upload ID Proof'}
-                    <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => handleFileUpload(e, 'identityProof')} />
-                  </label>
-                  {formData.identityProof && <p className="text-[11px] text-green-600 font-bold mt-1">✓ Uploaded</p>}
                 </div>
               </div>
 

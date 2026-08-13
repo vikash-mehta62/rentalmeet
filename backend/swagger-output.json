@@ -3914,7 +3914,7 @@
         }
       }
     },
-    "/api/ambassador/payouts/request": {
+    "/api/ambassador/payouts": {
       "post": {
         "description": "",
         "parameters": [
@@ -3969,9 +3969,7 @@
             }
           }
         }
-      }
-    },
-    "/api/ambassador/payouts": {
+      },
       "get": {
         "description": "",
         "parameters": [
@@ -3995,6 +3993,63 @@
           },
           "500": {
             "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/ambassador/payouts/request": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "amount": {
+                    "example": "any"
+                  },
+                  "payoutMethod": {
+                    "example": "any"
+                  },
+                  "upiId": {
+                    "example": "any"
+                  },
+                  "bankDetails": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -7384,6 +7439,9 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "applicationStatus": {
+                    "example": "any"
+                  },
                   "status": {
                     "example": "any"
                   },
@@ -7391,6 +7449,9 @@
                     "example": "any"
                   },
                   "assignedLevel": {
+                    "example": "any"
+                  },
+                  "level": {
                     "example": "any"
                   },
                   "badge": {

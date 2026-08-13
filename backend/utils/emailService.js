@@ -625,7 +625,7 @@ exports.sendVenueOwnerWelcomeCredentialsEmail = async ({
     <div style="background-color: #fff7ed; border-left: 4px solid #ea580c; border-radius: 8px; padding: 14px 18px; margin: 18px 0;">
       <p style="margin: 0; color: #9a3412; font-size: 13px; line-height: 1.5;">
         🤝 <strong>Onboarded via RentalMeet Ambassador Partner:</strong><br/>
-        This venue was registered on your behalf by our authorized partner <strong>${ambassadorName}</strong>${ambassadorPhone ? ` (Phone: ${ambassadorPhone})` : ''}.
+        This venue was registered on your behalf by our authorized partner <strong>${ambassadorName}</strong>.
       </p>
     </div>
   ` : '';

@@ -23,6 +23,7 @@ import {
 export default function AmbassadorVenuesPage() {
   const { token } = useAuthStore();
   const [venues, setVenues] = useState([]);
+  const [profitShareStatus, setProfitShareStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -37,6 +38,7 @@ export default function AmbassadorVenuesPage() {
       const json = await res.json();
       if (json.success) {
         setVenues(json.venues || []);
+        if (json.profitShareStatus) setProfitShareStatus(json.profitShareStatus);
       }
     } catch (err) {
       console.error('Error fetching venues:', err);
@@ -89,6 +91,29 @@ export default function AmbassadorVenuesPage() {
         </Link>
       </div>
 
+      {/* 7-Day Streak & 25% 1-Year Profit Share Notice */}
+      <div className={`p-3.5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs ${
+        profitShareStatus?.profitShareUnlocked
+          ? 'bg-purple-50 dark:bg-purple-950/40 border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-200'
+          : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200'
+      }`}>
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 flex-shrink-0 text-amber-500" />
+          <span>
+            {profitShareStatus?.profitShareUnlocked ? (
+              <span><strong>🎉 25% Recurring Profit Share Active:</strong> You earn 25% platform profit on all bookings across your listed venues for 1 Full Year (365 Days - {profitShareStatus?.daysRemaining || 365} days remaining).</span>
+            ) : (
+              <span><strong>⚡ Earning Sharing Rule:</strong> 7-Day Power Streak (Roz 5 Venues × 7 Din = <strong>Total 35 Venues</strong>) complete hone par <strong>1 Year (365 Days)</strong> ke liye <strong>25% Booking Profit Share</strong> unlock ho jayega! (Streak Progress: <strong>{profitShareStatus?.streakDaysCompleted || 0}/7 Days</strong> • Total: <strong>{profitShareStatus?.totalStreakVenues || 0}/35 Venues</strong>)</span>
+            )}
+          </span>
+        </div>
+        {!profitShareStatus?.profitShareUnlocked && (
+          <span className="font-mono font-bold text-amber-700 dark:text-amber-300 text-[10px] whitespace-nowrap bg-amber-100 dark:bg-amber-900/60 px-2.5 py-1 rounded-full border border-amber-300 dark:border-amber-700">
+            {profitShareStatus?.streakDaysRemaining || 7} Days Left ({profitShareStatus?.totalStreakVenues || 0}/35 Venues) 🔓
+          </span>
+        )}
+      </div>
+
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3.5">
@@ -121,15 +146,15 @@ export default function AmbassadorVenuesPage() {
           </div>
         </div>
 
-        <div className="p-4 bg-gradient-to-br from-amber-500/10 via-orange-500/10 to-primary-500/10 bg-white dark:bg-slate-900 rounded-2xl border border-amber-200 dark:border-amber-900/40 shadow-sm flex items-center gap-3.5">
-          <div className="p-2.5 bg-amber-500 text-white rounded-xl shadow-sm">
+        <div className="p-4 bg-gradient-to-br from-purple-500/10 via-amber-500/10 to-primary-500/10 bg-white dark:bg-slate-900 rounded-2xl border border-purple-200 dark:border-purple-900/40 shadow-sm flex items-center gap-3.5">
+          <div className="p-2.5 bg-purple-600 text-white rounded-xl shadow-sm">
             <Coins className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-[11px] font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-amber-500" /> 25% Profit Share
+            <div className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-purple-500" /> 25% Profit Share
             </div>
-            <div className="text-lg font-black text-amber-600">
+            <div className="text-lg font-black text-purple-600">
               ₹{totalAmbassadorShare.toLocaleString('en-IN')}
             </div>
           </div>

@@ -2634,7 +2634,7 @@ exports.updateAmbassadorStatus = async (req, res) => {
       }
     }
 
-    await profile.save();
+    await profile.save({ validateBeforeSave: false });
 
     const profileObj = profile.toObject();
     profileObj.status = profile.applicationStatus || targetStatus;
@@ -2665,7 +2665,7 @@ exports.getAllAmbassadorPayouts = async (req, res) => {
 
     const payouts = await AmbassadorPayout.find(query)
       .populate('ambassador', 'name email phone referralCode')
-      .populate('profile', 'ambassadorId assignedLevel badge')
+      .populate('profile', 'ambassadorId assignedLevel badge personalInfo bankDetails')
       .sort({ createdAt: -1 });
 
     res.json({

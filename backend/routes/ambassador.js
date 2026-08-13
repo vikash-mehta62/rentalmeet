@@ -26,6 +26,7 @@ router.get('/dashboard', authorize('ambassador', 'admin'), getAmbassadorDashboar
 router.get('/venues', authorize('ambassador', 'admin'), getAmbassadorVenues);
 router.get('/bookings', authorize('ambassador', 'admin'), getAmbassadorBookings);
 router.get('/earnings', authorize('ambassador', 'admin'), getAmbassadorEarnings);
+router.post('/payouts', authorize('ambassador'), requestPayout);
 router.post('/payouts/request', authorize('ambassador'), requestPayout);
 router.get('/payouts', authorize('ambassador', 'admin'), getPayoutHistory);
 router.get('/profile', authorize('ambassador', 'admin'), getAmbassadorProfile);

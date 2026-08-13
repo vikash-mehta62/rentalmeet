@@ -24,7 +24,8 @@ const ambassadorPayoutSchema = new mongoose.Schema({
   },
   payoutMethod: {
     type: String,
-    enum: ['UPI', 'Bank Transfer'],
+    enum: ['UPI', 'Bank Transfer', 'upi', 'bank', 'bank_transfer', 'Bank', 'upi_transfer'],
+    default: 'UPI',
     required: true
   },
   payoutDetails: {

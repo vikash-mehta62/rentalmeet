@@ -55,7 +55,19 @@ export default function AmbassadorEarningsPage() {
       const earnJson = await earnRes.json();
       const payJson = await payRes.json();
 
-      if (earnJson.success) setData(earnJson.data || earnJson);
+      if (earnJson.success) {
+        const d = earnJson.data || earnJson;
+        setData(d);
+        if (d.bankDetails?.upiId) setUpiId(d.bankDetails.upiId);
+        if (d.bankDetails?.accountNumber) {
+          setBankDetails({
+            accountHolderName: d.bankDetails.accountHolderName || '',
+            bankName: d.bankDetails.bankName || '',
+            accountNumber: d.bankDetails.accountNumber || '',
+            ifscCode: d.bankDetails.ifscCode || ''
+          });
+        }
+      }
       if (payJson.success) setPayouts(payJson.payouts || []);
     } catch (err) {
       console.error('Error fetching earnings:', err);
@@ -67,6 +79,22 @@ export default function AmbassadorEarningsPage() {
   useEffect(() => {
     if (token) fetchEarningsAndPayouts();
   }, [token]);
+
+  const openPayoutModal = () => {
+    const savedBank = data?.bankDetails || {};
+    if (savedBank.upiId) setUpiId(savedBank.upiId);
+    if (savedBank.accountNumber) {
+      setBankDetails({
+        accountHolderName: savedBank.accountHolderName || '',
+        bankName: savedBank.bankName || '',
+        accountNumber: savedBank.accountNumber || '',
+        ifscCode: savedBank.ifscCode || ''
+      });
+    }
+    setModalError('');
+    setModalSuccess('');
+    setShowPayoutModal(true);
+  };
 
   const handleRequestPayout = async (e) => {
     e.preventDefault();
@@ -105,7 +133,7 @@ export default function AmbassadorEarningsPage() {
         },
         body: JSON.stringify({
           amount: amt,
-          payoutMethod,
+          payoutMethod: payoutMethod === 'bank' ? 'Bank Transfer' : 'UPI',
           upiId: payoutMethod === 'upi' ? upiId : undefined,
           bankDetails: payoutMethod === 'bank' ? bankDetails : undefined
         })
@@ -160,11 +188,63 @@ export default function AmbassadorEarningsPage() {
             <RefreshCw className="w-4 h-4" />
           </button>
           <button
-            onClick={() => setShowPayoutModal(true)}
+            onClick={openPayoutModal}
             className="px-6 py-3.5 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-green-600/20 active:scale-95 transition-all"
           >
             <ArrowUpRight className="w-4 h-4" /> Request Payout
           </button>
+        </div>
+      </div>
+
+      {/* 7-Day Power Streak & 25% 1-Year Profit Share Rule Banner */}
+      <div className={`p-6 rounded-3xl border shadow-sm space-y-4 ${
+        data?.profitShareStatus?.profitShareUnlocked
+          ? 'bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 border-purple-800 text-white'
+          : 'bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-600/10 bg-white dark:bg-slate-900 border-amber-300 dark:border-amber-900/60 text-slate-900 dark:text-slate-100'
+      }`}>
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+          <div className="space-y-1.5 max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/30">
+              <Zap className="w-3.5 h-3.5 text-amber-500" />
+              {data?.profitShareStatus?.profitShareUnlocked ? '🎉 1-Year 25% Profit Share UNLOCKED & ACTIVE' : '🔥 7-Day Streak Target: 5 Venues/Day (35 Venues Total)'}
+            </div>
+            <h3 className="text-lg sm:text-xl font-black">
+              {data?.profitShareStatus?.profitShareUnlocked
+                ? '25% Booking Profit Share Active for 1 Full Year (365 Days)!'
+                : 'Roz 5 Venues × 7 Days Streak = Total 35 Venues to Unlock 25% Profit Share for 1 Year'}
+            </h3>
+            <p className="text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
+              {data?.profitShareStatus?.profitShareUnlocked
+                ? `Badhai ho! Aapka 1 Year (365 Days) 25% Booking Profit Share unlock ho chuka hai. Aapke sabhi onboarded venues se aane wali bookings ka 25% platform profit real-time aapke wallet me aayega (${data?.profitShareStatus?.daysRemaining || 365} din bache hain).`
+                : 'Lagatar 7 din roz 5-5 verified venues list karein (Total 35 venues). 7-Day streak complete hote hi 1 Year (365 Days) ke liye 25% Recurring Booking Profit Share + ₹1,000 Cash Bonus instant unlock ho jayega!'}
+            </p>
+          </div>
+
+          <div className="w-full lg:w-80 bg-slate-50 dark:bg-slate-800/80 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
+            <div className="flex justify-between items-center text-xs">
+              <span className="font-bold text-slate-500 dark:text-slate-400">7-Day Streak (5 Venues/Day)</span>
+              <span className="font-black text-amber-600 dark:text-amber-400">
+                {data?.profitShareStatus?.streakDaysCompleted || 0} / 7 Days
+              </span>
+            </div>
+            <div className="w-full h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden p-0.5">
+              <div
+                className="h-full bg-gradient-to-r from-amber-500 to-green-500 rounded-full transition-all duration-500 shadow-sm"
+                style={{ width: `${data?.profitShareStatus?.streakProgressPercentage || 0}%` }}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-center text-[11px] pt-1">
+              <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
+                <span className="text-slate-400 block text-[10px]">Today&apos;s Venues</span>
+                <span className="font-black text-slate-800 dark:text-slate-200">{data?.profitShareStatus?.todayVerifiedCount || 0} / 5</span>
+              </div>
+              <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
+                <span className="text-slate-400 block text-[10px]">Streak Total Venues</span>
+                <span className="font-black text-slate-800 dark:text-slate-200">{data?.profitShareStatus?.totalStreakVenues || 0} / 35</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -205,15 +285,31 @@ export default function AmbassadorEarningsPage() {
         </div>
 
         {/* 25% Booking Share */}
-        <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
           <div className="flex justify-between items-center text-purple-600 mb-2">
             <span className="text-xs font-bold text-slate-500">25% Booking Shares</span>
             <TrendingUp className="w-4 h-4" />
           </div>
-          <p className="text-2xl font-black text-purple-600">
-            ₹{(breakdown?.bookingShare || 0).toLocaleString('en-IN')}
+          <div className="flex items-baseline gap-2">
+            <p className="text-2xl font-black text-purple-600">
+              ₹{(breakdown?.bookingShare || 0).toLocaleString('en-IN')}
+            </p>
+            {data?.profitShareStatus?.profitShareUnlocked ? (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                🔓 Active (1 Yr)
+              </span>
+            ) : (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                🔒 Locked
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-slate-400 mt-2 font-medium leading-snug">
+            {data?.profitShareStatus?.profitShareUnlocked
+              ? `Active for 1 Year (${data?.profitShareStatus?.daysRemaining || 365} days left)`
+              : `Complete 7-Day Streak to unlock 1-Year 25% Share (${data?.profitShareStatus?.streakDaysCompleted || 0}/7 Days)`
+            }
           </p>
-          <p className="text-[11px] text-slate-400 mt-2">12-Month recurring booking revenue</p>
         </div>
       </div>
 
@@ -389,51 +485,38 @@ export default function AmbassadorEarningsPage() {
               </div>
 
               {payoutMethod === 'upi' ? (
-                <div>
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">UPI ID *</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. mobile@upi"
-                    value={upiId}
-                    onChange={(e) => setUpiId(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary-500"
-                    required
-                  />
+                <div className="p-4 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-1">
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span className="font-semibold">Registered UPI ID</span>
+                    <span className="text-[10px] text-green-600 font-bold bg-green-50 dark:bg-green-950/40 px-2 py-0.5 rounded-full">✓ Verified</span>
+                  </div>
+                  <p className="text-base font-bold text-slate-900 dark:text-white font-mono">{upiId || 'No UPI ID registered'}</p>
+                  <p className="text-[11px] text-slate-400">Withdrawals will be transferred directly to this UPI address.</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  <input
-                    type="text"
-                    placeholder="Account Holder Name"
-                    value={bankDetails.accountHolderName}
-                    onChange={(e) => setBankDetails((p) => ({ ...p, accountHolderName: e.target.value }))}
-                    className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none"
-                    required
-                  />
-                  <input
-                    type="text"
-                    placeholder="Bank Name"
-                    value={bankDetails.bankName}
-                    onChange={(e) => setBankDetails((p) => ({ ...p, bankName: e.target.value }))}
-                    className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none"
-                    required
-                  />
-                  <input
-                    type="text"
-                    placeholder="Account Number"
-                    value={bankDetails.accountNumber}
-                    onChange={(e) => setBankDetails((p) => ({ ...p, accountNumber: e.target.value }))}
-                    className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none"
-                    required
-                  />
-                  <input
-                    type="text"
-                    placeholder="IFSC Code"
-                    value={bankDetails.ifscCode}
-                    onChange={(e) => setBankDetails((p) => ({ ...p, ifscCode: e.target.value.toUpperCase() }))}
-                    className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none uppercase"
-                    required
-                  />
+                <div className="p-4 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-2.5">
+                  <div className="flex items-center justify-between text-xs text-slate-500 border-b border-slate-200 dark:border-slate-700/60 pb-2">
+                    <span className="font-semibold">Registered Bank Account</span>
+                    <span className="text-[10px] text-green-600 font-bold bg-green-50 dark:bg-green-950/40 px-2 py-0.5 rounded-full">✓ Verified</span>
+                  </div>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Account Holder:</span>
+                      <span className="font-bold text-slate-800 dark:text-slate-200">{bankDetails.accountHolderName || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Bank Name:</span>
+                      <span className="font-bold text-slate-800 dark:text-slate-200">{bankDetails.bankName || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Account Number:</span>
+                      <span className="font-mono font-bold text-slate-900 dark:text-white">{bankDetails.accountNumber || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">IFSC Code:</span>
+                      <span className="font-mono font-bold text-primary-600 dark:text-primary-400">{bankDetails.ifscCode || 'N/A'}</span>
+                    </div>
+                  </div>
                 </div>
               )}
 

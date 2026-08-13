@@ -146,7 +146,7 @@ export default function AmbassadorProgramPage() {
     { num: '02', title: 'Search Nearby Venues', desc: 'Discover hotels, banquet halls, training centres, coaching, and meeting spaces.' },
     { num: '03', title: 'Collect & Upload Info', desc: 'Use our 7-step venue listing wizard to submit photos, amenities, pricing & owner contact.' },
     { num: '04', title: 'Admin Verification', desc: 'Our team verifies the venue and documents within 24–48 hours.' },
-    { num: '05', title: 'Instant Rewards & 25% Share', desc: 'Get paid instant listing reward (₹100–₹200) + 25% profit share on all bookings for 12 months!' }
+    { num: '05', title: '7-Day Streak & 25% Share', desc: 'Complete a 7-day power streak to unlock ₹1,000 cash bonus + 25% recurring profit share on all bookings for 1 Full Year (365 Days)!' }
   ];
 
   const faqs = [
@@ -159,8 +159,8 @@ export default function AmbassadorProgramPage() {
       a: 'As soon as your submitted venue is verified and approved by the RentalMeet team, your wallet is instantly credited based on your tier level: LV.1 (₹100), LV.2 (₹125), LV.3 (₹150), LV.4 (₹200).'
     },
     {
-      q: 'What is the 25% 12-Month Booking Revenue Share?',
-      a: 'Every ambassador who lists a venue receives a 25% share of RentalMeet’s platform profit generated from all bookings on that venue for the first 12 months! As your venues get bookings, your recurring monthly income grows automatically.'
+      q: 'How do I unlock the 25% 12-Month Booking Revenue Share?',
+      a: 'To unlock your 1-Year (365 Days) 25% Booking Profit Share, simply complete the 7-Day Power Streak by listing venues actively. Once unlocked, every time a customer books any venue you onboarded, you receive a 25% share of RentalMeet’s platform profit on that booking for a full 12 months!'
     },
     {
       q: 'How do I withdraw my earnings?',
@@ -452,18 +452,22 @@ export default function AmbassadorProgramPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-6">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-500/20 text-primary-300 text-xs font-bold uppercase tracking-wider border border-primary-500/30">
-                <TrendingUp className="w-3.5 h-3.5" /> Long-Term Passive Revenue
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-black uppercase tracking-wider border border-amber-500/30">
+                <Zap className="w-3.5 h-3.5 text-amber-400" /> 7-Day Power Streak Unlockable Reward
               </div>
               <h2 className="text-3xl sm:text-4xl font-black tracking-tight leading-tight">
                 25% Share of Platform Profit <br />
-                <span className="text-primary-400">For 12 Full Months</span>
+                <span className="text-primary-400">For 1 Full Year (365 Days)</span>
               </h2>
               <p className="text-slate-300 text-base font-light">
-                Your earning does not stop at venue listing. Every time a customer books a venue you listed, you receive a <span className="font-bold text-white">25% cut of RentalMeet&apos;s profit</span> on that booking for a full year.
+                Your earning does not stop at venue listing. Complete your <span className="font-bold text-amber-400">7-Day Power Streak</span> to unlock a <span className="font-bold text-white">25% cut of RentalMeet&apos;s profit</span> on every customer booking across all your venues for a full 12 months (1 Year).
               </p>
 
               <div className="space-y-3 pt-2">
+                <div className="flex items-center gap-3 text-sm text-slate-200">
+                  <CheckCircle2 className="w-5 h-5 text-amber-400 flex-shrink-0" />
+                  <span><strong>7-Day Streak Unlock:</strong> Complete 7 active listing days to activate 1-Year (365-Day) 25% profit sharing.</span>
+                </div>
                 <div className="flex items-center gap-3 text-sm text-slate-200">
                   <CheckCircle2 className="w-5 h-5 text-primary-400 flex-shrink-0" />
                   <span>Real-time booking revenue credited directly to your wallet.</span>

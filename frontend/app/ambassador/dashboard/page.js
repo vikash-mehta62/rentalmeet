@@ -77,7 +77,7 @@ export default function AmbassadorDashboardPage() {
     );
   }
 
-  const { profile, stats, progress, challenges, recentVenues, recentRewards } = data || {};
+  const { profile, stats, progress, challenges, profitShareStatus, recentVenues, recentRewards } = data || {};
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -95,29 +95,89 @@ export default function AmbassadorDashboardPage() {
             <span className="px-2.5 py-0.5 rounded-full bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-300 text-xs font-bold">
               {progress?.currentLevel || 'LV.1'} (₹{progress?.currentRate || 100}/venue)
             </span>
+            {profitShareStatus?.profitShareUnlocked ? (
+              <span className="px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 text-xs font-bold flex items-center gap-1">
+                🔓 25% Profit Share Active (1 Year)
+              </span>
+            ) : (
+              <span className="px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center gap-1">
+                🔒 25% Share (7-Day Streak Required)
+              </span>
+            )}
           </div>
           <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
             Welcome back, {user?.name?.split(' ')[0]}!
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Here is your live venue acquisition status, rewards, and booking revenue share.
+          <p className="text-xs text-slate-500">
+            RentalMeet Official Ambassador Portal • Direct Venue Acquisition &amp; Profit Sharing
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center gap-2.5">
           <button
             onClick={fetchDashboardData}
-            className="p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition-colors"
-            title="Refresh Data"
+            className="p-3 border border-slate-200 dark:border-slate-700 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition-colors"
+            title="Refresh dashboard"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
+
           <Link
             href="/ambassador/add-venue"
-            className="px-5 py-2.5 bg-primary-500 hover:bg-primary-600 text-slate-950 rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+            className="px-5 py-3 bg-gradient-to-r from-primary-500 to-amber-500 text-slate-950 font-black rounded-2xl text-xs flex items-center gap-2 shadow-lg shadow-amber-500/20 active:scale-95 transition-all"
           >
-            <PlusCircle className="w-4 h-4" /> List Venue
+            <PlusCircle className="w-4 h-4" /> Onboard Venue
           </Link>
+        </div>
+      </div>
+
+      {/* 7-Day Power Streak & 25% 1-Year Profit Share Unlock Card */}
+      <div className="p-6 rounded-3xl bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-white shadow-xl border border-purple-800/40 relative overflow-hidden">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
+          <div className="space-y-1.5 max-w-xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 text-xs font-black uppercase tracking-wider border border-purple-500/30">
+              <Zap className="w-3.5 h-3.5 text-amber-400" />
+              {profitShareStatus?.profitShareUnlocked ? '🎉 1-Year 25% Profit Share Unlocked & Active' : '🔥 7-Day Streak Target: 5 Venues/Day (35 Venues Total)'}
+            </div>
+            <h3 className="text-xl sm:text-2xl font-black">
+              {profitShareStatus?.profitShareUnlocked
+                ? '25% Platform Profit Share is Active on All Your Venues!'
+                : 'Roz 5 Venues × 7 Days Streak = Total 35 Venues to Unlock 25% Profit Share for 1 Year'}
+            </h3>
+            <p className="text-xs text-purple-200 leading-relaxed font-light">
+              {profitShareStatus?.profitShareUnlocked
+                ? `Congratulations! You earn 25% of RentalMeet platform profit on every completed booking across all your onboarded venues for 365 Days (${profitShareStatus?.daysRemaining || 365} days remaining).`
+                : 'Lagatar 7 din roz 5-5 verified venues list karein (Total 35 venues). 7-Day streak complete hote hi 1 Year (365 Days) ke liye 25% Recurring Booking Profit Share + ₹1,000 Cash Bonus instant unlock ho jayega!'}
+            </p>
+          </div>
+
+          <div className="w-full md:w-72 bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/15 space-y-2.5">
+            <div className="flex justify-between items-center text-xs font-bold">
+              <span className="text-purple-200">7-Day Streak Progress</span>
+              <span className="text-amber-300">{profitShareStatus?.streakDaysCompleted || 0} / 7 Days (5 venues/day)</span>
+            </div>
+            <div className="w-full h-2.5 bg-black/40 rounded-full overflow-hidden p-0.5">
+              <div
+                className="h-full bg-gradient-to-r from-amber-400 to-green-400 rounded-full transition-all duration-500 shadow-sm"
+                style={{ width: `${profitShareStatus?.streakProgressPercentage || 0}%` }}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-center text-[10px] pt-1">
+              <div className="p-1.5 rounded-lg bg-black/30 border border-white/10">
+                <span className="text-purple-300 block text-[9px]">Today&apos;s Venues</span>
+                <span className="font-bold text-white">{profitShareStatus?.todayVerifiedCount || 0} / 5</span>
+              </div>
+              <div className="p-1.5 rounded-lg bg-black/30 border border-white/10">
+                <span className="text-purple-300 block text-[9px]">Streak Venues</span>
+                <span className="font-bold text-white">{profitShareStatus?.totalStreakVenues || 0} / 35</span>
+              </div>
+            </div>
+            <p className="text-[10px] text-purple-300 text-center font-medium">
+              {profitShareStatus?.profitShareUnlocked
+                ? '✅ 7-Day Streak Completed • 1-Year Share Active'
+                : `${profitShareStatus?.streakDaysRemaining || 7} more active 5-venue days needed to unlock 🔓`}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -125,18 +185,15 @@ export default function AmbassadorDashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Tier Progress Card */}
-        <div className="lg:col-span-7 bg-gradient-to-br from-amber-500 via-primary-600 to-orange-600 text-white p-6 sm:p-7 rounded-3xl shadow-lg relative overflow-hidden flex flex-col justify-between">
-          <div className="absolute top-0 right-0 -mr-8 -mt-8 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-          
-          <div>
-            <div className="flex justify-between items-center mb-3">
-              <span className="text-xs font-black uppercase tracking-widest px-3 py-1 rounded-full bg-white/20 backdrop-blur-sm border border-white/30">
-                {progress?.currentLevel} • {progress?.tierTitle}
+        <div className="lg:col-span-7 bg-gradient-to-br from-primary-600 via-amber-600 to-orange-700 text-white p-6 sm:p-7 rounded-3xl shadow-xl flex flex-col justify-between relative overflow-hidden">
+          <div className="relative z-10">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black uppercase tracking-widest text-amber-200">Current Tier Level</span>
+              <span className="text-xs font-black px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-white">
+                {progress?.currentLevel || 'LV.1'} • {progress?.tierTitle || 'Venue Explorer'}
               </span>
-              <span className="text-xl font-black">₹{progress?.currentRate} <span className="text-xs font-normal">/ Verified Venue</span></span>
             </div>
-
-            <h3 className="text-xl sm:text-2xl font-black">
+            <h3 className="text-2xl sm:text-3xl font-black mt-3">
               {progress?.approvedCount || 0} Verified Venues Approved
             </h3>
             <p className="text-xs text-amber-100 font-light mt-1">
@@ -144,7 +201,7 @@ export default function AmbassadorDashboardPage() {
             </p>
           </div>
 
-          <div className="mt-5 pt-4 border-t border-white/20">
+          <div className="mt-5 pt-4 border-t border-white/20 relative z-10">
             <div className="flex justify-between text-xs font-bold mb-1.5 text-amber-100">
               <span>Progress to Next Tier</span>
               <span>{progress?.progressPercentage || 0}%</span>
@@ -254,17 +311,33 @@ export default function AmbassadorDashboardPage() {
         </div>
 
         {/* 25% Booking Revenue Share */}
-        <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
           <div className="flex justify-between items-center mb-2">
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400">25% Booking Share</span>
-            <div className="p-2 bg-purple-100 dark:bg-purple-950/60 text-purple-600 rounded-xl">
+            <div className={`p-2 rounded-xl ${profitShareStatus?.profitShareUnlocked ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-600' : 'bg-amber-100 dark:bg-amber-950/60 text-amber-600'}`}>
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl sm:text-3xl font-black text-purple-600">
-            ₹{(stats?.bookingShareEarnings || 0).toLocaleString('en-IN')}
+          <div className="flex items-baseline gap-2">
+            <p className="text-2xl sm:text-3xl font-black text-purple-600">
+              ₹{(stats?.bookingShareEarnings || 0).toLocaleString('en-IN')}
+            </p>
+            {profitShareStatus?.profitShareUnlocked ? (
+              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                🔓 1-Yr Active
+              </span>
+            ) : (
+              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                🔒 Locked
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-slate-500 mt-2 font-medium">
+            {profitShareStatus?.profitShareUnlocked
+              ? `Active for 1 Year (${profitShareStatus?.daysRemaining || 365} days left)`
+              : `Requires 7-Day Streak to unlock 1-Yr 25% Share (${profitShareStatus?.streakDaysCompleted || 0}/7 Days)`
+            }
           </p>
-          <p className="text-[11px] text-slate-500 mt-2.5 font-medium">12-Month recurring booking revenue</p>
         </div>
       </div>
 

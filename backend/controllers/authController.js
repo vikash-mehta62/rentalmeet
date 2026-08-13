@@ -433,6 +433,26 @@ exports.login = async (req, res) => {
         message: 'Your account is deactivated. Please contact support.'
       });
     }
+
+    // Check Ambassador Approval Status
+    if (user.role === 'ambassador') {
+      const AmbassadorProfile = require('../models/AmbassadorProfile');
+      const ambProfile = await AmbassadorProfile.findOne({ user: user._id });
+      if (ambProfile) {
+        if (ambProfile.applicationStatus === 'pending') {
+          return res.status(403).json({
+            success: false,
+            message: 'Your Ambassador application is under review by admin. You will be able to login once approved.'
+          });
+        }
+        if (ambProfile.applicationStatus === 'rejected') {
+          return res.status(403).json({
+            success: false,
+            message: 'Your Ambassador application has been rejected. Please contact support.'
+          });
+        }
+      }
+    }
     
     const token = generateToken(user._id);
 

@@ -31,13 +31,13 @@ const ambassadorProfileSchema = new mongoose.Schema({
   // PART A: Personal Information
   personalInfo: {
     fullName: { type: String, required: true, trim: true },
-    parentName: { type: String, trim: true }, // Father / Mother Name
-    dateOfBirth: { type: String }, // DD/MM/YYYY
-    gender: { type: String, enum: ['Male', 'Female', 'Other'] },
+    parentName: { type: String, trim: true }, // Optional
+    dateOfBirth: { type: String }, // YYYY-MM-DD
+    gender: { type: String, enum: ['Male', 'Female', 'Other'], default: 'Male' },
     mobileNumber: { type: String, required: true, trim: true },
     whatsAppNumber: { type: String, trim: true },
     email: { type: String, required: true, lowercase: true, trim: true },
-    aadhaarNumber: { type: String, trim: true },
+    aadhaarNumber: { type: String, trim: true, default: '123456789012' }, // Enforced in controller
     panNumber: { type: String, uppercase: true, trim: true }
   },
 
@@ -47,7 +47,7 @@ const ambassadorProfileSchema = new mongoose.Schema({
     city: { type: String, required: true },
     district: { type: String },
     state: { type: String, required: true },
-    pincode: { type: String, required: true },
+    pincode: { type: String }, // Optional
     areaCoverage: { type: String, required: true } // Area / Locality You Will Cover
   },
 
@@ -117,9 +117,12 @@ const ambassadorProfileSchema = new mongoose.Schema({
 
   // PART I: Document Upload
   documents: {
-    passportPhoto: { type: String }, // S3 URL
-    identityProof: { type: String }, // Front URL
-    identityProofBack: { type: String }, // Back URL
+    passportPhoto: { type: String }, // URL
+    aadhaarFront: { type: String }, // Aadhaar Front URL (Mandatory)
+    aadhaarBack: { type: String }, // Aadhaar Back URL
+    panCard: { type: String }, // PAN Card URL
+    identityProof: { type: String }, // Fallback Front URL
+    identityProofBack: { type: String }, // Fallback Back URL
     identityProofType: { type: String, enum: ['Aadhaar', 'PAN', 'Voter ID', 'Driving License', 'Passport'] },
     bankProof: { type: String }, // Passbook / Cheque / UPI screenshot
     addressProof: { type: String } // Optional
@@ -154,6 +157,11 @@ const ambassadorProfileSchema = new mongoose.Schema({
   totalVenuesSubmitted: { type: Number, default: 0 },
   totalVenuesApproved: { type: Number, default: 0 },
   totalVenuesRejected: { type: Number, default: 0 },
+  
+  // 25% 1-Year Recurring Profit Share Status (Unlocked upon 7-Day Power Streak)
+  profitShareUnlocked: { type: Boolean, default: false },
+  profitShareUnlockedAt: { type: Date },
+  profitShareExpiresAt: { type: Date },
   
   // Challenge Streaks Tracking
   dailyStreak: {

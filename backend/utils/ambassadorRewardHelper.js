@@ -161,7 +161,18 @@ const processVenueApprovalReward = async (venueId) => {
 
         profile.walletBalance += weeklyBonusAmount;
         profile.totalEarnings += weeklyBonusAmount;
-        console.log(`[AMBASSADOR STREAK] ⚡ 7-Day Power Streak Bonus of ₹1,000 awarded to ambassador: ${venue.ambassador}`);
+        
+        // UNLOCK 25% BOOKING PROFIT SHARE FOR 1 YEAR (365 DAYS)
+        profile.profitShareUnlocked = true;
+        profile.profitShareUnlockedAt = now;
+        profile.profitShareExpiresAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+        profile.weeklyStreak = {
+          weekStart: sevenDaysAgo.toISOString().split('T')[0],
+          approvedCount: dailyChallengesPast7Days,
+          bonusAwarded: true
+        };
+
+        console.log(`[AMBASSADOR STREAK] ⚡ 7-Day Power Streak Bonus of ₹1,000 & 1-Year 25% Profit Share UNLOCKED for ambassador: ${venue.ambassador}`);
       }
     }
 
@@ -212,6 +223,85 @@ const processVenueApprovalReward = async (venueId) => {
 };
 
 /**
+ * Get current 7-Day Streak and 25% 1-Year Profit Share Status for an Ambassador
+ */
+const getAmbassadorStreakAndProfitShareStatus = async (ambassadorId) => {
+  try {
+    const profile = await AmbassadorProfile.findOne({ user: ambassadorId });
+    if (!profile) return null;
+
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    const todayStr = now.toISOString().split('T')[0];
+    const startOfDay = new Date(todayStr + 'T00:00:00.000Z');
+    const endOfDay = new Date(todayStr + 'T23:59:59.999Z');
+
+    // Count today's approved venues
+    const todayVerifiedCount = await AmbassadorReward.countDocuments({
+      ambassador: ambassadorId,
+      rewardType: 'listing_reward',
+      createdAt: { $gte: startOfDay, $lte: endOfDay }
+    });
+
+    // Count completed daily challenge days (5+ venues/day) in the last 7 days
+    const dailyChallengeDaysCount = await AmbassadorReward.countDocuments({
+      ambassador: ambassadorId,
+      rewardType: 'daily_challenge',
+      createdAt: { $gte: sevenDaysAgo }
+    });
+
+    // Count total venues approved during the 7-day window
+    const totalStreakVenues = await AmbassadorReward.countDocuments({
+      ambassador: ambassadorId,
+      rewardType: 'listing_reward',
+      createdAt: { $gte: sevenDaysAgo }
+    });
+
+    const streakDaysCompleted = Math.min(7, dailyChallengeDaysCount);
+    const streakTarget = 7;
+    const streakDaysRemaining = Math.max(0, streakTarget - streakDaysCompleted);
+
+    // Check if streak was already completed or profile flag is set
+    const hasWeeklyReward = await AmbassadorReward.exists({
+      ambassador: ambassadorId,
+      rewardType: 'weekly_streak'
+    });
+
+    const isUnlocked = Boolean(profile.profitShareUnlocked || hasWeeklyReward);
+    const unlockedAt = profile.profitShareUnlockedAt || profile.updatedAt || now;
+    const expiresAt = profile.profitShareExpiresAt || new Date(new Date(unlockedAt).getTime() + 365 * 24 * 60 * 60 * 1000);
+
+    const isExpired = isUnlocked && expiresAt < now;
+    const daysRemaining = isUnlocked && !isExpired
+      ? Math.max(0, Math.ceil((expiresAt - now) / (1000 * 60 * 60 * 24)))
+      : 0;
+
+    return {
+      profitShareUnlocked: isUnlocked && !isExpired,
+      isExpired,
+      streakDaysCompleted,
+      streakTarget: 7,
+      streakDaysRemaining,
+      dailyTarget: 5,
+      todayVerifiedCount,
+      totalStreakVenues,
+      totalVenuesTarget: 35, // 7 days x 5 venues/day
+      streakProgressPercentage: Math.min(100, Math.round((streakDaysCompleted / 7) * 100)),
+      venuesProgressPercentage: Math.min(100, Math.round((Math.min(35, totalStreakVenues) / 35) * 100)),
+      profitShareUnlockedAt: isUnlocked ? unlockedAt : null,
+      profitShareExpiresAt: isUnlocked ? expiresAt : null,
+      daysRemaining,
+      ruleTitle: '7-Day Streak Rule (5 Venues/Day = 35 Venues Total)',
+      ruleText: '7 Days continuous streak me roz 5 verified venues list karein (Total 35 venues). Streak complete hote hi 1 Full Year (365 Days) ke liye 25% Booking Profit Share unlock ho jayega!'
+    };
+  } catch (err) {
+    console.error('Error getting streak and profit share status:', err);
+    return null;
+  }
+};
+
+/**
  * Process 25% Booking Profit Share when a booking is completed / settled
  */
 const processBookingProfitShare = async (booking) => {
@@ -225,10 +315,33 @@ const processBookingProfitShare = async (booking) => {
 
     if (!venue || !venue.ambassador) return null;
 
-    // Check if within 12-month revenue share eligibility window
+    const profile = await AmbassadorProfile.findOne({ user: venue.ambassador });
+    if (!profile) return null;
+
     const now = new Date();
-    if (venue.ambassadorProfitShareExpiresAt && venue.ambassadorProfitShareExpiresAt < now) {
-      return { message: '12-Month revenue share period has expired for this venue' };
+
+    // Check if Ambassador has unlocked 25% profit share by completing 7-Day Power Streak
+    const hasWeeklyReward = await AmbassadorReward.exists({
+      ambassador: venue.ambassador,
+      rewardType: 'weekly_streak'
+    });
+
+    const isUnlocked = Boolean(profile.profitShareUnlocked || hasWeeklyReward);
+    if (!isUnlocked) {
+      console.log(`[AMBASSADOR 25% SHARE] 🔒 Locked for ambassador ${venue.ambassador}. 7-Day Streak completion required to unlock 1-Year profit share.`);
+      return {
+        locked: true,
+        message: '25% Booking Profit Share is locked. Ambassador must complete 7-Day Power Streak to unlock 1-Year profit share.'
+      };
+    }
+
+    // Check if within 1-Year (365-day) profit share eligibility window
+    const expiresAt = profile.profitShareExpiresAt || (venue.ambassadorProfitShareExpiresAt || new Date(new Date(venue.ambassadorListingApprovedAt || venue.createdAt).getTime() + 365 * 24 * 60 * 60 * 1000));
+    if (expiresAt && expiresAt < now) {
+      return {
+        expired: true,
+        message: '1-Year Profit Share validity period has expired for this ambassador/venue.'
+      };
     }
 
     // Check if share already processed for this booking
@@ -241,11 +354,7 @@ const processBookingProfitShare = async (booking) => {
       return { message: 'Booking profit share already credited' };
     }
 
-    const profile = await AmbassadorProfile.findOne({ user: venue.ambassador });
-    if (!profile) return null;
-
     // Calculate Platform Profit
-    // Platform fee or 15% commission approx as per model
     let platformProfit = 0;
     if (booking.priceBreakdown && booking.priceBreakdown.platformFee) {
       platformProfit = booking.priceBreakdown.platformFee;
@@ -299,5 +408,6 @@ module.exports = {
   getAmbassadorTier,
   getAmbassadorBadge,
   processVenueApprovalReward,
-  processBookingProfitShare
+  processBookingProfitShare,
+  getAmbassadorStreakAndProfitShareStatus
 };

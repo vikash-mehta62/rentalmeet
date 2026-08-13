@@ -7,7 +7,13 @@ const AmbassadorReward = require('../models/AmbassadorReward');
 const AmbassadorPayout = require('../models/AmbassadorPayout');
 const Counter = require('../models/Counter');
 const { encrypt, decrypt } = require('../utils/encryption');
-const { getAmbassadorTier, getAmbassadorBadge } = require('../utils/ambassadorRewardHelper');
+const {
+  getAmbassadorTier,
+  getAmbassadorBadge,
+  processVenueApprovalReward,
+  processBookingProfitShare,
+  getAmbassadorStreakAndProfitShareStatus
+} = require('../utils/ambassadorRewardHelper');
 
 // Helper to generate JWT Token
 const generateToken = (id) => {
@@ -54,6 +60,8 @@ exports.applyAmbassador = async (req, res) => {
     const applicantEmail = (email || personalInfo?.email || '').toLowerCase().trim();
     const applicantPhone = (phone || personalInfo?.mobileNumber || '').trim();
     const applicantName = (name || personalInfo?.fullName || '').trim();
+    const applicantGender = personalInfo?.gender;
+    const applicantAadhaar = personalInfo?.aadhaarNumber;
 
     if (!applicantName || !applicantEmail || !applicantPhone || !password) {
       return res.status(400).json({
@@ -62,16 +70,59 @@ exports.applyAmbassador = async (req, res) => {
       });
     }
 
+    if (!applicantGender) {
+      return res.status(400).json({
+        success: false,
+        message: 'Gender is required'
+      });
+    }
+
+    if (!applicantAadhaar || applicantAadhaar.trim().length < 12) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid 12-digit Aadhaar Card Number is mandatory'
+      });
+    }
+
+    const cleanPhone = applicantPhone.replace(/\D/g, '').slice(-10);
+    if (!cleanPhone || cleanPhone.length < 10) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid 10-digit phone number'
+      });
+    }
+
+    // Format Ambassador ID as RMA[PHONENUMBER]
+    const generatedAmbId = `RMA${cleanPhone}`;
+
     // Check if user already exists
     let existingUser = await User.findOne({
       $or: [{ email: applicantEmail }, { phone: applicantPhone }]
     });
 
-    if (existingUser && existingUser.role !== 'ambassador') {
-      return res.status(400).json({
-        success: false,
-        message: 'An account with this email or phone already exists with a different role.'
-      });
+    if (existingUser) {
+      // Check if this existing user (e.g. Venue Owner or Customer) already has an Ambassador Profile
+      const existingAmbProfile = await AmbassadorProfile.findOne({ user: existingUser._id });
+      if (existingAmbProfile) {
+        if (existingAmbProfile.applicationStatus === 'approved') {
+          return res.status(400).json({
+            success: false,
+            message: 'An active Ambassador account with this email/phone already exists. Please log in.'
+          });
+        }
+        if (existingAmbProfile.applicationStatus === 'pending') {
+          return res.status(400).json({
+            success: false,
+            message: 'Your Ambassador application is already submitted and pending admin approval.'
+          });
+        }
+        if (existingAmbProfile.applicationStatus === 'rejected') {
+          return res.status(400).json({
+            success: false,
+            message: 'Your previous Ambassador application was rejected. Please contact support.'
+          });
+        }
+      }
     }
 
     // Check if referral code was provided
@@ -103,19 +154,14 @@ exports.applyAmbassador = async (req, res) => {
         state: addressDetails?.state,
         address: addressDetails?.currentAddress,
         pincode: addressDetails?.pincode,
+        referralCode: generatedAmbId,
         referredBy: referredByUser ? referredByUser._id : undefined,
         referredByCode: referralCode ? referralCode.toUpperCase().trim() : undefined
       });
 
-      user.referralCode = user.generateReferralCode();
       await user.save();
     } else {
-      user.role = 'ambassador';
-      user.city = addressDetails?.city || user.city;
-      user.state = addressDetails?.state || user.state;
-      user.address = addressDetails?.currentAddress || user.address;
-      user.pincode = addressDetails?.pincode || user.pincode;
-      if (!user.referralCode) user.referralCode = user.generateReferralCode();
+      if (!user.referralCode) user.referralCode = generatedAmbId;
       await user.save();
     }
 
@@ -128,7 +174,6 @@ exports.applyAmbassador = async (req, res) => {
     // Create or update Ambassador Profile
     let profile = await AmbassadorProfile.findOne({ user: user._id });
     if (!profile) {
-      const generatedAmbId = await generateSequentialAmbassadorId();
       profile = new AmbassadorProfile({
         user: user._id,
         ambassadorId: generatedAmbId,
@@ -138,11 +183,11 @@ exports.applyAmbassador = async (req, res) => {
           fullName: applicantName,
           parentName: personalInfo?.parentName || '',
           dateOfBirth: personalInfo?.dateOfBirth || '',
-          gender: personalInfo?.gender || 'Male',
+          gender: applicantGender || 'Male',
           mobileNumber: applicantPhone,
-          whatsAppNumber: personalInfo?.whatsAppNumber || applicantPhone,
+          whatsAppNumber: applicantPhone,
           email: applicantEmail,
-          aadhaarNumber: personalInfo?.aadhaarNumber || '',
+          aadhaarNumber: applicantAadhaar,
           panNumber: personalInfo?.panNumber || ''
         },
         addressDetails: {
@@ -161,15 +206,36 @@ exports.applyAmbassador = async (req, res) => {
         bankDetails: processedBankDetails || {},
         referralInfo: {
           referredByAmbassadorId: referralCode || '',
-          referralCode: user.referralCode
+          referralCode: generatedAmbId
         },
-        documents: documents || {},
+        documents: {
+          passportPhoto: documents?.passportPhoto || '',
+          aadhaarFront: documents?.aadhaarFront || documents?.identityProof || '',
+          aadhaarBack: documents?.aadhaarBack || documents?.identityProofBack || '',
+          panCard: documents?.panCard || '',
+          identityProof: documents?.aadhaarFront || documents?.identityProof || '',
+          identityProofBack: documents?.aadhaarBack || documents?.identityProofBack || '',
+          identityProofType: 'Aadhaar',
+          bankProof: documents?.bankProof || '',
+          addressProof: documents?.addressProof || ''
+        },
         declaration: declaration || { agreed: true, applicantSignatureName: applicantName, date: new Date() },
-        applicationStatus: 'approved' // Automatically activated so they can start listing immediately!
+        applicationStatus: 'pending' // Must be reviewed and approved by Admin before login!
       });
       await profile.save();
     } else {
-      profile.personalInfo = { ...profile.personalInfo, ...personalInfo, fullName: applicantName, email: applicantEmail, mobileNumber: applicantPhone };
+      profile.ambassadorId = generatedAmbId;
+      profile.personalInfo = {
+        fullName: applicantName,
+        parentName: personalInfo?.parentName || '',
+        dateOfBirth: personalInfo?.dateOfBirth || '',
+        gender: applicantGender || 'Male',
+        mobileNumber: applicantPhone,
+        whatsAppNumber: applicantPhone,
+        email: applicantEmail,
+        aadhaarNumber: applicantAadhaar,
+        panNumber: personalInfo?.panNumber || ''
+      };
       profile.addressDetails = { ...profile.addressDetails, ...addressDetails };
       profile.professionalDetails = { ...profile.professionalDetails, ...professionalDetails };
       profile.profileType = profileType || profile.profileType;
@@ -177,26 +243,27 @@ exports.applyAmbassador = async (req, res) => {
       profile.venueNetwork = { ...profile.venueNetwork, ...venueNetwork };
       profile.expectedPerformance = { ...profile.expectedPerformance, ...expectedPerformance };
       if (processedBankDetails?.accountNumber) profile.bankDetails = processedBankDetails;
-      profile.documents = { ...profile.documents, ...documents };
-      profile.applicationStatus = 'approved';
+      profile.documents = {
+        passportPhoto: documents?.passportPhoto || profile.documents?.passportPhoto || '',
+        aadhaarFront: documents?.aadhaarFront || documents?.identityProof || profile.documents?.aadhaarFront || '',
+        aadhaarBack: documents?.aadhaarBack || documents?.identityProofBack || profile.documents?.aadhaarBack || '',
+        panCard: documents?.panCard || profile.documents?.panCard || '',
+        bankProof: documents?.bankProof || profile.documents?.bankProof || '',
+        addressProof: documents?.addressProof || profile.documents?.addressProof || ''
+      };
+      profile.applicationStatus = 'pending';
+      profile.referralInfo = {
+        referredByAmbassadorId: referralCode || profile.referralInfo?.referredByAmbassadorId || '',
+        referralCode: generatedAmbId
+      };
       await profile.save();
     }
 
-    const token = generateToken(user._id);
-
     res.status(201).json({
       success: true,
-      message: 'Venue Ambassador Application submitted successfully! Welcome to the RentalMeet Network.',
-      token,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        referralCode: user.referralCode
-      },
-      profile
+      status: 'pending',
+      message: 'Your application has been submitted for approval by admin. You will be able to login once approved.',
+      ambassadorId: generatedAmbId
     });
   } catch (error) {
     console.error('Ambassador Application error:', error);
@@ -295,7 +362,7 @@ exports.getAmbassadorDashboard = async (req, res) => {
       success: true,
       data: {
         profile: {
-          ambassadorId: profileToUse?.ambassadorId || `RM-AMB-${req.user._id.toString().slice(-4)}`,
+          ambassadorId: profileToUse?.ambassadorId || (req.user.phone ? `RMA${req.user.phone.replace(/\D/g, '').slice(-10)}` : 'RMA0000000000'),
           assignedLevel: tier.level,
           tierTitle: tier.title,
           listingRate: tier.rate,
@@ -328,6 +395,7 @@ exports.getAmbassadorDashboard = async (req, res) => {
           dailyBonusRate: 50,
           dailyBonusEarned: todayVerifiedCount >= 5 ? 250 : 0
         },
+        profitShareStatus: await getAmbassadorStreakAndProfitShareStatus(req.user._id),
         recentVenues: venues.slice(0, 5),
         recentRewards: rewards.slice(0, 5)
       }
@@ -355,7 +423,6 @@ exports.getAmbassadorVenues = async (req, res) => {
     const venueIds = venues.map(v => v._id);
 
     // Auto catch-up any approved venues missing their instant listing reward
-    const { processVenueApprovalReward } = require('../utils/ambassadorRewardHelper');
     for (const v of venues) {
       if (v.status === 'approved') {
         const alreadyRewarded = await AmbassadorReward.exists({ venue: v._id, rewardType: 'listing_reward' });
@@ -420,9 +487,12 @@ exports.getAmbassadorVenues = async (req, res) => {
       };
     });
 
+    const profitShareStatus = await getAmbassadorStreakAndProfitShareStatus(req.user._id);
+
     res.json({
       success: true,
       count: enrichedVenues.length,
+      profitShareStatus,
       venues: enrichedVenues
     });
   } catch (error) {
@@ -440,7 +510,6 @@ exports.getAmbassadorVenues = async (req, res) => {
 exports.getAmbassadorEarnings = async (req, res) => {
   try {
     const venues = await Venue.find({ ambassador: req.user._id, status: 'approved' });
-    const { processVenueApprovalReward } = require('../utils/ambassadorRewardHelper');
     for (const v of venues) {
       const alreadyRewarded = await AmbassadorReward.exists({ venue: v._id, rewardType: 'listing_reward' });
       if (!alreadyRewarded) {
@@ -471,6 +540,17 @@ exports.getAmbassadorEarnings = async (req, res) => {
 
     const totalEarnings = instantListingEarnings + challengeBonusEarnings + bookingShareEarnings;
 
+    const { decrypt } = require('../utils/encryption');
+    let bankDetailsObj = profile?.bankDetails ? (profile.bankDetails.toObject ? profile.bankDetails.toObject() : { ...profile.bankDetails }) : {};
+    if (bankDetailsObj.accountNumber) {
+      try {
+        const decrypted = decrypt(bankDetailsObj.accountNumber);
+        if (decrypted) bankDetailsObj.accountNumber = decrypted;
+      } catch {}
+    }
+
+    const profitShareStatus = await getAmbassadorStreakAndProfitShareStatus(req.user._id);
+
     const payload = {
       walletBalance: profile?.walletBalance || 0,
       totalEarnings,
@@ -484,6 +564,8 @@ exports.getAmbassadorEarnings = async (req, res) => {
         challengeBonusEarnings,
         bookingShareEarnings
       },
+      profitShareStatus,
+      bankDetails: bankDetailsObj,
       recentRewards: rewards,
       rewards
     };
@@ -529,6 +611,19 @@ exports.requestPayout = async (req, res) => {
       });
     }
 
+    // Determine normalized method
+    const isBank = (payoutMethod?.toLowerCase() === 'bank' || payoutMethod?.toLowerCase() === 'bank transfer' || payoutMethod === 'Bank Transfer');
+    const finalMethod = isBank ? 'Bank Transfer' : 'UPI';
+
+    const { decrypt } = require('../utils/encryption');
+    let plainAccNumber = bankDetails?.accountNumber || profile.bankDetails?.accountNumber || '';
+    if (plainAccNumber) {
+      try {
+        const dec = decrypt(plainAccNumber);
+        if (dec) plainAccNumber = dec;
+      } catch {}
+    }
+
     // Generate Sequential Payout ID
     let seq = 1;
     try {
@@ -548,13 +643,13 @@ exports.requestPayout = async (req, res) => {
       ambassador: req.user._id,
       profile: profile._id,
       amount: requestedAmount,
-      payoutMethod: payoutMethod || 'UPI',
+      payoutMethod: finalMethod,
       payoutDetails: {
-        upiId: upiId || profile.bankDetails?.upiId,
-        accountHolderName: bankDetails?.accountHolderName || profile.bankDetails?.accountHolderName,
-        bankName: bankDetails?.bankName || profile.bankDetails?.bankName,
-        accountNumber: bankDetails?.accountNumber || profile.bankDetails?.accountNumber,
-        ifscCode: bankDetails?.ifscCode || profile.bankDetails?.ifscCode
+        upiId: isBank ? undefined : (upiId || profile.bankDetails?.upiId || ''),
+        accountHolderName: bankDetails?.accountHolderName || profile.bankDetails?.accountHolderName || '',
+        bankName: bankDetails?.bankName || profile.bankDetails?.bankName || '',
+        accountNumber: plainAccNumber,
+        ifscCode: bankDetails?.ifscCode || profile.bankDetails?.ifscCode || ''
       },
       status: 'pending'
     });
@@ -674,7 +769,7 @@ exports.getAmbassadorProfile = async (req, res) => {
 // @access  Private (Ambassador)
 exports.updateAmbassadorProfile = async (req, res) => {
   try {
-    const { personalInfo, addressDetails, professionalDetails, venueNetwork, bankDetails } = req.body;
+    const { personalInfo, addressDetails, professionalDetails, profileType, venueNetwork, bankDetails } = req.body;
 
     let profile = await AmbassadorProfile.findOne({ user: req.user._id });
     if (!profile) {
@@ -684,6 +779,7 @@ exports.updateAmbassadorProfile = async (req, res) => {
     if (personalInfo) {
       profile.personalInfo = { ...profile.personalInfo, ...personalInfo };
       if (personalInfo.fullName) req.user.name = personalInfo.fullName;
+      if (personalInfo.mobileNumber) req.user.phone = personalInfo.mobileNumber;
     }
     if (addressDetails) {
       profile.addressDetails = { ...profile.addressDetails, ...addressDetails };
@@ -692,6 +788,9 @@ exports.updateAmbassadorProfile = async (req, res) => {
     }
     if (professionalDetails) {
       profile.professionalDetails = { ...profile.professionalDetails, ...professionalDetails };
+    }
+    if (profileType) {
+      profile.profileType = profileType;
     }
     if (venueNetwork) {
       profile.venueNetwork = { ...profile.venueNetwork, ...venueNetwork };
@@ -704,7 +803,7 @@ exports.updateAmbassadorProfile = async (req, res) => {
       profile.bankDetails = { ...profile.bankDetails, ...processedBank };
     }
 
-    await profile.save();
+    await profile.save({ validateBeforeSave: false });
     await req.user.save();
 
     res.json({
