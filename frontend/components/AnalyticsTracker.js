@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, Suspense } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
 
@@ -23,7 +23,7 @@ function getAuthToken() {
   return null;
 }
 
-export default function AnalyticsTracker() {
+function AnalyticsTrackerContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user, token: storeToken } = useAuthStore();
@@ -206,4 +206,12 @@ export default function AnalyticsTracker() {
   }, [pathname, searchParams, user, storeToken]);
 
   return null;
+}
+
+export default function AnalyticsTracker() {
+  return (
+    <Suspense fallback={null}>
+      <AnalyticsTrackerContent />
+    </Suspense>
+  );
 }

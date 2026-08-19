@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
 import PermissionGuard from '@/components/admin/PermissionGuard';
@@ -49,7 +49,7 @@ function StatCard({ label, value, sub, icon: Icon, color = 'amber' }) {
   );
 }
 
-export default function AdminAnalyticsPage() {
+function AdminAnalyticsInner() {
   const { token } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
@@ -820,5 +820,13 @@ export default function AdminAnalyticsPage() {
         </div>
       </AdminLayout>
     </PermissionGuard>
+  );
+}
+
+export default function AdminAnalyticsPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-gray-500 font-bold">Loading Analytics Dashboard...</div>}>
+      <AdminAnalyticsInner />
+    </Suspense>
   );
 }
