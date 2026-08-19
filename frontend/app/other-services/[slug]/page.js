@@ -6,6 +6,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { categoryIconMap } from '@/data/serviceData';
 import { useAuthStore } from '@/lib/store';
+import { trackCustomEvent } from '@/lib/analytics';
 import ServiceQuotationModal from '@/components/service/ServiceQuotationModal';
 import {
   ArrowLeft, MapPin, BadgeCheck, Package, FileText,
@@ -446,9 +447,17 @@ export default function ServiceDetailPage() {
         body: JSON.stringify({ amount: finalTotal, bookingType: 'service' })
       });
       const orderData = await orderRes.json();
-      if (!orderData.success) { toast.error('Payment setup failed'); setSubmitting(false); return; }
+      if (!orderData.success) {
+        toast.error('Payment setup failed');
+        trackCustomEvent('payment_failed', { serviceId: svc._id, amount: finalTotal, reason: 'order_creation_failed' }, 'conversion');
+        setSubmitting(false);
+        return;
+      }
 
-        // Step 2: Open Razorpay checkout
+      // Track website payment_initiated event
+      trackCustomEvent('payment_initiated', { serviceId: svc._id, amount: finalTotal, orderId: orderData.order?.id }, 'conversion');
+
+      // Step 2: Open Razorpay checkout
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: orderData.order.amount,
@@ -490,6 +499,8 @@ export default function ServiceDetailPage() {
             });
             const bookData = await bookingRes.json();
             if (bookData.success) {
+              // Track website payment_success event
+              trackCustomEvent('payment_success', { bookingNumber: bookData.booking?.bookingNumber, amount: finalTotal }, 'conversion');
               setBooking(bookData.booking);
               setBookingModal('success');
               toast.success('Payment successful! Booking request sent for confirmation.');
@@ -497,12 +508,14 @@ export default function ServiceDetailPage() {
               toast.error(bookData.message || 'Payment done but booking creation failed. Contact support.');
             }
           } else {
+            trackCustomEvent('payment_failed', { serviceId: svc._id, amount: finalTotal, reason: 'verify_failed' }, 'conversion');
             toast.error('Payment verification failed. Contact support.');
           }
           setSubmitting(false);
         },
         modal: {
           ondismiss: () => {
+            trackCustomEvent('payment_failed', { serviceId: svc._id, amount: finalTotal, reason: 'cancelled' }, 'conversion');
             toast.error('Payment cancelled');
             setSubmitting(false);
           }
@@ -900,6 +913,7 @@ export default function ServiceDetailPage() {
                     <button onClick={() => {
                       if (!form.name.trim() || !form.email.trim() || !form.phone.trim()) { toast.error('Name, email & phone required'); return; }
                       setBookingModal('review');
+                      trackCustomEvent('booking_started', { serviceId: svc._id, title: svc.title }, 'conversion');
                     }} className="flex-1 py-2.5 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-sm font-bold transition-colors">
                       Review Booking →
                     </button>

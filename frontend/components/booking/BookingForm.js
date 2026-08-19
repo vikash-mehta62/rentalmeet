@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import QuotationView from './QuotationView';
+import { trackCustomEvent } from '@/lib/analytics';
 import { calculatePlatformFee, formatPlatformFeeLabel, getVenuePricingMeta, isWeekendDate, numberOr, roundMoney } from '@/lib/venuePricing';
 
 function getCapacityLimit(capacity) {
@@ -468,8 +469,12 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
 
       if (!orderData.success) {
         toast.error('Failed to create payment order');
+        trackCustomEvent('payment_failed', { venueId: venue._id, amount, reason: 'order_creation_failed' }, 'conversion');
         return;
       }
+
+      // Track website payment_initiated conversion event
+      trackCustomEvent('payment_initiated', { venueId: venue._id, amount, orderId: orderData.order?.id }, 'conversion');
 
       // Razorpay options
       const options = {
@@ -502,6 +507,8 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
             const verifyData = await verifyResponse.json();
 
             if (verifyData.success) {
+              // Track website payment_success conversion event
+              trackCustomEvent('payment_success', { bookingNumber: verifyData.booking?.bookingNumber, amount }, 'conversion');
               toast.success('Payment successful! Booking confirmed 🎉');
               setSubmitting(false);
               setBookingSuccess({
@@ -509,11 +516,13 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
                 bookingId: verifyData.booking?._id || ''
               });
             } else {
+              trackCustomEvent('payment_failed', { venueId: venue._id, amount, reason: verifyData.message }, 'conversion');
               toast.error(verifyData.message || 'Payment verification failed');
               setSubmitting(false);
             }
           } catch (error) {
             console.error('Payment verification error:', error);
+            trackCustomEvent('payment_failed', { venueId: venue._id, amount, reason: 'exception' }, 'conversion');
             toast.error('Payment verification failed');
             setSubmitting(false);
           }

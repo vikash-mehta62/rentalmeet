@@ -3,6 +3,7 @@ import './globals.css'
 import { Toaster } from 'react-hot-toast'
 import ThemeInitializer from '@/components/ThemeInitializer'
 import ChatbotWidget from '@/components/ChatbotWidget'
+import AnalyticsTracker from '@/components/AnalyticsTracker'
 import Script from 'next/script'
 
 const inter = Inter({
@@ -91,6 +92,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         </noscript>
         {/* End Google Tag Manager (noscript) */}
         <ThemeInitializer />
+        <AnalyticsTracker />
         {children}
         <ChatbotWidget />
         <Toaster position="top-right" />

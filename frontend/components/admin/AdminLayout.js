@@ -37,6 +37,7 @@ export default function AdminLayout({ children, title, subtitle }) {
 
   const navigation = [
     { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard, permission: 'dashboard', section: 'Overview' },
+    { name: 'Visits & Analytics', href: '/admin/analytics', icon: BarChart3, permission: 'analytics', section: 'Overview' },
     { name: 'Hero Slides', href: '/admin/hero-slides', icon: ImageIcon, permission: 'heroSlides', section: 'System' },
     { name: 'Auth Custom Images', href: '/admin/auth-images', icon: ImageIcon, permission: 'authImages', section: 'System' },
 
