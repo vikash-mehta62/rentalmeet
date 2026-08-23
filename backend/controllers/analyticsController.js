@@ -161,7 +161,24 @@ function parseUA(uaString) {
     browser: result.browser.name ? `${result.browser.name} ${result.browser.major || ''}`.trim() : 'Other',
     os: result.os.name ? `${result.os.name} ${result.os.version || ''}`.trim() : 'Other',
     deviceType,
-  };
+  }
+
+/**
+ * Format IP for UI display: 2 front octets clear, 3rd octet masked as xx, last octet clear (e.g. 49.43.xx.47)
+ */
+function formatMaskedIp(ip) {
+  if (!ip || ip === 'Unknown' || ip === '127.0.0.1' || ip === '::1') {
+    return '127.0.xx.xx';
+  }
+  const parts = String(ip).trim().split('.');
+  if (parts.length === 4) {
+    return `${parts[0]}.${parts[1]}.xx.${parts[3]}`;
+  }
+  const v6Parts = String(ip).trim().split(':');
+  if (v6Parts.length > 2) {
+    return `${v6Parts[0]}:${v6Parts[1]}:****:${v6Parts[v6Parts.length - 1]}`;
+  }
+  return ip;
 }
 
 /**
@@ -744,11 +761,7 @@ exports.getAnalyticsStats = async (req, res) => {
 
     const sanitizedRecentLogs = recentLogs.map(log => {
       const logObj = log.toObject();
-      if (logObj.ip && logObj.ip !== 'Unknown') {
-        logObj.ipMasked = logObj.ip; // Display real IP address
-      } else {
-        logObj.ipMasked = 'Localhost / Private';
-      }
+      logObj.ipMasked = formatMaskedIp(logObj.ip);
       delete logObj.ip;
       return logObj;
     });

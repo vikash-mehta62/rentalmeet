@@ -42,19 +42,36 @@ exports.getAllVenueTypes = async (req, res) => {
 // @route   POST /api/admin/venue-types
 exports.createVenueType = async (req, res) => {
   try {
-    const { name, description, icon, order } = req.body;
+    const { name, code, description, icon, order } = req.body;
+    
+    // Validate code
+    if (!code || code.length !== 2) {
+      return res.status(400).json({
+        success: false,
+        message: 'Code must be exactly 2 characters'
+      });
+    }
     
     // Check if venue type already exists
-    const existingType = await VenueType.findOne({ name: { $regex: new RegExp(`^${name}$`, 'i') } });
+    const existingType = await VenueType.findOne({ 
+      $or: [
+        { name: { $regex: new RegExp(`^${name}$`, 'i') } },
+        { code: code.toUpperCase() }
+      ]
+    });
+    
     if (existingType) {
       return res.status(400).json({
         success: false,
-        message: 'Venue type already exists'
+        message: existingType.code === code.toUpperCase() 
+          ? 'Code already exists' 
+          : 'Venue type name already exists'
       });
     }
     
     const venueType = await VenueType.create({
       name,
+      code: code.toUpperCase(),
       description,
       icon: icon || '🏢',
       order: order || 0
@@ -77,11 +94,24 @@ exports.createVenueType = async (req, res) => {
 // @route   PUT /api/admin/venue-types/:id
 exports.updateVenueType = async (req, res) => {
   try {
-    const { name, description, icon, order, isActive } = req.body;
+    const { name, code, description, icon, order, isActive } = req.body;
+    
+    // If code is being updated, validate it
+    if (code && code.length !== 2) {
+      return res.status(400).json({
+        success: false,
+        message: 'Code must be exactly 2 characters'
+      });
+    }
+    
+    const updateData = { name, description, icon, order, isActive };
+    if (code) {
+      updateData.code = code.toUpperCase();
+    }
     
     const venueType = await VenueType.findByIdAndUpdate(
       req.params.id,
-      { name, description, icon, order, isActive },
+      updateData,
       { new: true, runValidators: true }
     );
     
@@ -135,27 +165,32 @@ exports.deleteVenueType = async (req, res) => {
 exports.seedVenueTypes = async (req, res) => {
   try {
     const defaultTypes = [
-      { name: 'Meeting Hall', description: 'Professional meeting halls for corporate events', icon: '🏢', order: 1 },
-      { name: 'Farm House', description: 'Spacious farmhouses for outdoor events', icon: '🏡', order: 2 },
-      { name: 'Conference Hall', description: 'Large spaces for conferences and seminars', icon: '🏛️', order: 3 },
-      { name: 'Govt. Auditorium Hall', description: 'Government auditoriums for official events', icon: '🏛️', order: 4 },
-      { name: 'Hotel', description: 'Hotel venues with premium facilities', icon: '🏨', order: 5 },
-      { name: 'Private Auditorium Hall', description: 'Private auditoriums for exclusive events', icon: '🎭', order: 6 },
-      { name: 'Restaurant', description: 'Restaurant spaces for dining events', icon: '🍽️', order: 7 },
-      { name: 'School Auditorium Hall', description: 'School auditoriums for educational events', icon: '🏫', order: 8 },
-      { name: 'Function Hall', description: 'Multi-purpose function halls', icon: '🎪', order: 9 },
-      { name: 'Collage Auditorium Hall', description: 'College auditoriums for academic events', icon: '🎓', order: 10 },
-      { name: 'Open Lawn', description: 'Open lawn spaces for outdoor gatherings', icon: '🌳', order: 11 },
-      { name: 'Co-Work Space', description: 'Flexible co-working spaces', icon: '💻', order: 12 },
-      { name: 'Banquet Hall', description: 'Elegant banquet halls for celebrations', icon: '🎉', order: 13 },
-      { name: 'Guest House', description: 'Guest houses with event facilities', icon: '🏠', order: 14 },
-      { name: 'Training Center', description: 'Equipped training centers for workshops', icon: '📚', order: 15 },
-      { name: 'Marriage Garden', description: 'Beautiful gardens for weddings', icon: '💒', order: 16 }
+      { name: 'Meeting Hall', code: 'MH', description: 'Professional meeting halls for corporate events', icon: '🏢', order: 1 },
+      { name: 'Farm House', code: 'FH', description: 'Spacious farmhouses for outdoor events', icon: '🏡', order: 2 },
+      { name: 'Conference Hall', code: 'CH', description: 'Large spaces for conferences and seminars', icon: '🏛️', order: 3 },
+      { name: 'Govt. Auditorium Hall', code: 'GA', description: 'Government auditoriums for official events', icon: '🏛️', order: 4 },
+      { name: 'Hotel', code: 'HT', description: 'Hotel venues with premium facilities', icon: '🏨', order: 5 },
+      { name: 'Private Auditorium Hall', code: 'PA', description: 'Private auditoriums for exclusive events', icon: '🎭', order: 6 },
+      { name: 'Restaurant', code: 'RS', description: 'Restaurant spaces for dining events', icon: '🍽️', order: 7 },
+      { name: 'School Auditorium Hall', code: 'SA', description: 'School auditoriums for educational events', icon: '🏫', order: 8 },
+      { name: 'Function Hall', code: 'FN', description: 'Multi-purpose function halls', icon: '🎪', order: 9 },
+      { name: 'Collage Auditorium Hall', code: 'CA', description: 'College auditoriums for academic events', icon: '🎓', order: 10 },
+      { name: 'Open Lawn', code: 'OL', description: 'Open lawn spaces for outdoor gatherings', icon: '🌳', order: 11 },
+      { name: 'Co-Work Space', code: 'CW', description: 'Flexible co-working spaces', icon: '💻', order: 12 },
+      { name: 'Banquet Hall', code: 'BH', description: 'Elegant banquet halls for celebrations', icon: '🎉', order: 13 },
+      { name: 'Guest House', code: 'GH', description: 'Guest houses with event facilities', icon: '🏠', order: 14 },
+      { name: 'Training Center', code: 'TC', description: 'Equipped training centers for workshops', icon: '📚', order: 15 },
+      { name: 'Marriage Garden', code: 'MG', description: 'Beautiful gardens for weddings', icon: '💒', order: 16 }
     ];
     
     const createdTypes = [];
     for (const type of defaultTypes) {
-      const existing = await VenueType.findOne({ name: type.name });
+      const existing = await VenueType.findOne({ 
+        $or: [
+          { name: type.name },
+          { code: type.code }
+        ]
+      });
       if (!existing) {
         const created = await VenueType.create(type);
         createdTypes.push(created);
