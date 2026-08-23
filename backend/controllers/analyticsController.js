@@ -161,7 +161,8 @@ function parseUA(uaString) {
     browser: result.browser.name ? `${result.browser.name} ${result.browser.major || ''}`.trim() : 'Other',
     os: result.os.name ? `${result.os.name} ${result.os.version || ''}`.trim() : 'Other',
     deviceType,
-  }
+  };
+}
 
 /**
  * Format IP for UI display: 2 front octets clear, 3rd octet masked as xx, last octet clear (e.g. 49.43.xx.47)
