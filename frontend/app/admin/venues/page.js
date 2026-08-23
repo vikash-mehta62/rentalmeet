@@ -39,7 +39,7 @@ export default function AdminVenues() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalVenues, setTotalVenues] = useState(0);
-  const [rejectModal, setRejectModal] = useState({ open: false, venueId: null, reason: '' });
+  const [rejectModal, setRejectModal] = useState({ open: false, venueId: null, reason: '', customReason: '' });
   const [exporting, setExporting] = useState(false);
 
   const handleExportCSV = async () => {
@@ -445,31 +445,72 @@ export default function AdminVenues() {
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
             <h3 className="text-lg font-bold text-dark-800 mb-4">Reject Venue</h3>
-            <p className="text-sm text-gray-600 mb-4">Please provide a reason for rejection:</p>
-            <textarea
-              value={rejectModal.reason}
-              onChange={(e) => setRejectModal({ ...rejectModal, reason: e.target.value })}
-              placeholder="Enter rejection reason..."
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 resize-none"
-              rows={4}
-            />
+            <p className="text-sm text-gray-600 mb-4">Please select a reason for rejection:</p>
+            
+            {/* Rejection Reason Dropdown */}
+            <div className="mb-4">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Rejection Reason *
+              </label>
+              <select
+                value={rejectModal.reason}
+                onChange={(e) => setRejectModal({ ...rejectModal, reason: e.target.value })}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white"
+              >
+                <option value="">-- Select a reason --</option>
+                <option value="Incomplete or inaccurate venue information">Incomplete or inaccurate venue information</option>
+                <option value="Poor quality images or missing photos">Poor quality images or missing photos</option>
+                <option value="Pricing does not match market standards">Pricing does not match market standards</option>
+                <option value="Location details are unclear or incorrect">Location details are unclear or incorrect</option>
+                <option value="Amenities information is insufficient">Amenities information is insufficient</option>
+                <option value="Venue does not meet platform quality standards">Venue does not meet platform quality standards</option>
+                <option value="Duplicate listing detected">Duplicate listing detected</option>
+                <option value="Unverified or suspicious venue ownership">Unverified or suspicious venue ownership</option>
+                <option value="Missing required documents">Missing required documents</option>
+                <option value="Contact information is invalid">Contact information is invalid</option>
+                <option value="other">Other (Specify below)</option>
+              </select>
+            </div>
+
+            {/* Custom Reason Text Area (shows when "Other" is selected) */}
+            {rejectModal.reason === 'other' && (
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Please specify the reason *
+                </label>
+                <textarea
+                  value={rejectModal.customReason || ''}
+                  onChange={(e) => setRejectModal({ ...rejectModal, customReason: e.target.value })}
+                  placeholder="Enter custom rejection reason..."
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 resize-none"
+                  rows={4}
+                />
+              </div>
+            )}
+
             <div className="flex gap-3 mt-6">
               <button
-                onClick={() => setRejectModal({ open: false, venueId: null, reason: '' })}
+                onClick={() => setRejectModal({ open: false, venueId: null, reason: '', customReason: '' })}
                 className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold"
               >
                 Cancel
               </button>
               <button
                 onClick={() => {
-                  if (!rejectModal.reason.trim()) {
-                    toast.error('Please provide a rejection reason');
+                  const finalReason = rejectModal.reason === 'other' 
+                    ? rejectModal.customReason?.trim() 
+                    : rejectModal.reason;
+                  
+                  if (!finalReason) {
+                    toast.error(rejectModal.reason === 'other' 
+                      ? 'Please specify a custom rejection reason' 
+                      : 'Please select a rejection reason');
                     return;
                   }
-                  handleStatusChange(rejectModal.venueId, 'rejected', rejectModal.reason);
+                  handleStatusChange(rejectModal.venueId, 'reject', finalReason);
                   setModalOpen(false);
                 }}
-                disabled={!rejectModal.reason.trim()}
+                disabled={!rejectModal.reason || (rejectModal.reason === 'other' && !rejectModal.customReason?.trim())}
                 className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold disabled:opacity-50"
               >
                 Reject Venue
