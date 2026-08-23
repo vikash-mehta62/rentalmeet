@@ -263,12 +263,12 @@ router.get('/venues', protect, authorize('admin', 'subadmin'), checkPermission('
     res.status(500).json({ success: false, message: e.message });
   }
 });
-router.get('/venues/pending', protect, authorize('admin'), checkPermission('venues'), getPendingVenues);
-router.put('/venues/:id/approve', protect, authorize('admin'), checkPermission('venues'), approveVenue);
-router.put('/venues/:id/reject', protect, authorize('admin'), checkPermission('venues'), rejectVenue);
-router.put('/venues/:id/suspend', protect, authorize('admin'), checkPermission('venues'), suspendVenue);
-router.put('/venues/:id/activate', protect, authorize('admin'), checkPermission('venues'), activateVenue);
-router.put('/venues/:id/settings', protect, authorize('admin'), checkPermission('venues'), updateVenueSettings);
+router.get('/venues/pending', protect, authorize('admin', 'subadmin'), checkPermission('venues'), getPendingVenues);
+router.put('/venues/:id/approve', protect, authorize('admin', 'subadmin'), checkPermission('venues'), approveVenue);
+router.put('/venues/:id/reject', protect, authorize('admin', 'subadmin'), checkPermission('venues'), rejectVenue);
+router.put('/venues/:id/suspend', protect, authorize('admin', 'subadmin'), checkPermission('venues'), suspendVenue);
+router.put('/venues/:id/activate', protect, authorize('admin', 'subadmin'), checkPermission('venues'), activateVenue);
+router.put('/venues/:id/settings', protect, authorize('admin', 'subadmin'), checkPermission('venues'), updateVenueSettings);
 
 // User routes
 router.get('/users', protect, authorize('admin'), checkPermission('users'), getAllUsers);

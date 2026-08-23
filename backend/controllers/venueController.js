@@ -564,6 +564,16 @@ exports.updateVenue = async (req, res) => {
       });
     }
     
+    // Prevent status tampering by non-admin users
+    if (req.user.role !== 'admin' && req.user.role !== 'subadmin') {
+      delete req.body.status;
+      delete req.body.owner;
+      // If venue was rejected, updating it sets its status to resubmitted
+      if (venue.status === 'rejected') {
+        req.body.status = 'resubmitted';
+      }
+    }
+    
     // Encrypt bank details if updated (only if not already encrypted)
     if (req.body.bankDetails && req.body.bankDetails.accountNumber &&
         !req.body.bankDetails.accountNumber.startsWith('U2FsdGVk')) {

@@ -1112,22 +1112,58 @@ export default function VenueDetailsModal({
                 </>
               )}
               {venue.status === 'approved' && (
-                <button
-                  onClick={() => onStatusUpdate(venue._id, 'suspend')}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-semibold transition-colors text-sm"
-                >
-                  <Ban className="w-4 h-4" />
-                  Suspend
-                </button>
+                <>
+                  <button
+                    onClick={() => onStatusUpdate(venue._id, 'suspend')}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-semibold transition-colors text-sm"
+                  >
+                    <Ban className="w-4 h-4" />
+                    Suspend
+                  </button>
+                  <button
+                    onClick={() => onStatusUpdate(venue._id, 'reject')}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    Reject
+                  </button>
+                </>
+              )}
+              {venue.status === 'rejected' && (
+                <>
+                  <button
+                    onClick={() => onStatusUpdate(venue._id, 'approve')}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => onStatusUpdate(venue._id, 'suspend')}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-semibold transition-colors text-sm"
+                  >
+                    <Ban className="w-4 h-4" />
+                    Suspend
+                  </button>
+                </>
               )}
               {venue.status === 'suspended' && (
-                <button
-                  onClick={() => onStatusUpdate(venue._id, 'activate')}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors text-sm"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  Activate
-                </button>
+                <>
+                  <button
+                    onClick={() => onStatusUpdate(venue._id, 'activate')}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    Activate
+                  </button>
+                  <button
+                    onClick={() => onStatusUpdate(venue._id, 'reject')}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    Reject
+                  </button>
+                </>
               )}
             </div>
           </div>
