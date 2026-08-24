@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { Building2, Users, FileText, Maximize2, UtensilsCrossed } from 'lucide-react';
 
+
 const capacityOptions = [
   '10-20', '20-30', '30-40', '40-50', '50-100', '100-200', '200-300',
   '300-400', '400-500', '500-600', '600-700', '700-800', '800-1000',
@@ -14,17 +15,24 @@ const capacityOptions = [
 
 export default function Step1BasicInfo() {
   const { formData, setFormData, setStep } = useVenueFormStore();
-  const { register, handleSubmit, formState: { errors }, watch } = useForm({
+  
+  const initialVenueType = Array.isArray(formData.basicInfo?.venueType)
+    ? (formData.basicInfo.venueType[0] || '')
+    : (formData.basicInfo?.venueType || '');
+
+  const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm({
     defaultValues: {
       ...formData.basicInfo,
+      venueType: initialVenueType,
       foodType: formData.basicInfo?.foodType || 'Veg'
     }
   });
+
   const [venueTypes, setVenueTypes] = useState([]);
   const [loadingTypes, setLoadingTypes] = useState(true);
 
   const description = watch('description', '');
-  const wordCount = description.trim().split(/\s+/).filter(Boolean).length;
+  const wordCount = description ? description.trim().split(/\s+/).filter(Boolean).length : 0;
 
   // Fetch venue types from API
   useEffect(() => {
@@ -43,6 +51,34 @@ export default function Step1BasicInfo() {
       toast.error('Failed to load venue types');
     } finally {
       setLoadingTypes(false);
+    }
+  };
+
+  // Auto-populate description if venue type is already selected on load but description is empty
+  useEffect(() => {
+    if (venueTypes.length > 0) {
+      const currentVenueType = watch('venueType');
+      const currentDesc = watch('description');
+      if (currentVenueType && (!currentDesc || !currentDesc.trim())) {
+        const selectedTypeObj = venueTypes.find((t) => t.name === currentVenueType);
+        if (selectedTypeObj && selectedTypeObj.description) {
+          setValue('description', selectedTypeObj.description, { shouldValidate: true });
+        }
+      }
+    }
+  }, [venueTypes]);
+
+  const handleVenueTypeChange = (e) => {
+    const selectedTypeName = e.target.value;
+    if (selectedTypeName) {
+      const selectedTypeObj = venueTypes.find((t) => t.name === selectedTypeName);
+      if (selectedTypeObj && selectedTypeObj.description) {
+        setValue('description', selectedTypeObj.description, {
+          shouldValidate: true,
+          shouldDirty: true,
+          shouldTouch: true
+        });
+      }
     }
   };
 
@@ -93,7 +129,10 @@ export default function Step1BasicInfo() {
             </div>
           ) : (
             <select
-              {...register('venueType', { required: 'Venue type is required' })}
+              {...register('venueType', {
+                required: 'Venue type is required',
+                onChange: handleVenueTypeChange
+              })}
               className="input-field"
             >
               <option value="">Select venue type</option>

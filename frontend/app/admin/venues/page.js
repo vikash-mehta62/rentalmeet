@@ -7,7 +7,7 @@ import VenueDetailsModal from '@/components/venue/VenueDetailsModal';
 import PermissionGuard from '@/components/admin/PermissionGuard';
 import {
   Building2, Eye, Search, Filter, Download,
-  ChevronDown, ChevronLeft, ChevronRight, Award, User
+  ChevronDown, ChevronLeft, ChevronRight, Award, User, Loader2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { normalizeCustomGST, normalizeCustomPlatformFee } from '@/lib/venuePricing';
@@ -40,6 +40,7 @@ export default function AdminVenues() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalVenues, setTotalVenues] = useState(0);
   const [rejectModal, setRejectModal] = useState({ open: false, venueId: null, reason: '', customReason: '' });
+  const [rejectingLoading, setRejectingLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
 
   const handleExportCSV = async () => {
@@ -162,12 +163,17 @@ export default function AdminVenues() {
     setModalOpen(true);
   };
 
-  const handleStatusChange = async (venueId, newStatus, reason = '') => {
+  const handleStatusChange = async (venueId, actionOrStatus, reason = '') => {
     try {
-      const endpoint = newStatus === 'approved' ? 'approve' :
-                       newStatus === 'rejected' ? 'reject' :
-                       newStatus === 'suspended' ? 'suspend' : 'activate';
-      const body = newStatus === 'rejected' ? { reason } : {};
+      const endpoint = (actionOrStatus === 'approved' || actionOrStatus === 'approve') ? 'approve' :
+                       (actionOrStatus === 'rejected' || actionOrStatus === 'reject') ? 'reject' :
+                       (actionOrStatus === 'suspended' || actionOrStatus === 'suspend') ? 'suspend' :
+                       'activate';
+      const targetStatus = endpoint === 'approve' ? 'approved' :
+                           endpoint === 'reject' ? 'rejected' :
+                           endpoint === 'suspend' ? 'suspended' : 'approved';
+
+      const body = endpoint === 'reject' ? { reason } : {};
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/venues/${venueId}/${endpoint}`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -175,10 +181,10 @@ export default function AdminVenues() {
       });
       const data = await res.json();
       if (data.success) {
-        toast.success(`Venue ${newStatus} successfully`);
+        toast.success(`Venue ${targetStatus} successfully`);
         fetchVenues(currentPage);
         if (selectedVenue && selectedVenue._id === venueId) {
-          setSelectedVenue({ ...selectedVenue, status: newStatus });
+          setSelectedVenue({ ...selectedVenue, status: targetStatus });
         }
         setRejectModal({ open: false, venueId: null, reason: '' });
       } else {
@@ -496,7 +502,7 @@ export default function AdminVenues() {
                 Cancel
               </button>
               <button
-                onClick={() => {
+                onClick={async () => {
                   const finalReason = rejectModal.reason === 'other' 
                     ? rejectModal.customReason?.trim() 
                     : rejectModal.reason;
@@ -507,13 +513,25 @@ export default function AdminVenues() {
                       : 'Please select a rejection reason');
                     return;
                   }
-                  handleStatusChange(rejectModal.venueId, 'reject', finalReason);
-                  setModalOpen(false);
+                  setRejectingLoading(true);
+                  try {
+                    await handleStatusChange(rejectModal.venueId, 'reject', finalReason);
+                    setModalOpen(false);
+                  } finally {
+                    setRejectingLoading(false);
+                  }
                 }}
-                disabled={!rejectModal.reason || (rejectModal.reason === 'other' && !rejectModal.customReason?.trim())}
-                className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold disabled:opacity-50"
+                disabled={rejectingLoading || !rejectModal.reason || (rejectModal.reason === 'other' && !rejectModal.customReason?.trim())}
+                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold disabled:opacity-50 transition-colors"
               >
-                Reject Venue
+                {rejectingLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Rejecting...
+                  </>
+                ) : (
+                  'Reject Venue'
+                )}
               </button>
             </div>
           </div>

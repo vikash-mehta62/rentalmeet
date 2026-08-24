@@ -7,7 +7,7 @@ import PermissionGuard from '@/components/admin/PermissionGuard';
 import toast from 'react-hot-toast';
 import {
   Search, User, Building2, CheckCircle, XCircle, Clock,
-  Package, Eye, X, ChevronDown, AlertCircle
+  Package, Eye, X, ChevronDown, AlertCircle, Loader2
 } from 'lucide-react';
 
 const PROFILE_STATUS = {
@@ -305,10 +305,12 @@ export default function AdminVendors() {
                   <div className="flex gap-2">
                     <button onClick={() => handleProfileAction(selected._id, 'approve')} disabled={actionLoading}
                       className="flex items-center gap-1.5 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-xl text-sm font-bold disabled:opacity-50">
-                      <CheckCircle className="w-4 h-4" /> Approve Vendor
+                      {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                      {actionLoading ? 'Approving...' : 'Approve Vendor'}
                     </button>
                     <button onClick={() => setRejectModal({ open: true, type: 'vendor', id: selected._id, reason: '' })}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-bold">
+                      disabled={actionLoading}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-bold disabled:opacity-50">
                       <XCircle className="w-4 h-4" /> Reject Vendor
                     </button>
                   </div>
@@ -337,9 +339,12 @@ export default function AdminVendors() {
                             {svc.status === 'pending' && (
                               <div className="flex gap-1.5 flex-shrink-0">
                                 <button onClick={() => handleServiceAction(svc._id, 'approve')} disabled={actionLoading}
-                                  className="px-2.5 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs font-bold">✓</button>
+                                  className="px-2.5 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs font-bold flex items-center gap-1 disabled:opacity-50">
+                                  {actionLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : '✓'}
+                                </button>
                                 <button onClick={() => setRejectModal({ open: true, type: 'service', id: svc._id, reason: '' })}
-                                  className="px-2.5 py-1 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-bold">✗</button>
+                                  disabled={actionLoading}
+                                  className="px-2.5 py-1 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-bold disabled:opacity-50">✗</button>
                               </div>
                             )}
                           </div>
@@ -355,8 +360,8 @@ export default function AdminVendors() {
 
         {/* Reject Modal */}
         {rejectModal.open && (
-          <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
               <h3 className="text-base font-bold text-gray-900 mb-4">
                 Reject {rejectModal.type === 'vendor' ? 'Vendor Profile' : 'Service'}
               </h3>
@@ -375,8 +380,15 @@ export default function AdminVendors() {
                     else handleServiceAction(rejectModal.id, 'reject', rejectModal.reason);
                   }}
                   disabled={actionLoading}
-                  className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold text-sm disabled:opacity-50">
-                  {actionLoading ? 'Rejecting...' : 'Confirm Reject'}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold text-sm disabled:opacity-50">
+                  {actionLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Rejecting...
+                    </>
+                  ) : (
+                    'Confirm Reject'
+                  )}
                 </button>
                 <button onClick={() => setRejectModal({ open: false, type: '', id: '', reason: '' })}
                   className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-50">

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import VenueReviews from '@/components/venue/VenueReviews';
 import {
   X, Building2, MapPin, IndianRupee, Calendar, Clock, Users, FileText,
-  Image as ImageIcon, Utensils, CheckCircle, XCircle, Ban,
+  Image as ImageIcon, Utensils, CheckCircle, XCircle, Ban, Loader2,
   Phone, Mail, User, CreditCard, FileCheck, Download
 } from 'lucide-react';
 import { normalizeCustomGST, normalizeCustomPlatformFee } from '@/lib/venuePricing';
@@ -22,6 +22,8 @@ export default function VenueDetailsModal({
   onUpdateSettings = null 
 }) {
   const [activeTab, setActiveTab] = useState('basic');
+  const [actionLoading, setActionLoading] = useState(null);
+  const [settingsLoading, setSettingsLoading] = useState(false);
   const [localCustomSettings, setLocalCustomSettings] = useState(customSettings || {
     customPlatformFee: DEFAULT_CUSTOM_PLATFORM_FEE,
     customGST: DEFAULT_CUSTOM_GST
@@ -62,13 +64,34 @@ export default function VenueDetailsModal({
     tabs.push({ id: 'settings', label: 'Custom Settings', icon: CreditCard });
   }
 
-  const handleUpdateSettings = () => {
+  const handleAction = async (action) => {
+    if (actionLoading) return;
+    setActionLoading(action);
+    try {
+      if (onStatusUpdate) {
+        await onStatusUpdate(venue._id, action);
+      }
+    } catch (err) {
+      console.error('Status update error:', err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleUpdateSettings = async () => {
     if (onUpdateSettings) {
-      onUpdateSettings({
-        ...localCustomSettings,
-        customPlatformFee: normalizeCustomPlatformFee(localCustomSettings.customPlatformFee, platformSettings || {}),
-        customGST: normalizeCustomGST(localCustomSettings.customGST, platformSettings || {})
-      });
+      setSettingsLoading(true);
+      try {
+        await onUpdateSettings({
+          ...localCustomSettings,
+          customPlatformFee: normalizeCustomPlatformFee(localCustomSettings.customPlatformFee, platformSettings || {}),
+          customGST: normalizeCustomGST(localCustomSettings.customGST, platformSettings || {})
+        });
+      } catch (err) {
+        console.error('Update settings error:', err);
+      } finally {
+        setSettingsLoading(false);
+      }
     }
   };
 
@@ -1080,10 +1103,18 @@ export default function VenueDetailsModal({
 
               {/* Update Settings Button */}
               <button
+                disabled={settingsLoading}
                 onClick={handleUpdateSettings}
-                className="w-full px-5 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                className="w-full px-5 py-3 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white rounded-lg font-semibold transition-colors text-sm flex items-center justify-center gap-2"
               >
-                Update Custom Settings
+                {settingsLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Saving Settings...
+                  </>
+                ) : (
+                  'Update Custom Settings'
+                )}
               </button>
             </div>
           )}
@@ -1096,72 +1127,112 @@ export default function VenueDetailsModal({
               {(venue.status === 'pending' || venue.status === 'resubmitted') && (
                 <>
                   <button
-                    onClick={() => onStatusUpdate(venue._id, 'approve')}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                    disabled={!!actionLoading}
+                    onClick={() => handleAction('approve')}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white rounded-lg font-semibold transition-colors text-sm"
                   >
-                    <CheckCircle className="w-4 h-4" />
-                    Approve
+                    {actionLoading === 'approve' ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <CheckCircle className="w-4 h-4" />
+                    )}
+                    {actionLoading === 'approve' ? 'Approving...' : 'Approve'}
                   </button>
                   <button
-                    onClick={() => onStatusUpdate(venue._id, 'reject')}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                    disabled={!!actionLoading}
+                    onClick={() => handleAction('reject')}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded-lg font-semibold transition-colors text-sm"
                   >
-                    <XCircle className="w-4 h-4" />
-                    Reject
+                    {actionLoading === 'reject' ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <XCircle className="w-4 h-4" />
+                    )}
+                    {actionLoading === 'reject' ? 'Rejecting...' : 'Reject'}
                   </button>
                 </>
               )}
               {venue.status === 'approved' && (
                 <>
                   <button
-                    onClick={() => onStatusUpdate(venue._id, 'suspend')}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-semibold transition-colors text-sm"
+                    disabled={!!actionLoading}
+                    onClick={() => handleAction('suspend')}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-gray-600 hover:bg-gray-700 disabled:opacity-50 text-white rounded-lg font-semibold transition-colors text-sm"
                   >
-                    <Ban className="w-4 h-4" />
-                    Suspend
+                    {actionLoading === 'suspend' ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Ban className="w-4 h-4" />
+                    )}
+                    {actionLoading === 'suspend' ? 'Suspending...' : 'Suspend'}
                   </button>
                   <button
-                    onClick={() => onStatusUpdate(venue._id, 'reject')}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                    disabled={!!actionLoading}
+                    onClick={() => handleAction('reject')}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded-lg font-semibold transition-colors text-sm"
                   >
-                    <XCircle className="w-4 h-4" />
-                    Reject
+                    {actionLoading === 'reject' ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <XCircle className="w-4 h-4" />
+                    )}
+                    {actionLoading === 'reject' ? 'Rejecting...' : 'Reject'}
                   </button>
                 </>
               )}
               {venue.status === 'rejected' && (
                 <>
                   <button
-                    onClick={() => onStatusUpdate(venue._id, 'approve')}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                    disabled={!!actionLoading}
+                    onClick={() => handleAction('approve')}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white rounded-lg font-semibold transition-colors text-sm"
                   >
-                    <CheckCircle className="w-4 h-4" />
-                    Approve
+                    {actionLoading === 'approve' ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <CheckCircle className="w-4 h-4" />
+                    )}
+                    {actionLoading === 'approve' ? 'Approving...' : 'Approve'}
                   </button>
                   <button
-                    onClick={() => onStatusUpdate(venue._id, 'suspend')}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-semibold transition-colors text-sm"
+                    disabled={!!actionLoading}
+                    onClick={() => handleAction('suspend')}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-gray-600 hover:bg-gray-700 disabled:opacity-50 text-white rounded-lg font-semibold transition-colors text-sm"
                   >
-                    <Ban className="w-4 h-4" />
-                    Suspend
+                    {actionLoading === 'suspend' ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Ban className="w-4 h-4" />
+                    )}
+                    {actionLoading === 'suspend' ? 'Suspending...' : 'Suspend'}
                   </button>
                 </>
               )}
               {venue.status === 'suspended' && (
                 <>
                   <button
-                    onClick={() => onStatusUpdate(venue._id, 'activate')}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                    disabled={!!actionLoading}
+                    onClick={() => handleAction('activate')}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white rounded-lg font-semibold transition-colors text-sm"
                   >
-                    <CheckCircle className="w-4 h-4" />
-                    Activate
+                    {actionLoading === 'activate' ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <CheckCircle className="w-4 h-4" />
+                    )}
+                    {actionLoading === 'activate' ? 'Activating...' : 'Activate'}
                   </button>
                   <button
-                    onClick={() => onStatusUpdate(venue._id, 'reject')}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                    disabled={!!actionLoading}
+                    onClick={() => handleAction('reject')}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded-lg font-semibold transition-colors text-sm"
                   >
-                    <XCircle className="w-4 h-4" />
-                    Reject
+                    {actionLoading === 'reject' ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <XCircle className="w-4 h-4" />
+                    )}
+                    {actionLoading === 'reject' ? 'Rejecting...' : 'Reject'}
                   </button>
                 </>
               )}
