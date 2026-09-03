@@ -12,13 +12,14 @@ import TestimonialsSection from '@/components/TestimonialsSection';
 import CTASection from '@/components/CTASection';
 import LatestBlogsSection from '@/components/LatestBlogsSection';
 import Footer from '@/components/Footer';
-
-
-
+import HomePopupModal from '@/components/HomePopupModal';
 
 export default function Home() {
   return (
     <div className="min-h-screen bg-[#FDFDFD] dark:bg-slate-950">
+      {/* Home Announcement / Promotional Popup Modal */}
+      <HomePopupModal />
+
       {/* Navbar yahan transparent handle hoga */}
       <Navbar />
 

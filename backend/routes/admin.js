@@ -51,13 +51,17 @@ const {
 const { protect, authorize, checkPermission } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
 const { uploadAuthImage } = require('../controllers/authImagesController');
+const { getAdminPopup, saveAdminPopup, deleteAdminPopup } = require('../controllers/popupController');
 const { normalizeRefundAttempt } = require('../utils/refundHelper');
 const { sendBookingNotifications } = require('../utils/bookingNotificationHelper');
 
 const router = express.Router();
 
-// Auth Images Route
+// Auth Images & Popup Banner Routes
 router.post('/auth-images', protect, authorize('admin', 'subadmin'), upload.single('image'), uploadAuthImage);
+router.get('/popup', protect, authorize('admin', 'subadmin'), getAdminPopup);
+router.post('/popup', protect, authorize('admin', 'subadmin'), upload.single('image'), saveAdminPopup);
+router.delete('/popup', protect, authorize('admin', 'subadmin'), deleteAdminPopup);
 
 // Hero Slides routes (with explicit auth)
 router.get('/hero-slides', protect, authorize('admin'), checkPermission('heroSlides'), getAllHeroSlides);

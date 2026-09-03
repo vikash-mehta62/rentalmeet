@@ -248,6 +248,9 @@ exports.applyAmbassador = async (req, res) => {
         aadhaarFront: documents?.aadhaarFront || documents?.identityProof || profile.documents?.aadhaarFront || '',
         aadhaarBack: documents?.aadhaarBack || documents?.identityProofBack || profile.documents?.aadhaarBack || '',
         panCard: documents?.panCard || profile.documents?.panCard || '',
+        identityProof: documents?.aadhaarFront || documents?.identityProof || profile.documents?.identityProof || '',
+        identityProofBack: documents?.aadhaarBack || documents?.identityProofBack || profile.documents?.identityProofBack || '',
+        identityProofType: 'Aadhaar',
         bankProof: documents?.bankProof || profile.documents?.bankProof || '',
         addressProof: documents?.addressProof || profile.documents?.addressProof || ''
       };

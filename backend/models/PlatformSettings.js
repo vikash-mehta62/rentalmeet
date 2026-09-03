@@ -89,6 +89,17 @@ const platformSettingsSchema = new mongoose.Schema({
     default: 5
   },
   
+  // Home Page Promotional Popup Banner (1:1 Ratio)
+  homePopup: {
+    title: { type: String, default: '' },
+    description: { type: String, default: '' },
+    link: { type: String, default: '' },
+    buttonText: { type: String, default: 'Explore Now' },
+    imageUrl: { type: String, default: '' },
+    publicId: { type: String, default: '' },
+    isActive: { type: Boolean, default: true }
+  },
+
   updatedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'

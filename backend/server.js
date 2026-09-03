@@ -110,13 +110,13 @@ app.use((req, res, next) => {
 // Rate limiting — apply strictly to auth routes to prevent brute force
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 400, // 4x increase from 100
+  max: process.env.NODE_ENV === 'production' ? 1000 : 10000, // Generous in development
   message: { success: false, message: 'Too many requests, please try again later.' }
 });
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 80, // 4x increase from 20
+  max: process.env.NODE_ENV === 'production' ? 100 : 1000,
   message: { success: false, message: 'Too many authentication attempts, please try again after 15 minutes.' }
 });
 
@@ -805,6 +805,7 @@ app.use('/api/blogs', require('./routes/blog'));
 // Chatbot routes
 app.use('/api/chatbot', require('./routes/chatbot'));
 app.use('/api/auth-images', require('./routes/authImages'));
+app.use('/api/popup', require('./routes/popup'));
 
 // Health check
 app.get('/health', (req, res) => {

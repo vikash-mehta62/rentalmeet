@@ -803,11 +803,14 @@ export default function AdminAmbassadorsPage() {
         {/* REVIEW APPLICATION MODAL */}
         {selectedAmbassador && (
           <div className="fixed inset-0 bg-black/60 z-50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 max-h-[90vh] overflow-y-auto space-y-6 shadow-2xl">
+            <div className="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-8 max-h-[90vh] overflow-y-auto space-y-6 shadow-2xl">
               <div className="flex justify-between items-center border-b border-gray-100 pb-3">
                 <div>
                   <h3 className="text-lg font-bold text-gray-900">Review Ambassador Application</h3>
-                  <p className="text-xs text-gray-500">Applicant: {selectedAmbassador.userId?.name}</p>
+                  <p className="text-xs text-gray-500">
+                    Applicant: <strong className="text-gray-800">{selectedAmbassador.user?.name || selectedAmbassador.userId?.name || selectedAmbassador.personalInfo?.fullName || 'Ambassador Partner'}</strong>
+                    {selectedAmbassador.personalInfo?.mobileNumber || selectedAmbassador.user?.phone ? ` • ${selectedAmbassador.personalInfo?.mobileNumber || selectedAmbassador.user?.phone}` : ''}
+                  </p>
                 </div>
                 <button onClick={() => setSelectedAmbassador(null)} className="p-1 text-gray-400 hover:text-gray-600">
                   <X className="w-5 h-5" />
@@ -854,23 +857,221 @@ export default function AdminAmbassadorsPage() {
                 </div>
 
                 {/* Uploaded Documents */}
-                {selectedAmbassador.documents && (
-                  <div className="bg-gray-50 p-4 rounded-2xl space-y-2">
-                    <p className="font-bold text-gray-800 uppercase tracking-wider text-[10px]">Part I: Uploaded KYC Documents</p>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedAmbassador.documents.passportPhoto && (
-                        <a href={selectedAmbassador.documents.passportPhoto} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-primary-600 font-bold inline-flex items-center gap-1">
-                          <Eye className="w-3 h-3" /> Photo
-                        </a>
+                <div className="bg-gray-50 p-4 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-primary-600" />
+                      <p className="font-bold text-gray-800 uppercase tracking-wider text-[10px]">Part I: Uploaded KYC Documents</p>
+                    </div>
+                    {selectedAmbassador.personalInfo?.aadhaarNumber && (
+                      <span className="text-[10px] font-mono bg-white px-2.5 py-0.5 rounded-lg border border-gray-200 text-gray-700 shadow-xs">
+                        Aadhaar No: <strong className="text-gray-900">{selectedAmbassador.personalInfo.aadhaarNumber}</strong>
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {/* Aadhaar Card Front */}
+                    {(() => {
+                      const frontUrl = selectedAmbassador.documents?.aadhaarFront || selectedAmbassador.documents?.identityProof;
+                      const isPdf = frontUrl?.toLowerCase()?.includes('.pdf');
+                      return (
+                        <div className="bg-white p-3 rounded-xl border border-gray-200 flex flex-col justify-between text-center space-y-2 shadow-xs">
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[11px] font-bold text-gray-800">Aadhaar (Front)</span>
+                              {frontUrl ? (
+                                <span className="text-[9px] px-1.5 py-0.5 bg-green-50 text-green-700 font-bold rounded">Uploaded</span>
+                              ) : (
+                                <span className="text-[9px] px-1.5 py-0.5 bg-amber-50 text-amber-600 font-bold rounded">Missing</span>
+                              )}
+                            </div>
+                            {frontUrl ? (
+                              isPdf ? (
+                                <a href={frontUrl} target="_blank" rel="noopener noreferrer" className="h-28 bg-gray-50 rounded-lg border border-dashed border-gray-300 flex flex-col items-center justify-center text-primary-600 hover:bg-gray-100 transition-colors">
+                                  <FileText className="w-8 h-8 mb-1" />
+                                  <span className="text-[10px] font-bold">PDF Document</span>
+                                </a>
+                              ) : (
+                                <a href={frontUrl} target="_blank" rel="noopener noreferrer" className="block relative group overflow-hidden rounded-lg border border-gray-200 bg-gray-50 h-28">
+                                  <img src={frontUrl} alt="Aadhaar Front" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold gap-1">
+                                    <Eye className="w-3 h-3" /> View Original
+                                  </div>
+                                </a>
+                              )
+                            ) : (
+                              <div className="h-28 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400">
+                                <FileText className="w-6 h-6 text-gray-300 mb-1" />
+                                <span className="text-[10px]">Not Uploaded</span>
+                              </div>
+                            )}
+                          </div>
+                          {frontUrl && (
+                            <a href={frontUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-1 text-[11px] text-primary-600 hover:text-primary-700 font-bold py-1 px-2 rounded-lg bg-primary-50 hover:bg-primary-100 transition-colors">
+                              <Eye className="w-3 h-3" /> View Front <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
+                            </a>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Aadhaar Card Back */}
+                    {(() => {
+                      const backUrl = selectedAmbassador.documents?.aadhaarBack || selectedAmbassador.documents?.identityProofBack;
+                      const isPdf = backUrl?.toLowerCase()?.includes('.pdf');
+                      return (
+                        <div className="bg-white p-3 rounded-xl border border-gray-200 flex flex-col justify-between text-center space-y-2 shadow-xs">
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[11px] font-bold text-gray-800">Aadhaar (Back)</span>
+                              {backUrl ? (
+                                <span className="text-[9px] px-1.5 py-0.5 bg-green-50 text-green-700 font-bold rounded">Uploaded</span>
+                              ) : (
+                                <span className="text-[9px] px-1.5 py-0.5 bg-gray-100 text-gray-400 font-semibold rounded">Missing</span>
+                              )}
+                            </div>
+                            {backUrl ? (
+                              isPdf ? (
+                                <a href={backUrl} target="_blank" rel="noopener noreferrer" className="h-28 bg-gray-50 rounded-lg border border-dashed border-gray-300 flex flex-col items-center justify-center text-primary-600 hover:bg-gray-100 transition-colors">
+                                  <FileText className="w-8 h-8 mb-1" />
+                                  <span className="text-[10px] font-bold">PDF Document</span>
+                                </a>
+                              ) : (
+                                <a href={backUrl} target="_blank" rel="noopener noreferrer" className="block relative group overflow-hidden rounded-lg border border-gray-200 bg-gray-50 h-28">
+                                  <img src={backUrl} alt="Aadhaar Back" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold gap-1">
+                                    <Eye className="w-3 h-3" /> View Original
+                                  </div>
+                                </a>
+                              )
+                            ) : (
+                              <div className="h-28 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400">
+                                <FileText className="w-6 h-6 text-gray-300 mb-1" />
+                                <span className="text-[10px]">Not Uploaded</span>
+                              </div>
+                            )}
+                          </div>
+                          {backUrl && (
+                            <a href={backUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-1 text-[11px] text-primary-600 hover:text-primary-700 font-bold py-1 px-2 rounded-lg bg-primary-50 hover:bg-primary-100 transition-colors">
+                              <Eye className="w-3 h-3" /> View Back <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
+                            </a>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* PAN Card */}
+                    {(() => {
+                      const panUrl = selectedAmbassador.documents?.panCard;
+                      const isPdf = panUrl?.toLowerCase()?.includes('.pdf');
+                      return (
+                        <div className="bg-white p-3 rounded-xl border border-gray-200 flex flex-col justify-between text-center space-y-2 shadow-xs">
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[11px] font-bold text-gray-800">PAN Card</span>
+                              {panUrl ? (
+                                <span className="text-[9px] px-1.5 py-0.5 bg-green-50 text-green-700 font-bold rounded">Uploaded</span>
+                              ) : (
+                                <span className="text-[9px] px-1.5 py-0.5 bg-gray-100 text-gray-400 font-semibold rounded">Optional</span>
+                              )}
+                            </div>
+                            {panUrl ? (
+                              isPdf ? (
+                                <a href={panUrl} target="_blank" rel="noopener noreferrer" className="h-28 bg-gray-50 rounded-lg border border-dashed border-gray-300 flex flex-col items-center justify-center text-primary-600 hover:bg-gray-100 transition-colors">
+                                  <FileText className="w-8 h-8 mb-1" />
+                                  <span className="text-[10px] font-bold">PDF Document</span>
+                                </a>
+                              ) : (
+                                <a href={panUrl} target="_blank" rel="noopener noreferrer" className="block relative group overflow-hidden rounded-lg border border-gray-200 bg-gray-50 h-28">
+                                  <img src={panUrl} alt="PAN Card" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold gap-1">
+                                    <Eye className="w-3 h-3" /> View Original
+                                  </div>
+                                </a>
+                              )
+                            ) : (
+                              <div className="h-28 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400">
+                                <CreditCard className="w-6 h-6 text-gray-300 mb-1" />
+                                <span className="text-[10px]">Not Uploaded</span>
+                              </div>
+                            )}
+                          </div>
+                          {panUrl && (
+                            <a href={panUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-1 text-[11px] text-primary-600 hover:text-primary-700 font-bold py-1 px-2 rounded-lg bg-primary-50 hover:bg-primary-100 transition-colors">
+                              <Eye className="w-3 h-3" /> View PAN <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
+                            </a>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Passport Photo */}
+                    {(() => {
+                      const photoUrl = selectedAmbassador.documents?.passportPhoto;
+                      return (
+                        <div className="bg-white p-3 rounded-xl border border-gray-200 flex flex-col justify-between text-center space-y-2 shadow-xs">
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[11px] font-bold text-gray-800">Passport Photo</span>
+                              {photoUrl ? (
+                                <span className="text-[9px] px-1.5 py-0.5 bg-green-50 text-green-700 font-bold rounded">Uploaded</span>
+                              ) : (
+                                <span className="text-[9px] px-1.5 py-0.5 bg-gray-100 text-gray-400 font-semibold rounded">Optional</span>
+                              )}
+                            </div>
+                            {photoUrl ? (
+                              <a href={photoUrl} target="_blank" rel="noopener noreferrer" className="block relative group overflow-hidden rounded-lg border border-gray-200 bg-gray-50 h-28">
+                                <img src={photoUrl} alt="Passport Photo" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold gap-1">
+                                  <Eye className="w-3 h-3" /> View Original
+                                </div>
+                              </a>
+                            ) : (
+                              <div className="h-28 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400">
+                                <Users className="w-6 h-6 text-gray-300 mb-1" />
+                                <span className="text-[10px]">Not Uploaded</span>
+                              </div>
+                            )}
+                          </div>
+                          {photoUrl && (
+                            <a href={photoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-1 text-[11px] text-primary-600 hover:text-primary-700 font-bold py-1 px-2 rounded-lg bg-primary-50 hover:bg-primary-100 transition-colors">
+                              <Eye className="w-3 h-3" /> View Photo <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
+                            </a>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Optional Bank Proof & Address Proof if present */}
+                  {(selectedAmbassador.documents?.bankProof || selectedAmbassador.documents?.addressProof) && (
+                    <div className="pt-2 border-t border-gray-200 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {selectedAmbassador.documents?.bankProof && (
+                        <div className="bg-white p-2.5 rounded-xl border border-gray-200 flex items-center justify-between">
+                          <div className="text-left">
+                            <p className="text-[11px] font-bold text-gray-800">Bank / Passbook Proof</p>
+                            <p className="text-[9px] text-green-600 font-semibold">✓ Document Uploaded</p>
+                          </div>
+                          <a href={selectedAmbassador.documents.bankProof} target="_blank" rel="noopener noreferrer" className="px-2.5 py-1 bg-primary-50 text-primary-600 hover:bg-primary-100 rounded-lg text-xs font-bold inline-flex items-center gap-1">
+                            <Eye className="w-3 h-3" /> View
+                          </a>
+                        </div>
                       )}
-                      {selectedAmbassador.documents.identityProof && (
-                        <a href={selectedAmbassador.documents.identityProof} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-primary-600 font-bold inline-flex items-center gap-1">
-                          <Eye className="w-3 h-3" /> ID Proof
-                        </a>
+                      {selectedAmbassador.documents?.addressProof && (
+                        <div className="bg-white p-2.5 rounded-xl border border-gray-200 flex items-center justify-between">
+                          <div className="text-left">
+                            <p className="text-[11px] font-bold text-gray-800">Address Proof</p>
+                            <p className="text-[9px] text-green-600 font-semibold">✓ Document Uploaded</p>
+                          </div>
+                          <a href={selectedAmbassador.documents.addressProof} target="_blank" rel="noopener noreferrer" className="px-2.5 py-1 bg-primary-50 text-primary-600 hover:bg-primary-100 rounded-lg text-xs font-bold inline-flex items-center gap-1">
+                            <Eye className="w-3 h-3" /> View
+                          </a>
+                        </div>
                       )}
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
               {/* Status Update Form */}
