@@ -50,6 +50,7 @@ export default function AuthImagesPage() {
     vendorLogin: null,
     vendorRegister: null,
     employeeLogin: null,
+    ambassadorLogin: null,
   });
 
   const [previews, setPreviews] = useState({
@@ -60,6 +61,7 @@ export default function AuthImagesPage() {
     vendorLogin: '',
     vendorRegister: '',
     employeeLogin: '',
+    ambassadorLogin: '',
   });
 
   const [saving, setSaving] = useState(false);
@@ -673,9 +675,10 @@ export default function AuthImagesPage() {
           </div>
 
           <div>
-            <h3 className="text-xs font-bold text-gray-700 mb-3 uppercase tracking-wider">Employee / Admin Portal Pages</h3>
+            <h3 className="text-xs font-bold text-gray-700 mb-3 uppercase tracking-wider">Employee / Admin &amp; Ambassador Portal Pages</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {renderImageSection('Employee/Admin Login Image', 'employee', 'Login')}
+              {renderImageSection('Ambassador Login Image', 'ambassador', 'Login')}
             </div>
           </div>
         </div>

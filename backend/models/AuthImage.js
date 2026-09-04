@@ -4,7 +4,7 @@ const authImageSchema = new mongoose.Schema({
   role: {
     type: String,
     required: true,
-    enum: ['customer', 'venue', 'vendor', 'employee']
+    enum: ['customer', 'venue', 'vendor', 'employee', 'ambassador']
   },
   type: {
     type: String,
