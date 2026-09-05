@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useVenueFormStore } from '@/lib/store';
 import toast from 'react-hot-toast';
-import { IndianRupee, Clock, Calendar } from 'lucide-react';
+import { IndianRupee, Clock, Calendar, Sparkles } from 'lucide-react';
+import ClockTimePicker, { formatDisplayTime } from '@/components/ui/ClockTimePicker';
 
 const advanceBookingOptions = [
   'Same day allowed',
@@ -50,16 +51,26 @@ export default function Step4Pricing() {
         weekend: formData.pricing?.extraHourRate?.weekend || ''
       },
       // Availability
-      openingTime: formData.pricing?.openingTime || '',
-      closingTime: formData.pricing?.closingTime || '',
-      availableDays: formData.pricing?.availableDays || [],
-      advanceBookingRule: formData.pricing?.advanceBookingRule || ''
+      openingTime: formData.pricing?.openingTime || '08:00',
+      closingTime: formData.pricing?.closingTime || '22:00',
+      availableDays: formData.pricing?.availableDays || ['Monday', 'Tuesday', 'Wednesday', 'Friday', 'Saturday', 'Sunday'],
+      advanceBookingRule: formData.pricing?.advanceBookingRule || '1 week in advance'
     };
   };
   
-  const { register, handleSubmit, reset, formState: { errors } } = useForm({
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
     defaultValues: prepareDefaultValues()
   });
+
+  // Watch opening & closing times for live calculations and picker display
+  const openingTimeValue = watch('openingTime');
+  const closingTimeValue = watch('closingTime');
+
+  // Register opening and closing time fields for validation
+  useEffect(() => {
+    register('openingTime', { required: 'Opening time is required' });
+    register('closingTime', { required: 'Closing time is required' });
+  }, [register]);
   
   // Reset form when formData changes (for edit mode)
   React.useEffect(() => {
@@ -282,42 +293,106 @@ export default function Step4Pricing() {
       </div>
 
       {/* Availability Schedule */}
-      <div className="bg-blue-50 border-l-4 border-blue-500 rounded-xl p-5">
-        <div className="flex items-start">
-          <Clock className="w-6 h-6 text-blue-500 mr-3 mt-1" />
-          <div className="flex-1">
-            <h3 className="text-lg font-bold text-dark-800 mb-4">Availability Schedule</h3>
-            
-            {/* Operating Hours */}
-            <div className="grid md:grid-cols-2 gap-4 mb-4">
+      <div className="bg-blue-50/70 dark:bg-slate-800/60 border-l-4 border-blue-500 rounded-2xl p-5 sm:p-6 shadow-sm">
+        <div className="flex items-start gap-3">
+          <div className="p-2.5 bg-blue-500 text-white rounded-xl shadow-sm flex-shrink-0 mt-0.5">
+            <Clock className="w-5 h-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
               <div>
-                <label className="block text-sm font-semibold text-dark-700 mb-2">
-                  Opening Time *
-                </label>
-                <input
-                  type="time"
-                  {...register('openingTime', { required: 'Opening time is required' })}
-                  className="input-field"
-                />
-                {errors.openingTime && (
-                  <p className="text-error text-sm mt-1">{errors.openingTime.message}</p>
-                )}
+                <h3 className="text-lg font-bold text-dark-800 dark:text-white">Availability Schedule</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Set the daily operating hours when guests can book your venue
+                </p>
               </div>
-              
-              <div>
-                <label className="block text-sm font-semibold text-dark-700 mb-2">
-                  Closing Time *
-                </label>
-                <input
-                  type="time"
-                  {...register('closingTime', { required: 'Closing time is required' })}
-                  className="input-field"
-                />
-                {errors.closingTime && (
-                  <p className="text-error text-sm mt-1">{errors.closingTime.message}</p>
-                )}
+
+              {/* Quick Preset Buttons */}
+              <div className="flex flex-wrap items-center gap-1.5 bg-white dark:bg-slate-900/80 p-1 rounded-xl border border-blue-100 dark:border-slate-700">
+                <span className="text-[11px] font-semibold text-gray-500 px-2">Quick Timings:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setValue('openingTime', '09:00', { shouldValidate: true, shouldDirty: true });
+                    setValue('closingTime', '18:00', { shouldValidate: true, shouldDirty: true });
+                    toast.success('Set to 9:00 AM – 6:00 PM');
+                  }}
+                  className="px-2.5 py-1 text-xs font-medium rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800 text-slate-700 dark:text-gray-200 transition-colors"
+                >
+                  9 AM – 6 PM
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setValue('openingTime', '08:00', { shouldValidate: true, shouldDirty: true });
+                    setValue('closingTime', '22:00', { shouldValidate: true, shouldDirty: true });
+                    toast.success('Set to 8:00 AM – 10:00 PM');
+                  }}
+                  className="px-2.5 py-1 text-xs font-medium rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800 text-slate-700 dark:text-gray-200 transition-colors"
+                >
+                  8 AM – 10 PM
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setValue('openingTime', '00:00', { shouldValidate: true, shouldDirty: true });
+                    setValue('closingTime', '23:59', { shouldValidate: true, shouldDirty: true });
+                    toast.success('Set to 24 Hours Open');
+                  }}
+                  className="px-2.5 py-1 text-xs font-medium rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800 text-slate-700 dark:text-gray-200 transition-colors"
+                >
+                  24 Hours
+                </button>
               </div>
             </div>
+            
+            {/* Interactive Clock Pickers for Operating Hours */}
+            <div className="grid md:grid-cols-2 gap-5 mb-4">
+              <ClockTimePicker
+                id="opening-time-picker"
+                label="Opening Time"
+                required={true}
+                value={openingTimeValue}
+                onChange={(val) => setValue('openingTime', val, { shouldValidate: true, shouldDirty: true })}
+                error={errors.openingTime}
+                presetType="opening"
+                helperText="Click clock to set daily opening time"
+              />
+              
+              <ClockTimePicker
+                id="closing-time-picker"
+                label="Closing Time"
+                required={true}
+                value={closingTimeValue}
+                onChange={(val) => setValue('closingTime', val, { shouldValidate: true, shouldDirty: true })}
+                error={errors.closingTime}
+                presetType="closing"
+                helperText="Click clock to set daily closing time"
+              />
+            </div>
+
+            {/* Live Operating Hours Summary Banner */}
+            {openingTimeValue && closingTimeValue && (
+              <div className="mb-5 p-3.5 bg-gradient-to-r from-blue-100/60 to-indigo-100/50 dark:from-slate-700/60 dark:to-slate-800/60 rounded-xl border border-blue-200/80 dark:border-slate-700 flex items-center justify-between flex-wrap gap-2 animate-fade-in">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                  <span className="text-xs font-semibold text-slate-700 dark:text-gray-200">
+                    Operating Schedule: <strong className="text-blue-700 dark:text-blue-400">{formatDisplayTime(openingTimeValue)}</strong> to <strong className="text-blue-700 dark:text-blue-400">{formatDisplayTime(closingTimeValue)}</strong>
+                  </span>
+                </div>
+                <span className="text-xs font-bold px-2.5 py-1 bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 rounded-lg shadow-sm border border-blue-100 dark:border-slate-700">
+                  {(() => {
+                    const [h1, m1] = (openingTimeValue || '08:00').split(':').map(Number);
+                    const [h2, m2] = (closingTimeValue || '22:00').split(':').map(Number);
+                    let diff = (h2 * 60 + m2) - (h1 * 60 + m1);
+                    if (diff < 0) diff += 24 * 60;
+                    const hrs = Math.floor(diff / 60);
+                    const mins = diff % 60;
+                    return `${hrs} hrs ${mins > 0 ? `${mins} mins` : ''} daily`;
+                  })()}
+                </span>
+              </div>
+            )}
 
             {/* Available Days */}
             <div className="mb-4">
