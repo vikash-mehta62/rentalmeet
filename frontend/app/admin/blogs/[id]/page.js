@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 import {
   Save, Eye, ArrowLeft, Plus, Trash2,
   AlertCircle, CheckCircle, RefreshCw, Globe, Image as ImageIcon
@@ -196,6 +197,7 @@ export default function BlogEditorPage() {
 
   return (
     <AdminLayout title={isNew ? 'New Blog Post' : 'Edit Blog Post'} subtitle={blog.title || 'Untitled'}>
+      <PermissionGuard permission="blogs">
 
       {/* Top bar */}
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
@@ -491,6 +493,7 @@ export default function BlogEditorPage() {
 
         </div>
       </div>
+      </PermissionGuard>
     </AdminLayout>
   );
 }

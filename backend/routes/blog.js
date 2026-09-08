@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Blog = require('../models/Blog');
-const { protect, authorize } = require('../middleware/auth');
+const { protect, authorize, checkPermission } = require('../middleware/auth');
 
 // Simple HTML sanitizer — strips script/iframe/event handlers
 function sanitizeHTML(html) {
@@ -16,7 +16,7 @@ function sanitizeHTML(html) {
 // ── ADMIN ROUTES (must come BEFORE /:slug to avoid conflict) ─────────────────
 
 // GET all blogs (admin — all statuses)
-router.get('/admin/all', protect, authorize('admin'), async (req, res) => {
+router.get('/admin/all', protect, authorize('admin'), checkPermission('blogs'), async (req, res) => {
   try {
     const { status, search, page = 1, limit = 20 } = req.query;
     const query = {};
@@ -39,7 +39,7 @@ router.get('/admin/all', protect, authorize('admin'), async (req, res) => {
 });
 
 // GET single blog by ID (admin)
-router.get('/admin/:id', protect, authorize('admin'), async (req, res) => {
+router.get('/admin/:id', protect, authorize('admin'), checkPermission('blogs'), async (req, res) => {
   try {
     const blog = await Blog.findById(req.params.id);
     if (!blog) return res.status(404).json({ success: false, message: 'Blog not found' });
@@ -48,7 +48,7 @@ router.get('/admin/:id', protect, authorize('admin'), async (req, res) => {
 });
 
 // POST create blog
-router.post('/', protect, authorize('admin'), async (req, res) => {
+router.post('/', protect, authorize('admin'), checkPermission('blogs'), async (req, res) => {
   try {
     const { title, slug, content, ...rest } = req.body;
     // Validate required fields
@@ -70,7 +70,7 @@ router.post('/', protect, authorize('admin'), async (req, res) => {
 });
 
 // PUT update blog — use findById + save so pre('save') hooks run (readTime, publishedAt)
-router.put('/:id', protect, authorize('admin'), async (req, res) => {
+router.put('/:id', protect, authorize('admin'), checkPermission('blogs'), async (req, res) => {
   try {
     const blog = await Blog.findById(req.params.id);
     if (!blog) return res.status(404).json({ success: false, message: 'Blog not found' });
@@ -96,7 +96,7 @@ router.put('/:id', protect, authorize('admin'), async (req, res) => {
 });
 
 // DELETE blog
-router.delete('/:id', protect, authorize('admin'), async (req, res) => {
+router.delete('/:id', protect, authorize('admin'), checkPermission('blogs'), async (req, res) => {
   try {
     const blog = await Blog.findByIdAndDelete(req.params.id);
     if (!blog) return res.status(404).json({ success: false, message: 'Blog not found' });

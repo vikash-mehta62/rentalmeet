@@ -63,7 +63,7 @@ export default function AdminBlogsPage() {
 
   return (
     <AdminLayout title="Blog Management" subtitle="Create and manage SEO-optimized blog posts">
-      <PermissionGuard permission="settings">
+      <PermissionGuard permission="blogs">
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">

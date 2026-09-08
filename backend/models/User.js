@@ -128,10 +128,13 @@ const userSchema = new mongoose.Schema({
     reviews:              { type: Boolean, default: false },
     platformSettings:     { type: Boolean, default: false },
     faqs:                 { type: Boolean, default: false },
+    blogs:                { type: Boolean, default: false },
     chatbot:              { type: Boolean, default: false },
     settings:             { type: Boolean, default: false },
     notifications:        { type: Boolean, default: false },
     analytics:            { type: Boolean, default: false },
+    authImages:           { type: Boolean, default: false },
+    ambassadors:          { type: Boolean, default: false },
   },
   // Referral System
   referralCode: {

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
@@ -30,7 +30,7 @@ export default function SubAdminsPage() {
       vendorServices: false, vendorPayments: false, vendorCoupons: false, serviceBookings: false, serviceQuotations: false,
       heroSlides: false, users: false, employees: false, subadmins: false,
       expenses: false, revenue: false, reports: false, reviews: false,
-      platformSettings: false, faqs: false, chatbot: false, settings: false
+      platformSettings: false, faqs: false, blogs: false, chatbot: false, settings: false
     }
   });
 
@@ -138,7 +138,7 @@ export default function SubAdminsPage() {
         vendorServices: false, vendorPayments: false, vendorCoupons: false, serviceBookings: false, serviceQuotations: false,
         heroSlides: false, users: false, employees: false, subadmins: false,
         expenses: false, revenue: false, reports: false, reviews: false,
-        platformSettings: false, faqs: false, chatbot: false, settings: false
+        platformSettings: false, faqs: false, blogs: false, chatbot: false, settings: false
       }
     });
     setShowModal(true);
@@ -213,7 +213,7 @@ export default function SubAdminsPage() {
         vendorServices: false, vendorPayments: false, vendorCoupons: false, serviceBookings: false, serviceQuotations: false,
         heroSlides: false, users: false, employees: false, subadmins: false,
         expenses: false, revenue: false, reports: false, reviews: false,
-        platformSettings: false, faqs: false, chatbot: false, settings: false
+        platformSettings: false, faqs: false, blogs: false, chatbot: false, settings: false
       }
     });
   };
@@ -301,7 +301,7 @@ export default function SubAdminsPage() {
                   vendorServices: false, vendorPayments: false, vendorCoupons: false, serviceBookings: false, serviceQuotations: false,
                   heroSlides: false, users: false, employees: false, subadmins: false,
                   expenses: false, revenue: false, reports: false, reviews: false,
-                  platformSettings: false, faqs: false, chatbot: false, settings: false
+                  platformSettings: false, faqs: false, blogs: false, chatbot: false, settings: false
                 }
               });
               setShowModal(true);
@@ -688,6 +688,7 @@ export default function SubAdminsPage() {
                         { key: 'reviews', label: 'Reviews' },
                         { key: 'platformSettings', label: 'Platform Settings' },
                         { key: 'faqs', label: 'FAQ Management' },
+                        { key: 'blogs', label: 'Blog Management' },
                         { key: 'chatbot', label: 'Chatbot Settings' },
                         { key: 'settings', label: 'Settings' },
                       ]
