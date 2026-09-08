@@ -134,7 +134,7 @@ export default function BlogDetailPage() {
 
           {/* Content */}
           <article
-            className="prose prose-slate dark:prose-invert prose-headings:font-black prose-a:text-amber-600 prose-img:rounded-xl max-w-none mb-10"
+            className="blog-content prose prose-slate dark:prose-invert prose-headings:font-black prose-a:text-amber-600 prose-img:rounded-xl max-w-none mb-10"
             dangerouslySetInnerHTML={{ __html: blog.content }}
           />
 

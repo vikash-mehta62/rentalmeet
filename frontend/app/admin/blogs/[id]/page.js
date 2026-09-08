@@ -284,7 +284,7 @@ export default function BlogEditorPage() {
             )}
 
             {tab === 'preview' && (
-              <div className="p-6 prose prose-sm max-w-none min-h-[400px]"
+              <div className="p-6 blog-content prose prose-sm max-w-none min-h-[400px]"
                 dangerouslySetInnerHTML={{ __html: blog.content || '<p class="text-gray-400">Nothing to preview yet...</p>' }} />
             )}
           </div>
