@@ -143,10 +143,11 @@ export default function BlogEditorPage() {
     try {
       const url    = isNew ? `${process.env.NEXT_PUBLIC_API_URL}/blogs` : `${process.env.NEXT_PUBLIC_API_URL}/blogs/${id}`;
       const method = isNew ? 'POST' : 'PUT';
+      const { _id, __v, createdAt, updatedAt, createdBy, views, ...payload } = blog;
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ ...blog, schemaMarkup: blog.schemaMarkup }),
+        body: JSON.stringify({ ...payload, schemaMarkup: blog.schemaMarkup }),
       });
       const data = await res.json();
       if (data.success) {

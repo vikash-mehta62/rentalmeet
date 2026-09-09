@@ -80,9 +80,10 @@ router.put('/:id', protect, authorize('admin'), checkPermission('blogs'), async 
     if (slug  !== undefined) blog.slug  = slug.trim().toLowerCase();
     if (content !== undefined) blog.content = sanitizeHTML(content);
 
-    // Apply all other fields
+    // Apply all other fields (exclude internal/meta fields like __v, _id, etc.)
+    const excludedKeys = ['_id', '__v', 'createdAt', 'updatedAt', 'createdBy', 'views'];
     Object.keys(rest).forEach(key => {
-      if (!['_id','createdAt','updatedAt','createdBy','views'].includes(key)) {
+      if (!excludedKeys.includes(key)) {
         blog[key] = rest[key];
       }
     });
@@ -91,6 +92,9 @@ router.put('/:id', protect, authorize('admin'), checkPermission('blogs'), async 
     res.json({ success: true, blog });
   } catch (e) {
     if (e.code === 11000) return res.status(400).json({ success: false, message: 'Slug already exists' });
+    if (e.name === 'VersionError') {
+      return res.status(409).json({ success: false, message: 'Blog was updated in another session. Please refresh and try again.' });
+    }
     res.status(500).json({ success: false, message: e.message });
   }
 });
