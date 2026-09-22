@@ -101,16 +101,16 @@ export default function VenueCategoriesSection() {
           </p>
         </div>
 
-        {/* Grid */}
-        <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-3">
-          {categories.map((cat, i) => {
+        {/* Grid - 6x2 Layout (6 columns x 2 rows) on Desktop */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
+          {categories.slice(0, 12).map((cat, i) => {
             const Icon = cat.icon;
             const c = CARD_COLORS[i % CARD_COLORS.length];
             return (
               <button
                 key={cat.name}
                 onClick={() => router.push(`/venues/type/${venueTypeToSlug(cat.name)}`)}
-                className={`group flex flex-col items-center text-center gap-2 p-3 rounded-xl border ${c.border} ${c.bg} ${c.hover} hover:shadow-md transition-all duration-300 cursor-pointer`}
+                className={`group flex flex-col items-center text-center gap-2 p-3.5 rounded-xl border ${c.border} ${c.bg} ${c.hover} hover:shadow-md transition-all duration-300 cursor-pointer`}
               >
                 <div className={`inline-flex items-center justify-center w-10 h-10 rounded-lg ${c.iconBg} ${c.iconColor} transition-colors duration-300 flex-shrink-0`}>
                   <Icon className="h-5 w-5" />

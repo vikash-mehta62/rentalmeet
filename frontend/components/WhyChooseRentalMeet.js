@@ -65,23 +65,23 @@ export default function WhyChooseRentalMeet() {
           </h2>
         </div>
 
-        {/* Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Grid - All 6 Cards in Single Row on Desktop */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {REASONS.map((reason, index) => {
             const Icon = reason.icon;
             const c = reason.color;
             return (
               <div
                 key={index}
-                className={`${c.bg} border ${c.border} rounded-xl p-6 hover:shadow-md transition-all duration-300`}
+                className={`${c.bg} border ${c.border} rounded-xl p-4 hover:shadow-md transition-all duration-300 flex flex-col`}
               >
-                <div className={`w-11 h-11 ${c.bg} border ${c.border} rounded-lg flex items-center justify-center mb-4`}>
+                <div className={`w-10 h-10 ${c.bg} border ${c.border} rounded-lg flex items-center justify-center mb-3 flex-shrink-0`}>
                   <Icon className={`w-5 h-5 ${c.icon}`} />
                 </div>
-                <h3 className="font-semibold text-base text-slate-900 dark:text-slate-100 mb-2">
+                <h3 className="font-semibold text-sm text-slate-900 dark:text-slate-100 mb-1.5 leading-snug">
                   {reason.title}
                 </h3>
-                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed flex-1">
                   {reason.description}
                 </p>
               </div>
