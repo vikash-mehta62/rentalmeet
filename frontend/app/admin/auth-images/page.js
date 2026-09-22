@@ -344,6 +344,7 @@ export default function AuthImagesPage() {
 
   return (
     <AdminLayout title="Auth Custom Images" subtitle="Manage background images for login, registration pages and home popup banner">
+      <PermissionGuard permission="authImages">
       <div className="space-y-10">
         
         {/* ================= SECTION 1: HOME PAGE POPUP BANNER (1:1 RATIO) ================= */}
@@ -756,6 +757,7 @@ export default function AuthImagesPage() {
           </div>
         </div>
       )}
+      </PermissionGuard>
     </AdminLayout>
   );
 }

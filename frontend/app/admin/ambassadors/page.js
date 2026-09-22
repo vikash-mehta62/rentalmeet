@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import AdminLayout from '@/components/admin/AdminLayout';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 import { useAuthStore } from '@/lib/store';
 import {
   Award,
@@ -263,6 +264,7 @@ export default function AdminAmbassadorsPage() {
 
   return (
     <AdminLayout title="Venue Ambassador Management" subtitle="Manage Ambassador Partners, Applications, and Payout Settlements">
+      <PermissionGuard permission="ambassadors">
       <div className="space-y-6">
         
         {/* Navigation Tabs */}
@@ -1217,6 +1219,7 @@ export default function AdminAmbassadorsPage() {
           </div>
         )}
       </div>
+      </PermissionGuard>
     </AdminLayout>
   );
 }

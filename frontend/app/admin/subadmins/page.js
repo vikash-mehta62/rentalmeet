@@ -6,6 +6,92 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import { Shield, Plus, Edit2, Trash2, Eye, EyeOff, X, Download, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+const INITIAL_PERMISSIONS = {
+  // Overview
+  dashboard: false,
+  analytics: false,
+  // Venues
+  venues: false,
+  venueTypes: false,
+  bookings: false,
+  payments: false,
+  coupons: false,
+  quotations: false,
+  // Vendors
+  vendorServices: false,
+  vendorPayments: false,
+  vendorCoupons: false,
+  serviceBookings: false,
+  serviceQuotations: false,
+  // System
+  heroSlides: false,
+  authImages: false,
+  users: false,
+  ambassadors: false,
+  employees: false,
+  subadmins: false,
+  faqs: false,
+  blogs: false,
+  chatbot: false,
+  expenses: false,
+  reports: false,
+  reviews: false,
+  platformSettings: false,
+  notifications: false,
+  settings: false,
+};
+
+const PERMISSION_GROUPS = [
+  {
+    section: 'Overview',
+    items: [
+      { key: 'dashboard', label: 'Dashboard' },
+      { key: 'analytics', label: 'Visits & Analytics' },
+    ]
+  },
+  {
+    section: 'Venues',
+    items: [
+      { key: 'venues', label: 'Venues' },
+      { key: 'venueTypes', label: 'Venue Types' },
+      { key: 'bookings', label: 'Bookings' },
+      { key: 'payments', label: 'Payments' },
+      { key: 'coupons', label: 'Coupons' },
+      { key: 'quotations', label: 'Quotations' },
+    ]
+  },
+  {
+    section: 'Vendors',
+    items: [
+      { key: 'vendorServices', label: 'Vendor Services' },
+      { key: 'vendorPayments', label: 'Vendor Payments' },
+      { key: 'vendorCoupons', label: 'Vendor Coupons' },
+      { key: 'serviceBookings', label: 'Service Bookings' },
+      { key: 'serviceQuotations', label: 'Service Quotations' },
+    ]
+  },
+  {
+    section: 'System',
+    items: [
+      { key: 'heroSlides', label: 'Hero Slides' },
+      { key: 'authImages', label: 'Auth Custom Images' },
+      { key: 'users', label: 'Users' },
+      { key: 'ambassadors', label: 'Ambassadors' },
+      { key: 'employees', label: 'Employees' },
+      { key: 'subadmins', label: 'SubAdmins' },
+      { key: 'faqs', label: 'FAQ Management' },
+      { key: 'blogs', label: 'Blog' },
+      { key: 'chatbot', label: 'Chatbot Settings' },
+      { key: 'expenses', label: 'Finance' },
+      { key: 'reports', label: 'Reports' },
+      { key: 'reviews', label: 'Reviews' },
+      { key: 'platformSettings', label: 'GST/Platform' },
+      { key: 'notifications', label: 'Push Notifications' },
+      { key: 'settings', label: 'Settings' },
+    ]
+  }
+];
+
 export default function SubAdminsPage() {
   const { token, user } = useAuthStore();
   const [subadmins, setSubadmins] = useState([]);
@@ -24,14 +110,7 @@ export default function SubAdminsPage() {
     state: '',
     pincode: '',
     password: '',
-    permissions: {
-      dashboard: false,
-      venues: false, venueTypes: false, bookings: false, payments: false, coupons: false, quotations: false,
-      vendorServices: false, vendorPayments: false, vendorCoupons: false, serviceBookings: false, serviceQuotations: false,
-      heroSlides: false, users: false, employees: false, subadmins: false,
-      expenses: false, revenue: false, reports: false, reviews: false,
-      platformSettings: false, faqs: false, blogs: false, chatbot: false, settings: false
-    }
+    permissions: { ...INITIAL_PERMISSIONS }
   });
 
   useEffect(() => {
@@ -132,13 +211,9 @@ export default function SubAdminsPage() {
       state: subadmin.state || '',
       pincode: subadmin.pincode || '',
       password: '',
-      permissions: subadmin.permissions || {
-        dashboard: false,
-        venues: false, venueTypes: false, bookings: false, payments: false, coupons: false, quotations: false,
-        vendorServices: false, vendorPayments: false, vendorCoupons: false, serviceBookings: false, serviceQuotations: false,
-        heroSlides: false, users: false, employees: false, subadmins: false,
-        expenses: false, revenue: false, reports: false, reviews: false,
-        platformSettings: false, faqs: false, blogs: false, chatbot: false, settings: false
+      permissions: {
+        ...INITIAL_PERMISSIONS,
+        ...(subadmin.permissions || {})
       }
     });
     setShowModal(true);
@@ -207,14 +282,7 @@ export default function SubAdminsPage() {
       state: '',
       pincode: '',
       password: '',
-      permissions: {
-        dashboard: false,
-        venues: false, venueTypes: false, bookings: false, payments: false, coupons: false, quotations: false,
-        vendorServices: false, vendorPayments: false, vendorCoupons: false, serviceBookings: false, serviceQuotations: false,
-        heroSlides: false, users: false, employees: false, subadmins: false,
-        expenses: false, revenue: false, reports: false, reviews: false,
-        platformSettings: false, faqs: false, blogs: false, chatbot: false, settings: false
-      }
+      permissions: { ...INITIAL_PERMISSIONS }
     });
   };
 
@@ -295,14 +363,7 @@ export default function SubAdminsPage() {
                 state: '',
                 pincode: '',
                 password: '',
-                permissions: {
-                  dashboard: false,
-                  venues: false, venueTypes: false, bookings: false, payments: false, coupons: false, quotations: false,
-                  vendorServices: false, vendorPayments: false, vendorCoupons: false, serviceBookings: false, serviceQuotations: false,
-                  heroSlides: false, users: false, employees: false, subadmins: false,
-                  expenses: false, revenue: false, reports: false, reviews: false,
-                  platformSettings: false, faqs: false, blogs: false, chatbot: false, settings: false
-                }
+                permissions: { ...INITIAL_PERMISSIONS }
               });
               setShowModal(true);
             }}
@@ -486,8 +547,8 @@ export default function SubAdminsPage() {
       {/* Add/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
               <h2 className="text-2xl font-bold text-gray-900">
                 {editingSubAdmin ? 'Edit SubAdmin' : 'Add New SubAdmin'}
               </h2>
@@ -632,84 +693,64 @@ export default function SubAdminsPage() {
               {/* Permissions Section */}
               <div className="border-t pt-4">
                 <div className="flex items-center justify-between mb-3">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Access Permissions <span className="text-red-500">*</span>
-                  </label>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-800">
+                      Access Permissions <span className="text-red-500">*</span>
+                    </label>
+                    <p className="text-xs text-gray-500">Select which pages and modules this SubAdmin can access</p>
+                  </div>
                   <button type="button"
                     onClick={() => {
-                      const allSelected = Object.values(formData.permissions).every(v => v);
+                      const allKeys = Object.keys(INITIAL_PERMISSIONS);
+                      const allSelected = allKeys.every(k => !!formData.permissions[k]);
                       const newPerms = {};
-                      Object.keys(formData.permissions).forEach(k => { newPerms[k] = !allSelected; });
+                      allKeys.forEach(k => { newPerms[k] = !allSelected; });
                       setFormData({ ...formData, permissions: newPerms });
                     }}
-                    className="text-xs text-primary-600 hover:text-primary-700 font-medium">
-                    {Object.values(formData.permissions).every(v => v) ? 'Deselect All' : 'Select All'}
+                    className="text-xs font-semibold px-3 py-1.5 bg-primary-50 text-primary-700 hover:bg-primary-100 rounded-lg transition-colors">
+                    {Object.keys(INITIAL_PERMISSIONS).every(k => !!formData.permissions[k]) ? 'Deselect All' : 'Select All'}
                   </button>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 space-y-5">
-                  {[
-                    {
-                      section: 'Overview',
-                      items: [
-                        { key: 'dashboard', label: 'Dashboard' },
-                      ]
-                    },
-                    {
-                      section: 'Venues',
-                      items: [
-                        { key: 'venues', label: 'Venues' },
-                        { key: 'venueTypes', label: 'Venue Types' },
-                        { key: 'bookings', label: 'Bookings' },
-                        { key: 'payments', label: 'Payments' },
-                        { key: 'coupons', label: 'Coupons' },
-                        { key: 'quotations', label: 'Quotations' },
-                      ]
-                    },
-                    {
-                      section: 'Vendors',
-                      items: [
-                        { key: 'vendorServices', label: 'Vendor Services' },
-                        { key: 'vendorPayments', label: 'Vendor Payments' },
-                        { key: 'vendorCoupons', label: 'Vendor Coupons' },
-                        { key: 'serviceBookings', label: 'Service Bookings' },
-                        { key: 'serviceQuotations', label: 'Service Quotations' },
-                      ]
-                    },
-                    {
-                      section: 'System',
-                      items: [
-                        { key: 'heroSlides', label: 'Hero Slides' },
-                        { key: 'users', label: 'Users' },
-                        { key: 'employees', label: 'Employees' },
-                        { key: 'subadmins', label: 'SubAdmins' },
-                        { key: 'expenses', label: 'Expenses' },
-                        { key: 'revenue', label: 'Revenue' },
-                        { key: 'reports', label: 'Reports' },
-                        { key: 'reviews', label: 'Reviews' },
-                        { key: 'platformSettings', label: 'Platform Settings' },
-                        { key: 'faqs', label: 'FAQ Management' },
-                        { key: 'blogs', label: 'Blog Management' },
-                        { key: 'chatbot', label: 'Chatbot Settings' },
-                        { key: 'settings', label: 'Settings' },
-                      ]
-                    }
-                  ].map(group => (
-                    <div key={group.section}>
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 pb-1 border-b border-gray-200">{group.section}</p>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                        {group.items.map(perm => (
-                          <label key={perm.key}
-                            className={`flex items-center gap-2 cursor-pointer rounded-lg border px-3 py-2 transition-colors ${formData.permissions[perm.key] ? 'bg-primary-50 border-primary-300' : 'bg-white border-gray-200 hover:border-gray-300'}`}>
-                            <input type="checkbox"
-                              checked={!!formData.permissions[perm.key]}
-                              onChange={(e) => setFormData({ ...formData, permissions: { ...formData.permissions, [perm.key]: e.target.checked } })}
-                              className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 flex-shrink-0" />
-                            <span className="text-sm font-medium text-gray-700">{perm.label}</span>
-                          </label>
-                        ))}
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 space-y-5">
+                  {PERMISSION_GROUPS.map(group => {
+                    const groupAllSelected = group.items.every(item => !!formData.permissions[item.key]);
+                    return (
+                      <div key={group.section} className="space-y-2">
+                        <div className="flex items-center justify-between pb-1 border-b border-gray-200">
+                          <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">{group.section}</p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newPerms = { ...formData.permissions };
+                              group.items.forEach(item => {
+                                newPerms[item.key] = !groupAllSelected;
+                              });
+                              setFormData({ ...formData, permissions: newPerms });
+                            }}
+                            className="text-[11px] font-medium text-primary-600 hover:text-primary-700 hover:underline"
+                          >
+                            {groupAllSelected ? 'Deselect Section' : 'Select Section'}
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {group.items.map(perm => (
+                            <label key={perm.key}
+                              className={`flex items-center gap-2 cursor-pointer rounded-lg border px-3 py-2 transition-all ${
+                                formData.permissions[perm.key]
+                                  ? 'bg-amber-50 border-amber-300 text-amber-900 shadow-xs'
+                                  : 'bg-white border-gray-200 hover:border-gray-300 text-gray-700'
+                              }`}>
+                              <input type="checkbox"
+                                checked={!!formData.permissions[perm.key]}
+                                onChange={(e) => setFormData({ ...formData, permissions: { ...formData.permissions, [perm.key]: e.target.checked } })}
+                                className="w-4 h-4 text-amber-500 border-gray-300 rounded focus:ring-amber-400 flex-shrink-0" />
+                              <span className="text-xs font-semibold truncate">{perm.label}</span>
+                            </label>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -717,14 +758,14 @@ export default function SubAdminsPage() {
                 <button
                   type="button"
                   onClick={handleCloseModal}
-                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors font-medium text-sm"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-6 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors disabled:opacity-50"
+                  className="px-6 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors disabled:opacity-50 font-semibold text-sm shadow-sm"
                 >
                   {loading ? 'Saving...' : editingSubAdmin ? 'Update SubAdmin' : 'Create SubAdmin'}
                 </button>

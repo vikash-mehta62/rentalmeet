@@ -126,9 +126,12 @@ export default function BlogDetailPage() {
 
           {/* Featured Image */}
           {blog.featuredImage && (
-            <div className="mb-8 rounded-2xl overflow-hidden shadow-lg">
-              <img src={blog.featuredImage} alt={blog.featuredImageAlt || blog.title}
-                className="w-full h-64 md:h-96 object-cover" />
+            <div className="mb-8 rounded-2xl overflow-hidden shadow-md border border-slate-200/60 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 flex items-center justify-center max-h-[450px]">
+              <img
+                src={blog.featuredImage}
+                alt={blog.featuredImageAlt || blog.title}
+                className="w-full h-auto max-h-[450px] object-contain mx-auto"
+              />
             </div>
           )}
 
@@ -187,11 +190,11 @@ export default function BlogDetailPage() {
                   <Link key={r._id} href={`/blog/${r.slug}`}
                     className="group bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-md transition-all">
                     {r.featuredImage ? (
-                      <div className="h-32 overflow-hidden">
+                      <div className="aspect-video w-full overflow-hidden bg-slate-100 dark:bg-slate-850">
                         <img src={r.featuredImage} alt={r.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                       </div>
                     ) : (
-                      <div className="h-32 bg-gradient-to-br from-amber-50 to-orange-100 dark:from-slate-800 dark:to-slate-700 flex items-center justify-center">
+                      <div className="aspect-video w-full bg-gradient-to-br from-amber-50 to-orange-100 dark:from-slate-800 dark:to-slate-700 flex items-center justify-center">
                         <span className="text-2xl">📝</span>
                       </div>
                     )}

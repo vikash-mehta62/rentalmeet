@@ -738,11 +738,11 @@ router.get('/earnings', protect, authorize('admin'), checkPermission('reports'),
 router.get('/stats', protect, authorize('admin'), checkPermission('dashboard'), getDashboardStats);
 
 // Ambassador Management routes
-router.get('/ambassadors', protect, authorize('admin', 'subadmin'), getAllAmbassadors);
-router.get('/ambassadors/:id', protect, authorize('admin', 'subadmin'), getAmbassadorDetails);
-router.put('/ambassadors/:id/status', protect, authorize('admin', 'subadmin'), updateAmbassadorStatus);
-router.get('/ambassador-payouts', protect, authorize('admin', 'subadmin'), getAllAmbassadorPayouts);
-router.put('/ambassador-payouts/:id/status', protect, authorize('admin', 'subadmin'), updateAmbassadorPayoutStatus);
+router.get('/ambassadors', protect, authorize('admin', 'subadmin'), checkPermission('ambassadors'), getAllAmbassadors);
+router.get('/ambassadors/:id', protect, authorize('admin', 'subadmin'), checkPermission('ambassadors'), getAmbassadorDetails);
+router.put('/ambassadors/:id/status', protect, authorize('admin', 'subadmin'), checkPermission('ambassadors'), updateAmbassadorStatus);
+router.get('/ambassador-payouts', protect, authorize('admin', 'subadmin'), checkPermission('ambassadors'), getAllAmbassadorPayouts);
+router.put('/ambassador-payouts/:id/status', protect, authorize('admin', 'subadmin'), checkPermission('ambassadors'), updateAmbassadorPayoutStatus);
 
 // Admin: Get all coupons (global + venue-specific)
 router.get('/coupons', protect, authorize('admin'), async (req, res) => {

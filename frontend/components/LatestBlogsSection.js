@@ -36,7 +36,7 @@ export default function LatestBlogsSection() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[...Array(3)].map((_, i) => (
               <div key={i} className="rounded-2xl overflow-hidden animate-pulse">
-                <div className="h-44 bg-gray-200 dark:bg-slate-800" />
+                <div className="aspect-video w-full bg-gray-200 dark:bg-slate-800" />
                 <div className="p-4 space-y-2">
                   <div className="h-3 bg-gray-200 dark:bg-slate-800 rounded w-1/3" />
                   <div className="h-4 bg-gray-200 dark:bg-slate-800 rounded" />
@@ -49,14 +49,14 @@ export default function LatestBlogsSection() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {blogs.map(blog => (
               <Link key={blog._id} href={`/blog/${blog.slug}`}
-                className="group rounded-2xl overflow-hidden border border-gray-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 bg-white dark:bg-slate-900">
+                className="group rounded-2xl overflow-hidden border border-gray-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 bg-white dark:bg-slate-900 flex flex-col">
                 {blog.featuredImage ? (
-                  <div className="h-44 overflow-hidden">
+                  <div className="aspect-video w-full overflow-hidden bg-gray-100 dark:bg-slate-800">
                     <img src={blog.featuredImage} alt={blog.featuredImageAlt || blog.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   </div>
                 ) : (
-                  <div className="h-44 bg-gradient-to-br from-primary-50 to-amber-50 dark:from-slate-800 dark:to-slate-700 flex items-center justify-center">
+                  <div className="aspect-video w-full bg-gradient-to-br from-primary-50 to-amber-50 dark:from-slate-800 dark:to-slate-700 flex items-center justify-center">
                     <span className="text-3xl">📝</span>
                   </div>
                 )}

@@ -377,7 +377,7 @@ export default function AdminExpensesPage() {
 
   return (
     <AdminLayout title="Finance" subtitle="Expenses, Liabilities & Revenue">
-      <PermissionGuard permission="payments">
+      <PermissionGuard permission="expenses">
 
         {/* Filter Bar */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-5 flex flex-wrap items-center gap-3">

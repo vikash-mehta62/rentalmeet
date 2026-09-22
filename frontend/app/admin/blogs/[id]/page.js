@@ -396,10 +396,10 @@ export default function BlogEditorPage() {
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-3">
             <h3 className="font-bold text-gray-800 text-sm">Featured Image</h3>
             {blog.featuredImage ? (
-              <div className="relative">
-                <img src={blog.featuredImage} alt={blog.featuredImageAlt} className="w-full h-40 object-cover rounded-lg border border-gray-200" />
+              <div className="relative bg-gray-50 rounded-lg p-2 border border-gray-200 flex items-center justify-center">
+                <img src={blog.featuredImage} alt={blog.featuredImageAlt} className="w-full max-h-48 object-contain rounded" />
                 <button onClick={() => setBlog(p => ({ ...p, featuredImage:'' }))}
-                  className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold hover:bg-red-600">×</button>
+                  className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold hover:bg-red-600 shadow">×</button>
               </div>
             ) : (
               <label className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-primary-400 transition-colors">
