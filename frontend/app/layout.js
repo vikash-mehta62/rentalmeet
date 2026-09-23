@@ -33,6 +33,9 @@ export const metadata = {
   keywords: 'Venue Booking Platform India, Conference Hall Booking, Meeting Room Booking, Event Venue Booking, Corporate Event Venues, Training Room Rental, Business Meeting Venues, Hotel Conference Halls, Venue Booking App',
   verification: {
     google: 'uTqA47_wan_8NNEFA6uAII7f8cPyO4ry1L8FezkrbuE',
+    other: {
+      'p:domain_verify': '38bdcfb2a4a0c881ddbd7293c52adc39',
+    },
   },
   icons: {
     icon: [
