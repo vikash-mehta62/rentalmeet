@@ -337,26 +337,6 @@ export default function AmbassadorProgramPage() {
             </div>
 
           </div>
-
-          {/* 4 Highlights Badges under Hero */}
-          <div className="pt-14 grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all text-center">
-              <p className="text-2xl font-black text-primary-600 dark:text-primary-400">₹100 - ₹200</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-semibold">Per Verified Venue</p>
-            </div>
-            <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all text-center">
-              <p className="text-2xl font-black text-amber-600 dark:text-amber-400">+₹250/Day</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-semibold">5-Venue Daily Bonus</p>
-            </div>
-            <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all text-center">
-              <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">25% Royalty</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-semibold">12-Month Profit Share</p>
-            </div>
-            <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all text-center">
-              <p className="text-2xl font-black text-blue-600 dark:text-blue-400">₹25,000</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-semibold">Star Monthly Award</p>
-            </div>
-          </div>
         </div>
       </section>
 

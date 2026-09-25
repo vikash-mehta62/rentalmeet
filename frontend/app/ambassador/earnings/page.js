@@ -196,58 +196,6 @@ export default function AmbassadorEarningsPage() {
         </div>
       </div>
 
-      {/* 7-Day or 30-Day Power Streak & 25% 1-Year Profit Share Rule Banner */}
-      <div className={`p-6 rounded-3xl border shadow-sm space-y-4 ${
-        data?.profitShareStatus?.profitShareUnlocked
-          ? 'bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 border-purple-800 text-white'
-          : 'bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-600/10 bg-white dark:bg-slate-900 border-amber-300 dark:border-amber-900/60 text-slate-900 dark:text-slate-100'
-      }`}>
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-          <div className="space-y-1.5 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/30">
-              <Zap className="w-3.5 h-3.5 text-amber-500" />
-              {data?.profitShareStatus?.profitShareUnlocked ? '🎉 1-Year 25% Royalty Profit Share UNLOCKED & ACTIVE' : '🔥 7-Day or 30-Day Streak: 25% 1-Year Profit Share Unlock'}
-            </div>
-            <h3 className="text-lg sm:text-xl font-black">
-              {data?.profitShareStatus?.profitShareUnlocked
-                ? '25% Royalty Booking Profit Share Active for 1 Full Year (365 Days)!'
-                : 'Complete 7-Day Streak (35 Venues) OR 30-Day Streak (150 Venues) to Unlock 25% Profit Share for 1 Year'}
-            </h3>
-            <p className="text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
-              {data?.profitShareStatus?.profitShareUnlocked
-                ? `Badhai ho! Aapka 1 Year (365 Days) 25% Booking Profit Share unlock ho chuka hai. Aapke sabhi onboarded venues se aane wali bookings ka 25% platform profit real-time aapke wallet me aayega (${data?.profitShareStatus?.daysRemaining || 365} din bache hain).`
-                : 'Lagatar 7 din roz 5-5 verified venues list karein (35 venues) ya mahine me 150 venues list karein. Streak complete hote hi 1 Year (365 Days) ke liye 25% Recurring Booking Royalty Share + Cash Bonus instant unlock ho jayega!'}
-            </p>
-          </div>
-
-          <div className="w-full lg:w-80 bg-slate-50 dark:bg-slate-800/80 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
-            <div className="flex justify-between items-center text-xs">
-              <span className="font-bold text-slate-500 dark:text-slate-400">7-Day Streak (5 Venues/Day)</span>
-              <span className="font-black text-amber-600 dark:text-amber-400">
-                {data?.profitShareStatus?.streakDaysCompleted || 0} / 7 Days
-              </span>
-            </div>
-            <div className="w-full h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden p-0.5">
-              <div
-                className="h-full bg-gradient-to-r from-amber-500 to-green-500 rounded-full transition-all duration-500 shadow-sm"
-                style={{ width: `${data?.profitShareStatus?.streakProgressPercentage || 0}%` }}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 text-center text-[11px] pt-1">
-              <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
-                <span className="text-slate-400 block text-[10px]">Today&apos;s Venues</span>
-                <span className="font-black text-slate-800 dark:text-slate-200">{data?.profitShareStatus?.todayVerifiedCount || 0} / 5</span>
-              </div>
-              <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
-                <span className="text-slate-400 block text-[10px]">Streak Total Venues</span>
-                <span className="font-black text-slate-800 dark:text-slate-200">{data?.profitShareStatus?.totalStreakVenues || 0} / 35</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         
