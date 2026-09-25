@@ -258,82 +258,104 @@ export default function AmbassadorProgramPage() {
         {/* Glow blobs */}
         <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-primary-500/15 dark:bg-primary-500/10 blur-[100px] rounded-full pointer-events-none -z-10" />
 
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-4xl mx-auto space-y-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
             
-            {/* Top Pill */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-100 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-700/80 text-amber-900 dark:text-amber-200 text-xs font-bold uppercase tracking-wider shadow-sm">
-              <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400 animate-pulse" />
-              &quot;Join RentalMeet&apos;s Venue Ambassador Program and start earning today.&quot;
-            </div>
+            {/* Left Column: Content */}
+            <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
+              
+              {/* Top Pill */}
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-100 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-700/80 text-amber-900 dark:text-amber-200 text-xs font-bold uppercase tracking-wider shadow-sm">
+                <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400 animate-pulse" />
+                &quot;Join RentalMeet&apos;s Venue Ambassador Program and start earning today.&quot;
+              </div>
 
-            {/* Main Headline */}
-            <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.15]">
-              Join India&apos;s Fastest Growing Venue Network as a <br />
-              <span className="bg-gradient-to-r from-primary-600 via-orange-500 to-amber-500 bg-clip-text text-transparent">
-                &quot;Venue Ambassador&quot;
-              </span>
-            </h1>
-
-            {/* Sub-headline */}
-            <div className="space-y-1">
-              <p className="text-base sm:text-xl text-slate-700 dark:text-slate-200 font-semibold italic">
-                &quot;No investment. No experience needed. Just find venues and start earning.&quot;
-              </p>
-              <p className="text-sm font-black text-primary-600 dark:text-primary-400 uppercase tracking-widest">
-                &quot;AnyTime..Any Where&quot;
-              </p>
-            </div>
-
-            {/* Value Proposition Box */}
-            <div className="p-5 sm:p-6 rounded-2xl bg-white/80 dark:bg-slate-850/80 backdrop-blur-md border border-amber-300/60 dark:border-amber-700/40 shadow-xl max-w-3xl mx-auto text-sm sm:text-base leading-relaxed text-slate-800 dark:text-slate-200 font-medium">
-              Earn <span className="font-black text-primary-600 dark:text-primary-400 text-lg">₹100 to ₹200 per Verified Venue</span> + Daily Bonus + Weekly/Monthly Incentive.
-              <div className="mt-2 pt-2 border-t border-amber-200/60 dark:border-slate-700">
-                <span className="text-amber-700 dark:text-amber-300 font-bold">
-                  Additional - 25% Recurring Profit Share &quot;Royalty Income&quot; on bookings for 12 months.
+              {/* Main Headline */}
+              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-5xl font-black tracking-tight leading-[1.15]">
+                Join India&apos;s Fastest Growing Venue Network as a <br className="hidden sm:inline" />
+                <span className="bg-gradient-to-r from-primary-600 via-orange-500 to-amber-500 bg-clip-text text-transparent">
+                  &quot;Venue Ambassador&quot;
                 </span>
-                <span className="block text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
-                  (Requires 7-Days or 30-Days Streak for unlock)
-                </span>
+              </h1>
+
+              {/* Sub-headline */}
+              <div className="space-y-1">
+                <p className="text-base sm:text-lg text-slate-700 dark:text-slate-200 font-semibold italic">
+                  &quot;No investment. No experience needed. Just find venues and start earning.&quot;
+                </p>
+                <p className="text-sm font-black text-primary-600 dark:text-primary-400 uppercase tracking-widest">
+                  &quot;AnyTime..Any Where&quot;
+                </p>
+              </div>
+
+              {/* Value Proposition Box */}
+              <div className="p-5 sm:p-6 rounded-2xl bg-white/90 dark:bg-slate-850/90 backdrop-blur-md border border-amber-300/60 dark:border-amber-700/40 shadow-xl text-sm sm:text-base leading-relaxed text-slate-800 dark:text-slate-200 font-medium">
+                Earn <span className="font-black text-primary-600 dark:text-primary-400 text-lg">₹100 to ₹200 per Verified Venue</span> + Daily Bonus + Weekly/Monthly Incentive.
+                <div className="mt-2 pt-2 border-t border-amber-200/60 dark:border-slate-700">
+                  <span className="text-amber-700 dark:text-amber-300 font-bold">
+                    Additional - 25% Recurring Profit Share &quot;Royalty Income&quot; on bookings for 12 months.
+                  </span>
+                  <span className="block text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                    (Requires 7-Days or 30-Days Streak for unlock)
+                  </span>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
+                <Link
+                  href="/register-ambassador"
+                  className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-primary-600 to-orange-600 hover:from-primary-500 hover:to-orange-500 text-white rounded-xl font-black text-base shadow-xl shadow-primary-500/25 transition-all transform hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2"
+                >
+                  Register Now <ArrowRight className="w-5 h-5" />
+                </Link>
+                <Link
+                  href="/login?role=ambassador"
+                  className="w-full sm:w-auto px-8 py-4 border-2 border-slate-300 dark:border-slate-700 hover:border-primary-500 rounded-xl font-bold text-base text-slate-800 dark:text-slate-200 transition-all hover:bg-white dark:hover:bg-slate-800 shadow-sm"
+                >
+                  Ambassador Login
+                </Link>
+              </div>
+
+            </div>
+
+            {/* Right Column: Hero Image from Word Document */}
+            <div className="lg:col-span-5 flex justify-center items-center relative">
+              <div className="relative w-full max-w-[420px] lg:max-w-none">
+                {/* Decorative background glow circle */}
+                <div className="absolute inset-0 bg-gradient-to-tr from-amber-400/20 to-primary-500/30 rounded-3xl filter blur-2xl -z-10 transform scale-95" />
+                
+                {/* Ambassador image from Word doc */}
+                <div className="relative rounded-3xl overflow-hidden shadow-2xl border-4 border-white dark:border-slate-800 bg-white dark:bg-slate-900 group">
+                  <img
+                    src="/ambassador-assets/image1.png"
+                    alt="RentalMeet Venue Ambassador Program - Daily Earning ₹2,500"
+                    className="w-full h-auto object-cover transform group-hover:scale-[1.02] transition-transform duration-500"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
-              <Link
-                href="/register-ambassador"
-                className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-primary-600 to-orange-600 hover:from-primary-500 hover:to-orange-500 text-white rounded-xl font-black text-base shadow-xl shadow-primary-500/25 transition-all transform hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2"
-              >
-                Register Now <ArrowRight className="w-5 h-5" />
-              </Link>
-              <Link
-                href="/login?role=ambassador"
-                className="w-full sm:w-auto px-8 py-4 border-2 border-slate-300 dark:border-slate-700 hover:border-primary-500 rounded-xl font-bold text-base text-slate-800 dark:text-slate-200 transition-all hover:bg-white dark:hover:bg-slate-800 shadow-sm"
-              >
-                Ambassador Login
-              </Link>
-            </div>
+          </div>
 
-            {/* 4 Highlights Badges */}
-            <div className="pt-8 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
-              <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all text-center">
-                <p className="text-2xl font-black text-primary-600 dark:text-primary-400">₹100 - ₹200</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-semibold">Per Verified Venue</p>
-              </div>
-              <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all text-center">
-                <p className="text-2xl font-black text-amber-600 dark:text-amber-400">+₹250/Day</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-semibold">5-Venue Daily Bonus</p>
-              </div>
-              <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all text-center">
-                <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">25% Royalty</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-semibold">12-Month Profit Share</p>
-              </div>
-              <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all text-center">
-                <p className="text-2xl font-black text-blue-600 dark:text-blue-400">₹25,000</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-semibold">Star Monthly Award</p>
-              </div>
+          {/* 4 Highlights Badges under Hero */}
+          <div className="pt-14 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all text-center">
+              <p className="text-2xl font-black text-primary-600 dark:text-primary-400">₹100 - ₹200</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-semibold">Per Verified Venue</p>
             </div>
-
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all text-center">
+              <p className="text-2xl font-black text-amber-600 dark:text-amber-400">+₹250/Day</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-semibold">5-Venue Daily Bonus</p>
+            </div>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all text-center">
+              <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">25% Royalty</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-semibold">12-Month Profit Share</p>
+            </div>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all text-center">
+              <p className="text-2xl font-black text-blue-600 dark:text-blue-400">₹25,000</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-semibold">Star Monthly Award</p>
+            </div>
           </div>
         </div>
       </section>
@@ -487,7 +509,7 @@ export default function AmbassadorProgramPage() {
           </div>
 
           {/* 2 Comparison Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
             {/* Card 1: 7-Day Power Streak */}
             <div className="bg-slate-900/90 border-2 border-amber-500/40 p-7 sm:p-8 rounded-2xl shadow-2xl relative overflow-hidden flex flex-col justify-between">
@@ -559,36 +581,6 @@ export default function AmbassadorProgramPage() {
               </div>
             </div>
 
-          </div>
-
-          {/* Booking Revenue Example & Recurring Calculator */}
-          <div className="bg-slate-900/80 border border-slate-800 p-6 sm:p-8 rounded-2xl shadow-2xl space-y-6 max-w-4xl mx-auto">
-            <h3 className="text-xs font-black uppercase tracking-widest text-primary-400">
-              Booking Revenue Example
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
-              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800">
-                <p className="text-xs text-slate-400">Customer Booking Value</p>
-                <p className="text-xl font-bold text-white mt-1">₹10,000</p>
-              </div>
-              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800">
-                <p className="text-xs text-slate-400">RentalMeet Commission (~15%)</p>
-                <p className="text-xl font-bold text-white mt-1">₹1,500</p>
-              </div>
-              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800">
-                <p className="text-xs text-slate-400">Ambassador Share (25% of Profit)</p>
-                <p className="text-xl font-black text-emerald-400 mt-1">₹375 / booking</p>
-              </div>
-            </div>
-
-            <div className="p-5 rounded-xl bg-slate-950 border border-slate-800 text-center sm:text-left sm:flex justify-between items-center">
-              <div>
-                <p className="text-xs text-slate-400 font-medium">Recurring Income Example (100 Venues @ 10 bookings/month):</p>
-                <p className="text-sm text-slate-300 mt-0.5">Total Bookings: 1,000 | Profit: ₹10,00,000</p>
-              </div>
-              <p className="text-2xl font-black text-emerald-400 mt-2 sm:mt-0 font-mono">₹2,50,000 / month recurring</p>
-            </div>
-            <p className="text-[11px] text-slate-500 text-center italic">*Note - Actual income depends on venue performance and bookings.</p>
           </div>
 
         </div>
