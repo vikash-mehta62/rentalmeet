@@ -7,7 +7,7 @@ import { useAuthStore } from '@/lib/store';
 import NotificationBell from '@/components/NotificationBell';
 import {
   Building2, Calendar, Home, Search, Menu, X, 
-  LogOut, ChevronLeft, ChevronRight, Bell, Settings, User, Briefcase
+  LogOut, ChevronLeft, ChevronRight, Bell, Settings, User, Briefcase, Send
 } from 'lucide-react';
 
 export default function CustomerLayout({ children, activePage = 'dashboard', fullWidth = false, title, subtitle }) {
@@ -32,6 +32,7 @@ export default function CustomerLayout({ children, activePage = 'dashboard', ful
   const navItems = [
     { id: 'dashboard',         label: 'Dashboard',           icon: Home,     href: '/customer/dashboard' },
     { id: 'bookings',          label: 'My Bookings',         icon: Calendar, href: '/customer/bookings' },
+    { id: 'enquiries',         label: 'My Enquiries',        icon: Send,     href: '/customer/enquiries' },
     { id: 'service-bookings',  label: 'Service Bookings',    icon: Briefcase, href: '/customer/service-bookings' },
     { id: 'profile',           label: 'My Profile',          icon: User,     href: '/customer/profile' },
     { id: 'venues',            label: 'Browse Venues',       icon: Search,   href: '/venues' },

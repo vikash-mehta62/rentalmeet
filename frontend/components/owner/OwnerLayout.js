@@ -7,7 +7,7 @@ import Link from 'next/link';
 import NotificationBell from '@/components/NotificationBell';
 import {
   Building2, Calendar, User, LogOut, Menu, X, 
-  Home, Plus, ChevronLeft, ChevronRight, Bell, Tag, FileText, IndianRupee
+  Home, Plus, ChevronLeft, ChevronRight, Bell, Tag, FileText, IndianRupee, MessageSquare
 } from 'lucide-react';
 
 export default function OwnerLayout({ children, title, subtitle }) {
@@ -39,6 +39,7 @@ export default function OwnerLayout({ children, title, subtitle }) {
     { href: '/owner/dashboard', icon: Home, label: 'Dashboard' },
     { href: '/owner/venues', icon: Building2, label: 'My Venues' },
     { href: '/owner/bookings', icon: Calendar, label: 'Bookings' },
+    { href: '/owner/enquiries', icon: MessageSquare, label: 'Enquiries' },
     { href: '/owner/payments', icon: IndianRupee, label: 'Payments' },
     { href: '/owner/quotation-downloads', icon: FileText, label: 'Quotations' },
     { href: '/owner/coupons', icon: Tag, label: 'Coupons' },

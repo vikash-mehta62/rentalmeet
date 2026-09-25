@@ -74,10 +74,13 @@ export default function EditVenue() {
         pricing: {
           ...venue.pricing,
           openingTime: venue.availability?.openingTime || '09:00',
-          closingTime: venue.availability?.closingTime || '18:00',
+          closingTime: venue.availability?.closingTime || '21:00',
+          onlineBookingOpeningTime: venue.availability?.onlineBookingSchedule?.openingTime || '06:00',
+          onlineBookingClosingTime: venue.availability?.onlineBookingSchedule?.closingTime || '02:00',
+          onlineBookingSchedule: venue.availability?.onlineBookingSchedule || { enabled: true, openingTime: '06:00', closingTime: '02:00' },
           availableDays: venue.availability?.availableDays || [],
-          advanceBookingRule: venue.availability?.advanceBookingRule || 'Same day allowed',
-          confirmationHours: venue.availability?.confirmationHours || 3
+          advanceBookingRule: venue.availability?.advanceBookingRule || '1 Day',
+          confirmationHours: venue.availability?.confirmationHours !== undefined ? venue.availability.confirmationHours : 3
         },
 
         images: venue.images || [],
@@ -85,10 +88,16 @@ export default function EditVenue() {
         ownerInfo: venue.ownerInfo || {},
         documents: {
           idProof: {
-            type: venue.documents?.idProof?.type || 'Aadhaar',
-            number: venue.documents?.idProof?.number || '',
-            frontUrl: venue.documents?.idProof?.frontUrl || '',
-            backUrl: venue.documents?.idProof?.backUrl || '',
+            type: venue.documents?.idProof?.type || 'Both',
+            number: venue.documents?.idProof?.aadhaarNumber || venue.documents?.idProof?.number || '',
+            frontUrl: venue.documents?.idProof?.aadhaarFrontUrl || venue.documents?.idProof?.frontUrl || '',
+            backUrl: venue.documents?.idProof?.aadhaarBackUrl || venue.documents?.idProof?.backUrl || '',
+            aadhaarNumber: venue.documents?.idProof?.aadhaarNumber || (venue.documents?.idProof?.type === 'Aadhaar' ? venue.documents?.idProof?.number : '') || '',
+            aadhaarFrontUrl: venue.documents?.idProof?.aadhaarFrontUrl || (venue.documents?.idProof?.type === 'Aadhaar' ? venue.documents?.idProof?.frontUrl : '') || '',
+            aadhaarBackUrl: venue.documents?.idProof?.aadhaarBackUrl || venue.documents?.idProof?.backUrl || '',
+            panNumber: venue.documents?.idProof?.panNumber || (venue.documents?.idProof?.type === 'PAN' ? venue.documents?.idProof?.number : '') || '',
+            panUrl: venue.documents?.idProof?.panUrl || (venue.documents?.idProof?.type === 'PAN' ? venue.documents?.idProof?.frontUrl : '') || '',
+            gstDocUrl: venue.ownerInfo?.gstCertificateUrl || venue.documents?.idProof?.gstDocUrl || ''
           },
           selfieUrl: venue.documents?.selfieUrl || '',
           businessProof: {

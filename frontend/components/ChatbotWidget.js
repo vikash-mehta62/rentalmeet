@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, Bot, Phone } from 'lucide-react';
+import { MessageCircle, X, Send, Bot, Phone, ChevronDown } from 'lucide-react';
 
 function getBotResponse(msg) {
   const lower = msg.toLowerCase();
@@ -35,6 +35,7 @@ const DEFAULT_QUICK_REPLIES = [
 ];
 
 export default function ChatbotWidget() {
+  const [isEnabled, setIsEnabled] = useState(true);
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([
     { id: 1, from: 'bot', text: "Hello! I'm your RentalMeet booking assistant. How can I help you today?" },
@@ -45,15 +46,24 @@ export default function ChatbotWidget() {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/chatbot/quick-replies`)
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/chatbot/quick-replies?t=${Date.now()}`)
       .then(r => r.json())
       .then(d => {
-        if (d.success && d.quickReplies?.length) {
-          // Support both old string[] and new {question,answer}[] format
-          const normalized = d.quickReplies.map(r =>
-            typeof r === 'string' ? { question: r, answer: getBotResponse(r) } : r
-          );
-          setQuickReplies(normalized);
+        if (d.success) {
+          if (d.isEnabled === false) {
+            setIsEnabled(false);
+            return;
+          }
+          setIsEnabled(true);
+          if (d.welcomeMessage) {
+            setMessages([{ id: 1, from: 'bot', text: d.welcomeMessage }]);
+          }
+          if (d.quickReplies?.length) {
+            const normalized = d.quickReplies.map(r =>
+              typeof r === 'string' ? { question: r, answer: getBotResponse(r) } : r
+            );
+            setQuickReplies(normalized);
+          }
         }
       })
       .catch(() => {});
@@ -78,13 +88,15 @@ export default function ChatbotWidget() {
     setInput('');
   };
 
+  if (!isEnabled) return null;
+
   return (
     <>
       {/* ── Chat Window ── */}
       {open && (
         <div
-          className="fixed bottom-[88px] right-4 z-[201] w-[320px] sm:w-[350px] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-slate-700 flex flex-col overflow-hidden"
-          style={{ height: 'min(450px, calc(100svh - 120px))' }}
+          className="fixed bottom-[88px] right-4 z-[201] w-[320px] sm:w-[360px] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-slate-700 flex flex-col overflow-hidden animate-scale-up"
+          style={{ height: 'min(480px, calc(100svh - 110px))' }}
         >
           {/* Header */}
           <div className="bg-[#F59F0A] px-4 py-3 flex items-center gap-3 flex-shrink-0">
@@ -125,7 +137,7 @@ export default function ChatbotWidget() {
                   </div>
                 )}
                 <div
-                  className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm whitespace-pre-line leading-relaxed ${
+                  className={`max-w-[82%] rounded-2xl px-3 py-2 text-xs sm:text-sm whitespace-pre-line leading-relaxed ${
                     msg.from === 'user'
                       ? 'bg-[#F59F0A] text-white rounded-br-none'
                       : 'bg-white dark:bg-slate-800 text-gray-800 dark:text-slate-100 rounded-bl-none shadow-sm border border-gray-100 dark:border-slate-700'
@@ -138,21 +150,35 @@ export default function ChatbotWidget() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Quick Replies */}
-          <div className="px-3 pt-2 pb-1.5 bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800 flex-shrink-0">
-            <p className="text-[9px] text-gray-400 mb-1.5 font-bold uppercase tracking-widest">Quick Replies</p>
-            <div className="flex gap-1.5 flex-wrap">
-              {quickReplies.map((qr) => (
-                <button
-                  key={qr.question}
-                  onClick={() => sendMessage(qr.question, qr.answer)}
-                  className="text-[10px] px-2.5 py-1 rounded-full border border-[#F59F0A]/60 text-[#D97706] bg-[#F59F0A]/5 hover:bg-[#F59F0A]/20 transition-colors leading-tight font-semibold"
+          {/* Quick Replies Dropdown - Takes only 1 clean compact row */}
+          {quickReplies && quickReplies.length > 0 && (
+            <div className="px-3 py-2 bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800 flex-shrink-0">
+              <div className="relative">
+                <select
+                  value=""
+                  onChange={(e) => {
+                    const selectedQ = e.target.value;
+                    if (!selectedQ) return;
+                    const found = quickReplies.find(qr => qr.question === selectedQ);
+                    if (found) {
+                      sendMessage(found.question, found.answer);
+                    }
+                  }}
+                  className="w-full text-xs font-semibold bg-amber-50/80 hover:bg-amber-100/80 dark:bg-slate-800 border border-amber-200 dark:border-slate-700 text-amber-900 dark:text-amber-300 rounded-xl px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-[#F59F0A] transition-all cursor-pointer appearance-none truncate shadow-xs"
                 >
-                  {qr.question}
-                </button>
-              ))}
+                  <option value="" disabled>⚡ Select a quick question...</option>
+                  {quickReplies.map((qr, idx) => (
+                    <option key={idx} value={qr.question} className="text-gray-800 dark:text-slate-200 bg-white dark:bg-slate-800 py-1.5 font-normal">
+                      {qr.question}
+                    </option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-amber-600 dark:text-amber-400">
+                  <ChevronDown className="w-4 h-4" />
+                </div>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Input */}
           <div className="px-3 pb-3 pt-2 flex gap-2 bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800 flex-shrink-0">
@@ -161,11 +187,11 @@ export default function ChatbotWidget() {
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && sendMessage(input)}
               placeholder="Type your message..."
-              className="flex-1 text-sm h-9 px-3 border border-gray-300 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#F59F0A] bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder-gray-400"
+              className="flex-1 text-xs sm:text-sm h-9 px-3 border border-gray-300 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#F59F0A] bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder-gray-400"
             />
             <button
               onClick={() => sendMessage(input)}
-              className="h-9 w-9 flex-shrink-0 bg-[#F59F0A] hover:bg-[#D97706] text-white rounded-xl flex items-center justify-center transition-colors shadow-sm"
+              className="h-9 w-9 flex-shrink-0 bg-[#F59F0A] hover:bg-[#D97706] text-white rounded-xl flex items-center justify-center transition-colors shadow-sm active:scale-95"
             >
               <Send className="h-3.5 w-3.5" />
             </button>
@@ -185,7 +211,7 @@ export default function ChatbotWidget() {
       {/* ── Toggle Button — always fixed at bottom-right ── */}
       <button
         onClick={() => { setOpen(o => !o); setShowTooltip(false); }}
-        className="fixed bottom-6 right-4 z-[202] h-14 w-14 rounded-full bg-[#F59F0A] hover:bg-[#D97706] text-white shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110"
+        className="fixed bottom-6 right-4 z-[202] h-14 w-14 rounded-full bg-[#F59F0A] hover:bg-[#D97706] text-white shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95"
         aria-label={open ? 'Close chat' : 'Open chat'}
       >
         <div className={`transition-all duration-300 ${open ? 'rotate-0 scale-100' : 'rotate-0 scale-100'}`}>

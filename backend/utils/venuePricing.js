@@ -313,6 +313,42 @@ const calculateVenueOwnerPayout = (booking) => {
   return Math.round(Math.min(venueShareAfterDiscount, collectedAfterPlatform));
 };
 
+const isOnlineBookingOpen = (availability) => {
+  if (!availability) return true;
+
+  const schedule = availability.onlineBookingSchedule?.enabled !== false && availability.onlineBookingSchedule?.openingTime
+    ? availability.onlineBookingSchedule
+    : {
+        openingTime: availability.openingTime || '06:00',
+        closingTime: availability.closingTime || '02:00'
+      };
+
+  const opening = schedule.openingTime || '06:00';
+  const closing = schedule.closingTime || '02:00';
+
+  const [openH, openM] = opening.split(':').map(Number);
+  const [closeH, closeM] = closing.split(':').map(Number);
+
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const openMinutes = openH * 60 + (openM || 0);
+  const closeMinutes = closeH * 60 + (closeM || 0);
+
+  if (openMinutes <= closeMinutes) {
+    return currentMinutes >= openMinutes && currentMinutes <= closeMinutes;
+  } else {
+    return currentMinutes >= openMinutes || currentMinutes <= closeMinutes;
+  }
+};
+
+const formatTime12Hour = (timeStr) => {
+  if (!timeStr) return '';
+  const [h, m] = timeStr.split(':').map(Number);
+  const period = h < 12 ? 'AM' : 'PM';
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${String(h12).padStart(2, '0')}:${String(m || 0).padStart(2, '0')} ${period}`;
+};
+
 module.exports = {
   numberOr,
   roundMoney,
@@ -323,5 +359,7 @@ module.exports = {
   getVenueGSTConfig,
   getDurationHours,
   calculateVenueBookingPrice,
-  calculateVenueOwnerPayout
+  calculateVenueOwnerPayout,
+  isOnlineBookingOpen,
+  formatTime12Hour
 };

@@ -6,7 +6,7 @@ const Coupon = require('../models/Coupon');
 const PlatformSettings = require('../models/PlatformSettings');
 const { getCityCode, getStateCode } = require('../utils/cityCodes');
 const { calculateVenueConfirmationDeadline } = require('../utils/confirmationDeadline');
-const { calculateVenueBookingPrice, calculateVenueOwnerPayout, numberOr } = require('../utils/venuePricing');
+const { calculateVenueBookingPrice, calculateVenueOwnerPayout, numberOr, isOnlineBookingOpen, formatTime12Hour } = require('../utils/venuePricing');
 const { normalizeRefundAttempt } = require('../utils/refundHelper');
 const { sendBookingNotifications } = require('../utils/bookingNotificationHelper');
 
@@ -173,6 +173,18 @@ exports.createBooking = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Venue not found'
+      });
+    }
+
+    // Check online booking schedule
+    if (!isOnlineBookingOpen(venueDetails.availability)) {
+      const sched = venueDetails.availability?.onlineBookingSchedule || {};
+      const openStr = sched.openingTime || venueDetails.availability?.openingTime || '06:00';
+      const closeStr = sched.closingTime || venueDetails.availability?.closingTime || '02:00';
+      return res.status(400).json({
+        success: false,
+        isOffHours: true,
+        message: `Online booking is closed right now for this venue (Booking hours: ${formatTime12Hour(openStr)} – ${formatTime12Hour(closeStr)}). You can send this request as an enquiry draft.`
       });
     }
 

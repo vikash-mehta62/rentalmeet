@@ -148,3 +148,83 @@ export const formatPlatformFeeLabel = (feeType, feeValue) => {
     ? `Fixed Rs.${value.toLocaleString('en-IN')}`
     : `${value}%`;
 };
+
+/**
+ * Checks if online bookings are currently open for a venue.
+ * Handles normal daytime windows (e.g. 08:00 to 22:00) as well as
+ * overnight windows (e.g. 06:00 to 02:00 next day).
+ */
+export const isOnlineBookingOpen = (availability) => {
+  if (!availability) return true;
+
+  const schedule = availability.onlineBookingSchedule?.enabled !== false && availability.onlineBookingSchedule?.openingTime
+    ? availability.onlineBookingSchedule
+    : {
+        openingTime: availability.openingTime || '06:00',
+        closingTime: availability.closingTime || '02:00'
+      };
+
+  const opening = schedule.openingTime || '06:00';
+  const closing = schedule.closingTime || '02:00';
+
+  const [openH, openM] = opening.split(':').map(Number);
+  const [closeH, closeM] = closing.split(':').map(Number);
+
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const openMinutes = openH * 60 + (openM || 0);
+  const closeMinutes = closeH * 60 + (closeM || 0);
+
+  if (openMinutes <= closeMinutes) {
+    // Normal window, e.g., 08:00 (480) to 22:00 (1320)
+    return currentMinutes >= openMinutes && currentMinutes <= closeMinutes;
+  } else {
+    // Overnight window, e.g., 06:00 (360) to 02:00 next day (120)
+    // Active if >= 06:00 OR <= 02:00
+    return currentMinutes >= openMinutes || currentMinutes <= closeMinutes;
+  }
+};
+
+/**
+ * Calculates the minimum selectable booking date based on venue's advance booking rule.
+ * Rules supported: "1 Day", "2 Days", ..., "6 Days", "1 Week", "2 Weeks", ..., "4 Weeks"
+ */
+export const getMinAdvanceBookingDate = (advanceRule) => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+
+  if (!advanceRule) {
+    d.setDate(d.getDate() + 1);
+    return d;
+  }
+
+  const text = String(advanceRule).toLowerCase().trim();
+  let daysToAdd = 1;
+
+  if (text.includes('week')) {
+    const match = text.match(/\d+/);
+    const weeks = match ? parseInt(match[0], 10) : 1;
+    daysToAdd = weeks * 7;
+  } else if (text.includes('day')) {
+    const match = text.match(/\d+/);
+    daysToAdd = match ? parseInt(match[0], 10) : 1;
+  } else if (text.includes('48 hours')) {
+    daysToAdd = 2;
+  } else if (text.includes('24 hours')) {
+    daysToAdd = 1;
+  } else {
+    daysToAdd = 1;
+  }
+
+  d.setDate(d.getDate() + daysToAdd);
+  return d;
+};
+
+export const formatTime12Hour = (timeStr) => {
+  if (!timeStr) return '';
+  const [h, m] = timeStr.split(':').map(Number);
+  const period = h < 12 ? 'AM' : 'PM';
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${String(h12).padStart(2, '0')}:${String(m || 0).padStart(2, '0')} ${period}`;
+};
+

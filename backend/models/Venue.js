@@ -294,13 +294,19 @@ const venueSchema = new mongoose.Schema({
   availability: {
     openingTime: String,
     closingTime: String,
+    // Dedicated online booking acceptance window
+    onlineBookingSchedule: {
+      enabled: { type: Boolean, default: false },
+      openingTime: { type: String, default: '06:00' },
+      closingTime: { type: String, default: '02:00' }
+    },
     availableDays: [{
       type: String,
       enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     }],
     advanceBookingRule: {
       type: String,
-      enum: ['Same day allowed', '24 hours in advance', '48 hours in advance', '1 week in advance']
+      default: '1 Day'
     },
     blackoutDates: [{
       date: Date,
@@ -309,7 +315,7 @@ const venueSchema = new mongoose.Schema({
     confirmationHours: {
       type: Number,
       default: 3,
-      min: 1,
+      min: 0.5,
       max: 3
     }
   },
@@ -325,40 +331,64 @@ const venueSchema = new mongoose.Schema({
     uploadedAt: { type: Date, default: Date.now }
   }],
   
-  // STEP 6: Owner Documents
+  // STEP 6: Owner & Authorized Documents
   ownerInfo: {
     fullName: String,
     email: String,
     mobile: String,
     alternatePhone: String,
-    role: {
-      type: String,
-      enum: ['Owner', 'Manager', 'Representative']
-    },
+    role: String,
     hasGST: {
       type: Boolean,
       default: false
     },
-    gstNumber: String
+    gstNumber: String,
+    gstCertificateUrl: String,
+    gstCertificatePublicId: String,
+    // Booking Authorised Person details
+    authorisedPerson: {
+      name: String,
+      fullName: String,
+      email: String,
+      phone: String,
+      mobile: String,
+      alternatePhone: String,
+      designation: String,
+      role: String
+    }
   },
   documents: {
     idProof: {
-      type: { type: String, enum: ['Aadhaar', 'PAN'] },
+      type: { type: String, default: 'Both' },
       number: String,
       frontUrl: String,
-      backUrl: String
+      backUrl: String,
+      aadhaarNumber: String,
+      aadhaarFrontUrl: String,
+      aadhaarBackUrl: String,
+      aadhaarFrontPublicId: String,
+      aadhaarBackPublicId: String,
+      panNumber: String,
+      panUrl: String,
+      panPublicId: String,
+      gstDocUrl: String,
+      gstDocPublicId: String
     },
     selfieUrl: String,
+    selfiePublicId: String,
     businessProof: {
-      type: {
-        type: String,
-        enum: [
-          'Business Regd. Certificate', 'GST Certificate', 'Trade License',
-          'Certificate of Incorporation', 'Partnership Deed', 'Udyog Aadhar', 'Other'
-        ]
-      },
+      type: { type: String },
       documentUrl: String,
+      publicId: String,
       otherSpecify: String
+    },
+    fireNOC: {
+      url: String,
+      publicId: String
+    },
+    fssai: {
+      url: String,
+      publicId: String
     },
     verified: {
       type: Boolean,
@@ -463,6 +493,5 @@ venueSchema.index({ status: 1 });
 venueSchema.index({ 'location.city': 1 });
 venueSchema.index({ venueType: 1 });
 venueSchema.index({ foodType: 1 });
-venueSchema.index({ sku: 1 });
 
 module.exports = mongoose.model('Venue', venueSchema);

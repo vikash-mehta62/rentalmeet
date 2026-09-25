@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -14,13 +14,14 @@ import {
   Monitor, Mic, Volume2, Thermometer, Droplets, Flame,
   Package, Dumbbell, Baby, Accessibility, ParkingCircle,
   UtensilsCrossed, CupSoda, Sandwich, ChefHat, Refrigerator,
-  Sofa, Bed, Bath, Shirt, Scissors, FlowerIcon, Leaf
+  Sofa, Bed, Bath, Shirt, Scissors, FlowerIcon, Leaf,
+  Send, AlertTriangle, FileText
 } from 'lucide-react';
 import BookingForm from '@/components/booking/BookingForm';
 import VenueReviews from '@/components/venue/VenueReviews';
 import Navbar from '@/components/Navbar';
 import { useAuthStore } from '@/lib/store';
-import { getDateRateKey, getVenueDurationBasePrice } from '@/lib/venuePricing';
+import { getDateRateKey, getVenueDurationBasePrice, isOnlineBookingOpen, getMinAdvanceBookingDate, formatTime12Hour } from '@/lib/venuePricing';
 import toast from 'react-hot-toast';
 
 // ── Amenity icon map ─────────────────────────────────────────────────────
@@ -89,6 +90,8 @@ function getFoodTypeIcon(foodType) {
 export default function VenueDetail() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const enquiryId = searchParams?.get('enquiryId');
   const { token, user } = useAuthStore();
   const [venue, setVenue] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -102,11 +105,85 @@ export default function VenueDetail() {
   const [bookedDates, setBookedDates] = useState([]);
   const [venueCoupons, setVenueCoupons] = useState([]);
   const [showAllIncludedFacilities, setShowAllIncludedFacilities] = useState(false);
+  const [initialEnquiryData, setInitialEnquiryData] = useState(null);
 
   // Fetch booked dates for this venue
   useEffect(() => {
     if (params.sku) fetchBookedDates();
   }, [params.sku]);
+
+  // Load enquiry draft if enquiryId is present in URL
+  useEffect(() => {
+    if (enquiryId) {
+      fetchEnquiryDraft(enquiryId);
+    }
+  }, [enquiryId]);
+
+  const fetchEnquiryDraft = async (id) => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues/enquiry/${id}`);
+      const data = await res.json();
+      if (data.success && data.enquiry) {
+        const enq = data.enquiry;
+        setInitialEnquiryData(enq);
+        const bd = enq.bookingDetails || {};
+        const cd = enq.customerDetails || {};
+        const rawDate = bd.bookingDate || bd.date;
+        const duration = bd.duration || (bd.bookingType === 'halfday' ? '4' : bd.bookingType === 'fullday' ? '8' : '1');
+
+        setQuickBooking({
+          date: rawDate ? new Date(rawDate) : null,
+          startTime: bd.startTime || '',
+          duration: String(duration),
+          guestCount: cd.guestCount || bd.guests || ''
+        });
+
+        const sa = enq.selectedAmenities || {};
+        const qMap = {};
+
+        const basicList = [];
+        (sa.basic || []).forEach(b => {
+          if (typeof b === 'string') {
+            basicList.push({ name: b });
+          } else if (b && b.name) {
+            basicList.push(b);
+            if (b.quantity) qMap[`basic_${b.name}`] = b.quantity;
+          }
+        });
+
+        const bevList = [];
+        (sa.beverages || []).forEach(b => {
+          bevList.push(b);
+          if (b.quantity) qMap[`beverage_${b.name}`] = b.quantity;
+        });
+
+        const foodList = [];
+        (sa.refreshmentFood || []).forEach(f => {
+          foodList.push(f);
+          if (f.quantity) qMap[`food_${f.name}`] = f.quantity;
+        });
+
+        const thaliList = [];
+        (sa.lunchThalis || []).forEach(t => {
+          thaliList.push(t);
+          if (t.quantity) qMap[`thali_${t.thaliType}_${t.category}`] = t.quantity;
+        });
+
+        setSelectedAmenities({
+          basic: basicList,
+          beverages: bevList,
+          refreshmentFood: foodList,
+          lunchThalis: thaliList,
+          additional: sa.additional || []
+        });
+        setQuantities(qMap);
+        setBookingFormOpen(true);
+        toast.success('Loaded enquiry draft! Complete your booking below.');
+      }
+    } catch (e) {
+      console.error('Error fetching enquiry draft:', e);
+    }
+  };
 
   const fetchBookedDates = async () => {
     try {
@@ -1214,7 +1291,7 @@ export default function VenueDetail() {
                       <DatePicker
                         selected={quickBooking.date}
                         onChange={(date) => setQuickBooking(prev => ({ ...prev, date }))}
-                        minDate={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d; })()}
+                        minDate={getMinAdvanceBookingDate(venue?.availability?.advanceBookingRule)}
                         filterDate={(date) => {
                           const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
                           const dayName = dayNames[date.getDay()];
@@ -1276,7 +1353,7 @@ export default function VenueDetail() {
                               onClick={() => setQuickBooking(prev => ({ ...prev, duration: dur }))}
                               className={`py-1.5 px-2 rounded-lg border-2 text-center transition-all ${
                                 quickBooking.duration === dur
-                                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
                                   : 'border-gray-200 dark:border-slate-700 hover:border-primary-300'
                               }`}
                             >
@@ -1463,6 +1540,8 @@ export default function VenueDetail() {
           initialData={quickBooking}
           initialAmenities={selectedAmenities}
           initialQuantities={quantities}
+          isEnquiryMode={!isOnlineBookingOpen(venue?.availability)}
+          initialEnquiryData={initialEnquiryData}
           onClose={() => setBookingFormOpen(false)} 
         />
       )}

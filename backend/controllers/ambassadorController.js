@@ -333,32 +333,44 @@ exports.getAmbassadorDashboard = async (req, res) => {
     const tier = getAmbassadorTier(approvedCount);
     const badge = getAmbassadorBadge(approvedCount);
 
-    // Calculate next level progress
+    // Calculate next level progress (LV.1: 0-50, LV.2: 51-100, LV.3: 101-150, LV.4: 150+)
     let nextTierTarget = 50;
     let currentTierBase = 0;
-    if (approvedCount >= 500) {
-      nextTierTarget = 1000;
-      currentTierBase = 500;
-    } else if (approvedCount >= 200) {
-      nextTierTarget = 500;
-      currentTierBase = 200;
-    } else if (approvedCount >= 50) {
-      nextTierTarget = 200;
+    if (approvedCount > 150) {
+      nextTierTarget = approvedCount;
+      currentTierBase = 150;
+    } else if (approvedCount >= 101) {
+      nextTierTarget = 150;
+      currentTierBase = 101;
+    } else if (approvedCount >= 51) {
+      nextTierTarget = 100;
       currentTierBase = 51;
+    } else {
+      nextTierTarget = 50;
+      currentTierBase = 0;
     }
 
-    const progressPercentage = Math.min(100, Math.round(((approvedCount - currentTierBase) / (nextTierTarget - currentTierBase)) * 100)) || 0;
+    const progressPercentage = approvedCount > 150
+      ? 100
+      : Math.min(100, Math.round(((approvedCount - currentTierBase) / (nextTierTarget - currentTierBase)) * 100)) || 0;
 
-    // Today's challenge progress
+    // Today & Month challenge progress
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
     const startOfDay = new Date(todayStr + 'T00:00:00.000Z');
     const endOfDay = new Date(todayStr + 'T23:59:59.999Z');
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     const todayVerifiedCount = await AmbassadorReward.countDocuments({
       ambassador: req.user._id,
       rewardType: 'listing_reward',
       createdAt: { $gte: startOfDay, $lte: endOfDay }
+    });
+
+    const thisMonthVerifiedCount = await AmbassadorReward.countDocuments({
+      ambassador: req.user._id,
+      rewardType: 'listing_reward',
+      createdAt: { $gte: startOfMonth }
     });
 
     res.json({
@@ -396,7 +408,9 @@ exports.getAmbassadorDashboard = async (req, res) => {
           todayVerifiedCount,
           dailyTarget: 5,
           dailyBonusRate: 50,
-          dailyBonusEarned: todayVerifiedCount >= 5 ? 250 : 0
+          dailyBonusEarned: todayVerifiedCount >= 5 ? 250 : 0,
+          thisMonthVerifiedCount,
+          monthlyTarget: 150
         },
         profitShareStatus: await getAmbassadorStreakAndProfitShareStatus(req.user._id),
         recentVenues: venues.slice(0, 5),

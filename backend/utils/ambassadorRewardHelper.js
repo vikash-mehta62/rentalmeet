@@ -5,16 +5,20 @@ const AmbassadorReward = require('../models/AmbassadorReward');
 
 /**
  * Get Level and Listing Rate based on total approved venues
+ * Level-1: Venue Ambassador (0-50 Verified Venues) -> Rs. 100/-
+ * Level-2: Venue Explorer (51-100 Verified Venues) -> Rs. 125/-
+ * Level-3: Venue Champion (101-150 Verified Venues) -> Rs. 150/-
+ * Level-4: Venue Master (150+ Verified Venues) -> Rs. 200/-
  */
 const getAmbassadorTier = (approvedCount) => {
-  if (approvedCount >= 500) {
-    return { level: 'LV.4', title: 'City Venue Partner', rate: 200 };
-  } else if (approvedCount >= 201) {
-    return { level: 'LV.3', title: 'Venue Master', rate: 150 };
+  if (approvedCount > 150) {
+    return { level: 'LV.4', title: 'Venue Master', rate: 200 };
+  } else if (approvedCount >= 101) {
+    return { level: 'LV.3', title: 'Venue Champion', rate: 150 };
   } else if (approvedCount >= 51) {
-    return { level: 'LV.2', title: 'Venue Champion', rate: 125 };
+    return { level: 'LV.2', title: 'Venue Explorer', rate: 125 };
   } else {
-    return { level: 'LV.1', title: 'Venue Explorer', rate: 100 };
+    return { level: 'LV.1', title: 'Venue Ambassador', rate: 100 };
   }
 };
 
@@ -22,11 +26,11 @@ const getAmbassadorTier = (approvedCount) => {
  * Get Badge based on total approved venues
  */
 const getAmbassadorBadge = (approvedCount) => {
-  if (approvedCount >= 1000) {
+  if (approvedCount > 150) {
     return 'City Legend';
-  } else if (approvedCount >= 500) {
+  } else if (approvedCount >= 101) {
     return 'Gold Master';
-  } else if (approvedCount >= 200) {
+  } else if (approvedCount >= 51) {
     return 'Silver Champion';
   } else {
     return 'Bronze Explorer';
@@ -105,8 +109,8 @@ const processVenueApprovalReward = async (venueId) => {
       createdAt: { $gte: startOfDay, $lte: endOfDay }
     });
 
-    // If reached 5 verified venues today and daily challenge bonus not yet awarded today
-    if (todayRewardsCount >= 5) {
+    // Daily 5-Venue Challenge & extra ₹50/venue bonus after 5 venues in a day
+    if (todayRewardsCount === 5) {
       const existingDailyBonus = await AmbassadorReward.findOne({
         ambassador: venue.ambassador,
         rewardType: 'daily_challenge',
@@ -131,18 +135,36 @@ const processVenueApprovalReward = async (venueId) => {
           bonusAwarded: true
         };
       }
+    } else if (todayRewardsCount > 5) {
+      // Extra ₹50 bonus for each venue listed after 5 venues in a single day
+      const extraBonusAmount = 50;
+      await AmbassadorReward.create({
+        ambassador: venue.ambassador,
+        profile: profile._id,
+        rewardType: 'daily_challenge',
+        amount: extraBonusAmount,
+        description: `Daily Extra Venue Bonus for venue #${todayRewardsCount} on ${todayStr} (+₹50 bonus)`
+      });
+
+      profile.walletBalance += extraBonusAmount;
+      profile.totalEarnings += extraBonusAmount;
     }
 
-    // 7-Day Power Streak Check (+₹1,000 bonus)
-    // Check daily challenge completions in the last 7 days
+    // 7-Day Power Streak Check (+₹1,000 bonus + 25% Royalty Unlock for 12 Months)
+    // 5 venues daily or 35 venues per week
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const venuesPast7Days = await AmbassadorReward.countDocuments({
+      ambassador: venue.ambassador,
+      rewardType: 'listing_reward',
+      createdAt: { $gte: sevenDaysAgo }
+    });
     const dailyChallengesPast7Days = await AmbassadorReward.countDocuments({
       ambassador: venue.ambassador,
       rewardType: 'daily_challenge',
       createdAt: { $gte: sevenDaysAgo }
     });
 
-    if (dailyChallengesPast7Days >= 7) {
+    if (venuesPast7Days >= 35 || dailyChallengesPast7Days >= 7) {
       const existingWeeklyBonus = await AmbassadorReward.findOne({
         ambassador: venue.ambassador,
         rewardType: 'weekly_streak',
@@ -156,7 +178,7 @@ const processVenueApprovalReward = async (venueId) => {
           profile: profile._id,
           rewardType: 'weekly_streak',
           amount: weeklyBonusAmount,
-          description: `7-Day Power Streak Bonus completed (₹1,000 cash reward)`
+          description: `7-Day Power Streak Bonus completed (35 venues / 7-day streak - ₹1,000 cash reward + 25% 1-Year Royalty Unlock)`
         });
 
         profile.walletBalance += weeklyBonusAmount;
@@ -168,7 +190,7 @@ const processVenueApprovalReward = async (venueId) => {
         profile.profitShareExpiresAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
         profile.weeklyStreak = {
           weekStart: sevenDaysAgo.toISOString().split('T')[0],
-          approvedCount: dailyChallengesPast7Days,
+          approvedCount: venuesPast7Days,
           bonusAwarded: true
         };
 
@@ -176,7 +198,8 @@ const processVenueApprovalReward = async (venueId) => {
       }
     }
 
-    // 30-Day Monthly Champion Check (+₹5,000 bonus)
+    // 30-Day Monthly Champion Check (+₹5,000 bonus + 25% Royalty Unlock for 12 Months)
+    // 150 venues in 1 month
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const venuesApprovedPast30Days = await AmbassadorReward.countDocuments({
       ambassador: venue.ambassador,
@@ -184,7 +207,7 @@ const processVenueApprovalReward = async (venueId) => {
       createdAt: { $gte: thirtyDaysAgo }
     });
 
-    if (venuesApprovedPast30Days >= 100) {
+    if (venuesApprovedPast30Days >= 150) {
       const existingMonthlyBonus = await AmbassadorReward.findOne({
         ambassador: venue.ambassador,
         rewardType: 'monthly_champion',
@@ -198,12 +221,18 @@ const processVenueApprovalReward = async (venueId) => {
           profile: profile._id,
           rewardType: 'monthly_champion',
           amount: monthlyBonusAmount,
-          description: `30-Day Monthly Champion Bonus completed (100+ verified venues - ₹5,000 cash reward)`
+          description: `30-Day Monthly Champion Bonus completed (150+ verified venues - ₹5,000 cash reward + 25% 1-Year Royalty Unlock)`
         });
 
         profile.walletBalance += monthlyBonusAmount;
         profile.totalEarnings += monthlyBonusAmount;
-        console.log(`[AMBASSADOR STREAK] 🏆 30-Day Monthly Champion Bonus of ₹5,000 awarded to ambassador: ${venue.ambassador}`);
+
+        // UNLOCK 25% BOOKING PROFIT SHARE FOR 1 YEAR (365 DAYS)
+        profile.profitShareUnlocked = true;
+        profile.profitShareUnlockedAt = now;
+        profile.profitShareExpiresAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+
+        console.log(`[AMBASSADOR STREAK] 🏆 30-Day Monthly Champion Bonus of ₹5,000 & 1-Year 25% Profit Share UNLOCKED for ambassador: ${venue.ambassador}`);
       }
     }
 
@@ -262,13 +291,17 @@ const getAmbassadorStreakAndProfitShareStatus = async (ambassadorId) => {
     const streakTarget = 7;
     const streakDaysRemaining = Math.max(0, streakTarget - streakDaysCompleted);
 
-    // Check if streak was already completed or profile flag is set
+    // Check if streak was already completed or profile flag is set (either 7-Day or 30-Day streak)
     const hasWeeklyReward = await AmbassadorReward.exists({
       ambassador: ambassadorId,
       rewardType: 'weekly_streak'
     });
+    const hasMonthlyReward = await AmbassadorReward.exists({
+      ambassador: ambassadorId,
+      rewardType: 'monthly_champion'
+    });
 
-    const isUnlocked = Boolean(profile.profitShareUnlocked || hasWeeklyReward);
+    const isUnlocked = Boolean(profile.profitShareUnlocked || hasWeeklyReward || hasMonthlyReward);
     const unlockedAt = profile.profitShareUnlockedAt || profile.updatedAt || now;
     const expiresAt = profile.profitShareExpiresAt || new Date(new Date(unlockedAt).getTime() + 365 * 24 * 60 * 60 * 1000);
 
@@ -292,8 +325,8 @@ const getAmbassadorStreakAndProfitShareStatus = async (ambassadorId) => {
       profitShareUnlockedAt: isUnlocked ? unlockedAt : null,
       profitShareExpiresAt: isUnlocked ? expiresAt : null,
       daysRemaining,
-      ruleTitle: '7-Day Streak Rule (5 Venues/Day = 35 Venues Total)',
-      ruleText: '7 Days continuous streak me roz 5 verified venues list karein (Total 35 venues). Streak complete hote hi 1 Full Year (365 Days) ke liye 25% Booking Profit Share unlock ho jayega!'
+      ruleTitle: '7-Day or 30-Day Power Streak Rule (25% 1-Year Profit Share Unlock)',
+      ruleText: '7-Days Streak (5 venues/day = 35 venues) ya 30-Days Streak (150 venues/month) complete karke 1 Full Year (365 Days) ke liye 25% Royalty Booking Profit Share unlock karein!'
     };
   } catch (err) {
     console.error('Error getting streak and profit share status:', err);

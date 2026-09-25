@@ -4,13 +4,16 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
 import VenueDetailsModal from '@/components/venue/VenueDetailsModal';
+import AdminVenueQuickEditModal from '@/components/venue/AdminVenueQuickEditModal';
 import PermissionGuard from '@/components/admin/PermissionGuard';
 import {
   Building2, Eye, Search, Filter, Download,
-  ChevronDown, ChevronLeft, ChevronRight, Award, User, Loader2
+  ChevronDown, ChevronLeft, ChevronRight, Award, User, Loader2,
+  Edit3, Check, X, Pencil, Sparkles
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { normalizeCustomGST, normalizeCustomPlatformFee } from '@/lib/venuePricing';
+import { downloadVenuePDF } from '@/utils/generateVenuePDF';
 
 const LIMIT = 12;
 const DEFAULT_CUSTOM_PLATFORM_FEE = { enabled: false, feeType: 'fixed', feeValue: 0, percentage: 0, platformCGSTRate: 9, platformSGSTRate: 9 };
@@ -42,6 +45,67 @@ export default function AdminVenues() {
   const [rejectModal, setRejectModal] = useState({ open: false, venueId: null, reason: '', customReason: '' });
   const [rejectingLoading, setRejectingLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+
+  // Quick Edit & Inline Edit State
+  const [quickEditVenue, setQuickEditVenue] = useState(null);
+  const [inlineEdit, setInlineEdit] = useState({ venueId: null, field: null, value: '' });
+  const [inlineSaving, setInlineSaving] = useState(false);
+
+  const startInlineEdit = (venue, field) => {
+    let value = '';
+    if (field === 'city') value = venue.location?.city || '';
+    else if (field === 'capacity') value = venue.capacity || '';
+    else if (field === 'foodType') value = venue.foodType || 'Veg';
+    else if (field === 'status') value = venue.status || 'approved';
+    else value = venue[field] || '';
+
+    setInlineEdit({ venueId: venue._id, field, value });
+  };
+
+  const handleInlineSave = async (venueId, field, overrideVal) => {
+    if (inlineSaving) return;
+    const valueToSave = overrideVal !== undefined ? overrideVal : inlineEdit.value;
+    setInlineSaving(true);
+    try {
+      let body = {};
+      if (field === 'city') {
+        body = { location: { city: valueToSave } };
+      } else if (field === 'capacity') {
+        body = { capacity: Number(valueToSave) || 0 };
+      } else {
+        body = { [field]: valueToSave };
+      }
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/venues/${venueId}/quick-edit`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Venue ${field} updated! ✅`);
+        setVenues(prev => prev.map(v => {
+          if (v._id === venueId) {
+            if (field === 'city') {
+              return { ...v, location: { ...v.location, city: valueToSave } };
+            }
+            return { ...v, [field]: valueToSave };
+          }
+          return v;
+        }));
+        setInlineEdit({ venueId: null, field: null, value: '' });
+      } else {
+        toast.error(data.message || 'Failed to update');
+      }
+    } catch (err) {
+      toast.error('Failed to update venue');
+    } finally {
+      setInlineSaving(false);
+    }
+  };
 
   const handleExportCSV = async () => {
     setExporting(true);
@@ -310,6 +374,14 @@ export default function AdminVenues() {
           </div>
         </div>
 
+        {/* Inline Edit & Quick Edit Helper Banner */}
+        <div className="mb-4 px-4 py-2.5 bg-gradient-to-r from-amber-50 to-primary-50 dark:from-slate-800 dark:to-slate-800/80 border border-amber-200/80 dark:border-slate-700 rounded-xl flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2 text-xs text-amber-900 dark:text-amber-200 font-medium">
+            <span className="p-1 bg-amber-500 text-white rounded-lg"><Sparkles className="w-3.5 h-3.5" /></span>
+            <span><strong>Pro Tip:</strong> Double-click on <strong>Venue Name</strong>, <strong>City</strong>, <strong>Capacity</strong>, <strong>Food Type</strong>, or <strong>Status</strong> to quick edit inline, or click <strong>Quick Edit</strong> button for full venue controls!</span>
+          </div>
+        </div>
+
         {/* Venues Table */}
         <div className="bg-white rounded-lg shadow-soft border border-gray-100 overflow-hidden">
           <div className="overflow-x-auto">
@@ -334,68 +406,255 @@ export default function AdminVenues() {
                 ) : venues.length === 0 ? (
                   <tr><td colSpan="11" className="px-6 py-8 text-center text-gray-500">No venues found</td></tr>
                 ) : venues.map((venue, index) => (
-                  <tr key={venue._id} className="hover:bg-gray-50">
+                  <tr key={venue._id} className="hover:bg-gray-50/80 transition-colors group">
                     <td className="px-4 py-3 text-xs font-semibold text-gray-700">{(currentPage - 1) * LIMIT + index + 1}</td>
-                    <td className="px-4 py-3">
-                      <p className="text-xs font-semibold text-dark-800">{venue.businessName}</p>
-                      {(venue.listingSource === 'ambassador' || venue.ambassador) ? (
-                        <div className="mt-1 flex items-center gap-1">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold text-[10px] border border-amber-200" title={venue.ambassador?.email || ''}>
-                            <Award className="w-3 h-3 text-amber-600" /> Amb: {venue.ambassador?.name || 'Ambassador Partner'}
-                          </span>
+                    
+                    {/* Venue Name - Inline editable */}
+                    <td className="px-4 py-3" onDoubleClick={() => startInlineEdit(venue, 'businessName')}>
+                      {inlineEdit.venueId === venue._id && inlineEdit.field === 'businessName' ? (
+                        <div className="flex items-center gap-1.5 min-w-[180px]">
+                          <input
+                            type="text"
+                            autoFocus
+                            value={inlineEdit.value}
+                            onChange={(e) => setInlineEdit({ ...inlineEdit, value: e.target.value })}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleInlineSave(venue._id, 'businessName');
+                              if (e.key === 'Escape') setInlineEdit({ venueId: null, field: null, value: '' });
+                            }}
+                            className="w-full px-2 py-1 text-xs border-2 border-primary-500 rounded bg-white font-semibold text-dark-800"
+                          />
+                          <button
+                            onClick={() => handleInlineSave(venue._id, 'businessName')}
+                            disabled={inlineSaving}
+                            className="p-1 bg-green-500 hover:bg-green-600 text-white rounded text-xs"
+                            title="Save"
+                          >
+                            {inlineSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                          </button>
+                          <button
+                            onClick={() => setInlineEdit({ venueId: null, field: null, value: '' })}
+                            className="p-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded text-xs"
+                            title="Cancel"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
                         </div>
                       ) : (
-                        <div className="mt-1 flex items-center gap-1">
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gray-100 text-gray-600 text-[10px]">
-                            Direct Owner
-                          </span>
+                        <div className="flex items-start justify-between gap-1 group/edit cursor-pointer" title="Double click to edit">
+                          <div>
+                            <p className="text-xs font-semibold text-dark-800 hover:text-primary-600 flex items-center gap-1">
+                              {venue.businessName}
+                              <Pencil className="w-2.5 h-2.5 text-gray-400 opacity-0 group-hover/edit:opacity-100 transition-opacity" />
+                            </p>
+                            {(venue.listingSource === 'ambassador' || venue.ambassador) ? (
+                              <div className="mt-1 flex items-center gap-1">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold text-[10px] border border-amber-200" title={venue.ambassador?.email || ''}>
+                                  <Award className="w-3 h-3 text-amber-600" /> Amb: {venue.ambassador?.name || 'Ambassador Partner'}
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="mt-1 flex items-center gap-1">
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gray-100 text-gray-600 text-[10px]">
+                                  Direct Owner
+                                </span>
+                              </div>
+                            )}
+                            {venue.status === 'resubmitted' && venue.rejectionReason && (
+                              <p className="text-[10px] text-blue-600 mt-0.5 max-w-[180px] truncate">↩ {venue.rejectionReason}</p>
+                            )}
+                            {venue.status === 'rejected' && venue.rejectionReason && (
+                              <p className="text-[10px] text-red-500 mt-0.5 max-w-[180px] truncate">✗ {venue.rejectionReason}</p>
+                            )}
+                          </div>
                         </div>
                       )}
-                      {venue.status === 'resubmitted' && venue.rejectionReason && (
-                        <p className="text-[10px] text-blue-600 mt-0.5 max-w-[180px] truncate">↩ {venue.rejectionReason}</p>
-                      )}
-                      {venue.status === 'rejected' && venue.rejectionReason && (
-                        <p className="text-[10px] text-red-500 mt-0.5 max-w-[180px] truncate">✗ {venue.rejectionReason}</p>
-                      )}
                     </td>
+
+                    {/* Owner Info */}
                     <td className="px-4 py-3">
                       <p className="text-xs font-medium text-dark-800">{venue.owner?.name}</p>
                       <p className="text-xs text-gray-500">{venue.owner?.email}</p>
                     </td>
-                    <td className="px-4 py-3">
-                      <p className="text-xs text-gray-700">{venue.location?.city}</p>
-                      <p className="text-xs text-gray-500">{venue.location?.area}</p>
+
+                    {/* Location City - Inline editable */}
+                    <td className="px-4 py-3" onDoubleClick={() => startInlineEdit(venue, 'city')}>
+                      {inlineEdit.venueId === venue._id && inlineEdit.field === 'city' ? (
+                        <div className="flex items-center gap-1 min-w-[120px]">
+                          <input
+                            type="text"
+                            autoFocus
+                            value={inlineEdit.value}
+                            onChange={(e) => setInlineEdit({ ...inlineEdit, value: e.target.value })}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleInlineSave(venue._id, 'city');
+                              if (e.key === 'Escape') setInlineEdit({ venueId: null, field: null, value: '' });
+                            }}
+                            className="w-full px-2 py-1 text-xs border-2 border-primary-500 rounded bg-white font-medium"
+                          />
+                          <button
+                            onClick={() => handleInlineSave(venue._id, 'city')}
+                            disabled={inlineSaving}
+                            className="p-1 bg-green-500 hover:bg-green-600 text-white rounded text-xs"
+                          >
+                            <Check className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={() => setInlineEdit({ venueId: null, field: null, value: '' })}
+                            className="p-1 bg-gray-200 text-gray-700 rounded text-xs"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="group/edit cursor-pointer" title="Double click to edit city">
+                          <p className="text-xs text-gray-700 font-medium hover:text-primary-600 flex items-center gap-1">
+                            {venue.location?.city || 'N/A'}
+                            <Pencil className="w-2.5 h-2.5 text-gray-400 opacity-0 group-hover/edit:opacity-100 transition-opacity" />
+                          </p>
+                          <p className="text-xs text-gray-500">{venue.location?.area}</p>
+                        </div>
+                      )}
                     </td>
-                    <td className="px-4 py-3 text-xs font-medium text-gray-700">{venue.capacity} guests</td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
-                        {venue.foodType || 'Veg'}
-                      </span>
+
+                    {/* Capacity - Inline editable */}
+                    <td className="px-4 py-3" onDoubleClick={() => startInlineEdit(venue, 'capacity')}>
+                      {inlineEdit.venueId === venue._id && inlineEdit.field === 'capacity' ? (
+                        <div className="flex items-center gap-1 min-w-[90px]">
+                          <input
+                            type="number"
+                            autoFocus
+                            value={inlineEdit.value}
+                            onChange={(e) => setInlineEdit({ ...inlineEdit, value: e.target.value })}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleInlineSave(venue._id, 'capacity');
+                              if (e.key === 'Escape') setInlineEdit({ venueId: null, field: null, value: '' });
+                            }}
+                            className="w-20 px-2 py-1 text-xs border-2 border-primary-500 rounded bg-white font-medium"
+                          />
+                          <button
+                            onClick={() => handleInlineSave(venue._id, 'capacity')}
+                            disabled={inlineSaving}
+                            className="p-1 bg-green-500 hover:bg-green-600 text-white rounded text-xs"
+                          >
+                            <Check className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="group/edit cursor-pointer" title="Double click to edit capacity">
+                          <span className="text-xs font-medium text-gray-700 hover:text-primary-600 flex items-center gap-1">
+                            {venue.capacity} guests
+                            <Pencil className="w-2.5 h-2.5 text-gray-400 opacity-0 group-hover/edit:opacity-100 transition-opacity" />
+                          </span>
+                        </div>
+                      )}
                     </td>
+
+                    {/* Food Type - Inline editable */}
+                    <td className="px-4 py-3" onDoubleClick={() => startInlineEdit(venue, 'foodType')}>
+                      {inlineEdit.venueId === venue._id && inlineEdit.field === 'foodType' ? (
+                        <select
+                          autoFocus
+                          value={inlineEdit.value}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setInlineEdit({ ...inlineEdit, value: val });
+                            handleInlineSave(venue._id, 'foodType', val);
+                          }}
+                          onBlur={() => setInlineEdit({ venueId: null, field: null, value: '' })}
+                          className="px-2 py-1 text-xs border-2 border-primary-500 rounded bg-white font-semibold"
+                        >
+                          <option value="Veg">Pure Veg</option>
+                          <option value="Non-Veg">Non-Veg</option>
+                          <option value="Both">Both</option>
+                        </select>
+                      ) : (
+                        <div className="group/edit cursor-pointer" title="Double click to change food type">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100 hover:border-emerald-300">
+                            {venue.foodType || 'Veg'}
+                            <Pencil className="w-2.5 h-2.5 text-emerald-600 opacity-0 group-hover/edit:opacity-100 transition-opacity" />
+                          </span>
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Bookings */}
                     <td className="px-4 py-3 bg-yellow-50">
                       <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-bold text-xs">{venue.totalBookings || 0}</span>
                     </td>
+
+                    {/* Rating */}
                     <td className="px-4 py-3 bg-yellow-50 text-xs font-semibold text-amber-600">{venue.rating ? `${venue.rating}/5` : 'N/A'}</td>
+
+                    {/* Earnings */}
                     <td className="px-4 py-3 bg-yellow-50">
                       <div className="flex flex-col">
                         <span className="text-xs font-semibold text-green-700">₹{(venue.totalEarnings || 0).toLocaleString('en-IN')}</span>
                         <span className="text-[9px] text-gray-500">(Excl. platform fee)</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                        venue.status === 'approved' ? 'bg-green-100 text-green-700' :
-                        venue.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                        venue.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                        venue.status === 'resubmitted' ? 'bg-blue-100 text-blue-700' :
-                        'bg-gray-100 text-gray-700'
-                      }`}>{venue.status}</span>
+
+                    {/* Status - Inline editable */}
+                    <td className="px-4 py-3" onDoubleClick={() => startInlineEdit(venue, 'status')}>
+                      {inlineEdit.venueId === venue._id && inlineEdit.field === 'status' ? (
+                        <select
+                          autoFocus
+                          value={inlineEdit.value}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setInlineEdit({ ...inlineEdit, value: val });
+                            handleInlineSave(venue._id, 'status', val);
+                          }}
+                          onBlur={() => setInlineEdit({ venueId: null, field: null, value: '' })}
+                          className="px-2 py-1 text-xs border-2 border-primary-500 rounded bg-white font-semibold"
+                        >
+                          <option value="approved">Approved</option>
+                          <option value="pending">Pending</option>
+                          <option value="rejected">Rejected</option>
+                          <option value="suspended">Suspended</option>
+                          <option value="resubmitted">Resubmitted</option>
+                        </select>
+                      ) : (
+                        <div className="group/edit cursor-pointer" title="Double click to change status">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                            venue.status === 'approved' ? 'bg-green-100 text-green-700' :
+                            venue.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                            venue.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                            venue.status === 'resubmitted' ? 'bg-blue-100 text-blue-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                            {venue.status}
+                            <Pencil className="w-2.5 h-2.5 opacity-0 group-hover/edit:opacity-100 transition-opacity" />
+                          </span>
+                        </div>
+                      )}
                     </td>
+
+                    {/* Actions Column */}
                     <td className="px-4 py-3">
-                      <button onClick={() => openModal(venue)}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-xs font-semibold transition-colors">
-                        <Eye className="w-3 h-3" />View
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => openModal(venue)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-xs font-semibold transition-colors shadow-sm"
+                          title="View Complete Details"
+                        >
+                          <Eye className="w-3.5 h-3.5" /> View
+                        </button>
+                        <button
+                          onClick={() => downloadVenuePDF(venue, platformSettings)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition-colors shadow-sm"
+                          title="Download Venue PDF Dossier"
+                        >
+                          <Download className="w-3.5 h-3.5" /> PDF
+                        </button>
+                        <button
+                          onClick={() => setQuickEditVenue(venue)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold transition-colors shadow-sm"
+                          title="Admin Quick Edit"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" /> Quick Edit
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -443,6 +702,26 @@ export default function AdminVenues() {
           platformSettings={platformSettings}
           customSettings={customSettings}
           onUpdateSettings={handleSaveCustomSettings}
+          onQuickEdit={(v) => {
+            setModalOpen(false);
+            setQuickEditVenue(v);
+          }}
+        />
+      )}
+
+      {/* Admin Venue Quick Edit Modal */}
+      {quickEditVenue && (
+        <AdminVenueQuickEditModal
+          venue={quickEditVenue}
+          token={token}
+          venueTypes={venueTypes}
+          onClose={() => setQuickEditVenue(null)}
+          onSaveSuccess={(updatedVenue) => {
+            fetchVenues(currentPage);
+            if (selectedVenue && selectedVenue._id === updatedVenue._id) {
+              setSelectedVenue(updatedVenue);
+            }
+          }}
         />
       )}
 

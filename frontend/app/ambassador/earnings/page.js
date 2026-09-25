@@ -196,7 +196,7 @@ export default function AmbassadorEarningsPage() {
         </div>
       </div>
 
-      {/* 7-Day Power Streak & 25% 1-Year Profit Share Rule Banner */}
+      {/* 7-Day or 30-Day Power Streak & 25% 1-Year Profit Share Rule Banner */}
       <div className={`p-6 rounded-3xl border shadow-sm space-y-4 ${
         data?.profitShareStatus?.profitShareUnlocked
           ? 'bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 border-purple-800 text-white'
@@ -206,17 +206,17 @@ export default function AmbassadorEarningsPage() {
           <div className="space-y-1.5 max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/30">
               <Zap className="w-3.5 h-3.5 text-amber-500" />
-              {data?.profitShareStatus?.profitShareUnlocked ? '🎉 1-Year 25% Profit Share UNLOCKED & ACTIVE' : '🔥 7-Day Streak Target: 5 Venues/Day (35 Venues Total)'}
+              {data?.profitShareStatus?.profitShareUnlocked ? '🎉 1-Year 25% Royalty Profit Share UNLOCKED & ACTIVE' : '🔥 7-Day or 30-Day Streak: 25% 1-Year Profit Share Unlock'}
             </div>
             <h3 className="text-lg sm:text-xl font-black">
               {data?.profitShareStatus?.profitShareUnlocked
-                ? '25% Booking Profit Share Active for 1 Full Year (365 Days)!'
-                : 'Roz 5 Venues × 7 Days Streak = Total 35 Venues to Unlock 25% Profit Share for 1 Year'}
+                ? '25% Royalty Booking Profit Share Active for 1 Full Year (365 Days)!'
+                : 'Complete 7-Day Streak (35 Venues) OR 30-Day Streak (150 Venues) to Unlock 25% Profit Share for 1 Year'}
             </h3>
             <p className="text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
               {data?.profitShareStatus?.profitShareUnlocked
                 ? `Badhai ho! Aapka 1 Year (365 Days) 25% Booking Profit Share unlock ho chuka hai. Aapke sabhi onboarded venues se aane wali bookings ka 25% platform profit real-time aapke wallet me aayega (${data?.profitShareStatus?.daysRemaining || 365} din bache hain).`
-                : 'Lagatar 7 din roz 5-5 verified venues list karein (Total 35 venues). 7-Day streak complete hote hi 1 Year (365 Days) ke liye 25% Recurring Booking Profit Share + ₹1,000 Cash Bonus instant unlock ho jayega!'}
+                : 'Lagatar 7 din roz 5-5 verified venues list karein (35 venues) ya mahine me 150 venues list karein. Streak complete hote hi 1 Year (365 Days) ke liye 25% Recurring Booking Royalty Share + Cash Bonus instant unlock ho jayega!'}
             </p>
           </div>
 
@@ -417,6 +417,43 @@ export default function AmbassadorEarningsPage() {
             )}
           </div>
         )}
+      </div>
+
+      {/* Official Payout Schedule & Inactivity Notice */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm space-y-3">
+          <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
+            Official Payout Processing Schedule
+          </h3>
+          <div className="space-y-2 text-xs">
+            <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+              <span className="text-slate-500">Per-Venue Listing Payout:</span>
+              <span className="font-bold text-slate-900 dark:text-white">Weekly (Every Monday)</span>
+            </div>
+            <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+              <span className="text-slate-500">Daily &amp; Weekly Streak Bonuses:</span>
+              <span className="font-bold text-slate-900 dark:text-white">Weekly (Every Monday)</span>
+            </div>
+            <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+              <span className="text-slate-500">Monthly Champion Award:</span>
+              <span className="font-bold text-slate-900 dark:text-white">Monthly (1st of month)</span>
+            </div>
+            <div className="flex justify-between py-1.5">
+              <span className="text-slate-500">25% Royalty Income:</span>
+              <span className="font-bold text-purple-600">Monthly (7th of month)</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-amber-50 dark:bg-amber-950/30 rounded-3xl border border-amber-200 dark:border-amber-800 p-6 text-xs text-slate-700 dark:text-slate-300 space-y-2">
+          <p className="font-bold text-amber-900 dark:text-amber-200">
+            Ambassador Inactivity &amp; Payout Terms:
+          </p>
+          <p>• If no venue is listed within 30 days, your Ambassador ID is blocked/deactivated.</p>
+          <p>• To reactivate a blocked ID, a ₹500 reactivation fee must be paid.</p>
+          <p>• Any pending payouts are held on a blocked ID until reactivated.</p>
+          <p>• Disputes subject to the jurisdiction of Bhopal, Madhya Pradesh courts.</p>
+        </div>
       </div>
 
       {/* Payout Modal */}

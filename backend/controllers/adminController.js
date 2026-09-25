@@ -301,6 +301,222 @@ exports.updateVenueSettings = async (req, res) => {
   }
 };
 
+// @desc    Admin Quick Edit Venue
+// @route   PUT /api/admin/venues/:id/quick-edit
+exports.adminQuickEditVenue = async (req, res) => {
+  try {
+    const venue = await Venue.findById(req.params.id);
+    if (!venue) {
+      return res.status(404).json({ success: false, message: 'Venue not found' });
+    }
+
+    const {
+      businessName,
+      description,
+      areaSqft,
+      capacity,
+      foodType,
+      venueType,
+      status,
+      rejectionReason,
+      suspensionReason,
+      location,
+      pricing,
+      availability,
+      amenities,
+      customPlatformFee,
+      customGST,
+      customCommission,
+      ownerInfo,
+      documents
+    } = req.body;
+
+    // Basic details
+    if (businessName !== undefined) venue.businessName = businessName;
+    if (description !== undefined) venue.description = description;
+    if (areaSqft !== undefined) venue.areaSqft = Number(areaSqft) || 0;
+    if (capacity !== undefined) venue.capacity = capacity;
+    if (foodType !== undefined) venue.foodType = foodType;
+    if (venueType !== undefined) {
+      venue.venueType = Array.isArray(venueType) ? venueType : [venueType].filter(Boolean);
+    }
+    if (status !== undefined) venue.status = status;
+    if (rejectionReason !== undefined) venue.rejectionReason = rejectionReason;
+    if (suspensionReason !== undefined) venue.suspensionReason = suspensionReason;
+
+    // Location
+    if (location && typeof location === 'object') {
+      if (!venue.location) venue.location = {};
+      if (location.address !== undefined) venue.location.address = location.address;
+      if (location.landmark !== undefined) venue.location.landmark = location.landmark;
+      if (location.city !== undefined) venue.location.city = location.city;
+      if (location.state !== undefined) venue.location.state = location.state;
+      if (location.stateCode !== undefined) venue.location.stateCode = location.stateCode;
+      if (location.pincode !== undefined) venue.location.pincode = location.pincode;
+      if (location.area !== undefined) venue.location.area = location.area;
+      if (location.googleMapLink !== undefined) venue.location.googleMapLink = location.googleMapLink;
+      if (location.parkingType !== undefined) venue.location.parkingType = location.parkingType;
+      if (location.nearestMetro !== undefined) venue.location.nearestMetro = location.nearestMetro;
+      if (location.nearestBusStop !== undefined) venue.location.nearestBusStop = location.nearestBusStop;
+      if (location.nearestRailway !== undefined) venue.location.nearestRailway = location.nearestRailway;
+    }
+
+    // Pricing
+    if (pricing && typeof pricing === 'object') {
+      if (!venue.pricing) venue.pricing = {};
+      if (pricing.perHour) {
+        if (!venue.pricing.perHour) venue.pricing.perHour = {};
+        if (pricing.perHour.weekday !== undefined) venue.pricing.perHour.weekday = Number(pricing.perHour.weekday) || 0;
+        if (pricing.perHour.weekend !== undefined) venue.pricing.perHour.weekend = Number(pricing.perHour.weekend) || 0;
+      }
+      if (pricing.halfDay) {
+        if (!venue.pricing.halfDay) venue.pricing.halfDay = {};
+        if (pricing.halfDay.weekday !== undefined) venue.pricing.halfDay.weekday = Number(pricing.halfDay.weekday) || 0;
+        if (pricing.halfDay.weekend !== undefined) venue.pricing.halfDay.weekend = Number(pricing.halfDay.weekend) || 0;
+      }
+      if (pricing.fullDay) {
+        if (!venue.pricing.fullDay) venue.pricing.fullDay = {};
+        if (pricing.fullDay.weekday !== undefined) venue.pricing.fullDay.weekday = Number(pricing.fullDay.weekday) || 0;
+        if (pricing.fullDay.weekend !== undefined) venue.pricing.fullDay.weekend = Number(pricing.fullDay.weekend) || 0;
+      }
+      if (pricing.extraHourRate) {
+        if (!venue.pricing.extraHourRate) venue.pricing.extraHourRate = {};
+        if (pricing.extraHourRate.weekday !== undefined) venue.pricing.extraHourRate.weekday = Number(pricing.extraHourRate.weekday) || 0;
+        if (pricing.extraHourRate.weekend !== undefined) venue.pricing.extraHourRate.weekend = Number(pricing.extraHourRate.weekend) || 0;
+      }
+      if (pricing.enabledOptions) {
+        venue.pricing.enabledOptions = { ...venue.pricing.enabledOptions, ...pricing.enabledOptions };
+      }
+      if (pricing.advanceBookingRule !== undefined) venue.pricing.advanceBookingRule = pricing.advanceBookingRule;
+      if (pricing.confirmationHours !== undefined) venue.pricing.confirmationHours = Number(pricing.confirmationHours) || 3;
+      if (pricing.availableDays !== undefined) venue.pricing.availableDays = pricing.availableDays;
+    }
+
+    // Availability
+    if (availability && typeof availability === 'object') {
+      if (!venue.availability) venue.availability = {};
+      if (availability.openingTime !== undefined) venue.availability.openingTime = availability.openingTime;
+      if (availability.closingTime !== undefined) venue.availability.closingTime = availability.closingTime;
+      if (availability.advanceBookingRule !== undefined) venue.availability.advanceBookingRule = availability.advanceBookingRule;
+      if (availability.confirmationHours !== undefined) venue.availability.confirmationHours = Number(availability.confirmationHours) || 3;
+      if (availability.availableDays !== undefined) venue.availability.availableDays = availability.availableDays;
+      if (availability.onlineBookingSchedule) {
+        venue.availability.onlineBookingSchedule = {
+          ...venue.availability.onlineBookingSchedule,
+          ...availability.onlineBookingSchedule
+        };
+      }
+    }
+
+    // Amenities
+    if (amenities && typeof amenities === 'object') {
+      if (!venue.amenities) venue.amenities = {};
+      if (amenities.basic !== undefined) venue.amenities.basic = amenities.basic;
+      if (amenities.additional !== undefined) venue.amenities.additional = amenities.additional;
+      if (amenities.features !== undefined) venue.amenities.features = amenities.features;
+    }
+
+    // Custom Fee & GST
+    if (customPlatformFee !== undefined) {
+      venue.customPlatformFee = normalizeCustomPlatformFee(customPlatformFee);
+    }
+    if (customGST !== undefined) {
+      venue.customGST = normalizeCustomGST(customGST);
+    }
+    if (customCommission !== undefined) {
+      venue.customCommission = customCommission;
+    }
+
+    // Owner Info & Authorised Person
+    if (ownerInfo && typeof ownerInfo === 'object') {
+      if (!venue.ownerInfo) venue.ownerInfo = {};
+      if (ownerInfo.fullName !== undefined) venue.ownerInfo.fullName = ownerInfo.fullName;
+      if (ownerInfo.email !== undefined) venue.ownerInfo.email = ownerInfo.email;
+      if (ownerInfo.mobile !== undefined) venue.ownerInfo.mobile = ownerInfo.mobile;
+      if (ownerInfo.alternatePhone !== undefined) venue.ownerInfo.alternatePhone = ownerInfo.alternatePhone;
+      if (ownerInfo.role !== undefined) venue.ownerInfo.role = ownerInfo.role;
+      if (ownerInfo.hasGST !== undefined) venue.ownerInfo.hasGST = ownerInfo.hasGST;
+      if (ownerInfo.gstNumber !== undefined) venue.ownerInfo.gstNumber = ownerInfo.gstNumber;
+      if (ownerInfo.authorisedPerson) {
+        const ap = ownerInfo.authorisedPerson;
+        venue.ownerInfo.authorisedPerson = {
+          ...venue.ownerInfo.authorisedPerson,
+          ...ap,
+          name: ap.name || ap.fullName || venue.ownerInfo?.authorisedPerson?.name || '',
+          fullName: ap.fullName || ap.name || venue.ownerInfo?.authorisedPerson?.fullName || '',
+          phone: ap.phone || ap.mobile || venue.ownerInfo?.authorisedPerson?.phone || '',
+          mobile: ap.mobile || ap.phone || venue.ownerInfo?.authorisedPerson?.mobile || '',
+          alternatePhone: ap.alternatePhone !== undefined ? ap.alternatePhone : (venue.ownerInfo?.authorisedPerson?.alternatePhone || ''),
+          designation: ap.designation || ap.role || venue.ownerInfo?.authorisedPerson?.designation || '',
+          role: ap.role || ap.designation || venue.ownerInfo?.authorisedPerson?.role || ''
+        };
+      }
+    }
+
+    // Documents
+    if (documents && typeof documents === 'object') {
+      if (!venue.documents) venue.documents = {};
+      if (documents.idProof) {
+        venue.documents.idProof = {
+          ...venue.documents.idProof,
+          ...documents.idProof
+        };
+      }
+      if (documents.businessProof) {
+        venue.documents.businessProof = {
+          ...venue.documents.businessProof,
+          ...documents.businessProof,
+          type: documents.businessProof.type || venue.documents?.businessProof?.type || '',
+          documentUrl: documents.businessProof.documentUrl || documents.businessProof.url || venue.documents?.businessProof?.documentUrl || '',
+          otherSpecify: documents.businessProof.otherSpecify !== undefined ? documents.businessProof.otherSpecify : (venue.documents?.businessProof?.otherSpecify || '')
+        };
+      }
+      if (documents.selfieUrl !== undefined) {
+        venue.documents.selfieUrl = documents.selfieUrl;
+      }
+      if (documents.fireNOC) {
+        venue.documents.fireNOC = {
+          ...venue.documents.fireNOC,
+          ...documents.fireNOC
+        };
+      }
+      if (documents.fssai) {
+        venue.documents.fssai = {
+          ...venue.documents.fssai,
+          ...documents.fssai
+        };
+      }
+      if (documents.gstCertificate || documents.gstDocUrl) {
+        venue.documents.gstDocUrl = documents.gstDocUrl || documents.gstCertificate?.url || venue.documents?.gstDocUrl || '';
+      }
+    }
+
+    // Bank Details
+    const { bankDetails } = req.body;
+    if (bankDetails && typeof bankDetails === 'object') {
+      if (!venue.bankDetails) venue.bankDetails = {};
+      if (bankDetails.accountHolderName !== undefined) venue.bankDetails.accountHolderName = bankDetails.accountHolderName;
+      if (bankDetails.accountNumber !== undefined) venue.bankDetails.accountNumber = bankDetails.accountNumber;
+      if (bankDetails.ifscCode !== undefined) venue.bankDetails.ifscCode = bankDetails.ifscCode;
+      if (bankDetails.bankName !== undefined) venue.bankDetails.bankName = bankDetails.bankName;
+      if (branchName !== undefined || bankDetails.branchName !== undefined) venue.bankDetails.branchName = bankDetails.branchName;
+      if (bankDetails.accountType !== undefined) venue.bankDetails.accountType = bankDetails.accountType;
+      if (bankDetails.bankProofUrl !== undefined) venue.bankDetails.bankProofUrl = bankDetails.bankProofUrl;
+    }
+
+    await venue.save();
+
+    res.json({
+      success: true,
+      message: 'Venue details updated successfully! ✅',
+      venue
+    });
+  } catch (error) {
+    console.error('Admin quick edit venue error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // @desc    Get commission settings
 // @route   GET /api/admin/commission
 // DEPRECATED: Commission feature is disabled

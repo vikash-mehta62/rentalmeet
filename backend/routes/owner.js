@@ -270,13 +270,27 @@ router.post('/venues/:id/blocked-dates', async (req, res) => {
     if (!venue) return res.status(404).json({ success: false, message: 'Venue not found' });
 
     const { date, reason } = req.body;
-    const d = new Date(date);
-    d.setHours(0, 0, 0, 0);
+    if (!date) return res.status(400).json({ success: false, message: 'Date is required' });
+
+    let d;
+    if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      const [y, m, day] = date.split('-').map(Number);
+      d = new Date(Date.UTC(y, m - 1, day, 12, 0, 0));
+    } else {
+      const raw = new Date(date);
+      d = new Date(Date.UTC(raw.getUTCFullYear(), raw.getUTCMonth(), raw.getUTCDate(), 12, 0, 0));
+    }
+
+    const targetDateStr = d.toISOString().split('T')[0];
 
     // Avoid duplicates
-    const exists = venue.blockedDates.some(b => new Date(b.date).toDateString() === d.toDateString());
+    const exists = (venue.blockedDates || []).some(b => {
+      const bDateStr = new Date(b.date).toISOString().split('T')[0];
+      return bDateStr === targetDateStr;
+    });
     if (exists) return res.status(400).json({ success: false, message: 'Date already blocked' });
 
+    if (!venue.blockedDates) venue.blockedDates = [];
     venue.blockedDates.push({ date: d, reason: reason || 'Blocked by owner' });
     await venue.save();
 
@@ -441,4 +455,41 @@ router.get('/cancellations', async (req, res) => {
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
+// ─── Owner: Get Venue Enquiries / Drafts for their venues ─────────────────────
+router.get('/enquiries', async (req, res) => {
+  try {
+    const VenueEnquiry = require('../models/VenueEnquiry');
+    const venues = await Venue.find({ owner: req.user._id }).select('_id');
+    const venueIds = venues.map(v => v._id);
+
+    const enquiries = await VenueEnquiry.find({ venue: { $in: venueIds } })
+      .populate('venue', 'businessName location sku')
+      .populate('customer', 'name email phone')
+      .sort('-createdAt');
+
+    res.json({ success: true, enquiries });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// ─── Owner: Update Venue Enquiry Status ──────────────────────────────────────
+router.put('/enquiries/:id/status', async (req, res) => {
+  try {
+    const VenueEnquiry = require('../models/VenueEnquiry');
+    const { status, notes } = req.body;
+    const enquiry = await VenueEnquiry.findById(req.params.id);
+    if (!enquiry) return res.status(404).json({ success: false, message: 'Enquiry not found' });
+
+    if (status) enquiry.status = status;
+    if (notes !== undefined) enquiry.notes = notes;
+    await enquiry.save();
+
+    res.json({ success: true, message: 'Enquiry updated successfully', enquiry });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
 module.exports = router;
+

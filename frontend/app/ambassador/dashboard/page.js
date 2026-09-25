@@ -19,7 +19,8 @@ import {
   ExternalLink,
   RefreshCw,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Target
 } from 'lucide-react';
 
 export default function AmbassadorDashboardPage() {
@@ -131,54 +132,164 @@ export default function AmbassadorDashboardPage() {
         </div>
       </div>
 
-      {/* 7-Day Power Streak & 25% 1-Year Profit Share Unlock Card */}
-      <div className="p-6 rounded-3xl bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-white shadow-xl border border-purple-800/40 relative overflow-hidden">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
-          <div className="space-y-1.5 max-w-xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 text-xs font-black uppercase tracking-wider border border-purple-500/30">
-              <Zap className="w-3.5 h-3.5 text-amber-400" />
-              {profitShareStatus?.profitShareUnlocked ? '🎉 1-Year 25% Profit Share Unlocked & Active' : '🔥 7-Day Streak Target: 5 Venues/Day (35 Venues Total)'}
+      {/* 3 Status Cards: Daily Status, Weekly Status & Monthly Status */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6">
+        
+        {/* CARD 1: DAILY STATUS */}
+        <div className="p-5 sm:p-6 rounded-3xl bg-slate-900 border border-slate-800 text-white shadow-xl relative overflow-hidden flex flex-col justify-between">
+          <div className="space-y-3">
+            {/* Header */}
+            <div className="flex justify-between items-start">
+              <div>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-black uppercase tracking-wider border border-amber-500/30">
+                  <Zap className="w-3 h-3 text-amber-400" /> Daily Streak
+                </span>
+                <h3 className="text-base sm:text-lg font-black text-white mt-1.5">Daily Status</h3>
+              </div>
+              <div className="text-right">
+                <span className="text-xs font-bold text-amber-300 font-mono">
+                  {challenges?.todayVerifiedCount || 0} / {challenges?.dailyTarget || 5} Venues
+                </span>
+                <span className="block text-[10px] text-slate-400">Target: 5 / Day</span>
+              </div>
             </div>
-            <h3 className="text-xl sm:text-2xl font-black">
-              {profitShareStatus?.profitShareUnlocked
-                ? '25% Platform Profit Share is Active on All Your Venues!'
-                : 'Roz 5 Venues × 7 Days Streak = Total 35 Venues to Unlock 25% Profit Share for 1 Year'}
-            </h3>
-            <p className="text-xs text-purple-200 leading-relaxed font-light">
-              {profitShareStatus?.profitShareUnlocked
-                ? `Congratulations! You earn 25% of RentalMeet platform profit on every completed booking across all your onboarded venues for 365 Days (${profitShareStatus?.daysRemaining || 365} days remaining).`
-                : 'Lagatar 7 din roz 5-5 verified venues list karein (Total 35 venues). 7-Day streak complete hote hi 1 Year (365 Days) ke liye 25% Recurring Booking Profit Share + ₹1,000 Cash Bonus instant unlock ho jayega!'}
-            </p>
+
+            {/* Progress Bar */}
+            <div className="w-full h-2.5 bg-black/50 rounded-full overflow-hidden p-0.5 my-2">
+              <div
+                className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full transition-all duration-500 shadow-sm"
+                style={{ width: `${Math.min(100, Math.round(((challenges?.todayVerifiedCount || 0) / (challenges?.dailyTarget || 5)) * 100))}%` }}
+              />
+            </div>
+
+            {/* 2-Col Box */}
+            <div className="grid grid-cols-2 gap-2 text-center text-[10px]">
+              <div className="p-2 rounded-xl bg-black/40 border border-white/10">
+                <span className="text-slate-400 block text-[9px] font-medium">Today&apos;s Venues</span>
+                <span className="font-bold text-white text-xs">{challenges?.todayVerifiedCount || 0} / 5</span>
+              </div>
+              <div className="p-2 rounded-xl bg-black/40 border border-white/10">
+                <span className="text-slate-400 block text-[9px] font-medium">Daily Bonus</span>
+                <span className="font-bold text-amber-400 text-xs">
+                  {(challenges?.todayVerifiedCount || 0) >= 5 ? `+₹${250 + ((challenges?.todayVerifiedCount || 0) - 5) * 50}` : '+₹250'}
+                </span>
+              </div>
+            </div>
           </div>
 
-          <div className="w-full md:w-72 bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/15 space-y-2.5">
-            <div className="flex justify-between items-center text-xs font-bold">
-              <span className="text-purple-200">7-Day Streak Progress</span>
-              <span className="text-amber-300">{profitShareStatus?.streakDaysCompleted || 0} / 7 Days (5 venues/day)</span>
+          {/* Footer Subtext */}
+          <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-[11px]">
+            <span className="text-slate-300 font-medium truncate max-w-[200px]">
+              {(challenges?.todayVerifiedCount || 0) >= 5
+                ? '✅ Goal Reached! (+₹50/extra)'
+                : `${Math.max(0, 5 - (challenges?.todayVerifiedCount || 0))} more needed today`}
+            </span>
+            <span className="text-amber-400 font-bold flex-shrink-0">⚡ +₹50/venue</span>
+          </div>
+        </div>
+
+        {/* CARD 2: WEEKLY STATUS (7-Day Power Streak) */}
+        <div className="p-5 sm:p-6 rounded-3xl bg-slate-900 border border-slate-800 text-white shadow-xl relative overflow-hidden flex flex-col justify-between">
+          <div className="space-y-3">
+            {/* Header */}
+            <div className="flex justify-between items-start">
+              <div>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[10px] font-black uppercase tracking-wider border border-blue-500/30">
+                  <Target className="w-3 h-3 text-blue-400" /> Weekly Streak
+                </span>
+                <h3 className="text-base sm:text-lg font-black text-white mt-1.5">Weekly Status</h3>
+              </div>
+              <div className="text-right">
+                <span className="text-xs font-bold text-blue-300 font-mono">
+                  {profitShareStatus?.streakDaysCompleted || 0} / 7 Days
+                </span>
+                <span className="block text-[10px] text-slate-400">Target: 35 Venues</span>
+              </div>
             </div>
-            <div className="w-full h-2.5 bg-black/40 rounded-full overflow-hidden p-0.5">
+
+            {/* Progress Bar */}
+            <div className="w-full h-2.5 bg-black/50 rounded-full overflow-hidden p-0.5 my-2">
               <div
-                className="h-full bg-gradient-to-r from-amber-400 to-green-400 rounded-full transition-all duration-500 shadow-sm"
+                className="h-full bg-gradient-to-r from-blue-500 to-indigo-400 rounded-full transition-all duration-500 shadow-sm"
                 style={{ width: `${profitShareStatus?.streakProgressPercentage || 0}%` }}
               />
             </div>
-            <div className="grid grid-cols-2 gap-2 text-center text-[10px] pt-1">
-              <div className="p-1.5 rounded-lg bg-black/30 border border-white/10">
-                <span className="text-purple-300 block text-[9px]">Today&apos;s Venues</span>
-                <span className="font-bold text-white">{profitShareStatus?.todayVerifiedCount || 0} / 5</span>
+
+            {/* 2-Col Box */}
+            <div className="grid grid-cols-2 gap-2 text-center text-[10px]">
+              <div className="p-2 rounded-xl bg-black/40 border border-white/10">
+                <span className="text-slate-400 block text-[9px] font-medium">Active Days</span>
+                <span className="font-bold text-white text-xs">{profitShareStatus?.streakDaysCompleted || 0} / 7 Days</span>
               </div>
-              <div className="p-1.5 rounded-lg bg-black/30 border border-white/10">
-                <span className="text-purple-300 block text-[9px]">Streak Venues</span>
-                <span className="font-bold text-white">{profitShareStatus?.totalStreakVenues || 0} / 35</span>
+              <div className="p-2 rounded-xl bg-black/40 border border-white/10">
+                <span className="text-slate-400 block text-[9px] font-medium">Streak Venues</span>
+                <span className="font-bold text-blue-400 text-xs">{profitShareStatus?.totalStreakVenues || 0} / 35</span>
               </div>
             </div>
-            <p className="text-[10px] text-purple-300 text-center font-medium">
+          </div>
+
+          {/* Footer Subtext */}
+          <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-[11px]">
+            <span className="text-slate-300 font-medium truncate max-w-[200px]">
               {profitShareStatus?.profitShareUnlocked
-                ? '✅ 7-Day Streak Completed • 1-Year Share Active'
-                : `${profitShareStatus?.streakDaysRemaining || 7} more active 5-venue days needed to unlock 🔓`}
-            </p>
+                ? `🔓 25% Share Active (${profitShareStatus?.daysRemaining || 365}d left)`
+                : `${profitShareStatus?.streakDaysRemaining || 7} more 5-venue days needed`}
+            </span>
+            <span className="text-blue-400 font-bold flex-shrink-0">₹1,000 Bonus</span>
           </div>
         </div>
+
+        {/* CARD 3: MONTHLY STATUS (30-Day Venue Champion) */}
+        <div className="p-5 sm:p-6 rounded-3xl bg-slate-900 border border-slate-800 text-white shadow-xl relative overflow-hidden flex flex-col justify-between">
+          <div className="space-y-3">
+            {/* Header */}
+            <div className="flex justify-between items-start">
+              <div>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-[10px] font-black uppercase tracking-wider border border-purple-500/30">
+                  <Trophy className="w-3 h-3 text-purple-400" /> Monthly Champion
+                </span>
+                <h3 className="text-base sm:text-lg font-black text-white mt-1.5">Monthly Status</h3>
+              </div>
+              <div className="text-right">
+                <span className="text-xs font-bold text-purple-300 font-mono">
+                  {challenges?.thisMonthVerifiedCount || stats?.approvedCount || 0} / 150 Venues
+                </span>
+                <span className="block text-[10px] text-slate-400">Target: 150 / Mo</span>
+              </div>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="w-full h-2.5 bg-black/50 rounded-full overflow-hidden p-0.5 my-2">
+              <div
+                className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all duration-500 shadow-sm"
+                style={{ width: `${Math.min(100, Math.round(((challenges?.thisMonthVerifiedCount || stats?.approvedCount || 0) / 150) * 100))}%` }}
+              />
+            </div>
+
+            {/* 2-Col Box */}
+            <div className="grid grid-cols-2 gap-2 text-center text-[10px]">
+              <div className="p-2 rounded-xl bg-black/40 border border-white/10">
+                <span className="text-slate-400 block text-[9px] font-medium">Month Venues</span>
+                <span className="font-bold text-white text-xs">{challenges?.thisMonthVerifiedCount || stats?.approvedCount || 0} / 150</span>
+              </div>
+              <div className="p-2 rounded-xl bg-black/40 border border-white/10">
+                <span className="text-slate-400 block text-[9px] font-medium">Champion Reward</span>
+                <span className="font-bold text-purple-400 text-xs">₹5,000 Cash</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer Subtext */}
+          <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-[11px]">
+            <span className="text-slate-300 font-medium truncate max-w-[200px]">
+              {(challenges?.thisMonthVerifiedCount || stats?.approvedCount || 0) >= 150
+                ? '🏆 Monthly Champion Achieved!'
+                : `${Math.max(0, 150 - (challenges?.thisMonthVerifiedCount || stats?.approvedCount || 0))} more to unlock ₹5k 🏆`}
+            </span>
+            <span className="text-purple-400 font-bold flex-shrink-0">25% Royalty</span>
+          </div>
+        </div>
+
       </div>
 
       {/* Tier Progress & Daily 5-Venue Challenge Grid */}

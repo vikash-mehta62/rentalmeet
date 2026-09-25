@@ -59,7 +59,7 @@ const thaliCategories = ['Regular Thali', 'Special Thali', 'Maharaja Thali'];
 const additionalFacilities = [
   'Separate Washrooms', 'Power Backup', 'Security Personnel',
   'Daily Cleaning', 'Reception Service', 'Storage Space',
-  'Valet Parking', 'Wheelchair Access', 'Elevator'
+  'Valet Parking', 'Wheelchair Access', 'Elevator And Lift'
 ];
 
 export default function Step3Amenities() {

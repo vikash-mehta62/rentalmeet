@@ -1820,6 +1820,106 @@
         ]
       }
     },
+    "/api/venues/sku/{sku}/enquiry": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "sku",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "customerDetails": {
+                    "example": "any"
+                  },
+                  "bookingDetails": {
+                    "example": "any"
+                  },
+                  "selectedAmenities": {
+                    "example": "any"
+                  },
+                  "priceBreakdown": {
+                    "example": "any"
+                  },
+                  "estimatedAmount": {
+                    "example": "any"
+                  },
+                  "notes": {
+                    "example": "any"
+                  },
+                  "customerId": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Venues"
+        ]
+      }
+    },
+    "/api/venues/enquiry/{id}": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "tags": [
+          "Venues"
+        ]
+      }
+    },
     "/api/venue-types/": {
       "get": {
         "description": "",
@@ -2937,6 +3037,90 @@
           },
           "500": {
             "description": "Internal Server Error"
+          }
+        },
+        "tags": [
+          "Owner"
+        ]
+      }
+    },
+    "/api/owner/enquiries": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "tags": [
+          "Owner"
+        ]
+      }
+    },
+    "/api/owner/enquiries/{id}/status": {
+      "put": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "example": "any"
+                  },
+                  "notes": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -5599,6 +5783,116 @@
           "Admin"
         ],
         "summary": "Update custom GST/Platform Fee for venue"
+      }
+    },
+    "/api/admin/venues/{id}/quick-edit": {
+      "put": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "businessName": {
+                    "example": "any"
+                  },
+                  "description": {
+                    "example": "any"
+                  },
+                  "areaSqft": {
+                    "example": "any"
+                  },
+                  "capacity": {
+                    "example": "any"
+                  },
+                  "foodType": {
+                    "example": "any"
+                  },
+                  "venueType": {
+                    "example": "any"
+                  },
+                  "status": {
+                    "example": "any"
+                  },
+                  "rejectionReason": {
+                    "example": "any"
+                  },
+                  "suspensionReason": {
+                    "example": "any"
+                  },
+                  "location": {
+                    "example": "any"
+                  },
+                  "pricing": {
+                    "example": "any"
+                  },
+                  "availability": {
+                    "example": "any"
+                  },
+                  "amenities": {
+                    "example": "any"
+                  },
+                  "customPlatformFee": {
+                    "example": "any"
+                  },
+                  "customGST": {
+                    "example": "any"
+                  },
+                  "customCommission": {
+                    "example": "any"
+                  },
+                  "ownerInfo": {
+                    "example": "any"
+                  },
+                  "documents": {
+                    "example": "any"
+                  },
+                  "bankDetails": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
       }
     },
     "/api/admin/users": {
@@ -9182,6 +9476,34 @@
         "responses": {
           "200": {
             "description": "OK"
+          }
+        },
+        "tags": [
+          "Bookings"
+        ]
+      }
+    },
+    "/api/bookings/venue-enquiries/my": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
           }
         },
         "tags": [

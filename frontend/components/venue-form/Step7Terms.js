@@ -124,11 +124,16 @@ export default function Step7Terms() {
         },
         availability: {
           openingTime: formData.pricing?.openingTime || '09:00',
-          closingTime: formData.pricing?.closingTime || '18:00',
+          closingTime: formData.pricing?.closingTime || '21:00',
+          onlineBookingSchedule: formData.pricing?.onlineBookingSchedule || {
+            enabled: true,
+            openingTime: formData.pricing?.onlineBookingOpeningTime || '06:00',
+            closingTime: formData.pricing?.onlineBookingClosingTime || '02:00'
+          },
           availableDays: formData.pricing?.availableDays || [],
-          advanceBookingRule: formData.pricing?.advanceBookingRule || 'Same day allowed',
+          advanceBookingRule: formData.pricing?.advanceBookingRule || '1 Day',
           blackoutDates: [],
-          confirmationHours: formData.pricing?.confirmationHours || 3
+          confirmationHours: formData.pricing?.confirmationHours !== undefined ? formData.pricing.confirmationHours : 3
         },
         
         // Step 5: Photos (with S3 URLs)
@@ -142,20 +147,41 @@ export default function Step7Terms() {
           alternatePhone: formData.ownerInfo?.alternatePhone || '',
           role: formData.ownerInfo?.role || 'Owner',
           hasGST: formData.ownerInfo?.hasGST || false,
-          gstNumber: formData.ownerInfo?.gstNumber || ''
+          gstNumber: formData.ownerInfo?.gstNumber || '',
+          gstCertificateUrl: formData.ownerInfo?.gstCertificateUrl || '',
+          gstCertificatePublicId: formData.ownerInfo?.gstCertificatePublicId || '',
+          authorisedPerson: formData.ownerInfo?.authorisedPerson || {
+            name: formData.ownerInfo?.fullName || '',
+            email: formData.ownerInfo?.email || '',
+            phone: formData.ownerInfo?.mobile || '',
+            alternatePhone: formData.ownerInfo?.alternatePhone || '',
+            designation: 'Venue Owner / Proprietor'
+          }
         },
         documents: {
           idProof: {
-            type: formData.documents?.idProofType || 'Aadhaar',
-            number: formData.documents?.idProofNumber || '',
-            frontUrl: formData.documents?.idProofFrontUrl || '',
-            backUrl: formData.documents?.idProofBackUrl || ''
+            type: formData.documents?.idProof?.type || 'Both',
+            number: formData.documents?.idProof?.aadhaarNumber || formData.documents?.idProof?.number || '',
+            frontUrl: formData.documents?.idProof?.aadhaarFrontUrl || formData.documents?.idProof?.frontUrl || '',
+            backUrl: formData.documents?.idProof?.aadhaarBackUrl || formData.documents?.idProof?.backUrl || '',
+            aadhaarNumber: formData.documents?.idProof?.aadhaarNumber || '',
+            aadhaarFrontUrl: formData.documents?.idProof?.aadhaarFrontUrl || '',
+            aadhaarBackUrl: formData.documents?.idProof?.aadhaarBackUrl || '',
+            aadhaarFrontPublicId: formData.documents?.idProof?.aadhaarFrontPublicId || '',
+            aadhaarBackPublicId: formData.documents?.idProof?.aadhaarBackPublicId || '',
+            panNumber: formData.documents?.idProof?.panNumber || '',
+            panUrl: formData.documents?.idProof?.panUrl || '',
+            panPublicId: formData.documents?.idProof?.panPublicId || '',
+            gstDocUrl: formData.documents?.idProof?.gstDocUrl || '',
+            gstDocPublicId: formData.documents?.idProof?.gstDocPublicId || ''
           },
           selfieUrl: formData.documents?.selfieUrl || '',
+          selfiePublicId: formData.documents?.selfiePublicId || '',
           businessProof: {
-            type: formData.documents?.businessProofType || 'GST Certificate',
-            documentUrl: formData.documents?.businessProofUrl || '',
-            otherSpecify: formData.documents?.businessProofOther || ''
+            type: formData.documents?.businessProof?.type || formData.documents?.businessProofType || 'Udyam Aadhaar (MSME)',
+            documentUrl: formData.documents?.businessProof?.documentUrl || formData.documents?.businessProofUrl || '',
+            publicId: formData.documents?.businessProof?.publicId || formData.documents?.businessProofPublicId || '',
+            otherSpecify: formData.documents?.businessProof?.otherSpecify || formData.documents?.businessProofOther || ''
           },
           verified: false
         },

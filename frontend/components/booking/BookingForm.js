@@ -7,12 +7,12 @@ import toast from 'react-hot-toast';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { 
-  Clock, IndianRupee, X, CheckCircle
+  Clock, IndianRupee, X, CheckCircle, Send
 } from 'lucide-react';
 import Image from 'next/image';
 import QuotationView from './QuotationView';
 import { trackCustomEvent } from '@/lib/analytics';
-import { calculatePlatformFee, formatPlatformFeeLabel, getVenuePricingMeta, isWeekendDate, numberOr, roundMoney } from '@/lib/venuePricing';
+import { calculatePlatformFee, formatPlatformFeeLabel, getVenuePricingMeta, isWeekendDate, numberOr, roundMoney, getMinAdvanceBookingDate, isOnlineBookingOpen, formatTime12Hour } from '@/lib/venuePricing';
 
 function getCapacityLimit(capacity) {
   const text = String(capacity || '').trim();
@@ -21,13 +21,24 @@ function getCapacityLimit(capacity) {
   return values.length ? Math.max(...values) : null;
 }
 
-export default function BookingForm({ venue, initialData = {}, initialAmenities = {}, initialQuantities = {}, onClose }) {
+export default function BookingForm({ 
+  venue, 
+  initialData = {}, 
+  initialAmenities = {}, 
+  initialQuantities = {}, 
+  initialEnquiryData = null,
+  isEnquiryMode = false,
+  onClose 
+}) {
   const router = useRouter();
   const { user, token } = useAuthStore();
   const capacityLimit = getCapacityLimit(venue?.capacity);
   const [submitting, setSubmitting] = useState(false);
   const [showQuotation, setShowQuotation] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(null); // { bookingNumber, bookingId }
+  const [enquirySuccess, setEnquirySuccess] = useState(null); // { enquiryNumber, id }
+  const [offHoursModalOpen, setOffHoursModalOpen] = useState(false);
+  const [pendingEnquiryPayload, setPendingEnquiryPayload] = useState(null);
   const [terms, setTerms] = useState(null);
   const [bookedDates, setBookedDates] = useState([]);
   const [platformSettings, setPlatformSettings] = useState({
@@ -159,20 +170,55 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
 
   // Form state - Initialize with passed data
   const [formData, setFormData] = useState({
-    bookingType: mapDurationToBookingType(getDefaultDuration()),
-    duration: getDefaultDuration(),
-    bookingDate: formatDateForInput(initialData?.date) || '',
-    startTime: initialData?.startTime || '',
-    endTime: calculateEndTime(initialData?.startTime, getDefaultDuration()) || initialData?.endTime || '',
-    isWeekend: isWeekendDate(initialData?.date),
-    customerName: user?.name || '',
-    customerEmail: user?.email || '',
-    customerPhone: user?.phone || '',
-    eventType: '',
-    guestCount: initialData?.guestCount || '',
-    specialRequirements: '',
+    bookingType: initialEnquiryData?.bookingDetails?.bookingType || mapDurationToBookingType(getDefaultDuration()),
+    duration: initialEnquiryData?.bookingDetails?.duration || getDefaultDuration(),
+    bookingDate: formatDateForInput(initialData?.date || initialEnquiryData?.bookingDetails?.bookingDate || initialEnquiryData?.bookingDetails?.date) || '',
+    startTime: initialData?.startTime || initialEnquiryData?.bookingDetails?.startTime || '',
+    endTime: calculateEndTime(initialData?.startTime || initialEnquiryData?.bookingDetails?.startTime, initialEnquiryData?.bookingDetails?.duration || getDefaultDuration()) || initialData?.endTime || initialEnquiryData?.bookingDetails?.endTime || '',
+    isWeekend: isWeekendDate(initialData?.date || initialEnquiryData?.bookingDetails?.bookingDate || initialEnquiryData?.bookingDetails?.date),
+    customerName: initialEnquiryData?.customerDetails?.name || user?.name || '',
+    customerEmail: initialEnquiryData?.customerDetails?.email || user?.email || '',
+    customerPhone: initialEnquiryData?.customerDetails?.phone || user?.phone || '',
+    eventType: initialEnquiryData?.customerDetails?.eventType || '',
+    guestCount: initialData?.guestCount || initialEnquiryData?.customerDetails?.guestCount || '',
+    specialRequirements: initialEnquiryData?.customerDetails?.specialRequirements || initialEnquiryData?.notes || '',
     acceptTerms: false
   });
+
+  // Keep formData in sync if initialEnquiryData or initialData loads after mount
+  useEffect(() => {
+    if (initialEnquiryData) {
+      const bd = initialEnquiryData.bookingDetails || {};
+      const cd = initialEnquiryData.customerDetails || {};
+      const rawDate = bd.bookingDate || bd.date;
+      const duration = bd.duration || getDefaultDuration();
+      const startTime = bd.startTime || '';
+      setFormData(prev => ({
+        ...prev,
+        bookingType: bd.bookingType || mapDurationToBookingType(duration),
+        duration: String(duration),
+        bookingDate: formatDateForInput(rawDate) || prev.bookingDate,
+        startTime: startTime || prev.startTime,
+        endTime: calculateEndTime(startTime, duration) || bd.endTime || prev.endTime,
+        isWeekend: isWeekendDate(rawDate),
+        customerName: cd.name || prev.customerName || user?.name || '',
+        customerEmail: cd.email || prev.customerEmail || user?.email || '',
+        customerPhone: cd.phone || prev.customerPhone || user?.phone || '',
+        eventType: cd.eventType || bd.purpose || prev.eventType,
+        guestCount: cd.guestCount || bd.guests || prev.guestCount,
+        specialRequirements: cd.specialRequirements || initialEnquiryData.notes || prev.specialRequirements
+      }));
+    } else if (initialData?.date || initialData?.startTime) {
+      setFormData(prev => ({
+        ...prev,
+        bookingDate: formatDateForInput(initialData.date) || prev.bookingDate,
+        startTime: initialData.startTime || prev.startTime,
+        duration: initialData.duration || prev.duration,
+        guestCount: initialData.guestCount || prev.guestCount,
+        isWeekend: isWeekendDate(initialData.date)
+      }));
+    }
+  }, [initialEnquiryData, initialData]);
 
   // Use amenities and quantities passed from parent (venue details page)
   // Ensure all categories exist with default empty arrays
@@ -655,7 +701,50 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
         }
       };
 
-      // Check KYC verification in frontend first
+      // Build enquiry payload for off-hours draft option
+      const enquiryPayload = {
+        customerId: user?._id || null,
+        customerDetails: {
+          name: formData.customerName,
+          email: formData.customerEmail,
+          phone: formData.customerPhone,
+          company: user?.companyName || '',
+          gstin: user?.gstNumber || '',
+          eventType: formData.eventType,
+          guestCount: Number(formData.guestCount),
+          specialRequirements: formData.specialRequirements
+        },
+        bookingDetails: {
+          date: formData.bookingDate,
+          bookingDate: formData.bookingDate,
+          startTime: formData.startTime,
+          endTime: formData.endTime,
+          duration: formData.duration,
+          bookingType: formData.bookingType,
+          guests: Number(formData.guestCount),
+          purpose: formData.eventType,
+          specialRequests: formData.specialRequirements
+        },
+        selectedAmenities: amenitiesWithDetails,
+        estimatedAmount: calculatedPrice.total,
+        priceBreakdown: {
+          ...calculatedPrice,
+          discount: calculatedPrice.discount || 0,
+          total: calculatedPrice.total
+        },
+        notes: formData.specialRequirements
+      };
+
+      // Check online booking schedule at confirmation time
+      const isBookingOpen = isOnlineBookingOpen(venue?.availability);
+      if (!isBookingOpen) {
+        setSubmitting(false);
+        setPendingEnquiryPayload(enquiryPayload);
+        setOffHoursModalOpen(true);
+        return;
+      }
+
+      // Online Booking KYC check
       if (user?.role === 'customer' && (!user?.kyc?.idProof || !user?.kyc?.selfie)) {
         toast.error('Please complete your KYC verification to book a venue.');
         setSubmitting(false);
@@ -691,14 +780,81 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
     }
   };
 
+  const handleSendEnquiryFromPrompt = async () => {
+    if (!pendingEnquiryPayload) return;
+    setSubmitting(true);
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues/sku/${venue.sku}/enquiry`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(pendingEnquiryPayload)
+      });
+
+      const data = await res.json();
+      setSubmitting(false);
+      setOffHoursModalOpen(false);
+
+      if (data.success) {
+        setEnquirySuccess({
+          enquiryNumber: data.enquiry?.enquiryNumber || 'ENQ-SUBMITTED',
+          id: data.enquiry?._id
+        });
+        toast.success('Booking enquiry draft submitted successfully! 📋');
+      } else {
+        toast.error(data.message || 'Failed to submit enquiry');
+      }
+    } catch (err) {
+      console.error('Enquiry submission error:', err);
+      setSubmitting(false);
+      toast.error('Failed to submit enquiry');
+    }
+  };
+
+  if (enquirySuccess) {
+    return (
+      <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md text-center p-8 border border-gray-100 dark:border-slate-800">
+          <div className="w-20 h-20 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-5">
+            <Send className="w-10 h-10 text-amber-600 dark:text-amber-400" />
+          </div>
+          <h2 className="text-2xl font-black text-gray-900 dark:text-slate-100 mb-2">Enquiry Sent!</h2>
+          <p className="text-sm text-gray-500 dark:text-slate-400 mb-1">Your enquiry reference number is</p>
+          <p className="text-xl font-black text-amber-600 bg-amber-50 dark:bg-amber-950/40 rounded-xl px-4 py-2 inline-block mb-4 tracking-wider border border-amber-200 dark:border-amber-800">
+            {enquirySuccess.enquiryNumber}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-slate-400 mb-6 leading-relaxed">
+            The venue owner has received your requirements and will reach out to you. When online booking is open, you can complete the booking in one click from your draft.
+          </p>
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={() => { onClose(); router.push('/customer/enquiries'); }}
+              className="w-full py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-bold text-sm transition-colors shadow-lg shadow-primary-200 dark:shadow-none"
+            >
+              View My Enquiries
+            </button>
+            <button
+              onClick={onClose}
+              className="w-full py-3 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 rounded-xl font-bold text-sm transition-colors"
+            >
+              Back to Venue
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (bookingSuccess) {
     return (
       <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm text-center p-8">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm text-center p-8">
           <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
             <CheckCircle className="w-11 h-11 text-green-600" />
           </div>
-          <h2 className="text-2xl font-black text-gray-900 mb-2">Booking Confirmed!</h2>
+          <h2 className="text-2xl font-black text-gray-900 dark:text-slate-100 mb-2">Booking Confirmed!</h2>
           <p className="text-sm text-gray-500 mb-1">Your booking number is</p>
           <p className="text-xl font-black text-primary-600 bg-primary-50 rounded-xl px-4 py-2 inline-block mb-4 tracking-wider">
             {bookingSuccess.bookingNumber}
@@ -726,10 +882,14 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
   if (submitting) {
     return (
       <div className="fixed inset-0 z-[250] bg-black/70 backdrop-blur-md flex flex-col items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm text-center p-8 flex flex-col items-center">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm text-center p-8 flex flex-col items-center">
           <div className="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mb-6"></div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Processing Your Booking</h2>
-          <p className="text-sm text-gray-500">Please do not close this window or refresh the page. We are verifying your payment and securing your reservation...</p>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100 mb-2">
+            Processing Your Request
+          </h2>
+          <p className="text-sm text-gray-500">
+            Please do not close this window or refresh the page...
+          </p>
         </div>
       </div>
     );
@@ -757,7 +917,9 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
         <div className="flex items-center gap-3">
           <Image src="/logo.png" alt="RentalMeet" width={120} height={36} className="h-8 w-auto object-contain" />
           <div>
-            <h2 className="text-lg md:text-xl font-bold text-dark-800 dark:text-slate-100">Book Venue</h2>
+            <h2 className="text-lg md:text-xl font-bold text-dark-800 dark:text-slate-100">
+              Book Venue
+            </h2>
             <p className="text-xs text-gray-500 dark:text-slate-400">{venue.businessName}</p>
           </div>
         </div>
@@ -769,6 +931,20 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
       {/* Form Content - Scrollable */}
       <form onSubmit={(e) => { e.preventDefault(); setShowQuotation(true); }} className="max-w-4xl mx-auto px-4 py-6 md:px-6 md:py-8">
         <div className="space-y-6">
+
+          {/* Off-hours banner */}
+          {isEnquiryMode && (
+            <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 rounded-xl p-4 flex items-start gap-3">
+              <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-bold text-amber-900 dark:text-amber-200">Online Booking is currently closed for this venue</p>
+                <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+                  Your requirements will be submitted directly as an Enquiry Draft to the venue owner without immediate payment. You and the owner will receive full records, and you can complete the booking in 1-click once online booking opens!
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Duration Selection */}
           <div>
             <label className="block text-sm font-semibold text-dark-700 dark:text-slate-200 mb-3">Select Duration *</label>
@@ -814,7 +990,7 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
                   const iso = formatDateForInput(date);
                   handleDateChange({ target: { value: iso } });
                 }}
-                minDate={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d; })()}
+                minDate={getMinAdvanceBookingDate(venue?.availability?.advanceBookingRule)}
                 filterDate={(date) => {
                   const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
                   const dayName = dayNames[date.getDay()];
@@ -905,8 +1081,6 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
             </div>
           </div>
 
-
-
           {/* Price Summary */}
           <div className="bg-gradient-to-br from-primary-50 to-blue-50 dark:from-slate-800 dark:to-slate-800 border-2 border-primary-200 dark:border-slate-700 rounded-xl p-6">
             <h3 className="text-base font-bold mb-4 text-slate-900 dark:text-slate-100">Price Summary</h3>
@@ -970,7 +1144,7 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
             </div>
 
             {/* Coupon Input */}
-            {token && (
+            {token && !isEnquiryMode && (
               <div className="mb-4">
                 {appliedCoupon ? (
                   <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2">
@@ -1000,7 +1174,7 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
             )}
 
             <div className="flex justify-between items-center pt-4 border-t-2 border-primary-300">
-              <span className="text-base font-bold">Total Amount:</span>
+              <span className="text-base font-bold">Estimated Total:</span>
               <div className="text-right">
                 <p className="text-2xl md:text-3xl font-bold text-primary-600 flex items-center">
                   <IndianRupee className="w-6 h-6" />₹{calculatedPrice.total.toLocaleString()}
@@ -1012,9 +1186,9 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
 
           {/* Terms & Conditions */}
           {terms && (
-            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-              <h3 className="text-base font-bold text-gray-900 mb-4">Terms & Conditions:</h3>
-              <ul className="space-y-2 text-sm text-gray-700">
+            <div className="bg-gray-50 dark:bg-slate-800/40 rounded-xl p-6 border border-gray-200 dark:border-slate-700">
+              <h3 className="text-base font-bold text-gray-900 dark:text-slate-100 mb-4">Terms & Conditions:</h3>
+              <ul className="space-y-2 text-sm text-gray-700 dark:text-slate-300">
                 {terms.bookingTerms?.map((term, index) => (
                   <li key={index} className="flex gap-2">
                     <span className="text-primary-500 font-bold flex-shrink-0">•</span>
@@ -1035,18 +1209,18 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
               className="w-5 h-5 rounded border-2 border-gray-300 text-primary-500 focus:ring-2 focus:ring-primary-500 focus:ring-offset-0 cursor-pointer mt-0.5" 
               required 
             />
-            <label className="text-sm text-gray-700">
+            <label className="text-sm text-gray-700 dark:text-slate-300">
               I agree to the booking terms and conditions, cancellation policy, and understand that this is a booking request subject to venue owner approval.
             </label>
           </div>
         </div>
 
         {/* Action Buttons - Fixed at bottom */}
-        <div className="sticky bottom-0 bg-white border-t px-4 py-4 md:px-6 md:py-5 flex gap-3 shadow-lg">
+        <div className="sticky bottom-0 bg-white dark:bg-slate-900 border-t border-gray-200 dark:border-slate-800 px-4 py-4 md:px-6 md:py-5 flex gap-3 shadow-lg">
           <button 
             type="button" 
             onClick={onClose} 
-            className="px-6 py-3 border-2 border-gray-300 rounded-xl text-base font-semibold hover:bg-gray-50 transition-colors"
+            className="px-6 py-3 border-2 border-gray-300 dark:border-slate-700 rounded-xl text-base font-semibold hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
           >
             Cancel
           </button>
@@ -1072,7 +1246,7 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
             className={`flex-1 px-6 py-3 rounded-xl text-base font-semibold flex items-center justify-center gap-2 transition-all ${
               !calculatedPrice.total 
                 ? 'bg-gray-300 cursor-not-allowed' 
-                : 'bg-white border-2 border-primary-500 text-primary-600 hover:bg-primary-50'
+                : 'bg-white dark:bg-slate-800 border-2 border-primary-500 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20'
             }`}
           >
             <CheckCircle className="w-5 h-5" />
@@ -1085,7 +1259,7 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
             className={`flex-1 px-6 py-3 rounded-xl text-base font-semibold flex items-center justify-center gap-2 transition-all ${
               !calculatedPrice.total || submitting
                 ? 'bg-gray-300 cursor-not-allowed' 
-                : 'bg-primary-500 text-white hover:bg-primary-600 shadow-lg shadow-primary-200'
+                : 'bg-primary-500 text-white hover:bg-primary-600 shadow-lg shadow-primary-200 dark:shadow-none'
             }`}
           >
             {submitting ? (
@@ -1102,6 +1276,53 @@ export default function BookingForm({ venue, initialData = {}, initialAmenities 
           </button>
         </div>
       </form>
+
+      {/* Off-Hours Confirmation Prompt Modal */}
+      {offHoursModalOpen && (
+        <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md p-6 border border-gray-100 dark:border-slate-800 text-center">
+            <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Clock className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-slate-100 mb-2">Online Booking is Closed</h3>
+            <p className="text-xs text-gray-600 dark:text-slate-400 mb-4 leading-relaxed">
+              Online bookings for <strong>{venue.businessName}</strong> are accepted between{' '}
+              <span className="font-semibold text-gray-800 dark:text-slate-200">
+                {formatTime12Hour(venue.availability?.onlineBookingSchedule?.openingTime || venue.availability?.openingTime || '06:00')} – {formatTime12Hour(venue.availability?.onlineBookingSchedule?.closingTime || venue.availability?.closingTime || '02:00')}
+              </span>.
+              <br /><br />
+              Would you like to send this request as a <strong>Booking Enquiry Draft</strong> directly to the venue owner?
+            </p>
+            <div className="flex flex-col gap-2.5">
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={handleSendEnquiryFromPrompt}
+                className="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-xl font-bold text-sm transition-all shadow-md flex items-center justify-center gap-2"
+              >
+                {submitting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Sending Enquiry Draft...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    Send Booking Enquiry
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setOffHoursModalOpen(false)}
+                className="w-full py-2.5 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300 rounded-xl font-semibold text-xs transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

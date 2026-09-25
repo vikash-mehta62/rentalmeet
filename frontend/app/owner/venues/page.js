@@ -25,11 +25,12 @@ export default function MyVenues() {
   const [selectedVenue, setSelectedVenue] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
 
-  // Disable/Block modal
-  const [manageModal, setManageModal] = useState(null); // venue object
+  // Block dates modal state
+  const [blockModal, setBlockModal] = useState(null); // venue object
   const [blockDates, setBlockDates] = useState([]);
   const [blockReason, setBlockReason] = useState('');
   const [blockLoading, setBlockLoading] = useState(false);
+  const [togglingVenueId, setTogglingVenueId] = useState(null);
   const [venueBookedDates, setVenueBookedDates] = useState([]);
 
   useEffect(() => {
@@ -41,6 +42,14 @@ export default function MyVenues() {
   useEffect(() => {
     filterVenues();
   }, [searchTerm, statusFilter, venues]);
+
+  const formatLocalDate = (d) => {
+    const dateObj = new Date(d);
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   const fetchVenues = async () => {
     try {
@@ -63,29 +72,32 @@ export default function MyVenues() {
   };
 
   const filterVenues = () => {
-    let filtered = venues;
-
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(v => v.status === statusFilter);
-    }
+    let result = [...venues];
 
     if (searchTerm) {
-      filtered = filtered.filter(v =>
+      result = result.filter(v =>
         v.businessName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        v.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         v.location?.city?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
-    setFilteredVenues(filtered);
+    if (statusFilter !== 'all') {
+      result = result.filter(v => v.status === statusFilter);
+    }
+
+    setFilteredVenues(result);
   };
 
-  const handleDelete = async (venueId) => {
+  const handleDelete = async (id) => {
     if (!confirm('Are you sure you want to delete this venue?')) return;
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/owner/venues/${venueId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/owner/venues/${id}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       const data = await response.json();
       if (data.success) fetchVenues();
@@ -123,6 +135,7 @@ export default function MyVenues() {
   };
 
   const handleToggleActive = async (venue) => {
+    setTogglingVenueId(venue._id);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/owner/venues/${venue._id}/toggle-active`, {
         method: 'PUT',
@@ -138,6 +151,8 @@ export default function MyVenues() {
       }
     } catch (e) {
       toast.error('Something went wrong');
+    } finally {
+      setTogglingVenueId(null);
     }
   };
 
@@ -145,22 +160,30 @@ export default function MyVenues() {
     if (!blockDates.length) return toast.error('Please select at least one date');
     setBlockLoading(true);
     try {
-      // Block all selected dates one by one
-      let lastBlockedDates = manageModal.blockedDates || [];
+      let lastBlockedDates = blockModal.blockedDates || [];
+      let successCount = 0;
       for (const date of blockDates) {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/owner/venues/${manageModal._id}/blocked-dates`, {
+        const dateStr = formatLocalDate(date);
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/owner/venues/${blockModal._id}/blocked-dates`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ date, reason: blockReason || 'Blocked by owner' })
+          body: JSON.stringify({ date: dateStr, reason: blockReason || 'Blocked by owner' })
         });
         const data = await res.json();
-        if (data.success) lastBlockedDates = data.blockedDates;
+        if (data.success) {
+          lastBlockedDates = data.blockedDates;
+          successCount++;
+        } else {
+          toast.error(data.message || 'Failed to block date');
+        }
       }
-      toast.success(`${blockDates.length} date(s) blocked successfully`);
-      setBlockDates([]);
-      setBlockReason('');
-      fetchVenues();
-      setManageModal(prev => ({ ...prev, blockedDates: lastBlockedDates }));
+      if (successCount > 0) {
+        toast.success(`${successCount} date(s) blocked successfully`);
+        setBlockDates([]);
+        setBlockReason('');
+        fetchVenues();
+        setBlockModal(prev => (prev ? { ...prev, blockedDates: lastBlockedDates } : null));
+      }
     } catch (e) {
       toast.error('Something went wrong');
     } finally {
@@ -178,15 +201,17 @@ export default function MyVenues() {
       if (data.success) {
         toast.success('Date unblocked');
         fetchVenues();
-        setManageModal(prev => ({ ...prev, blockedDates: data.blockedDates }));
+        setBlockModal(prev => (prev ? { ...prev, blockedDates: data.blockedDates } : null));
+      } else {
+        toast.error(data.message || 'Failed to unblock date');
       }
     } catch (e) {
       toast.error('Something went wrong');
     }
   };
 
-  const openManageModal = async (venue) => {
-    setManageModal(venue);
+  const openBlockDatesModal = async (venue) => {
+    setBlockModal(venue);
     setBlockDates([]);
     setBlockReason('');
     try {
@@ -385,29 +410,30 @@ export default function MyVenues() {
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => openModal(venue)}
-                    className="flex-1 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg font-semibold transition-colors text-center flex items-center justify-center gap-1 text-sm"
+                    className="w-full h-10 px-3 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl font-semibold transition-colors flex items-center justify-center gap-1.5 text-xs sm:text-sm border border-blue-100 shadow-sm"
                   >
                     <Eye className="w-4 h-4" />
-                    View
+                    <span>View</span>
                   </button>
                   <Link
                     href={`/owner/venues/${venue._id}/edit`}
-                    className="flex-1 px-3 py-2 bg-primary-50 hover:bg-primary-100 text-primary-600 rounded-lg font-semibold transition-colors text-center flex items-center justify-center gap-1 text-sm"
+                    className="w-full h-10 px-3 bg-primary-50 hover:bg-primary-100 text-primary-600 rounded-xl font-semibold transition-colors flex items-center justify-center gap-1.5 text-xs sm:text-sm border border-primary-100 shadow-sm"
                   >
                     <Edit className="w-4 h-4" />
-                    Edit
+                    <span>Edit</span>
                   </Link>
                   {/* Delete only for non-approved venues */}
                   {venue.status !== 'approved' && (
                     <button
                       onClick={() => handleDelete(venue._id)}
-                      className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg font-semibold transition-colors"
+                      className="col-span-2 w-full h-9 px-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-semibold transition-colors flex items-center justify-center gap-1.5 text-xs border border-red-100"
                       title="Delete venue"
                     >
                       <Trash2 className="w-4 h-4" />
+                      <span>Delete Venue</span>
                     </button>
                   )}
                 </div>
@@ -481,17 +507,41 @@ export default function MyVenues() {
 
                 {/* Approved venue extra controls */}
                 {venue.status === 'approved' && (
-                  <div className="flex gap-2 mt-2">
+                  <div className="grid grid-cols-2 gap-2 mt-2.5 pt-2.5 border-t border-gray-100">
+                    {/* Temporarily Disable / Enable Venue button */}
                     <button
-                      onClick={() => openManageModal(venue)}
-                      className={`flex-1 px-3 py-2 rounded-lg font-semibold transition-colors text-sm flex items-center justify-center gap-1 ${
+                      onClick={() => handleToggleActive(venue)}
+                      disabled={togglingVenueId === venue._id}
+                      className={`w-full h-10 px-2 rounded-xl font-semibold transition-all text-xs flex items-center justify-center gap-1.5 shadow-sm border ${
                         venue.isActive !== false
-                          ? 'bg-orange-50 hover:bg-orange-100 text-orange-600'
-                          : 'bg-green-50 hover:bg-green-100 text-green-600'
-                      }`}
+                          ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
+                          : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
+                      } ${togglingVenueId === venue._id ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      title={venue.isActive !== false ? 'Temporarily hide venue from listings' : 'Activate and show venue in listings'}
                     >
-                      {venue.isActive !== false ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
-                      {venue.isActive !== false ? 'Temporarily Disable' : 'Enable Venue'}
+                      {togglingVenueId === venue._id ? (
+                        <span className="inline-block w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      ) : venue.isActive !== false ? (
+                        <PowerOff className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+                      ) : (
+                        <Power className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                      )}
+                      <span className="whitespace-nowrap truncate">{venue.isActive !== false ? 'Temporarily Disable' : 'Enable Venue'}</span>
+                    </button>
+
+                    {/* Block Dates button */}
+                    <button
+                      onClick={() => openBlockDatesModal(venue)}
+                      className="w-full h-10 px-2 rounded-xl font-semibold transition-all text-xs flex items-center justify-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 shadow-sm"
+                      title="Block specific dates for this venue"
+                    >
+                      <CalendarX className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+                      <span className="whitespace-nowrap">Block Dates</span>
+                      {venue.blockedDates?.length > 0 && (
+                        <span className="bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none">
+                          {venue.blockedDates.length}
+                        </span>
+                      )}
                     </button>
                   </div>
                 )}
@@ -510,71 +560,39 @@ export default function MyVenues() {
         />
       )}
 
-      {/* Manage Venue Modal — 2 options */}
-      {manageModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setManageModal(null)}>
+      {/* Block Dates Modal */}
+      {blockModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4" onClick={() => setBlockModal(null)}>
           <div
-            className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[90vh] flex flex-col"
+            className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[90vh] flex flex-col overflow-hidden"
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center">
-                  <CalendarX className="w-5 h-5 text-primary-600" />
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <CalendarX className="w-5 h-5 text-blue-600" />
                 </div>
-                <div>
-                  <h2 className="text-base font-bold text-gray-900">Manage Availability</h2>
-                  <p className="text-xs text-gray-400 truncate max-w-[200px]">{manageModal.businessName}</p>
+                <div className="min-w-0">
+                  <h2 className="text-base font-bold text-gray-900 leading-tight">Block Specific Dates</h2>
+                  <p className="text-xs text-gray-500 truncate max-w-[240px]">{blockModal.businessName}</p>
                 </div>
               </div>
-              <button onClick={() => setManageModal(null)} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+              <button onClick={() => setBlockModal(null)} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
                 <X className="w-5 h-5 text-gray-400" />
               </button>
             </div>
 
             <div className="overflow-y-auto flex-1 px-6 py-5 space-y-4">
-
-              {/* Toggle Active/Inactive */}
-              <div className={`rounded-2xl p-4 border-2 ${manageModal.isActive !== false ? 'border-orange-200 bg-orange-50' : 'border-green-200 bg-green-50'}`}>
-                <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 ${manageModal.isActive !== false ? 'bg-orange-100' : 'bg-green-100'}`}>
-                    {manageModal.isActive !== false
-                      ? <PowerOff className="w-6 h-6 text-orange-600" />
-                      : <Power className="w-6 h-6 text-green-600" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-bold ${manageModal.isActive !== false ? 'text-orange-900' : 'text-green-900'}`}>
-                      {manageModal.isActive !== false ? 'Disable Until Re-enabled' : 'Re-enable Venue'}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
-                      {manageModal.isActive !== false
-                        ? 'Venue will be hidden from public listing until you manually enable it.'
-                        : 'Venue will become visible in public listing again.'}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => { handleToggleActive(manageModal); setManageModal(null); }}
-                    className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
-                      manageModal.isActive !== false
-                        ? 'bg-orange-500 hover:bg-orange-600 text-white'
-                        : 'bg-green-500 hover:bg-green-600 text-white'
-                    }`}
-                  >
-                    {manageModal.isActive !== false ? 'Disable' : 'Enable'}
-                  </button>
-                </div>
-              </div>
-
-              {/* Block Specific Dates */}
-              <div className="rounded-2xl border-2 border-blue-100 bg-blue-50 p-4">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
-                    <CalendarX className="w-5 h-5 text-blue-600" />
+              {/* Block Dates Form Box */}
+              <div className="rounded-2xl border-2 border-blue-100 bg-blue-50/70 p-4">
+                <div className="flex items-start gap-3 mb-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Calendar className="w-4 h-4 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-blue-900">Block Specific Dates</p>
-                    <p className="text-xs text-blue-600 mt-0.5">Disable booking for selected dates</p>
+                    <p className="text-sm font-bold text-blue-950">Select Dates to Block</p>
+                    <p className="text-xs text-blue-700 mt-0.5">Pick dates when your venue is unavailable for customer bookings.</p>
                   </div>
                 </div>
 
@@ -606,8 +624,8 @@ export default function MyVenues() {
                 {blockDates.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-3">
                     {blockDates.map((d, i) => (
-                      <span key={i} className="flex items-center gap-1 bg-blue-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
-                        {d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                      <span key={i} className="flex items-center gap-1 bg-blue-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
+                        {d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                         <button onClick={() => setBlockDates(prev => prev.filter((_, idx) => idx !== i))} className="hover:opacity-70 ml-0.5">
                           <X className="w-3 h-3" />
                         </button>
@@ -620,49 +638,64 @@ export default function MyVenues() {
                   type="text"
                   value={blockReason}
                   onChange={e => setBlockReason(e.target.value)}
-                  placeholder="Reason (optional) — e.g. External booking"
+                  placeholder="Reason (optional) — e.g. Maintenance, Private booking"
                   className="w-full mt-3 px-3 py-2.5 border border-blue-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-400 bg-white text-gray-800 placeholder-gray-400"
                 />
 
                 <button
                   onClick={handleAddBlockedDate}
                   disabled={blockLoading || !blockDates.length}
-                  className="w-full mt-3 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-bold text-sm transition-colors"
+                  className="w-full mt-3 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-bold text-sm transition-colors shadow-sm"
                 >
                   {blockLoading ? 'Blocking...' : `Block ${blockDates.length > 0 ? blockDates.length + ' Date(s)' : 'Selected Dates'}`}
                 </button>
               </div>
 
               {/* Existing blocked dates */}
-              {manageModal.blockedDates?.length > 0 && (
+              {blockModal.blockedDates?.length > 0 ? (
                 <div>
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-                    Currently Blocked ({manageModal.blockedDates.length})
-                  </p>
-                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                    {manageModal.blockedDates.map((b) => (
-                      <div key={b._id} className="flex items-center justify-between bg-white border border-red-100 rounded-xl px-4 py-2.5 shadow-sm">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
-                            <CalendarX className="w-4 h-4 text-red-500" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold text-gray-800">
-                              {new Date(b.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                            </p>
-                            {b.reason && <p className="text-xs text-gray-400">{b.reason}</p>}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleRemoveBlockedDate(manageModal._id, b._id)}
-                          className="p-1.5 hover:bg-red-50 rounded-lg text-red-400 hover:text-red-600 transition-colors"
-                          title="Unblock"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-bold text-gray-600 uppercase tracking-wider">
+                      Currently Blocked ({blockModal.blockedDates.length})
+                    </p>
                   </div>
+                  <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                    {blockModal.blockedDates.map((b) => {
+                      const d = new Date(b.date);
+                      const dateLabel = isNaN(d.getTime())
+                        ? b.date
+                        : d.toLocaleDateString('en-IN', {
+                            timeZone: 'Asia/Kolkata',
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric'
+                          });
+                      return (
+                        <div key={b._id} className="flex items-center justify-between bg-white border border-red-100 rounded-xl px-4 py-2.5 shadow-sm hover:border-red-200 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
+                              <CalendarX className="w-4 h-4 text-red-500" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-gray-800">{dateLabel}</p>
+                              {b.reason && <p className="text-xs text-gray-500">{b.reason}</p>}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleRemoveBlockedDate(blockModal._id, b._id)}
+                            className="p-1.5 hover:bg-red-50 rounded-lg text-red-400 hover:text-red-600 transition-colors"
+                            title="Unblock date"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-4 text-xs text-gray-400">
+                  No dates are currently blocked for this venue.
                 </div>
               )}
 

@@ -46,7 +46,8 @@ const {
   getAmbassadorDetails,
   updateAmbassadorStatus,
   getAllAmbassadorPayouts,
-  updateAmbassadorPayoutStatus
+  updateAmbassadorPayoutStatus,
+  adminQuickEditVenue
 } = require('../controllers/adminController');
 const { protect, authorize, checkPermission } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
@@ -273,6 +274,7 @@ router.put('/venues/:id/reject', protect, authorize('admin', 'subadmin'), checkP
 router.put('/venues/:id/suspend', protect, authorize('admin', 'subadmin'), checkPermission('venues'), suspendVenue);
 router.put('/venues/:id/activate', protect, authorize('admin', 'subadmin'), checkPermission('venues'), activateVenue);
 router.put('/venues/:id/settings', protect, authorize('admin', 'subadmin'), checkPermission('venues'), updateVenueSettings);
+router.put('/venues/:id/quick-edit', protect, authorize('admin', 'subadmin'), checkPermission('venues'), adminQuickEditVenue);
 
 // User routes
 router.get('/users', protect, authorize('admin'), checkPermission('users'), getAllUsers);

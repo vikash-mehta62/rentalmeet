@@ -224,7 +224,7 @@ export default function Navbar() {
                         <Link href="/register?role=vendor" onClick={() => setRegisterDropdownOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
                           <Settings className="w-4 h-4" /> List Your Service
                         </Link>
-                        <Link href="/register-ambassador" onClick={() => setRegisterDropdownOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-slate-700 transition-colors">
+                        <Link href="/ambassador-program" onClick={() => setRegisterDropdownOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-slate-700 transition-colors">
                           <Award className="w-4 h-4 text-amber-500" /> Venue Ambassador
                         </Link>
                       </div>

@@ -8,7 +8,12 @@ router.get('/quick-replies', async (req, res) => {
   try {
     let settings = await ChatbotSettings.findOne();
     if (!settings) settings = await ChatbotSettings.create({});
-    res.json({ success: true, quickReplies: settings.quickReplies, welcomeMessage: settings.welcomeMessage });
+    res.json({
+      success: true,
+      isEnabled: settings.isEnabled !== false,
+      quickReplies: settings.quickReplies,
+      welcomeMessage: settings.welcomeMessage
+    });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }

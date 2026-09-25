@@ -36,6 +36,24 @@ router.get('/booked-dates/:sku', async (req, res) => {
 
 router.use(protect);
 
+// Customer: Get my venue draft enquiries
+router.get('/venue-enquiries/my', async (req, res) => {
+  try {
+    const VenueEnquiry = require('../models/VenueEnquiry');
+    const userEmail = (req.user.email || '').toLowerCase().trim();
+    const query = userEmail 
+      ? { $or: [{ customer: req.user._id }, { 'customerDetails.email': new RegExp(`^${userEmail}$`, 'i') }] }
+      : { customer: req.user._id };
+
+    const enquiries = await VenueEnquiry.find(query)
+      .populate('venue', 'businessName sku images location pricing availability')
+      .sort('-createdAt');
+    res.json({ success: true, enquiries });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 router.route('/')
   .get(getBookings)
   .post(createBooking); // Remove authorize - any logged in user can book
