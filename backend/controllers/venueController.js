@@ -36,6 +36,32 @@ exports.createVenue = async (req, res) => {
 
     // Set Owner & Ambassador
     if (req.user.role === 'ambassador') {
+      const AmbassadorProfile = require('../models/AmbassadorProfile');
+      const ambProfile = await AmbassadorProfile.findOne({ user: req.user.id });
+      if (ambProfile) {
+        const approvedTime = ambProfile.verifiedAt ? new Date(ambProfile.verifiedAt).getTime() : new Date(ambProfile.createdAt).getTime();
+        const daysSinceApproval = Math.floor((Date.now() - approvedTime) / (1000 * 60 * 60 * 24));
+        const totalSubmitted = ambProfile.totalVenuesSubmitted || 0;
+        
+        if ((ambProfile.applicationStatus === 'approved' || ambProfile.status === 'approved') && totalSubmitted === 0 && daysSinceApproval > 30) {
+          ambProfile.isActive = false;
+          ambProfile.deactivationReason = `Auto-deactivated: No venue listed within 30 days of approval (${daysSinceApproval} days inactive)`;
+          ambProfile.deactivatedAt = ambProfile.deactivatedAt || new Date();
+          await ambProfile.save();
+          return res.status(403).json({
+            success: false,
+            message: 'Your Ambassador account has been auto-deactivated because no venue was listed within 30 days of approval. Please contact support to reactivate.'
+          });
+        }
+        
+        if (ambProfile.isActive === false) {
+          return res.status(403).json({
+            success: false,
+            message: ambProfile.deactivationReason || 'Your Ambassador account is deactivated/blocked. Please contact support.'
+          });
+        }
+      }
+
       const ownerInfo = venueData.ownerInfo || {};
       const ownerMobile = (ownerInfo.mobile || '').trim();
       const ownerEmail = (ownerInfo.email || '').trim().toLowerCase();

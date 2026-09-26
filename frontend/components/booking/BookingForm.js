@@ -594,6 +594,11 @@ export default function BookingForm({
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (venue?.isBookingStopped) {
+      toast.error(venue.stopBookingReason || 'Bookings are currently paused for this venue by administration.');
+      return;
+    }
+
     if (!formData.bookingType || !formData.bookingDate || !formData.startTime || !formData.endTime || !formData.guestCount) {
       toast.error('Please fill all required fields');
       return;

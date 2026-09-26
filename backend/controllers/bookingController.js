@@ -176,6 +176,22 @@ exports.createBooking = async (req, res) => {
       });
     }
 
+    // Check if bookings have been stopped for this venue by Admin
+    if (venueDetails.isBookingStopped) {
+      return res.status(400).json({
+        success: false,
+        message: venueDetails.stopBookingReason || 'Bookings are currently paused/stopped for this venue by administration.'
+      });
+    }
+
+    // Check if venue is active and approved
+    if (venueDetails.status !== 'approved' || venueDetails.isActive === false) {
+      return res.status(400).json({
+        success: false,
+        message: 'This venue is currently not available for bookings.'
+      });
+    }
+
     // Check online booking schedule
     if (!isOnlineBookingOpen(venueDetails.availability)) {
       const sched = venueDetails.availability?.onlineBookingSchedule || {};

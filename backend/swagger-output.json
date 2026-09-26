@@ -7741,6 +7741,13 @@
             }
           },
           {
+            "name": "activity",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "search",
             "in": "query",
             "schema": {
@@ -7888,6 +7895,12 @@
                     "example": "any"
                   },
                   "rejectionReason": {
+                    "example": "any"
+                  },
+                  "isActive": {
+                    "example": "any"
+                  },
+                  "deactivationReason": {
                     "example": "any"
                   }
                 }

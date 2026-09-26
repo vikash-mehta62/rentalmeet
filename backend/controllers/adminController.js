@@ -256,6 +256,106 @@ exports.activateVenue = async (req, res) => {
   }
 };
 
+// @desc    Update venue status (approve, reject, suspend, pending, resubmitted) with reason
+// @route   PUT /api/admin/venues/:id/status
+exports.updateVenueStatus = async (req, res) => {
+  try {
+    const { status, reason } = req.body;
+    const validStatuses = ['approved', 'rejected', 'suspended', 'pending', 'resubmitted'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ success: false, message: `Invalid status. Allowed: ${validStatuses.join(', ')}` });
+    }
+
+    const venue = await Venue.findById(req.params.id).populate('owner');
+    if (!venue) {
+      return res.status(404).json({ success: false, message: 'Venue not found' });
+    }
+
+    const previousStatus = venue.status;
+    venue.status = status;
+
+    if (status === 'approved') {
+      venue.rejectionReason = undefined;
+      venue.suspensionReason = undefined;
+      venue.statusReason = undefined;
+      venue.verificationTimeline = venue.verificationTimeline || {};
+      venue.verificationTimeline.listingActivation = venue.verificationTimeline.listingActivation || new Date();
+
+      if (venue.ambassador && previousStatus !== 'approved') {
+        try {
+          const { processVenueApprovalReward } = require('../utils/ambassadorRewardHelper');
+          await processVenueApprovalReward(venue._id);
+        } catch (rewardErr) {
+          console.error('[AMBASSADOR] Error processing listing reward:', rewardErr.message);
+        }
+      }
+
+      try {
+        if (venue.owner?.email) {
+          await sendVenueApprovalEmail(venue.owner.email, venue.businessName);
+        }
+      } catch (e) {
+        console.error('[EMAIL] Failed to send venue approval email:', e.message);
+      }
+    } else if (status === 'rejected') {
+      venue.rejectionReason = reason || '';
+      venue.statusReason = reason || '';
+      if (!venue.rejectionHistory) venue.rejectionHistory = [];
+      venue.rejectionHistory.push({ reason: reason || '', rejectedAt: new Date(), rejectedBy: req.user?.id });
+
+      try {
+        if (venue.owner?.email) {
+          await sendVenueRejectionEmail(venue.owner.email, venue.businessName, reason || 'Venue does not meet requirements');
+        }
+      } catch (e) {
+        console.error('[EMAIL] Failed to send venue rejection email:', e.message);
+      }
+    } else if (status === 'suspended') {
+      venue.suspensionReason = reason || '';
+      venue.statusReason = reason || '';
+    } else {
+      venue.statusReason = reason || '';
+    }
+
+    await venue.save();
+
+    res.json({
+      success: true,
+      message: `Venue status updated to ${status} successfully`,
+      venue
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Toggle or update Stop Booking status for a venue
+// @route   PUT /api/admin/venues/:id/booking-status
+exports.updateVenueBookingStatus = async (req, res) => {
+  try {
+    const { isBookingStopped, stopBookingReason } = req.body;
+    const venue = await Venue.findById(req.params.id);
+    if (!venue) {
+      return res.status(404).json({ success: false, message: 'Venue not found' });
+    }
+
+    const stopped = Boolean(isBookingStopped);
+    venue.isBookingStopped = stopped;
+    venue.stopBookingReason = stopped ? (stopBookingReason || 'Bookings temporarily stopped by administration') : '';
+    venue.stoppedBookingAt = stopped ? new Date() : null;
+
+    await venue.save();
+
+    res.json({
+      success: true,
+      message: stopped ? 'Venue bookings have been stopped successfully 🚫' : 'Venue bookings are now allowed / active ✅',
+      venue
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // @desc    Update venue custom settings (GST, Platform Fee, Commission)
 // @route   PUT /api/admin/venues/:id/settings
 exports.updateVenueSettings = async (req, res) => {
@@ -320,6 +420,9 @@ exports.adminQuickEditVenue = async (req, res) => {
       status,
       rejectionReason,
       suspensionReason,
+      statusReason,
+      isBookingStopped,
+      stopBookingReason,
       location,
       pricing,
       availability,
@@ -343,6 +446,12 @@ exports.adminQuickEditVenue = async (req, res) => {
     if (status !== undefined) venue.status = status;
     if (rejectionReason !== undefined) venue.rejectionReason = rejectionReason;
     if (suspensionReason !== undefined) venue.suspensionReason = suspensionReason;
+    if (statusReason !== undefined) venue.statusReason = statusReason;
+    if (isBookingStopped !== undefined) {
+      venue.isBookingStopped = Boolean(isBookingStopped);
+      venue.stoppedBookingAt = venue.isBookingStopped ? new Date() : null;
+    }
+    if (stopBookingReason !== undefined) venue.stopBookingReason = stopBookingReason;
 
     // Location
     if (location && typeof location === 'object') {
@@ -2704,7 +2813,8 @@ exports.settleServiceBookingManual = async (req, res) => {
 exports.getAllAmbassadors = async (req, res) => {
   try {
     const AmbassadorProfile = require('../models/AmbassadorProfile');
-    const { status, level, search, page = 1, limit = 20 } = req.query;
+    const User = require('../models/User');
+    const { status, level, activity, search, page = 1, limit = 15 } = req.query;
 
     const query = {};
     if (status && status !== 'all') {
@@ -2714,48 +2824,142 @@ exports.getAllAmbassadors = async (req, res) => {
       ];
     }
     if (level && level !== 'all') {
+      const levelRegex = new RegExp(`^${level}`, 'i');
       query.$or = [
-        { assignedLevel: level },
-        { level: level }
+        { assignedLevel: levelRegex },
+        { level: levelRegex }
       ];
     }
 
-    const pageNum = parseInt(page);
-    const limitNum = parseInt(limit);
+    if (search && search.trim()) {
+      const s = search.trim();
+      const regex = new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const matchingUsers = await User.find({
+        $or: [
+          { name: regex },
+          { email: regex },
+          { phone: regex }
+        ]
+      }).select('_id');
+      const matchingUserIds = matchingUsers.map(u => u._id);
+
+      const searchConditions = [
+        { ambassadorId: regex },
+        { 'personalInfo.fullName': regex },
+        { 'personalInfo.email': regex },
+        { 'personalInfo.mobileNumber': regex },
+        { 'addressDetails.city': regex },
+        { 'addressDetails.state': regex },
+        { user: { $in: matchingUserIds } }
+      ];
+
+      if (query.$or) {
+        query.$and = [
+          { $or: query.$or },
+          { $or: searchConditions }
+        ];
+        delete query.$or;
+      } else {
+        query.$or = searchConditions;
+      }
+    }
+
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, parseInt(limit) || 15);
+    const total = await AmbassadorProfile.countDocuments(query);
+    const totalPages = Math.ceil(total / limitNum) || 1;
     const skip = (pageNum - 1) * limitNum;
 
-    let profiles = await AmbassadorProfile.find(query)
-      .populate('user', 'name email phone city state referralCode createdAt')
+    const profiles = await AmbassadorProfile.find(query)
+      .populate('user', 'name email phone city state referralCode createdAt role')
+      .populate('verifiedBy', 'name email')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limitNum);
 
-    if (search) {
-      const s = search.toLowerCase();
-      profiles = profiles.filter(p => 
-        p.ambassadorId?.toLowerCase().includes(s) ||
-        p.user?.name?.toLowerCase().includes(s) ||
-        p.user?.email?.toLowerCase().includes(s) ||
-        p.user?.phone?.includes(s) ||
-        p.addressDetails?.city?.toLowerCase().includes(s)
-      );
-    }
+    const now = new Date();
 
-    const total = await AmbassadorProfile.countDocuments(query);
-
-    const enrichedProfiles = profiles.map(p => {
+    const enrichedProfiles = await Promise.all(profiles.map(async (p) => {
       const pObj = p.toObject();
-      pObj.status = p.applicationStatus || p.status || 'pending';
+      const appStatus = p.applicationStatus || p.status || 'pending';
+      pObj.status = appStatus;
+      pObj.applicationStatus = appStatus;
       pObj.level = p.assignedLevel || p.level || 'LV.1 Venue Explorer';
+
+      // Application Date & Approval Date
+      pObj.applicationDate = p.createdAt;
+      pObj.approvalDate = p.verifiedAt || null;
+
+      // Active / Inactive Status based on 30-day rule:
+      // If an Ambassador does not list even 1 venue within 30 days of approval, their ID is blocked/deactivated automatically.
+      let isActive = p.isActive !== false;
+      let activityStatus = 'active';
+      let inactivityReason = p.deactivationReason || '';
+      let daysSinceApproval = 0;
+      let daysRemaining = 30;
+
+      if (appStatus === 'approved') {
+        const approvedTime = p.verifiedAt ? new Date(p.verifiedAt).getTime() : new Date(p.createdAt).getTime();
+        daysSinceApproval = Math.floor((now.getTime() - approvedTime) / (1000 * 60 * 60 * 24));
+        daysRemaining = Math.max(0, 30 - daysSinceApproval);
+
+        const totalSubmitted = p.totalVenuesSubmitted || 0;
+        if (totalSubmitted === 0 && daysSinceApproval > 30) {
+          isActive = false;
+          activityStatus = 'inactive_auto_blocked';
+          inactivityReason = `Auto-deactivated: No venue listed within 30 days of approval (${daysSinceApproval} days inactive)`;
+          if (p.isActive !== false) {
+            await AmbassadorProfile.findByIdAndUpdate(p._id, {
+              isActive: false,
+              deactivationReason: inactivityReason,
+              deactivatedAt: p.deactivatedAt || now
+            });
+          }
+        } else if (p.isActive === false) {
+          activityStatus = 'inactive_admin_blocked';
+          inactivityReason = p.deactivationReason || 'Blocked by administrator';
+        } else {
+          isActive = true;
+          activityStatus = totalSubmitted > 0 ? 'active' : 'active_grace_period';
+        }
+      } else if (appStatus === 'rejected') {
+        isActive = false;
+        activityStatus = 'rejected';
+        inactivityReason = p.rejectionReason || 'Application rejected';
+      } else {
+        isActive = false;
+        activityStatus = 'pending_review';
+      }
+
+      pObj.isActive = isActive;
+      pObj.activityStatus = activityStatus;
+      pObj.inactivityReason = inactivityReason;
+      pObj.daysSinceApproval = daysSinceApproval;
+      pObj.daysRemaining = daysRemaining;
+
       return pObj;
-    });
+    }));
+
+    // Overview Stats
+    const totalAll = await AmbassadorProfile.countDocuments({});
+    const approvedCount = await AmbassadorProfile.countDocuments({ $or: [{ applicationStatus: 'approved' }, { status: 'approved' }] });
+    const pendingCount = await AmbassadorProfile.countDocuments({ $or: [{ applicationStatus: 'pending' }, { status: 'pending' }] });
+    const rejectedCount = await AmbassadorProfile.countDocuments({ $or: [{ applicationStatus: 'rejected' }, { status: 'rejected' }] });
 
     res.json({
       success: true,
       count: enrichedProfiles.length,
       total,
-      pages: Math.ceil(total / limitNum),
+      totalCount: total,
+      pages: totalPages,
+      totalPages,
       currentPage: pageNum,
+      stats: {
+        total: totalAll,
+        approved: approvedCount,
+        pending: pendingCount,
+        rejected: rejectedCount
+      },
       ambassadors: enrichedProfiles
     });
   } catch (error) {
@@ -2773,7 +2977,8 @@ exports.getAmbassadorDetails = async (req, res) => {
     const { decrypt } = require('../utils/encryption');
 
     const profile = await AmbassadorProfile.findById(req.params.id)
-      .populate('user', 'name email phone city state referralCode createdAt');
+      .populate('user', 'name email phone city state referralCode createdAt role')
+      .populate('verifiedBy', 'name email');
 
     if (!profile) {
       return res.status(404).json({ success: false, message: 'Ambassador profile not found' });
@@ -2788,8 +2993,49 @@ exports.getAmbassadorDetails = async (req, res) => {
       .limit(20);
 
     const profileObj = profile.toObject();
-    profileObj.status = profile.applicationStatus || profile.status || 'pending';
+    const appStatus = profile.applicationStatus || profile.status || 'pending';
+    profileObj.status = appStatus;
+    profileObj.applicationStatus = appStatus;
     profileObj.level = profile.assignedLevel || profile.level || 'LV.1 Venue Explorer';
+    profileObj.applicationDate = profile.createdAt;
+    profileObj.approvalDate = profile.verifiedAt || null;
+
+    const now = new Date();
+    const approvedTime = profile.verifiedAt ? new Date(profile.verifiedAt).getTime() : new Date(profile.createdAt).getTime();
+    const daysSinceApproval = Math.floor((now.getTime() - approvedTime) / (1000 * 60 * 60 * 24));
+    const daysRemaining = Math.max(0, 30 - daysSinceApproval);
+    const totalSubmitted = profile.totalVenuesSubmitted || 0;
+
+    let isActive = profile.isActive !== false;
+    let activityStatus = 'active';
+    let inactivityReason = profile.deactivationReason || '';
+
+    if (appStatus === 'approved') {
+      if (totalSubmitted === 0 && daysSinceApproval > 30) {
+        isActive = false;
+        activityStatus = 'inactive_auto_blocked';
+        inactivityReason = `Auto-deactivated: No venue listed within 30 days of approval (${daysSinceApproval} days inactive)`;
+      } else if (profile.isActive === false) {
+        activityStatus = 'inactive_admin_blocked';
+        inactivityReason = profile.deactivationReason || 'Blocked by administrator';
+      } else {
+        isActive = true;
+        activityStatus = totalSubmitted > 0 ? 'active' : 'active_grace_period';
+      }
+    } else if (appStatus === 'rejected') {
+      isActive = false;
+      activityStatus = 'rejected';
+      inactivityReason = profile.rejectionReason || 'Application rejected';
+    } else {
+      isActive = false;
+      activityStatus = 'pending_review';
+    }
+
+    profileObj.isActive = isActive;
+    profileObj.activityStatus = activityStatus;
+    profileObj.inactivityReason = inactivityReason;
+    profileObj.daysSinceApproval = daysSinceApproval;
+    profileObj.daysRemaining = daysRemaining;
 
     if (profileObj.bankDetails?.accountNumber) {
       try {
@@ -2809,13 +3055,23 @@ exports.getAmbassadorDetails = async (req, res) => {
   }
 };
 
-// @desc    Update ambassador application status (Approve / Reject / Assign ID & Level)
+// @desc    Update ambassador application status (Approve / Reject / Assign ID & Level / Toggle Active)
 // @route   PUT /api/admin/ambassadors/:id/status
 exports.updateAmbassadorStatus = async (req, res) => {
   try {
     const AmbassadorProfile = require('../models/AmbassadorProfile');
     const User = require('../models/User');
-    const { status, ambassadorId, assignedLevel, level, badge, cityPartnerCode, rejectionReason } = req.body;
+    const {
+      status,
+      ambassadorId,
+      assignedLevel,
+      level,
+      badge,
+      cityPartnerCode,
+      rejectionReason,
+      isActive,
+      deactivationReason
+    } = req.body;
 
     const profile = await AmbassadorProfile.findById(req.params.id);
     if (!profile) {
@@ -2839,9 +3095,22 @@ exports.updateAmbassadorStatus = async (req, res) => {
     if (cityPartnerCode) profile.cityPartnerCode = cityPartnerCode;
     if (rejectionReason) profile.rejectionReason = rejectionReason;
 
+    if (isActive !== undefined) {
+      profile.isActive = Boolean(isActive);
+      if (profile.isActive === false) {
+        profile.deactivatedAt = new Date();
+        profile.deactivationReason = deactivationReason || 'Deactivated by administrator';
+      } else {
+        profile.deactivatedAt = undefined;
+        profile.deactivationReason = undefined;
+      }
+    }
+
     if (targetStatus === 'approved') {
+      if (!profile.verifiedAt) {
+        profile.verifiedAt = new Date();
+      }
       profile.verifiedBy = req.user._id;
-      profile.verifiedAt = new Date();
 
       // Upgrade user role to ambassador in User collection
       if (profile.user) {
@@ -2855,10 +3124,12 @@ exports.updateAmbassadorStatus = async (req, res) => {
     const profileObj = profile.toObject();
     profileObj.status = profile.applicationStatus || targetStatus;
     profileObj.level = profile.assignedLevel || targetLevel;
+    profileObj.applicationDate = profile.createdAt;
+    profileObj.approvalDate = profile.verifiedAt || null;
 
     res.json({
       success: true,
-      message: `Ambassador application updated to ${targetStatus}`,
+      message: `Ambassador profile updated successfully`,
       ambassador: profileObj
     });
   } catch (error) {

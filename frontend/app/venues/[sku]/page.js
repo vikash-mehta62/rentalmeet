@@ -1432,25 +1432,34 @@ export default function VenueDetail() {
                     </div>
                   )}
 
-                  {/* Reserve Now Button */}
-                  <button
-                    onClick={() => {
-                      if (!token) {
-                        setLoginModalOpen(true);
-                        return;
-                      }
-                      // KYC check — customer must have ID proof + selfie
-                      if (user?.role === 'customer' && (!user?.kyc?.idProof || !user?.kyc?.selfie)) {
-                        router.push('/customer/profile?tab=kyc');
-                        toast.error('Please complete your KYC (ID proof + selfie) to book a venue.');
-                        return;
-                      }
-                      setBookingFormOpen(true);
-                    }}
-                    className="w-full bg-primary-500 hover:bg-primary-600 text-white py-2.5 rounded-lg text-sm font-bold shadow-lg hover:shadow-xl transition-all"
-                  >
-                    Reserve Now
-                  </button>
+                  {/* Reserve Now Button or Stopped Booking Notice */}
+                  {venue?.isBookingStopped ? (
+                    <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl text-center">
+                      <p className="text-xs font-bold text-rose-700 dark:text-rose-300 mb-0.5">🚫 Online Bookings Paused</p>
+                      <p className="text-[11px] text-rose-600 dark:text-rose-400">
+                        {venue?.stopBookingReason || 'Bookings for this venue are temporarily stopped by administration.'}
+                      </p>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        if (!token) {
+                          setLoginModalOpen(true);
+                          return;
+                        }
+                        // KYC check — customer must have ID proof + selfie
+                        if (user?.role === 'customer' && (!user?.kyc?.idProof || !user?.kyc?.selfie)) {
+                          router.push('/customer/profile?tab=kyc');
+                          toast.error('Please complete your KYC (ID proof + selfie) to book a venue.');
+                          return;
+                        }
+                        setBookingFormOpen(true);
+                      }}
+                      className="w-full bg-primary-500 hover:bg-primary-600 text-white py-2.5 rounded-lg text-sm font-bold shadow-lg hover:shadow-xl transition-all"
+                    >
+                      Reserve Now
+                    </button>
+                  )}
               </div>
               </>
               )}

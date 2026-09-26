@@ -143,6 +143,13 @@ const ambassadorProfileSchema = new mongoose.Schema({
     default: 'pending',
     index: true
   },
+  isActive: {
+    type: Boolean,
+    default: true,
+    index: true
+  },
+  deactivatedAt: { type: Date },
+  deactivationReason: { type: String },
   cityPartnerCode: { type: String },
   verifiedBy: {
     type: mongoose.Schema.Types.ObjectId,

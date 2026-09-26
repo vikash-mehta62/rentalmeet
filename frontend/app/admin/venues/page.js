@@ -229,15 +229,25 @@ export default function AdminVenues() {
 
   const handleStatusChange = async (venueId, actionOrStatus, reason = '') => {
     try {
-      const endpoint = (actionOrStatus === 'approved' || actionOrStatus === 'approve') ? 'approve' :
-                       (actionOrStatus === 'rejected' || actionOrStatus === 'reject') ? 'reject' :
-                       (actionOrStatus === 'suspended' || actionOrStatus === 'suspend') ? 'suspend' :
-                       'activate';
-      const targetStatus = endpoint === 'approve' ? 'approved' :
-                           endpoint === 'reject' ? 'rejected' :
-                           endpoint === 'suspend' ? 'suspended' : 'approved';
+      const statusLower = (actionOrStatus || '').toLowerCase();
+      let endpoint = '';
+      let body = {};
 
-      const body = endpoint === 'reject' ? { reason } : {};
+      if (statusLower === 'approved' || statusLower === 'approve') {
+        endpoint = 'approve';
+      } else if (statusLower === 'rejected' || statusLower === 'reject') {
+        endpoint = 'reject';
+        body = { reason };
+      } else if (statusLower === 'suspended' || statusLower === 'suspend') {
+        endpoint = 'suspend';
+        body = { reason };
+      } else if (statusLower === 'activate' || statusLower === 'active') {
+        endpoint = 'activate';
+      } else {
+        endpoint = 'status';
+        body = { status: statusLower, reason };
+      }
+
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/venues/${venueId}/${endpoint}`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -245,17 +255,58 @@ export default function AdminVenues() {
       });
       const data = await res.json();
       if (data.success) {
-        toast.success(`Venue ${targetStatus} successfully`);
+        const updatedVenue = data.venue;
+        const finalStatus = updatedVenue?.status || (endpoint === 'approve' || endpoint === 'activate' ? 'approved' : endpoint === 'reject' ? 'rejected' : endpoint === 'suspend' ? 'suspended' : statusLower);
+        toast.success(data.message || `Venue ${finalStatus} successfully`);
         fetchVenues(currentPage);
         if (selectedVenue && selectedVenue._id === venueId) {
-          setSelectedVenue({ ...selectedVenue, status: targetStatus });
+          setSelectedVenue(prev => ({
+            ...prev,
+            ...(updatedVenue || {}),
+            status: finalStatus,
+            rejectionReason: endpoint === 'reject' ? reason : (finalStatus === 'approved' ? '' : prev?.rejectionReason),
+            suspensionReason: endpoint === 'suspend' ? reason : (finalStatus === 'approved' ? '' : prev?.suspensionReason)
+          }));
         }
         setRejectModal({ open: false, venueId: null, reason: '' });
+        return data;
       } else {
         toast.error(data.message || 'Failed to update status');
+        return null;
       }
     } catch {
       toast.error('Failed to update status');
+      return null;
+    }
+  };
+
+  const handleToggleBooking = async (venueId, isBookingStopped, stopBookingReason = '') => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/venues/${venueId}/booking-status`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isBookingStopped, stopBookingReason })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(data.message || (isBookingStopped ? 'Bookings stopped' : 'Bookings allowed'));
+        fetchVenues(currentPage);
+        if (selectedVenue && selectedVenue._id === venueId) {
+          setSelectedVenue(prev => ({
+            ...prev,
+            ...(data.venue || {}),
+            isBookingStopped,
+            stopBookingReason: isBookingStopped ? stopBookingReason : ''
+          }));
+        }
+        return data;
+      } else {
+        toast.error(data.message || 'Failed to update booking status');
+        return null;
+      }
+    } catch {
+      toast.error('Failed to update booking status');
+      return null;
     }
   };
 
@@ -626,6 +677,13 @@ export default function AdminVenues() {
                             {venue.status}
                             <Pencil className="w-2.5 h-2.5 opacity-0 group-hover/edit:opacity-100 transition-opacity" />
                           </span>
+                          {venue.isBookingStopped && (
+                            <div className="mt-1">
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200">
+                                🚫 Bookings Stopped
+                              </span>
+                            </div>
+                          )}
                         </div>
                       )}
                     </td>
@@ -690,13 +748,13 @@ export default function AdminVenues() {
       {selectedVenue && modalOpen && (
         <VenueDetailsModal
           venue={selectedVenue}
+          token={token}
           onClose={() => setModalOpen(false)}
-          onStatusUpdate={(venueId, action) => {
-            if (action === 'reject') {
-              setRejectModal({ open: true, venueId, reason: '' });
-            } else {
-              handleStatusChange(venueId, action);
-            }
+          onStatusUpdate={(venueId, actionOrStatus, reason) => handleStatusChange(venueId, actionOrStatus, reason)}
+          onToggleBooking={(venueId, isBookingStopped, reason) => handleToggleBooking(venueId, isBookingStopped, reason)}
+          onVenueUpdated={(updated) => {
+            setSelectedVenue(prev => ({ ...prev, ...updated }));
+            fetchVenues(currentPage);
           }}
           showActions={true}
           platformSettings={platformSettings}

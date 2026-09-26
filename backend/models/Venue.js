@@ -431,6 +431,8 @@ const venueSchema = new mongoose.Schema({
     default: 'pending'
   },
   rejectionReason: String,
+  suspensionReason: String,
+  statusReason: String,
   rejectionHistory: [{
     reason:      { type: String },
     rejectedAt:  { type: Date, default: Date.now },
@@ -441,6 +443,20 @@ const venueSchema = new mongoose.Schema({
     documentVerification: Date,
     siteVisit: Date,
     listingActivation: Date
+  },
+
+  // Stop Booking / Allow Booking toggle (Admin control)
+  // Default: isBookingStopped: false (booking is allowed by default)
+  isBookingStopped: {
+    type: Boolean,
+    default: false
+  },
+  stopBookingReason: {
+    type: String,
+    default: ''
+  },
+  stoppedBookingAt: {
+    type: Date
   },
 
   // Owner-controlled active/inactive toggle

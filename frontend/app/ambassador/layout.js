@@ -33,7 +33,6 @@ const NAV_ITEMS = [
   { href: '/ambassador/add-venue', label: 'List New Venue', icon: PlusCircle, highlight: true },
   { href: '/ambassador/earnings', label: 'Earnings & Wallet', icon: IndianRupee },
   { href: '/ambassador/challenges', label: 'Challenges & Streaks', icon: Zap },
-  { href: '/ambassador/leaderboard', label: 'Leaderboard & Awards', icon: Trophy },
   { href: '/ambassador/profile', label: 'Ambassador Profile', icon: User }
 ];
 
