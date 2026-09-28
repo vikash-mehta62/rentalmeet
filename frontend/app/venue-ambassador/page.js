@@ -326,7 +326,7 @@ const PROGRAM_TERMS = [
   }
 ];
 
-export default function AmbassadorProgramPage() {
+export default function VenueAmbassadorPage() {
   const [openFaq, setOpenFaq] = useState(null);
 
   return (
