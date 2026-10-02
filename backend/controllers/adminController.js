@@ -617,7 +617,9 @@ exports.adminQuickEditVenue = async (req, res) => {
       customGST,
       customCommission,
       ownerInfo,
-      documents
+      documents,
+      images,
+      bankDetails
     } = req.body;
 
     // Basic details
@@ -786,15 +788,24 @@ exports.adminQuickEditVenue = async (req, res) => {
       }
     }
 
+    // Images
+    if (images !== undefined && Array.isArray(images)) {
+      venue.images = images.map(img => ({
+        url: typeof img === 'string' ? img : img.url,
+        category: typeof img === 'string' ? 'Exterior' : (img.category || 'Exterior'),
+        isFeatured: typeof img === 'string' ? false : Boolean(img.isFeatured),
+        uploadedAt: (typeof img === 'object' && img.uploadedAt) ? img.uploadedAt : new Date()
+      }));
+    }
+
     // Bank Details
-    const { bankDetails } = req.body;
     if (bankDetails && typeof bankDetails === 'object') {
       if (!venue.bankDetails) venue.bankDetails = {};
       if (bankDetails.accountHolderName !== undefined) venue.bankDetails.accountHolderName = bankDetails.accountHolderName;
       if (bankDetails.accountNumber !== undefined) venue.bankDetails.accountNumber = bankDetails.accountNumber;
       if (bankDetails.ifscCode !== undefined) venue.bankDetails.ifscCode = bankDetails.ifscCode;
       if (bankDetails.bankName !== undefined) venue.bankDetails.bankName = bankDetails.bankName;
-      if (branchName !== undefined || bankDetails.branchName !== undefined) venue.bankDetails.branchName = bankDetails.branchName;
+      if (bankDetails.branchName !== undefined) venue.bankDetails.branchName = bankDetails.branchName;
       if (bankDetails.accountType !== undefined) venue.bankDetails.accountType = bankDetails.accountType;
       if (bankDetails.bankProofUrl !== undefined) venue.bankDetails.bankProofUrl = bankDetails.bankProofUrl;
     }

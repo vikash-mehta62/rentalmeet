@@ -6,9 +6,11 @@ import {
   Check, Loader2, UserCheck, ShieldCheck, Sparkles, AlertCircle,
   FileCheck, Coffee, Utensils, Wifi, Shield, Lock, Navigation,
   Bus, Train, ParkingCircle, FileText, Camera, Award, CreditCard,
-  Download, Eye, Image as ImageIcon
+  Download, Eye, Image as ImageIcon, Trash2, Plus, Star, Upload,
+  ExternalLink, CheckCircle2, ImagePlus
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { uploadToStorage, deleteFromStorage, uploadDocument } from '@/lib/storage';
 
 const CAPACITY_OPTIONS = [
   '10-20', '20-30', '30-40', '40-50', '50-100', '100-200', '200-300',
@@ -75,6 +77,9 @@ export default function AdminVenueQuickEditModal({
     venueType: Array.isArray(venue?.venueType)
       ? venue.venueType
       : (venue?.venueType ? [venue.venueType] : []),
+
+    // Photos & Gallery
+    images: Array.isArray(venue?.images) ? venue.images : [],
 
     // Location
     location: {
@@ -215,6 +220,276 @@ export default function AdminVenueQuickEditModal({
     }
   });
 
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState({});
+  const [uploadPhotoCategory, setUploadPhotoCategory] = useState('Exterior');
+
+  const PHOTO_CATEGORIES = ['Featured', 'Exterior', 'Interior', 'Amenities', 'Additional'];
+
+  const handleImageFilesUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    if ((formData.images?.length || 0) + files.length > 30) {
+      toast.error('Maximum 30 photos allowed per venue');
+      return;
+    }
+
+    setUploadingImages(true);
+    const newImages = [...(formData.images || [])];
+
+    for (const file of files) {
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(`${file.name} is larger than 10MB`);
+        continue;
+      }
+      if (!file.type.startsWith('image/')) {
+        toast.error(`${file.name} is not a valid image format`);
+        continue;
+      }
+
+      try {
+        toast.loading(`Uploading ${file.name}...`, { id: file.name });
+        const uploadData = await uploadToStorage(file, 'venues');
+        const isFirst = newImages.length === 0;
+        newImages.push({
+          url: uploadData.url,
+          publicId: uploadData.publicId,
+          category: uploadPhotoCategory,
+          isFeatured: isFirst || uploadPhotoCategory === 'Featured',
+          uploadedAt: new Date()
+        });
+        toast.success(`${file.name} uploaded!`, { id: file.name });
+      } catch (err) {
+        console.error('Image upload error:', err);
+        toast.error(`Failed to upload ${file.name}`);
+      }
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      images: newImages
+    }));
+    setUploadingImages(false);
+    e.target.value = '';
+  };
+
+  const handleRemoveImage = async (index, img) => {
+    try {
+      if (img?.publicId) {
+        await deleteFromStorage(img.publicId).catch(() => {});
+      }
+    } catch (_) {}
+    setFormData(prev => {
+      const updated = [...(prev.images || [])];
+      const removed = updated.splice(index, 1)[0];
+      if (removed?.isFeatured && updated.length > 0) {
+        updated[0] = { ...updated[0], isFeatured: true };
+      }
+      return { ...prev, images: updated };
+    });
+    toast.success('Photo removed');
+  };
+
+  const handleSetFeaturedImage = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      images: (prev.images || []).map((img, i) => ({
+        ...img,
+        isFeatured: i === index,
+        category: i === index ? 'Featured' : (img.category === 'Featured' ? 'Exterior' : img.category)
+      }))
+    }));
+    toast.success('Featured cover photo updated! ⭐');
+  };
+
+  const handleImageCategoryChange = (index, newCat) => {
+    setFormData(prev => {
+      const updated = [...(prev.images || [])];
+      updated[index] = {
+        ...updated[index],
+        category: newCat,
+        isFeatured: newCat === 'Featured' ? true : (updated[index].isFeatured && newCat !== 'Featured' ? false : updated[index].isFeatured)
+      };
+      return { ...prev, images: updated };
+    });
+  };
+
+  const handleDocFileUpload = async (file, docKey, updateFn) => {
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error(`${file.name} is larger than 10MB`);
+      return;
+    }
+    setUploadingDoc(prev => ({ ...prev, [docKey]: true }));
+    try {
+      toast.loading(`Uploading ${file.name}...`, { id: docKey });
+      const res = await uploadDocument(file, 'documents');
+      updateFn(res.url);
+      toast.success(`${file.name} uploaded successfully! ✅`, { id: docKey });
+    } catch (err) {
+      console.error('Doc upload error:', err);
+      toast.error(`Upload failed: ${err.message || 'Error'}`, { id: docKey });
+    } finally {
+      setUploadingDoc(prev => ({ ...prev, [docKey]: false }));
+    }
+  };
+
+  const isPdfUrl = (url) => typeof url === 'string' && url.toLowerCase().includes('.pdf');
+
+  const renderDocUploadCard = ({
+    title,
+    docUrl,
+    docKey,
+    onUrlChange,
+    accept = 'image/jpeg,image/png,image/webp,application/pdf',
+    badgeOptional = false,
+    theme = 'purple'
+  }) => {
+    const isPdf = isPdfUrl(docUrl);
+    const isUploading = uploadingDoc[docKey];
+
+    const colorStyles = {
+      purple: {
+        border: 'border-purple-200 dark:border-purple-800/60',
+        btn: 'border-purple-500 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/50 dark:border-purple-700 text-purple-700 dark:text-purple-300',
+        icon: 'text-purple-600 dark:text-purple-400'
+      },
+      emerald: {
+        border: 'border-emerald-200 dark:border-emerald-800/60',
+        btn: 'border-emerald-500 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300',
+        icon: 'text-emerald-600 dark:text-emerald-400'
+      },
+      orange: {
+        border: 'border-orange-200 dark:border-orange-800/60',
+        btn: 'border-orange-500 bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/50 dark:border-orange-700 text-orange-700 dark:text-orange-300',
+        icon: 'text-orange-600 dark:text-orange-400'
+      },
+      blue: {
+        border: 'border-blue-200 dark:border-blue-800/60',
+        btn: 'border-blue-500 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/50 dark:border-blue-700 text-blue-700 dark:text-blue-300',
+        icon: 'text-blue-600 dark:text-blue-400'
+      }
+    }[theme] || {
+      border: 'border-purple-200 dark:border-purple-800/60',
+      btn: 'border-purple-500 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/50 dark:border-purple-700 text-purple-700 dark:text-purple-300',
+      icon: 'text-purple-600 dark:text-purple-400'
+    };
+
+    return (
+      <div className={`bg-white dark:bg-slate-850 p-3.5 rounded-xl border ${colorStyles.border} flex flex-col gap-2.5 shadow-xs`}>
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold text-gray-800 dark:text-gray-200">{title}</span>
+          {docUrl ? (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3" /> Uploaded
+            </span>
+          ) : (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:bg-slate-800 dark:text-gray-400">
+              {badgeOptional ? 'Optional' : 'Not Uploaded'}
+            </span>
+          )}
+        </div>
+
+        {/* Visual Image / PDF Preview Box */}
+        {docUrl ? (
+          <div className="relative rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 group">
+            {isPdf ? (
+              <div className="h-36 flex flex-col items-center justify-center p-3 text-center bg-red-50/40 dark:bg-red-950/20">
+                <FileText className="w-9 h-9 text-red-500 mb-1" />
+                <span className="text-xs font-bold text-gray-800 dark:text-gray-200">PDF Document</span>
+                <a
+                  href={docUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1.5 text-[11px] text-primary-600 hover:underline flex items-center gap-1 font-semibold"
+                >
+                  View / Open PDF <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+            ) : (
+              <div className="relative h-36 w-full bg-slate-950/5 dark:bg-slate-950/50 flex items-center justify-center overflow-hidden">
+                <img
+                  src={docUrl}
+                  alt={title}
+                  className="max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-105"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    if (e.target.parentElement) {
+                      e.target.parentElement.innerHTML = '<div class="h-36 flex flex-col items-center justify-center text-xs text-gray-400 p-2 text-center"><span>Document file link saved</span><span class="text-[10px] text-gray-400 mt-1">Click Full View to open</span></div>';
+                    }
+                  }}
+                />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                  <a
+                    href={docUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-2.5 py-1.5 rounded-lg bg-white/95 text-gray-800 text-xs font-bold flex items-center gap-1 shadow-sm hover:bg-white transition-colors"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> Full View
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="h-24 rounded-xl border border-dashed border-gray-300 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-900/40 flex flex-col items-center justify-center p-2 text-center text-gray-400">
+            <ImageIcon className="w-6 h-6 mb-1 text-gray-300 dark:text-gray-600" />
+            <span className="text-[11px] text-gray-500">No document image uploaded</span>
+          </div>
+        )}
+
+        {/* Action Buttons: Replace / Upload + View + Delete */}
+        <div className="flex items-center gap-2">
+          <label className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold cursor-pointer transition-colors ${colorStyles.btn} ${isUploading ? 'opacity-60 pointer-events-none' : ''}`}>
+            {isUploading ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Uploading...</span>
+              </>
+            ) : (
+              <>
+                <Upload className="w-3.5 h-3.5" />
+                <span>{docUrl ? `Replace ${title}` : `Upload ${title}`}</span>
+              </>
+            )}
+            <input
+              type="file"
+              accept={accept}
+              onChange={(e) => handleDocFileUpload(e.target.files?.[0], docKey, onUrlChange)}
+              className="hidden"
+              disabled={isUploading}
+            />
+          </label>
+
+          {docUrl && (
+            <>
+              <a
+                href={docUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="p-2 rounded-xl bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 text-gray-700 dark:text-gray-300 transition-colors"
+                title="Open in new tab"
+              >
+                <ExternalLink className="w-4 h-4" />
+              </a>
+              <button
+                type="button"
+                onClick={() => onUrlChange('')}
+                className="p-2 rounded-xl bg-red-50 dark:bg-red-950/40 hover:bg-red-100 text-red-600 dark:text-red-400 transition-colors"
+                title="Remove document"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const handleSave = async () => {
     if (!formData.businessName.trim()) {
       toast.error('Venue name cannot be empty');
@@ -225,6 +500,7 @@ export default function AdminVenueQuickEditModal({
     try {
       const payload = {
         ...formData,
+        images: formData.images || [],
         documents: {
           ...formData.documents,
           businessProof: {
@@ -264,6 +540,7 @@ export default function AdminVenueQuickEditModal({
   const tabs = [
     { id: 'general', label: 'General & Status', icon: Building2 },
     { id: 'location', label: 'Location & Parking', icon: MapPin },
+    { id: 'photos', label: 'Photos & Gallery', icon: Camera },
     { id: 'pricing', label: 'Pricing', icon: IndianRupee },
     { id: 'timings', label: 'Timings & Window', icon: Clock },
     { id: 'amenities', label: 'Amenities', icon: Coffee },
@@ -770,6 +1047,176 @@ export default function AdminVenueQuickEditModal({
                     />
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: PHOTOS & GALLERY */}
+          {activeTab === 'photos' && (
+            <div className="space-y-6 animate-in fade-in duration-150">
+              {/* Upload Box & Category Selector */}
+              <div className="p-5 bg-gradient-to-r from-blue-50 to-indigo-50/60 dark:from-slate-800/80 dark:to-slate-900 rounded-2xl border border-blue-200/80 dark:border-slate-700">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                      <Camera className="w-4 h-4 text-primary-600 dark:text-primary-400" />
+                      Venue Photos & Gallery
+                    </h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      Upload high quality photos for the venue listing. Set cover photo and categories.
+                    </p>
+                  </div>
+                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-primary-600 dark:text-primary-400 w-fit">
+                    {(formData.images || []).length} / 30 Photos
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                      Upload Category
+                    </label>
+                    <select
+                      value={uploadPhotoCategory}
+                      onChange={(e) => setUploadPhotoCategory(e.target.value)}
+                      className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-850"
+                    >
+                      {PHOTO_CATEGORIES.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                      Select Photos from Computer
+                    </label>
+                    <label className={`flex items-center justify-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors shadow-xs ${uploadingImages ? 'opacity-60 pointer-events-none' : ''}`}>
+                      {uploadingImages ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Uploading Photos...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-4 h-4" />
+                          <span>Choose Photos & Upload (Multiple)</span>
+                        </>
+                      )}
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/jpeg,image/png,image/webp,image/jpg"
+                        onChange={handleImageFilesUpload}
+                        className="hidden"
+                        disabled={uploadingImages}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Photos List Grid */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">
+                    Current Venue Photos ({(formData.images || []).length})
+                  </h4>
+                  {(formData.images || []).length > 0 && (
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                      ⭐ Star icon indicates the Main Cover Photo
+                    </span>
+                  )}
+                </div>
+
+                {(!formData.images || formData.images.length === 0) ? (
+                  <div className="p-8 text-center bg-gray-50 dark:bg-slate-850 rounded-2xl border-2 border-dashed border-gray-300 dark:border-slate-700">
+                    <ImageIcon className="w-10 h-10 text-gray-400 mx-auto mb-2" />
+                    <p className="text-xs font-bold text-gray-700 dark:text-gray-300">No photos uploaded yet</p>
+                    <p className="text-[11px] text-gray-500 mt-1">Upload photos using the button above to showcase this venue.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5">
+                    {formData.images.map((img, idx) => {
+                      const imgUrl = typeof img === 'string' ? img : img.url;
+                      const isFeatured = typeof img === 'object' && Boolean(img.isFeatured);
+                      const category = typeof img === 'object' ? (img.category || 'Exterior') : 'Exterior';
+
+                      return (
+                        <div
+                          key={idx}
+                          className={`relative group rounded-xl overflow-hidden border transition-all bg-white dark:bg-slate-800 flex flex-col ${
+                            isFeatured
+                              ? 'border-amber-400 ring-2 ring-amber-400/30 shadow-md'
+                              : 'border-gray-200 dark:border-slate-700 hover:border-gray-400 dark:hover:border-slate-600'
+                          }`}
+                        >
+                          {/* Image Container */}
+                          <div className="relative aspect-[4/3] bg-gray-100 dark:bg-slate-900 overflow-hidden">
+                            <img
+                              src={imgUrl}
+                              alt={`Venue photo ${idx + 1}`}
+                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                              loading="lazy"
+                            />
+
+                            {/* Featured Badge */}
+                            {isFeatured && (
+                              <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center gap-1 shadow-sm">
+                                <Star className="w-3 h-3 fill-current" />
+                                <span>Cover Photo</span>
+                              </div>
+                            )}
+
+                            {/* Hover Actions Overlay */}
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                              <a
+                                href={imgUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="p-1.5 rounded-lg bg-white/90 hover:bg-white text-gray-800 text-xs transition-colors shadow-sm"
+                                title="View Full Size"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </a>
+                              {!isFeatured && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSetFeaturedImage(idx)}
+                                  className="p-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs transition-colors shadow-sm"
+                                  title="Set as Cover Photo"
+                                >
+                                  <Star className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveImage(idx, img)}
+                                className="p-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs transition-colors shadow-sm"
+                                title="Delete Photo"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Card Footer: Category Selector */}
+                          <div className="p-2 bg-gray-50 dark:bg-slate-850 border-t border-gray-100 dark:border-slate-700/80 flex items-center justify-between gap-1">
+                            <select
+                              value={category}
+                              onChange={(e) => handleImageCategoryChange(idx, e.target.value)}
+                              className="w-full text-[11px] font-medium py-1 px-1.5 rounded-lg border border-gray-200 dark:border-slate-700 dark:bg-slate-800 text-gray-700 dark:text-gray-300"
+                            >
+                              {PHOTO_CATEGORIES.map(cat => (
+                                <option key={cat} value={cat}>{cat}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1542,9 +1989,10 @@ export default function AdminVenueQuickEditModal({
               <div className="p-4 bg-gray-50 dark:bg-slate-800/60 rounded-xl border border-gray-200 dark:border-slate-700">
                 <h4 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-3 flex items-center gap-2">
                   <UserCheck className="w-4 h-4 text-purple-600" />
-                  Authorised Person / Owner ID Proofs
+                  Authorised Person / Owner ID Proofs & Selfie
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
                       Aadhaar Number
@@ -1559,7 +2007,7 @@ export default function AdminVenueQuickEditModal({
                           idProof: { ...formData.documents.idProof, aadhaarNumber: e.target.value, number: e.target.value }
                         }
                       })}
-                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800"
+                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800 font-mono font-semibold"
                       placeholder="XXXX XXXX XXXX"
                     />
                   </div>
@@ -1577,79 +2025,69 @@ export default function AdminVenueQuickEditModal({
                           idProof: { ...formData.documents.idProof, panNumber: e.target.value.toUpperCase() }
                         }
                       })}
-                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800 uppercase font-mono"
+                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800 uppercase font-mono font-bold"
                       placeholder="ABCDE1234F"
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                      Aadhaar Front Image URL
-                    </label>
-                    <input
-                      type="url"
-                      value={formData.documents.idProof?.aadhaarFrontUrl || ''}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        documents: {
-                          ...formData.documents,
-                          idProof: { ...formData.documents.idProof, aadhaarFrontUrl: e.target.value }
-                        }
-                      })}
-                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800"
-                      placeholder="https://..."
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                      Aadhaar Back Image URL
-                    </label>
-                    <input
-                      type="url"
-                      value={formData.documents.idProof?.aadhaarBackUrl || ''}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        documents: {
-                          ...formData.documents,
-                          idProof: { ...formData.documents.idProof, aadhaarBackUrl: e.target.value }
-                        }
-                      })}
-                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800"
-                      placeholder="https://..."
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                      PAN Card Image URL
-                    </label>
-                    <input
-                      type="url"
-                      value={formData.documents.idProof?.panUrl || ''}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        documents: {
-                          ...formData.documents,
-                          idProof: { ...formData.documents.idProof, panUrl: e.target.value }
-                        }
-                      })}
-                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800"
-                      placeholder="https://..."
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                      Owner Selfie URL
-                    </label>
-                    <input
-                      type="url"
-                      value={formData.documents.selfieUrl || ''}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        documents: { ...formData.documents, selfieUrl: e.target.value }
-                      })}
-                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800"
-                      placeholder="https://..."
-                    />
-                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Aadhaar Front */}
+                  {renderDocUploadCard({
+                    title: 'Aadhaar Card (Front)',
+                    docUrl: formData.documents.idProof?.aadhaarFrontUrl,
+                    docKey: 'aadhaarFront',
+                    onUrlChange: (url) => setFormData(prev => ({
+                      ...prev,
+                      documents: {
+                        ...prev.documents,
+                        idProof: { ...prev.documents.idProof, aadhaarFrontUrl: url }
+                      }
+                    })),
+                    theme: 'purple'
+                  })}
+
+                  {/* Aadhaar Back */}
+                  {renderDocUploadCard({
+                    title: 'Aadhaar Card (Back)',
+                    docUrl: formData.documents.idProof?.aadhaarBackUrl,
+                    docKey: 'aadhaarBack',
+                    onUrlChange: (url) => setFormData(prev => ({
+                      ...prev,
+                      documents: {
+                        ...prev.documents,
+                        idProof: { ...prev.documents.idProof, aadhaarBackUrl: url }
+                      }
+                    })),
+                    theme: 'purple'
+                  })}
+
+                  {/* PAN Card */}
+                  {renderDocUploadCard({
+                    title: 'PAN Card Document',
+                    docUrl: formData.documents.idProof?.panUrl,
+                    docKey: 'panDoc',
+                    onUrlChange: (url) => setFormData(prev => ({
+                      ...prev,
+                      documents: {
+                        ...prev.documents,
+                        idProof: { ...prev.documents.idProof, panUrl: url }
+                      }
+                    })),
+                    theme: 'purple'
+                  })}
+
+                  {/* Owner Selfie */}
+                  {renderDocUploadCard({
+                    title: 'Owner Selfie Photo',
+                    docUrl: formData.documents.selfieUrl,
+                    docKey: 'selfie',
+                    onUrlChange: (url) => setFormData(prev => ({
+                      ...prev,
+                      documents: { ...prev.documents, selfieUrl: url }
+                    })),
+                    theme: 'purple'
+                  })}
                 </div>
               </div>
 
@@ -1657,7 +2095,7 @@ export default function AdminVenueQuickEditModal({
               <div className="p-4 bg-emerald-50/60 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-800">
                 <h4 className="text-xs font-bold text-emerald-950 dark:text-emerald-200 uppercase tracking-wider mb-3 flex items-center gap-2">
                   <Building2 className="w-4 h-4 text-emerald-600" />
-                  Business Documentation
+                  Business Documentation & Proofs
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                   <div>
@@ -1680,30 +2118,9 @@ export default function AdminVenueQuickEditModal({
                       ))}
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-emerald-900 dark:text-emerald-300 mb-1">
-                      Business Document URL
-                    </label>
-                    <input
-                      type="url"
-                      value={formData.documents.businessProof?.documentUrl || formData.documents.businessProof?.url || ''}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        documents: {
-                          ...formData.documents,
-                          businessProof: {
-                            ...formData.documents.businessProof,
-                            documentUrl: e.target.value,
-                            url: e.target.value
-                          }
-                        }
-                      })}
-                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-emerald-200 dark:border-emerald-800 dark:bg-slate-800"
-                      placeholder="https://..."
-                    />
-                  </div>
+
                   {formData.documents.businessProof?.type === 'Other' && (
-                    <div className="sm:col-span-2">
+                    <div>
                       <label className="block text-xs font-semibold text-emerald-900 dark:text-emerald-300 mb-1">
                         Specify Other Document
                       </label>
@@ -1722,6 +2139,26 @@ export default function AdminVenueQuickEditModal({
                       />
                     </div>
                   )}
+
+                  <div className="sm:col-span-2">
+                    {renderDocUploadCard({
+                      title: `Business Proof (${formData.documents.businessProof?.type || 'Document'})`,
+                      docUrl: formData.documents.businessProof?.documentUrl || formData.documents.businessProof?.url,
+                      docKey: 'bizProof',
+                      onUrlChange: (url) => setFormData(prev => ({
+                        ...prev,
+                        documents: {
+                          ...prev.documents,
+                          businessProof: {
+                            ...prev.documents.businessProof,
+                            documentUrl: url,
+                            url: url
+                          }
+                        }
+                      })),
+                      theme: 'emerald'
+                    })}
+                  </div>
                 </div>
 
                 {/* GST Section */}
@@ -1742,7 +2179,7 @@ export default function AdminVenueQuickEditModal({
                       className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
                     />
                     <label htmlFor="editHasGST" className="text-xs font-bold text-emerald-900 dark:text-emerald-200 cursor-pointer">
-                      I have GST Registration
+                      Venue has GST Registration
                     </label>
                   </div>
 
@@ -1763,24 +2200,21 @@ export default function AdminVenueQuickEditModal({
                               ownerInfo: { ...formData.ownerInfo, gstNumber: val }
                             });
                           }}
-                          className="w-full px-3.5 py-2 text-sm rounded-xl border border-emerald-200 dark:border-emerald-800 dark:bg-slate-800 uppercase font-mono"
+                          className="w-full px-3.5 py-2 text-sm rounded-xl border border-emerald-200 dark:border-emerald-800 dark:bg-slate-800 uppercase font-mono font-bold"
                           placeholder="22AAAAA0000A1Z5"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-emerald-900 dark:text-emerald-300 mb-1">
-                          GST Certificate URL
-                        </label>
-                        <input
-                          type="url"
-                          value={formData.documents.gstDocUrl || ''}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            documents: { ...formData.documents, gstDocUrl: e.target.value }
-                          })}
-                          className="w-full px-3.5 py-2 text-xs rounded-xl border border-emerald-200 dark:border-emerald-800 dark:bg-slate-800"
-                          placeholder="https://..."
-                        />
+                        {renderDocUploadCard({
+                          title: 'GST Certificate Document',
+                          docUrl: formData.documents.gstDocUrl,
+                          docKey: 'gstCert',
+                          onUrlChange: (url) => setFormData(prev => ({
+                            ...prev,
+                            documents: { ...prev.documents, gstDocUrl: url }
+                          })),
+                          theme: 'emerald'
+                        })}
                       </div>
                     </div>
                   )}
@@ -1794,42 +2228,37 @@ export default function AdminVenueQuickEditModal({
                   Safety & Compliance Certificates (Fire NOC & FSSAI)
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-orange-900 dark:text-orange-300 mb-1">
-                      Fire NOC Certificate URL
-                    </label>
-                    <input
-                      type="url"
-                      value={formData.documents.fireNOC?.url || ''}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        documents: {
-                          ...formData.documents,
-                          fireNOC: { ...formData.documents.fireNOC, url: e.target.value }
-                        }
-                      })}
-                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-orange-200 dark:border-orange-800 dark:bg-slate-800"
-                      placeholder="https://..."
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-orange-900 dark:text-orange-300 mb-1">
-                      FSSAI Certificate URL
-                    </label>
-                    <input
-                      type="url"
-                      value={formData.documents.fssai?.url || ''}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        documents: {
-                          ...formData.documents,
-                          fssai: { ...formData.documents.fssai, url: e.target.value }
-                        }
-                      })}
-                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-orange-200 dark:border-orange-800 dark:bg-slate-800"
-                      placeholder="https://..."
-                    />
-                  </div>
+                  {/* Fire NOC */}
+                  {renderDocUploadCard({
+                    title: 'Fire NOC Certificate',
+                    docUrl: formData.documents.fireNOC?.url,
+                    docKey: 'fireNOC',
+                    onUrlChange: (url) => setFormData(prev => ({
+                      ...prev,
+                      documents: {
+                        ...prev.documents,
+                        fireNOC: { ...prev.documents.fireNOC, url }
+                      }
+                    })),
+                    badgeOptional: true,
+                    theme: 'orange'
+                  })}
+
+                  {/* FSSAI */}
+                  {renderDocUploadCard({
+                    title: 'FSSAI Certificate',
+                    docUrl: formData.documents.fssai?.url,
+                    docKey: 'fssai',
+                    onUrlChange: (url) => setFormData(prev => ({
+                      ...prev,
+                      documents: {
+                        ...prev.documents,
+                        fssai: { ...prev.documents.fssai, url }
+                      }
+                    })),
+                    badgeOptional: true,
+                    theme: 'orange'
+                  })}
                 </div>
               </div>
             </div>
@@ -1931,19 +2360,16 @@ export default function AdminVenueQuickEditModal({
                     />
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                      Bank Proof (Cancelled Cheque / Passbook URL)
-                    </label>
-                    <input
-                      type="url"
-                      value={formData.bankDetails.bankProofUrl}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        bankDetails: { ...formData.bankDetails, bankProofUrl: e.target.value }
-                      })}
-                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800"
-                      placeholder="https://..."
-                    />
+                    {renderDocUploadCard({
+                      title: 'Cancelled Cheque / Passbook Proof',
+                      docUrl: formData.bankDetails.bankProofUrl,
+                      docKey: 'bankProof',
+                      onUrlChange: (url) => setFormData(prev => ({
+                        ...prev,
+                        bankDetails: { ...prev.bankDetails, bankProofUrl: url }
+                      })),
+                      theme: 'emerald'
+                    })}
                   </div>
                 </div>
               </div>
