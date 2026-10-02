@@ -5,6 +5,7 @@ const TermsConditions = require('../models/TermsConditions');
 const { sendVenueApprovalEmail, sendVenueRejectionEmail } = require('../utils/emailService');
 const User = require('../models/User');
 const { normalizeCustomPlatformFee, normalizeCustomGST } = require('../utils/venuePricing');
+const { logAudit, logStatusChange, extractClientIp } = require('../utils/auditLogger');
 
 // @desc    Get dashboard statistics
 // @route   GET /api/admin/dashboard-stats
@@ -75,6 +76,7 @@ exports.getPendingVenues = async (req, res) => {
 // @desc    Approve venue
 // @route   PUT /api/admin/venues/:id/approve
 exports.approveVenue = async (req, res) => {
+  const clientIp = extractClientIp(req);
   try {
     const { 
       customPlatformFee, 
@@ -91,7 +93,9 @@ exports.approveVenue = async (req, res) => {
       });
     }
     
+    const previousState = { status: venue.status, isActive: venue.isActive };
     venue.status = 'approved';
+    venue.verificationTimeline = venue.verificationTimeline || {};
     venue.verificationTimeline.listingActivation = new Date();
     venue.rejectionReason = undefined; // clear on approval
     
@@ -105,8 +109,37 @@ exports.approveVenue = async (req, res) => {
     if (customCommission) {
       venue.customCommission = customCommission;
     }
+
+    if (!venue.statusHistory) venue.statusHistory = [];
+    venue.statusHistory.push({
+      action: 'VENUE_APPROVED',
+      status: 'approved',
+      isActive: venue.isActive,
+      reason: req.body.reason || 'Approved by administrator',
+      changedBy: {
+        userId: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        role: req.user.role
+      },
+      ipAddress: clientIp,
+      timestamp: new Date()
+    });
     
     await venue.save();
+
+    logStatusChange(req, {
+      category: 'VENUE',
+      action: 'VENUE_APPROVED',
+      status: 'SUCCESS',
+      targetType: 'Venue',
+      targetId: venue._id,
+      targetName: venue.businessName,
+      previousState,
+      newState: { status: 'approved', isActive: venue.isActive },
+      reason: req.body.reason || 'Approved by administrator',
+      details: { sku: venue.sku, owner: venue.owner?._id, customPlatformFee, customCommission }
+    });
 
     // If venue was listed by an ambassador, process listing reward & daily challenge bonus
     if (venue.ambassador) {
@@ -143,6 +176,7 @@ exports.approveVenue = async (req, res) => {
 // @desc    Reject venue
 // @route   PUT /api/admin/venues/:id/reject
 exports.rejectVenue = async (req, res) => {
+  const clientIp = extractClientIp(req);
   try {
     const { reason } = req.body;
     
@@ -155,11 +189,41 @@ exports.rejectVenue = async (req, res) => {
       });
     }
     
+    const previousState = { status: venue.status, isActive: venue.isActive };
     venue.status = 'rejected';
     venue.rejectionReason = reason;
     if (!venue.rejectionHistory) venue.rejectionHistory = [];
     venue.rejectionHistory.push({ reason, rejectedAt: new Date(), rejectedBy: req.user?.id });
+
+    if (!venue.statusHistory) venue.statusHistory = [];
+    venue.statusHistory.push({
+      action: 'VENUE_REJECTED',
+      status: 'rejected',
+      isActive: venue.isActive,
+      reason: reason || 'Rejected by administrator',
+      changedBy: {
+        userId: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        role: req.user.role
+      },
+      ipAddress: clientIp,
+      timestamp: new Date()
+    });
+
     await venue.save();
+
+    logStatusChange(req, {
+      category: 'VENUE',
+      action: 'VENUE_REJECTED',
+      status: 'SUCCESS',
+      targetType: 'Venue',
+      targetId: venue._id,
+      targetName: venue.businessName,
+      previousState,
+      newState: { status: 'rejected', rejectionReason: reason },
+      reason: reason || 'Rejected by administrator'
+    });
     
     // Send rejection email
     try {
@@ -186,6 +250,7 @@ exports.rejectVenue = async (req, res) => {
 // @desc    Suspend venue
 // @route   PUT /api/admin/venues/:id/suspend
 exports.suspendVenue = async (req, res) => {
+  const clientIp = extractClientIp(req);
   try {
     const { reason } = req.body;
     
@@ -198,9 +263,39 @@ exports.suspendVenue = async (req, res) => {
       });
     }
     
+    const previousState = { status: venue.status, isActive: venue.isActive };
     venue.status = 'suspended';
     venue.suspensionReason = reason;
+
+    if (!venue.statusHistory) venue.statusHistory = [];
+    venue.statusHistory.push({
+      action: 'VENUE_SUSPENDED',
+      status: 'suspended',
+      isActive: venue.isActive,
+      reason: reason || 'Suspended by administrator',
+      changedBy: {
+        userId: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        role: req.user.role
+      },
+      ipAddress: clientIp,
+      timestamp: new Date()
+    });
+
     await venue.save();
+
+    logStatusChange(req, {
+      category: 'VENUE',
+      action: 'VENUE_SUSPENDED',
+      status: 'SUCCESS',
+      targetType: 'Venue',
+      targetId: venue._id,
+      targetName: venue.businessName,
+      previousState,
+      newState: { status: 'suspended', suspensionReason: reason },
+      reason: reason || 'Suspended by administrator'
+    });
     
     res.json({
       success: true,
@@ -218,6 +313,7 @@ exports.suspendVenue = async (req, res) => {
 // @desc    Activate/Reactivate venue (unsuspend)
 // @route   PUT /api/admin/venues/:id/activate
 exports.activateVenue = async (req, res) => {
+  const clientIp = extractClientIp(req);
   try {
     const venue = await Venue.findById(req.params.id);
     
@@ -228,10 +324,39 @@ exports.activateVenue = async (req, res) => {
       });
     }
     
-    // Change status to approved (reactivate)
+    const previousState = { status: venue.status, isActive: venue.isActive };
     venue.status = 'approved';
     venue.suspensionReason = undefined; // Clear suspension reason
+
+    if (!venue.statusHistory) venue.statusHistory = [];
+    venue.statusHistory.push({
+      action: 'VENUE_ACTIVATED',
+      status: 'approved',
+      isActive: venue.isActive,
+      reason: 'Activated / unsuspended by administrator',
+      changedBy: {
+        userId: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        role: req.user.role
+      },
+      ipAddress: clientIp,
+      timestamp: new Date()
+    });
+
     await venue.save();
+
+    logStatusChange(req, {
+      category: 'VENUE',
+      action: 'VENUE_ACTIVATED',
+      status: 'SUCCESS',
+      targetType: 'Venue',
+      targetId: venue._id,
+      targetName: venue.businessName,
+      previousState,
+      newState: { status: 'approved' },
+      reason: 'Activated / unsuspended by administrator'
+    });
 
     // If venue was listed by an ambassador, process listing reward
     if (venue.ambassador) {
@@ -259,6 +384,7 @@ exports.activateVenue = async (req, res) => {
 // @desc    Update venue status (approve, reject, suspend, pending, resubmitted) with reason
 // @route   PUT /api/admin/venues/:id/status
 exports.updateVenueStatus = async (req, res) => {
+  const clientIp = extractClientIp(req);
   try {
     const { status, reason } = req.body;
     const validStatuses = ['approved', 'rejected', 'suspended', 'pending', 'resubmitted'];
@@ -272,6 +398,7 @@ exports.updateVenueStatus = async (req, res) => {
     }
 
     const previousStatus = venue.status;
+    const previousState = { status: venue.status, isActive: venue.isActive };
     venue.status = status;
 
     if (status === 'approved') {
@@ -317,7 +444,35 @@ exports.updateVenueStatus = async (req, res) => {
       venue.statusReason = reason || '';
     }
 
+    if (!venue.statusHistory) venue.statusHistory = [];
+    venue.statusHistory.push({
+      action: `VENUE_STATUS_${status.toUpperCase()}`,
+      status,
+      isActive: venue.isActive,
+      reason: reason || `Status changed to ${status}`,
+      changedBy: {
+        userId: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        role: req.user.role
+      },
+      ipAddress: clientIp,
+      timestamp: new Date()
+    });
+
     await venue.save();
+
+    logStatusChange(req, {
+      category: 'VENUE',
+      action: `VENUE_STATUS_${status.toUpperCase()}`,
+      status: 'SUCCESS',
+      targetType: 'Venue',
+      targetId: venue._id,
+      targetName: venue.businessName,
+      previousState,
+      newState: { status: venue.status, isActive: venue.isActive, reason },
+      reason: reason || `Status changed to ${status}`
+    });
 
     res.json({
       success: true,
@@ -332,6 +487,7 @@ exports.updateVenueStatus = async (req, res) => {
 // @desc    Toggle or update Stop Booking status for a venue
 // @route   PUT /api/admin/venues/:id/booking-status
 exports.updateVenueBookingStatus = async (req, res) => {
+  const clientIp = extractClientIp(req);
   try {
     const { isBookingStopped, stopBookingReason } = req.body;
     const venue = await Venue.findById(req.params.id);
@@ -339,12 +495,42 @@ exports.updateVenueBookingStatus = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Venue not found' });
     }
 
+    const previousState = { isBookingStopped: venue.isBookingStopped, stopBookingReason: venue.stopBookingReason };
     const stopped = Boolean(isBookingStopped);
     venue.isBookingStopped = stopped;
     venue.stopBookingReason = stopped ? (stopBookingReason || 'Bookings temporarily stopped by administration') : '';
     venue.stoppedBookingAt = stopped ? new Date() : null;
 
+    if (!venue.statusHistory) venue.statusHistory = [];
+    venue.statusHistory.push({
+      action: stopped ? 'VENUE_BOOKING_STOPPED' : 'VENUE_BOOKING_RESUMED',
+      status: venue.status,
+      isActive: venue.isActive,
+      isBookingStopped: stopped,
+      reason: venue.stopBookingReason,
+      changedBy: {
+        userId: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        role: req.user.role
+      },
+      ipAddress: clientIp,
+      timestamp: new Date()
+    });
+
     await venue.save();
+
+    logStatusChange(req, {
+      category: 'VENUE',
+      action: stopped ? 'VENUE_BOOKING_STOPPED' : 'VENUE_BOOKING_RESUMED',
+      status: 'SUCCESS',
+      targetType: 'Venue',
+      targetId: venue._id,
+      targetName: venue.businessName,
+      previousState,
+      newState: { isBookingStopped: stopped, stopBookingReason: venue.stopBookingReason },
+      reason: venue.stopBookingReason
+    });
 
     res.json({
       success: true,
@@ -1020,8 +1206,9 @@ exports.getUser = async (req, res) => {
 // @desc    Update user status
 // @route   PUT /api/admin/users/:id/status
 exports.updateUserStatus = async (req, res) => {
+  const clientIp = extractClientIp(req);
   try {
-    const { isActive } = req.body;
+    const { isActive, reason } = req.body;
     
     const user = await User.findById(req.params.id);
     
@@ -1040,12 +1227,81 @@ exports.updateUserStatus = async (req, res) => {
       });
     }
     
-    user.isActive = isActive;
+    const previousState = { isActive: user.isActive, role: user.role };
+    user.isActive = Boolean(isActive);
+
+    if (!user.statusHistory) user.statusHistory = [];
+    user.statusHistory.push({
+      action: user.isActive ? 'USER_ACTIVATED' : 'USER_DEACTIVATED',
+      role: user.role,
+      isActive: user.isActive,
+      reason: reason || `User ${user.isActive ? 'activated' : 'deactivated'} by admin`,
+      changedBy: {
+        userId: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        role: req.user.role
+      },
+      ipAddress: clientIp,
+      timestamp: new Date()
+    });
+
     await user.save();
+
+    // If user is ambassador, keep AmbassadorProfile.isActive in sync
+    if (user.role === 'ambassador') {
+      try {
+        const AmbassadorProfile = require('../models/AmbassadorProfile');
+        const ambProfile = await AmbassadorProfile.findOne({ user: user._id });
+        if (ambProfile) {
+          ambProfile.isActive = user.isActive;
+          if (!user.isActive) {
+            ambProfile.deactivatedAt = new Date();
+            ambProfile.deactivationReason = reason || 'Deactivated by admin';
+          } else {
+            ambProfile.deactivatedAt = undefined;
+            ambProfile.deactivationReason = undefined;
+            ambProfile.verifiedAt = new Date(); // renew grace period
+          }
+
+          if (!ambProfile.statusHistory) ambProfile.statusHistory = [];
+          ambProfile.statusHistory.push({
+            action: user.isActive ? 'AMBASSADOR_ACTIVATED_VIA_USER' : 'AMBASSADOR_DEACTIVATED_VIA_USER',
+            status: ambProfile.applicationStatus,
+            isActive: ambProfile.isActive,
+            reason: reason || `Updated via User status change to ${user.isActive ? 'active' : 'inactive'}`,
+            changedBy: {
+              userId: req.user._id,
+              name: req.user.name,
+              email: req.user.email,
+              role: req.user.role
+            },
+            ipAddress: clientIp,
+            timestamp: new Date()
+          });
+
+          await ambProfile.save();
+        }
+      } catch (ambSyncErr) {
+        console.error('Error synchronizing ambassador profile on user status change:', ambSyncErr.message);
+      }
+    }
+
+    logStatusChange(req, {
+      category: 'USER',
+      action: user.isActive ? 'USER_ACTIVATED' : 'USER_DEACTIVATED',
+      status: 'SUCCESS',
+      targetType: 'User',
+      targetId: user._id,
+      targetName: user.name,
+      previousState,
+      newState: { isActive: user.isActive, role: user.role },
+      reason: reason || `User status changed to ${user.isActive ? 'active' : 'inactive'}`
+    });
     
     res.json({
       success: true,
-      message: `User ${isActive ? 'activated' : 'deactivated'} successfully`,
+      message: `User ${user.isActive ? 'activated' : 'deactivated'} successfully`,
       user: {
         id: user._id,
         name: user.name,
@@ -3058,6 +3314,7 @@ exports.getAmbassadorDetails = async (req, res) => {
 // @desc    Update ambassador application status (Approve / Reject / Assign ID & Level / Toggle Active)
 // @route   PUT /api/admin/ambassadors/:id/status
 exports.updateAmbassadorStatus = async (req, res) => {
+  const clientIp = extractClientIp(req);
   try {
     const AmbassadorProfile = require('../models/AmbassadorProfile');
     const User = require('../models/User');
@@ -3078,6 +3335,14 @@ exports.updateAmbassadorStatus = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Ambassador not found' });
     }
 
+    const previousState = {
+      applicationStatus: profile.applicationStatus,
+      isActive: profile.isActive,
+      level: profile.assignedLevel || profile.level,
+      badge: profile.badge,
+      deactivationReason: profile.deactivationReason
+    };
+
     const targetStatus = status || req.body.applicationStatus;
     if (targetStatus) {
       profile.applicationStatus = targetStatus;
@@ -3095,18 +3360,30 @@ exports.updateAmbassadorStatus = async (req, res) => {
     if (cityPartnerCode) profile.cityPartnerCode = cityPartnerCode;
     if (rejectionReason) profile.rejectionReason = rejectionReason;
 
+    let actionName = 'AMBASSADOR_STATUS_UPDATED';
+
     if (isActive !== undefined) {
       profile.isActive = Boolean(isActive);
       if (profile.isActive === false) {
+        actionName = 'AMBASSADOR_DEACTIVATED';
         profile.deactivatedAt = new Date();
         profile.deactivationReason = deactivationReason || 'Deactivated by administrator';
       } else {
+        actionName = 'AMBASSADOR_ACTIVATED';
         profile.deactivatedAt = undefined;
         profile.deactivationReason = undefined;
+        // Refresh verifiedAt on re-activation so 30-day grace period is renewed
+        profile.verifiedAt = new Date();
+      }
+
+      // Keep user.isActive synchronized
+      if (profile.user) {
+        await User.findByIdAndUpdate(profile.user, { isActive: profile.isActive });
       }
     }
 
     if (targetStatus === 'approved') {
+      actionName = 'AMBASSADOR_APPROVED';
       if (!profile.verifiedAt) {
         profile.verifiedAt = new Date();
       }
@@ -3114,12 +3391,55 @@ exports.updateAmbassadorStatus = async (req, res) => {
 
       // Upgrade user role to ambassador in User collection
       if (profile.user) {
-        await User.findByIdAndUpdate(profile.user, { role: 'ambassador' });
+        await User.findByIdAndUpdate(profile.user, { role: 'ambassador', isActive: true });
         console.log(`[AMBASSADOR APPROVAL] Upgraded user ${profile.user} role to 'ambassador'`);
       }
+    } else if (targetStatus === 'rejected') {
+      actionName = 'AMBASSADOR_REJECTED';
     }
 
+    // Push into status history
+    if (!profile.statusHistory) profile.statusHistory = [];
+    profile.statusHistory.push({
+      action: actionName,
+      status: profile.applicationStatus,
+      isActive: profile.isActive,
+      reason: profile.deactivationReason || rejectionReason || '',
+      changedBy: {
+        userId: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        role: req.user.role
+      },
+      ipAddress: clientIp,
+      timestamp: new Date()
+    });
+
     await profile.save({ validateBeforeSave: false });
+
+    // Global audit log entry
+    logStatusChange(req, {
+      category: 'AMBASSADOR',
+      action: actionName,
+      status: 'SUCCESS',
+      targetType: 'AmbassadorProfile',
+      targetId: profile._id,
+      targetName: profile.personalInfo?.fullName || profile.ambassadorId || 'Ambassador',
+      previousState,
+      newState: {
+        applicationStatus: profile.applicationStatus,
+        isActive: profile.isActive,
+        level: profile.assignedLevel,
+        badge: profile.badge,
+        deactivationReason: profile.deactivationReason
+      },
+      reason: profile.deactivationReason || rejectionReason || '',
+      details: {
+        ambassadorId: profile.ambassadorId,
+        userId: profile.user,
+        cityPartnerCode: profile.cityPartnerCode
+      }
+    });
 
     const profileObj = profile.toObject();
     profileObj.status = profile.applicationStatus || targetStatus;

@@ -5,6 +5,7 @@ const Venue = require('../models/Venue');
 const Booking = require('../models/Booking');
 const { normalizeRefundAttempt } = require('../utils/refundHelper');
 const { sendBookingNotifications } = require('../utils/bookingNotificationHelper');
+const { logAudit, logStatusChange, extractClientIp } = require('../utils/auditLogger');
 const {
   createCoupon,
   getOwnerCoupons,
@@ -227,17 +228,48 @@ router.get('/quotation-downloads', async (req, res) => {
 // @route   PUT /api/owner/venues/:id/toggle-active
 // @desc    Toggle venue isActive (enable/disable listing)
 router.put('/venues/:id/toggle-active', async (req, res) => {
+  const clientIp = extractClientIp(req);
   try {
     const venue = await Venue.findOne({ _id: req.params.id, owner: req.user._id });
     if (!venue) return res.status(404).json({ success: false, message: 'Venue not found' });
 
+    const previousState = { isActive: venue.isActive };
     // Use client-sent currentIsActive if provided, else derive from DB
     const currentlyActive = req.body.currentIsActive !== undefined
       ? req.body.currentIsActive
       : venue.isActive !== false;
 
     venue.isActive = !currentlyActive;
+
+    if (!venue.statusHistory) venue.statusHistory = [];
+    venue.statusHistory.push({
+      action: venue.isActive ? 'VENUE_ENABLED_BY_OWNER' : 'VENUE_DISABLED_BY_OWNER',
+      status: venue.status,
+      isActive: venue.isActive,
+      reason: `Owner toggled listing ${venue.isActive ? 'active' : 'inactive'}`,
+      changedBy: {
+        userId: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        role: req.user.role
+      },
+      ipAddress: clientIp,
+      timestamp: new Date()
+    });
+
     await venue.save();
+
+    logStatusChange(req, {
+      category: 'VENUE',
+      action: venue.isActive ? 'VENUE_ENABLED_BY_OWNER' : 'VENUE_DISABLED_BY_OWNER',
+      status: 'SUCCESS',
+      targetType: 'Venue',
+      targetId: venue._id,
+      targetName: venue.businessName,
+      previousState,
+      newState: { isActive: venue.isActive },
+      reason: `Owner toggled listing ${venue.isActive ? 'active' : 'inactive'}`
+    });
 
     res.json({ success: true, isActive: venue.isActive, message: `Venue ${venue.isActive ? 'enabled' : 'disabled'} successfully` });
   } catch (e) {
@@ -248,14 +280,46 @@ router.put('/venues/:id/toggle-active', async (req, res) => {
 // @route   PUT /api/owner/venues/:id/resubmit
 // @desc    Re-submit rejected venue for admin review
 router.put('/venues/:id/resubmit', async (req, res) => {
+  const clientIp = extractClientIp(req);
   try {
     const venue = await Venue.findOne({ _id: req.params.id, owner: req.user._id });
     if (!venue) return res.status(404).json({ success: false, message: 'Venue not found' });
     if (venue.status !== 'rejected') return res.status(400).json({ success: false, message: 'Only rejected venues can be re-submitted' });
+    
+    const previousState = { status: venue.status };
     venue.status = 'resubmitted';
     venue.resubmittedAt = new Date();
-    // Keep rejectionReason so admin can see what was fixed
+
+    if (!venue.statusHistory) venue.statusHistory = [];
+    venue.statusHistory.push({
+      action: 'VENUE_RESUBMITTED_BY_OWNER',
+      status: 'resubmitted',
+      isActive: venue.isActive,
+      reason: 'Re-submitted for review by owner after corrections',
+      changedBy: {
+        userId: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        role: req.user.role
+      },
+      ipAddress: clientIp,
+      timestamp: new Date()
+    });
+
     await venue.save();
+
+    logStatusChange(req, {
+      category: 'VENUE',
+      action: 'VENUE_RESUBMITTED_BY_OWNER',
+      status: 'SUCCESS',
+      targetType: 'Venue',
+      targetId: venue._id,
+      targetName: venue.businessName,
+      previousState,
+      newState: { status: 'resubmitted' },
+      reason: 'Re-submitted for review by owner'
+    });
+
     res.json({ success: true, message: 'Venue re-submitted for review', venue });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });

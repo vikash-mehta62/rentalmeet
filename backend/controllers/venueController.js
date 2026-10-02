@@ -3,6 +3,7 @@ const User = require('../models/User');
 const { uploadToStorage } = require('../config/storage');
 const { encrypt } = require('../utils/encryption');
 const { sendVenueSubmissionEmail, sendVenueOwnerWelcomeCredentialsEmail } = require('../utils/emailService');
+const { logAudit, logStatusChange, logSubmissionAttempt, extractClientIp } = require('../utils/auditLogger');
 
 const normalizeFoodType = (value) => {
   const key = String(value || '').toLowerCase().replace(/[\s_-]+/g, '');
@@ -15,15 +16,28 @@ const normalizeFoodType = (value) => {
 // @desc    Create new venue
 // @route   POST /api/venues
 exports.createVenue = async (req, res) => {
+  const clientIp = extractClientIp(req);
+  const venueData = req.body;
+  const venueName = venueData?.businessName || 'Unnamed Venue';
+
   try {
     console.log('=== VENUE CREATION DEBUG ===');
-    console.log('1. User:', req.user?.name, '(', req.user?.email, ') Role:', req.user?.role);
+    console.log('1. User:', req.user?.name, '(', req.user?.email, ') Role:', req.user?.role, 'IP:', clientIp);
     console.log('2. Requester ID:', req.user?.id);
     
-    const venueData = req.body;
-    console.log('3. Received data keys:', Object.keys(venueData));
-    console.log('4. Business Name:', venueData.businessName);
-    console.log('5. City:', venueData.location?.city);
+    // Log submission attempt to safeguard all request payload data
+    logSubmissionAttempt(req, {
+      category: 'VENUE',
+      action: 'VENUE_SUBMISSION_ATTEMPT',
+      targetType: 'Venue',
+      targetName: venueName,
+      payload: venueData,
+      status: 'ATTEMPT'
+    });
+
+    console.log('3. Received data keys:', Object.keys(venueData || {}));
+    console.log('4. Business Name:', venueData?.businessName);
+    console.log('5. City:', venueData?.location?.city);
     
     // Encrypt bank account number
     if (venueData.bankDetails && venueData.bankDetails.accountNumber) {
@@ -47,7 +61,42 @@ exports.createVenue = async (req, res) => {
           ambProfile.isActive = false;
           ambProfile.deactivationReason = `Auto-deactivated: No venue listed within 30 days of approval (${daysSinceApproval} days inactive)`;
           ambProfile.deactivatedAt = ambProfile.deactivatedAt || new Date();
+          
+          if (!ambProfile.statusHistory) ambProfile.statusHistory = [];
+          ambProfile.statusHistory.push({
+            action: 'AUTO_DEACTIVATE_30_DAYS',
+            status: ambProfile.applicationStatus,
+            isActive: false,
+            reason: ambProfile.deactivationReason,
+            changedBy: {
+              userId: req.user._id,
+              name: req.user.name,
+              email: req.user.email,
+              role: req.user.role
+            },
+            ipAddress: clientIp,
+            timestamp: new Date()
+          });
+
           await ambProfile.save();
+
+          // Log failure with complete request payload preserved
+          logAudit(req, {
+            category: 'AMBASSADOR',
+            action: 'AMBASSADOR_AUTO_DEACTIVATED',
+            status: 'FAILED',
+            targetType: 'AmbassadorProfile',
+            targetId: ambProfile._id,
+            targetName: req.user.name,
+            reason: ambProfile.deactivationReason,
+            errorMessage: 'Ambassador auto-deactivated due to 30-day inactivity rule',
+            details: {
+              daysSinceApproval,
+              totalSubmitted,
+              submittedPayload: venueData
+            }
+          });
+
           return res.status(403).json({
             success: false,
             message: 'Your Ambassador account has been auto-deactivated because no venue was listed within 30 days of approval. Please contact support to reactivate.'
@@ -55,9 +104,24 @@ exports.createVenue = async (req, res) => {
         }
         
         if (ambProfile.isActive === false) {
+          const blockReason = ambProfile.deactivationReason || 'Your Ambassador account is deactivated/blocked. Please contact support.';
+          
+          // Log submission failure with full payload
+          logAudit(req, {
+            category: 'AMBASSADOR',
+            action: 'VENUE_SUBMISSION_BLOCKED_INACTIVE_AMBASSADOR',
+            status: 'FAILED',
+            targetType: 'AmbassadorProfile',
+            targetId: ambProfile._id,
+            targetName: req.user.name,
+            reason: blockReason,
+            errorMessage: blockReason,
+            details: { submittedPayload: venueData }
+          });
+
           return res.status(403).json({
             success: false,
-            message: ambProfile.deactivationReason || 'Your Ambassador account is deactivated/blocked. Please contact support.'
+            message: blockReason
           });
         }
       }
@@ -68,6 +132,16 @@ exports.createVenue = async (req, res) => {
       const ownerName = (ownerInfo.fullName || venueData.businessName + ' Owner').trim();
 
       if (!ownerMobile && !ownerEmail) {
+        logAudit(req, {
+          category: 'VENUE',
+          action: 'VENUE_SUBMISSION_VALIDATION_FAILED',
+          status: 'FAILED',
+          targetType: 'Venue',
+          targetName: venueName,
+          errorMessage: 'Venue owner contact information (mobile or email) is required',
+          details: { submittedPayload: venueData }
+        });
+
         return res.status(400).json({
           success: false,
           message: 'Venue owner contact information (mobile or email) is required to onboard a venue.'
@@ -86,6 +160,21 @@ exports.createVenue = async (req, res) => {
         // Upgrade customer to owner role if needed
         if (ownerUser.role === 'customer') {
           ownerUser.role = 'owner';
+          if (!ownerUser.statusHistory) ownerUser.statusHistory = [];
+          ownerUser.statusHistory.push({
+            action: 'ROLE_UPGRADE_TO_OWNER',
+            role: 'owner',
+            isActive: ownerUser.isActive,
+            reason: 'Upgraded during venue onboarding by ambassador',
+            changedBy: {
+              userId: req.user._id,
+              name: req.user.name,
+              email: req.user.email,
+              role: req.user.role
+            },
+            ipAddress: clientIp,
+            timestamp: new Date()
+          });
           await ownerUser.save();
         }
         console.log(`[AMBASSADOR ONBOARDING] Linked venue to existing Owner user: ${ownerUser._id} (${ownerUser.phone || ownerUser.email})`);
@@ -102,7 +191,21 @@ exports.createVenue = async (req, res) => {
           password: autoPassword,
           role: 'owner',
           isPhoneVerified: true,
-          isEmailVerified: !!ownerEmail
+          isEmailVerified: !!ownerEmail,
+          statusHistory: [{
+            action: 'ACCOUNT_AUTO_CREATED_ON_VENUE_ONBOARD',
+            role: 'owner',
+            isActive: true,
+            reason: 'Auto-created by ambassador venue registration',
+            changedBy: {
+              userId: req.user._id,
+              name: req.user.name,
+              email: req.user.email,
+              role: req.user.role
+            },
+            ipAddress: clientIp,
+            timestamp: new Date()
+          }]
         });
         console.log(`[AMBASSADOR ONBOARDING] ✨ Auto-created new Owner Account: ID=${ownerUser._id}, Phone=${ownerUser.phone}, Email=${ownerUser.email}`);
       }
@@ -115,6 +218,22 @@ exports.createVenue = async (req, res) => {
     }
     console.log('11. Owner set:', venueData.owner);
     
+    // Attach initial status history
+    venueData.statusHistory = [{
+      action: 'VENUE_SUBMITTED',
+      status: 'pending',
+      isActive: true,
+      reason: req.user.role === 'ambassador' ? 'Submitted by Ambassador' : 'Submitted by Owner',
+      changedBy: {
+        userId: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        role: req.user.role
+      },
+      ipAddress: clientIp,
+      timestamp: new Date()
+    }];
+
     // Create venue
     console.log('12. Creating venue in database...');
     const venue = await Venue.create(venueData);
@@ -148,6 +267,25 @@ exports.createVenue = async (req, res) => {
         }
       }
     }
+
+    // Global audit log on successful creation
+    logAudit(req, {
+      category: 'VENUE',
+      action: 'VENUE_CREATED',
+      status: 'SUCCESS',
+      targetType: 'Venue',
+      targetId: venue._id,
+      targetName: venue.businessName,
+      newState: { status: venue.status, isActive: venue.isActive, sku: venue.sku },
+      details: {
+        sku: venue.sku,
+        ownerId: venue.owner,
+        ambassadorId: venue.ambassador || null,
+        city: venue.location?.city,
+        listingSource: venue.listingSource
+      }
+    });
+
     console.log('13. Venue created successfully! ID:', venue._id, 'SKU:', venue.sku);
     console.log('   - ID:', venue._id);
     console.log('   - SKU:', venue.sku);
@@ -180,6 +318,21 @@ exports.createVenue = async (req, res) => {
     console.error('=== VENUE CREATION ERROR ===');
     console.error('Error:', error.message);
     console.error('Stack:', error.stack);
+
+    // Record complete failure audit log with full submitted payload
+    logAudit(req, {
+      category: 'VENUE',
+      action: 'VENUE_CREATION_FAILED_EXCEPTION',
+      status: 'FAILED',
+      targetType: 'Venue',
+      targetName: venueName,
+      errorMessage: error.message,
+      details: {
+        errorStack: error.stack,
+        submittedPayload: venueData
+      }
+    });
+
     res.status(500).json({
       success: false,
       message: error.message

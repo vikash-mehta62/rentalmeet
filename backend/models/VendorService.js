@@ -160,6 +160,22 @@ const vendorServiceSchema = new mongoose.Schema({
   blockedDates: [{
     date:   { type: Date, required: true },
     reason: { type: String, default: 'Blocked by vendor' }
+  }],
+
+  // Audit Status History
+  statusHistory: [{
+    action: { type: String },
+    status: { type: String },
+    isActive: { type: Boolean },
+    reason: { type: String },
+    changedBy: {
+      userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      name: { type: String },
+      email: { type: String },
+      role: { type: String }
+    },
+    ipAddress: { type: String },
+    timestamp: { type: Date, default: Date.now }
   }]
 }, { timestamps: true });
 

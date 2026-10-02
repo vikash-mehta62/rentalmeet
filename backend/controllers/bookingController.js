@@ -9,6 +9,7 @@ const { calculateVenueConfirmationDeadline } = require('../utils/confirmationDea
 const { calculateVenueBookingPrice, calculateVenueOwnerPayout, numberOr, isOnlineBookingOpen, formatTime12Hour } = require('../utils/venuePricing');
 const { normalizeRefundAttempt } = require('../utils/refundHelper');
 const { sendBookingNotifications } = require('../utils/bookingNotificationHelper');
+const { logAudit, logStatusChange, extractClientIp } = require('../utils/auditLogger');
 
 // Helper function to generate booking number
 // Format: STATE(2) + CITY(3) + YEAR(2) + VENUETYPE(2) + SERIAL(6)
@@ -435,6 +436,25 @@ exports.createBooking = async (req, res) => {
     } catch (pushErr) {
       console.error('Failed to send booking creation push notification:', pushErr.message);
     }
+
+    logAudit(req, {
+      category: 'BOOKING',
+      action: 'BOOKING_CREATED',
+      status: 'SUCCESS',
+      performedBy: { userId: req.user._id, name: req.user.name, email: req.user.email, role: req.user.role },
+      targetType: 'Booking',
+      targetId: booking._id,
+      targetName: booking.bookingNumber,
+      details: {
+        bookingNumber: booking.bookingNumber,
+        venueId: booking.venue?._id || booking.venue,
+        venueName: booking.venue?.businessName,
+        bookingDate: booking.bookingDate,
+        amount: booking.amount,
+        status: booking.status,
+        paymentStatus: booking.paymentStatus
+      }
+    });
     
     res.status(201).json({
       success: true,
@@ -695,6 +715,23 @@ exports.updateBookingStatus = async (req, res) => {
     } catch (pushErr) {
       console.error('Failed to send booking status push notification:', pushErr.message);
     }
+
+    logStatusChange(req, {
+      category: 'BOOKING',
+      action: `BOOKING_STATUS_${status.toUpperCase()}`,
+      status: 'SUCCESS',
+      targetType: 'Booking',
+      targetId: booking._id,
+      targetName: booking.bookingNumber,
+      newState: { status: booking.status },
+      details: {
+        bookingNumber: booking.bookingNumber,
+        venueId: booking.venue?._id || booking.venue,
+        venueName: booking.venue?.businessName,
+        customerName: booking.customer?.name,
+        amount: booking.amount
+      }
+    });
     
     res.json({
       success: true,
@@ -1148,6 +1185,27 @@ exports.cancelBooking = async (req, res) => {
     } catch (pushErr) {
       console.error('Failed to send booking cancellation push notification:', pushErr.message);
     }
+
+    logStatusChange(req, {
+      category: 'BOOKING',
+      action: 'BOOKING_CANCELLED',
+      status: 'SUCCESS',
+      targetType: 'Booking',
+      targetId: booking._id,
+      targetName: booking.bookingNumber,
+      newState: { status: 'cancelled', refundDetails: booking.refundDetails },
+      reason: booking.cancellationReason,
+      details: {
+        bookingNumber: booking.bookingNumber,
+        venueId: booking.venue?._id || booking.venue,
+        venueName: booking.venue?.businessName,
+        refundAmount,
+        refundEligible,
+        refundPolicy,
+        refundProcessed: refundResult.refundStatus === 'processed',
+        refundId: refundResult.refundId
+      }
+    });
 
     res.json({
       success: true,

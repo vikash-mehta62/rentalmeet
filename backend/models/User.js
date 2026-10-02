@@ -73,6 +73,22 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  // Audit Status History
+  statusHistory: [{
+    action: { type: String },
+    role: { type: String },
+    isActive: { type: Boolean },
+    isDeleted: { type: Boolean },
+    reason: { type: String },
+    changedBy: {
+      userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      name: { type: String },
+      email: { type: String },
+      role: { type: String }
+    },
+    ipAddress: { type: String },
+    timestamp: { type: Date, default: Date.now }
+  }],
   // KYC Documents (mandatory for customers to book)
   kyc: {
     idProof: {

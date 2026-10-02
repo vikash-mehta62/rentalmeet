@@ -158,6 +158,22 @@ const ambassadorProfileSchema = new mongoose.Schema({
   verifiedAt: { type: Date },
   rejectionReason: { type: String },
 
+  // Status Audit History
+  statusHistory: [{
+    action: { type: String },
+    status: { type: String },
+    isActive: { type: Boolean },
+    reason: { type: String },
+    changedBy: {
+      userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      name: { type: String },
+      email: { type: String },
+      role: { type: String }
+    },
+    ipAddress: { type: String },
+    timestamp: { type: Date, default: Date.now }
+  }],
+
   // Earning & Performance Metrics
   walletBalance: { type: Number, default: 0 },
   totalEarnings: { type: Number, default: 0 },

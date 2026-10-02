@@ -5,6 +5,7 @@ const VendorProfile = require('../models/VendorProfile');
 const VendorService = require('../models/VendorService');
 const { upload } = require('../middleware/upload');
 const { uploadToStorage } = require('../config/storage');
+const { logAudit, logStatusChange, extractClientIp } = require('../utils/auditLogger');
 
 router.use(protect, authorize('vendor'));
 
@@ -142,24 +143,90 @@ router.post('/services/:id/submit', async (req, res) => {
 
 // PUT resubmit rejected service
 router.put('/services/:id/resubmit', async (req, res) => {
+  const clientIp = extractClientIp(req);
   try {
     const service = await VendorService.findOne({ _id: req.params.id, vendor: req.user.id });
     if (!service) return res.status(404).json({ success: false, message: 'Not found' });
     if (service.status !== 'rejected') return res.status(400).json({ success: false, message: 'Only rejected services can be resubmitted' });
+    
+    const previousState = { status: service.status };
     service.status = 'resubmitted';
     service.resubmittedAt = new Date();
+
+    if (!service.statusHistory) service.statusHistory = [];
+    service.statusHistory.push({
+      action: 'SERVICE_RESUBMITTED_BY_VENDOR',
+      status: 'resubmitted',
+      isActive: service.isActive,
+      reason: 'Re-submitted for review by vendor',
+      changedBy: {
+        userId: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        role: req.user.role
+      },
+      ipAddress: clientIp,
+      timestamp: new Date()
+    });
+
     await service.save();
+
+    logStatusChange(req, {
+      category: 'VENDOR',
+      action: 'SERVICE_RESUBMITTED_BY_VENDOR',
+      status: 'SUCCESS',
+      targetType: 'VendorService',
+      targetId: service._id,
+      targetName: service.title,
+      previousState,
+      newState: { status: 'resubmitted' },
+      reason: 'Re-submitted for review by vendor'
+    });
+
     res.json({ success: true, service, message: 'Service resubmitted for review!' });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
 // PUT toggle service active/inactive
 router.put('/services/:id/toggle-active', async (req, res) => {
+  const clientIp = extractClientIp(req);
   try {
     const service = await VendorService.findOne({ _id: req.params.id, vendor: req.user.id });
     if (!service) return res.status(404).json({ success: false, message: 'Not found' });
+    
+    const previousState = { isActive: service.isActive };
     service.isActive = !service.isActive;
+
+    if (!service.statusHistory) service.statusHistory = [];
+    service.statusHistory.push({
+      action: service.isActive ? 'SERVICE_ACTIVATED_BY_VENDOR' : 'SERVICE_DEACTIVATED_BY_VENDOR',
+      status: service.status,
+      isActive: service.isActive,
+      reason: `Vendor toggled service ${service.isActive ? 'active' : 'inactive'}`,
+      changedBy: {
+        userId: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        role: req.user.role
+      },
+      ipAddress: clientIp,
+      timestamp: new Date()
+    });
+
     await service.save();
+
+    logStatusChange(req, {
+      category: 'VENDOR',
+      action: service.isActive ? 'SERVICE_ACTIVATED_BY_VENDOR' : 'SERVICE_DEACTIVATED_BY_VENDOR',
+      status: 'SUCCESS',
+      targetType: 'VendorService',
+      targetId: service._id,
+      targetName: service.title,
+      previousState,
+      newState: { isActive: service.isActive },
+      reason: `Vendor toggled service ${service.isActive ? 'active' : 'inactive'}`
+    });
+
     res.json({ success: true, service, message: `Service ${service.isActive ? 'activated' : 'deactivated'}` });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });

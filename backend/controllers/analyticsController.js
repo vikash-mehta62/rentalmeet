@@ -9,14 +9,53 @@ const User = require('../models/User');
 const { detectBot } = require('../utils/botDetector');
 const { sanitizeObject, sanitizeString, sanitizeUTM } = require('../utils/sanitizeAnalytics');
 
-// Map ISO state/region codes to readable Indian state names
+// Map ISO state/region codes to readable Indian state names (28 States + 8 Union Territories)
 const STATE_NAMES = {
-  'MH': 'Maharashtra', 'DL': 'Delhi', 'KA': 'Karnataka', 'TN': 'Tamil Nadu',
-  'UP': 'Uttar Pradesh', 'GJ': 'Gujarat', 'WB': 'West Bengal', 'RJ': 'Rajasthan',
-  'TG': 'Telangana', 'KL': 'Kerala', 'MP': 'Madhya Pradesh', 'HR': 'Haryana',
-  'PB': 'Punjab', 'BR': 'Bihar', 'OR': 'Odisha', 'AP': 'Andhra Pradesh',
-  'UT': 'Uttarakhand', 'JH': 'Jharkhand', 'HP': 'Himachal Pradesh', 'GA': 'Goa',
-  'CT': 'Chhattisgarh', 'JK': 'Jammu & Kashmir', 'AS': 'Assam', 'CH': 'Chandigarh'
+  // 28 Indian States
+  'AP': 'Andhra Pradesh',
+  'AR': 'Arunachal Pradesh',
+  'AS': 'Assam',
+  'BR': 'Bihar',
+  'CT': 'Chhattisgarh',
+  'CG': 'Chhattisgarh',
+  'GA': 'Goa',
+  'GJ': 'Gujarat',
+  'HR': 'Haryana',
+  'HP': 'Himachal Pradesh',
+  'JH': 'Jharkhand',
+  'KA': 'Karnataka',
+  'KL': 'Kerala',
+  'MP': 'Madhya Pradesh',
+  'MH': 'Maharashtra',
+  'MN': 'Manipur',
+  'ML': 'Meghalaya',
+  'MZ': 'Mizoram',
+  'NL': 'Nagaland',
+  'OD': 'Odisha',
+  'OR': 'Odisha',
+  'PB': 'Punjab',
+  'RJ': 'Rajasthan',
+  'SK': 'Sikkim',
+  'TN': 'Tamil Nadu',
+  'TG': 'Telangana',
+  'TS': 'Telangana',
+  'TR': 'Tripura',
+  'UP': 'Uttar Pradesh',
+  'UT': 'Uttarakhand',
+  'UK': 'Uttarakhand',
+  'WB': 'West Bengal',
+
+  // 8 Union Territories
+  'AN': 'Andaman and Nicobar Islands',
+  'CH': 'Chandigarh',
+  'DH': 'Dadra and Nagar Haveli and Daman and Diu',
+  'DD': 'Dadra and Nagar Haveli and Daman and Diu',
+  'DN': 'Dadra and Nagar Haveli and Daman and Diu',
+  'DL': 'Delhi',
+  'JK': 'Jammu and Kashmir',
+  'LA': 'Ladakh',
+  'LD': 'Lakshadweep',
+  'PY': 'Puducherry'
 };
 
 // In-Memory Geolocation Cache (IP -> { country, state, city })
@@ -118,29 +157,43 @@ async function resolveGeo(ip) {
   // 2. Try offline geoip-lite lookup first
   const geo = geoip.lookup(cleanIp);
   let countryName = geo?.country === 'IN' ? 'India' : (geo?.country || null);
-  let stateName = STATE_NAMES[geo?.region] || geo?.region || null;
+  let stateName = null;
+  if (geo?.region) {
+    stateName = STATE_NAMES[geo.region.toUpperCase()] || geo.region;
+  }
   let cityName = geo?.city || null;
 
-  // 3. If offline lookup lacks city/state (common for Indian mobile/broadband ISPs), query ip-api.com
-  if (!cityName || !stateName || stateName === 'Unknown State') {
+  // 3. If offline lookup lacks city/state or region name is raw code, query ip-api.com (with ipwho.is secondary fallback)
+  if (!cityName || !stateName || stateName.length <= 3) {
     try {
-      const res = await fetch(`http://ip-api.com/json/${cleanIp}`, { signal: AbortSignal.timeout(3000) });
+      const res = await fetch(`http://ip-api.com/json/${cleanIp}?fields=status,message,country,region,regionName,city`, { signal: AbortSignal.timeout(3000) });
       const apiData = await res.json();
       if (apiData && apiData.status === 'success') {
         countryName = apiData.country || countryName || 'India';
-        stateName = apiData.regionName || stateName || 'Madhya Pradesh';
-        cityName = apiData.city || cityName || 'Bhopal';
+        stateName = apiData.regionName || (STATE_NAMES[apiData.region?.toUpperCase()] || apiData.region) || stateName;
+        cityName = apiData.city || cityName;
       }
     } catch (err) {
-      // Fallback if offline
+      // Secondary fallback to ipwho.is if ip-api is unreachable
+      try {
+        const res2 = await fetch(`https://ipwho.is/${cleanIp}`, { signal: AbortSignal.timeout(3000) });
+        const apiData2 = await res2.json();
+        if (apiData2 && apiData2.success) {
+          countryName = apiData2.country || countryName || 'India';
+          stateName = apiData2.region || stateName;
+          cityName = apiData2.city || cityName;
+        }
+      } catch (e2) {
+        // Fallback if offline
+      }
     }
   }
 
-  // Final fallback values if resolution is incomplete
+  // Final fallback values (avoid falsely attributing unresolved visitors to a single state)
   const finalResult = {
-    country: countryName || 'India',
-    state: stateName || 'Madhya Pradesh',
-    city: cityName || 'Bhopal'
+    country: countryName || 'Unknown',
+    state: stateName || (countryName === 'India' ? 'Other / Unspecified' : (countryName || 'Unknown')),
+    city: cityName || 'Other / Unspecified'
   };
 
   // Cache result (limit cache size to 10,000 entries)
@@ -640,19 +693,19 @@ exports.getAnalyticsStats = async (req, res) => {
         { $match: visitMatch },
         { $group: { _id: '$country', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
-        { $limit: 10 }
+        { $limit: 50 }
       ]),
       VisitLog.aggregate([
         { $match: visitMatch },
         { $group: { _id: '$state', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
-        { $limit: 15 }
+        { $limit: 100 }
       ]),
       VisitLog.aggregate([
         { $match: visitMatch },
         { $group: { _id: '$city', state: { $first: '$state' }, count: { $sum: 1 } } },
         { $sort: { count: -1 } },
-        { $limit: 15 }
+        { $limit: 100 }
       ]),
       VisitLog.aggregate([
         { $match: visitMatch },

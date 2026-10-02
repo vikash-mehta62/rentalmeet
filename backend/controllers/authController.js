@@ -5,6 +5,7 @@ const Counter = require('../models/Counter');
 const { sendEmail, sendOtpVerificationEmail, sendPasswordResetEmail } = require('../utils/emailService');
 const OtpVerification = require('../models/OtpVerification');
 const { sendSMS } = require('../utils/smsService');
+const { logAudit, extractClientIp } = require('../utils/auditLogger');
 
 // Helper function to generate user ID
 // Format: RM-ROLE-YEAR-SEQUENCE
@@ -167,6 +168,30 @@ exports.register = async (req, res) => {
         console.error('[AUTH] Failed to migrate guest token on register:', pushErr.message);
       }
     }
+
+    logAudit(req, {
+      category: 'AUTH',
+      action: 'USER_REGISTERED',
+      status: 'SUCCESS',
+      performedBy: {
+        userId: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role
+      },
+      targetType: 'User',
+      targetId: user._id,
+      targetName: user.name,
+      details: {
+        userId: user.userId,
+        role: user.role,
+        city: user.city,
+        state: user.state,
+        accountType: user.accountType,
+        referredByCode: user.referredByCode
+      }
+    });
 
     res.status(201).json({
       success: true,
@@ -402,6 +427,13 @@ exports.login = async (req, res) => {
     const user = await User.findOne({ email }).select('+password');
     
     if (!user) {
+      logAudit(req, {
+        category: 'AUTH',
+        action: 'USER_LOGIN_FAILED',
+        status: 'FAILED',
+        errorMessage: 'User not found for email',
+        details: { email }
+      });
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
@@ -412,6 +444,14 @@ exports.login = async (req, res) => {
     const isPasswordMatch = await user.comparePassword(password);
     
     if (!isPasswordMatch) {
+      logAudit(req, {
+        category: 'AUTH',
+        action: 'USER_LOGIN_FAILED',
+        status: 'FAILED',
+        performedBy: { userId: user._id, name: user.name, email: user.email, role: user.role },
+        errorMessage: 'Password mismatch',
+        details: { email }
+      });
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
@@ -420,6 +460,14 @@ exports.login = async (req, res) => {
 
     // Check if account is deleted
     if (user.isDeleted) {
+      logAudit(req, {
+        category: 'AUTH',
+        action: 'USER_LOGIN_BLOCKED_DELETED',
+        status: 'FAILED',
+        performedBy: { userId: user._id, name: user.name, email: user.email, role: user.role },
+        errorMessage: 'Account is deleted',
+        details: { email }
+      });
       return res.status(401).json({
         success: false,
         message: 'This account has been deleted'
@@ -428,6 +476,14 @@ exports.login = async (req, res) => {
 
     // Check if account is active
     if (user.isActive === false) {
+      logAudit(req, {
+        category: 'AUTH',
+        action: 'USER_LOGIN_BLOCKED_DEACTIVATED',
+        status: 'FAILED',
+        performedBy: { userId: user._id, name: user.name, email: user.email, role: user.role },
+        errorMessage: 'Account is deactivated',
+        details: { email }
+      });
       return res.status(401).json({
         success: false,
         message: 'Your account is deactivated. Please contact support.'
@@ -470,6 +526,26 @@ exports.login = async (req, res) => {
         console.error('[AUTH] Failed to migrate guest token on login:', pushErr.message);
       }
     }
+
+    logAudit(req, {
+      category: 'AUTH',
+      action: 'USER_LOGIN_SUCCESS',
+      status: 'SUCCESS',
+      performedBy: {
+        userId: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role
+      },
+      targetType: 'User',
+      targetId: user._id,
+      targetName: user.name,
+      details: {
+        role: user.role,
+        accountType: user.accountType
+      }
+    });
 
     res.json({
       success: true,
@@ -648,6 +724,16 @@ exports.changePassword = async (req, res) => {
     user.password = newPassword;
     await user.save();
     
+    logAudit(req, {
+      category: 'AUTH',
+      action: 'PASSWORD_CHANGED',
+      status: 'SUCCESS',
+      performedBy: { userId: user._id, name: user.name, email: user.email, role: user.role },
+      targetType: 'User',
+      targetId: user._id,
+      targetName: user.name
+    });
+
     res.json({
       success: true,
       message: 'Password changed successfully'
@@ -686,6 +772,17 @@ exports.deleteAccount = async (req, res) => {
       email: `deleted_${Date.now()}_${req.user.email}`
     }, { runValidators: false });
 
+    logAudit(req, {
+      category: 'AUTH',
+      action: 'USER_ACCOUNT_DELETED',
+      status: 'SUCCESS',
+      performedBy: { userId: req.user._id, name: req.user.name, email: req.user.email, role: req.user.role },
+      targetType: 'User',
+      targetId: userId,
+      targetName: req.user.name,
+      reason: 'User self-requested account deletion'
+    });
+
     res.json({ success: true, message: 'Account deleted successfully.' });
   } catch (error) {
     console.error('Delete account error:', error);
@@ -699,6 +796,18 @@ exports.deactivateAccount = async (req, res) => {
   try {
     const userId = req.user.id;
     await User.findByIdAndUpdate(userId, { isActive: false }, { runValidators: false });
+
+    logAudit(req, {
+      category: 'AUTH',
+      action: 'USER_ACCOUNT_DEACTIVATED',
+      status: 'SUCCESS',
+      performedBy: { userId: req.user._id, name: req.user.name, email: req.user.email, role: req.user.role },
+      targetType: 'User',
+      targetId: userId,
+      targetName: req.user.name,
+      reason: 'User self-deactivated account'
+    });
+
     res.json({ success: true, message: 'Account deactivated. Login again to reactivate.' });
   } catch (error) {
     console.error('Deactivate account error:', error);
@@ -746,6 +855,18 @@ exports.uploadKYC = async (req, res) => {
       { $set: updates },
       { new: true, runValidators: false }
     ).select('-password');
+
+    logAudit(req, {
+      category: 'AUTH',
+      action: 'USER_KYC_UPLOADED',
+      status: 'SUCCESS',
+      performedBy: { userId: req.user._id, name: req.user.name, email: req.user.email, role: req.user.role },
+      targetType: 'User',
+      targetId: userId,
+      targetName: req.user.name,
+      details: { idProofType, uploadedDocs: Object.keys(updates) }
+    });
+
     res.json({ success: true, message: 'KYC documents uploaded successfully', user });
   } catch (error) {
     console.error('KYC upload error:', error);

@@ -456,19 +456,21 @@ function AdminAnalyticsInner() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in duration-300">
               {/* State-wise Breakdown */}
               <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                   <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-amber-500" /> State-Wise Traffic Report
                   </h3>
-                  <span className="text-xs font-bold text-gray-400">{locations.states?.length || 0} States</span>
+                  <span className="text-xs font-bold px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full">
+                    {locations.states?.length || 0} States / Regions
+                  </span>
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-3 max-h-[520px] overflow-y-auto custom-scrollbar pr-2">
                   {locations.states && locations.states.length > 0 ? (
                     locations.states.map((st, i) => {
                       const total = summary.totalPageviews || 1;
                       const pct = Math.round((st.count / total) * 100);
                       return (
-                        <div key={i} className="space-y-1.5">
+                        <div key={i} className="space-y-1.5 p-2 rounded-xl hover:bg-gray-50/80 transition-colors">
                           <div className="flex justify-between text-xs font-bold">
                             <span className="text-gray-800">{i + 1}. {st.name}</span>
                             <span className="text-amber-600">{fmtNumber(st.count)} visits ({pct}%)</span>
@@ -487,21 +489,23 @@ function AdminAnalyticsInner() {
 
               {/* City-wise Breakdown */}
               <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                   <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide flex items-center gap-2">
                     <Globe className="w-4 h-4 text-blue-500" /> City-Wise Traffic Report
                   </h3>
-                  <span className="text-xs font-bold text-gray-400">{locations.cities?.length || 0} Cities</span>
+                  <span className="text-xs font-bold px-2.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full">
+                    {locations.cities?.length || 0} Cities
+                  </span>
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-3 max-h-[520px] overflow-y-auto custom-scrollbar pr-2">
                   {locations.cities && locations.cities.length > 0 ? (
                     locations.cities.map((ct, i) => {
                       const total = summary.totalPageviews || 1;
                       const pct = Math.round((ct.count / total) * 100);
                       return (
-                        <div key={i} className="space-y-1.5">
+                        <div key={i} className="space-y-1.5 p-2 rounded-xl hover:bg-gray-50/80 transition-colors">
                           <div className="flex justify-between text-xs font-bold">
-                            <span className="text-gray-800">{i + 1}. {ct.name} <span className="text-[10px] text-gray-400 font-semibold">({ct.state})</span></span>
+                            <span className="text-gray-800">{i + 1}. {ct.name} {ct.state && <span className="text-[10px] text-gray-400 font-semibold">({ct.state})</span>}</span>
                             <span className="text-blue-600">{fmtNumber(ct.count)} visits ({pct}%)</span>
                           </div>
                           <div className="h-2.5 w-full bg-gray-100 rounded-full overflow-hidden">

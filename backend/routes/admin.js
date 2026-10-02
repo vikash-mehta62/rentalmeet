@@ -57,6 +57,7 @@ const { uploadAuthImage } = require('../controllers/authImagesController');
 const { getAdminPopup, saveAdminPopup, deleteAdminPopup } = require('../controllers/popupController');
 const { normalizeRefundAttempt } = require('../utils/refundHelper');
 const { sendBookingNotifications } = require('../utils/bookingNotificationHelper');
+const { logAudit, logStatusChange, extractClientIp } = require('../utils/auditLogger');
 
 const router = express.Router();
 
@@ -962,28 +963,94 @@ router.put('/vendors/:id/reject', protect, authorize('admin'), checkPermission('
 
 // Approve service
 router.put('/vendor-services/:id/approve', protect, authorize('admin'), checkPermission('vendorServices'), async (req, res) => {
+  const clientIp = extractClientIp(req);
   try {
-    const svc = await VendorService.findByIdAndUpdate(
-      req.params.id,
-      { status: 'approved', rejectionReason: undefined },
-      { new: true }
-    ).populate('vendor', 'name email');
+    const svc = await VendorService.findById(req.params.id).populate('vendor', 'name email');
+    if (!svc) return res.status(404).json({ success: false, message: 'Service not found' });
+    
+    const previousState = { status: svc.status, isActive: svc.isActive };
+    svc.status = 'approved';
+    svc.rejectionReason = undefined;
+
+    if (!svc.statusHistory) svc.statusHistory = [];
+    svc.statusHistory.push({
+      action: 'SERVICE_APPROVED',
+      status: 'approved',
+      isActive: svc.isActive,
+      reason: 'Approved by administrator',
+      changedBy: {
+        userId: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        role: req.user.role
+      },
+      ipAddress: clientIp,
+      timestamp: new Date()
+    });
+
+    await svc.save();
+
+    logStatusChange(req, {
+      category: 'VENDOR',
+      action: 'SERVICE_APPROVED',
+      status: 'SUCCESS',
+      targetType: 'VendorService',
+      targetId: svc._id,
+      targetName: svc.title,
+      previousState,
+      newState: { status: 'approved', isActive: svc.isActive },
+      reason: 'Approved by administrator'
+    });
+
     res.json({ success: true, service: svc, message: 'Service approved' });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
 // Reject service (with history)
 router.put('/vendor-services/:id/reject', protect, authorize('admin'), checkPermission('vendorServices'), async (req, res) => {
+  const clientIp = extractClientIp(req);
   try {
     const { reason } = req.body;
     if (!reason?.trim()) return res.status(400).json({ success: false, message: 'Rejection reason required' });
     const svc = await VendorService.findById(req.params.id);
     if (!svc) return res.status(404).json({ success: false, message: 'Service not found' });
+    
+    const previousState = { status: svc.status, isActive: svc.isActive };
     svc.status = 'rejected';
     svc.rejectionReason = reason;
     if (!svc.rejectionHistory) svc.rejectionHistory = [];
     svc.rejectionHistory.push({ reason, rejectedAt: new Date(), rejectedBy: req.user?.id });
+
+    if (!svc.statusHistory) svc.statusHistory = [];
+    svc.statusHistory.push({
+      action: 'SERVICE_REJECTED',
+      status: 'rejected',
+      isActive: svc.isActive,
+      reason,
+      changedBy: {
+        userId: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        role: req.user.role
+      },
+      ipAddress: clientIp,
+      timestamp: new Date()
+    });
+
     await svc.save();
+
+    logStatusChange(req, {
+      category: 'VENDOR',
+      action: 'SERVICE_REJECTED',
+      status: 'SUCCESS',
+      targetType: 'VendorService',
+      targetId: svc._id,
+      targetName: svc.title,
+      previousState,
+      newState: { status: 'rejected', rejectionReason: reason },
+      reason
+    });
+
     res.json({ success: true, service: svc, message: 'Service rejected' });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
@@ -1417,4 +1484,151 @@ router.put('/service-bookings/:id/cancel', protect, authorize('admin'), checkPer
   }
 });
 
+// ══════════════════════════════════════════════════════════════════════════════
+// GLOBAL AUDIT LOGS ROUTES
+// ══════════════════════════════════════════════════════════════════════════════
+const AuditLog = require('../models/AuditLog');
+
+// @desc    Get all audit logs with category, status, search, and date filters
+// @route   GET /api/admin/audit-logs
+router.get('/audit-logs', protect, authorize('admin'), async (req, res) => {
+  try {
+    const {
+      category,
+      action,
+      status,
+      targetType,
+      search,
+      startDate,
+      endDate,
+      page = 1,
+      limit = 20
+    } = req.query;
+
+    const query = {};
+
+    if (category && category !== 'all') {
+      query.category = category;
+    }
+    if (action && action !== 'all') {
+      query.action = { $regex: action, $options: 'i' };
+    }
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+    if (targetType && targetType !== 'all') {
+      query.targetType = targetType;
+    }
+
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) {
+        const eDate = new Date(endDate);
+        eDate.setHours(23, 59, 59, 999);
+        query.createdAt.$lte = eDate;
+      }
+    }
+
+    if (search) {
+      query.$or = [
+        { targetName: { $regex: search, $options: 'i' } },
+        { 'performedBy.name': { $regex: search, $options: 'i' } },
+        { 'performedBy.email': { $regex: search, $options: 'i' } },
+        { action: { $regex: search, $options: 'i' } },
+        { reason: { $regex: search, $options: 'i' } },
+        { ipAddress: { $regex: search, $options: 'i' } },
+        { targetId: search }
+      ];
+    }
+
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const skip = (pageNum - 1) * limitNum;
+
+    const [logs, total, categoryCounts] = await Promise.all([
+      AuditLog.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum),
+      AuditLog.countDocuments(query),
+      AuditLog.aggregate([
+        { $group: { _id: '$category', count: { $sum: 1 } } }
+      ])
+    ]);
+
+    const stats = {};
+    categoryCounts.forEach(c => {
+      if (c._id) stats[c._id] = c.count;
+    });
+
+    res.json({
+      success: true,
+      total,
+      page: pageNum,
+      totalPages: Math.ceil(total / limitNum),
+      stats,
+      logs
+    });
+  } catch (error) {
+    console.error('Error fetching audit logs:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @desc    Get failed / attempt submissions with full request payloads preserved
+// @route   GET /api/admin/audit-logs/failed-submissions
+router.get('/audit-logs/failed-submissions', protect, authorize('admin'), async (req, res) => {
+  try {
+    const { category = 'VENUE', page = 1, limit = 20 } = req.query;
+    const query = {
+      $or: [
+        { status: 'FAILED' },
+        { status: 'ATTEMPT' },
+        { action: /FAILED|EXCEPTION|BLOCKED/i }
+      ]
+    };
+    if (category && category !== 'all') {
+      query.category = category;
+    }
+
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const skip = (pageNum - 1) * limitNum;
+
+    const [logs, total] = await Promise.all([
+      AuditLog.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum),
+      AuditLog.countDocuments(query)
+    ]);
+
+    res.json({
+      success: true,
+      total,
+      page: pageNum,
+      totalPages: Math.ceil(total / limitNum),
+      logs
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @desc    Get single audit log details
+// @route   GET /api/admin/audit-logs/:id
+router.get('/audit-logs/:id', protect, authorize('admin'), async (req, res) => {
+  try {
+    const log = await AuditLog.findById(req.params.id);
+    if (!log) {
+      return res.status(404).json({ success: false, message: 'Audit log not found' });
+    }
+    res.json({ success: true, log });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 module.exports = router;
+

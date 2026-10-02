@@ -445,6 +445,23 @@ const venueSchema = new mongoose.Schema({
     listingActivation: Date
   },
 
+  // Audit Status History
+  statusHistory: [{
+    action: { type: String },
+    status: { type: String },
+    isActive: { type: Boolean },
+    isBookingStopped: { type: Boolean },
+    reason: { type: String },
+    changedBy: {
+      userId: { type: require('mongoose').Schema.Types.ObjectId, ref: 'User' },
+      name: { type: String },
+      email: { type: String },
+      role: { type: String }
+    },
+    ipAddress: { type: String },
+    timestamp: { type: Date, default: Date.now }
+  }],
+
   // Stop Booking / Allow Booking toggle (Admin control)
   // Default: isBookingStopped: false (booking is allowed by default)
   isBookingStopped: {
