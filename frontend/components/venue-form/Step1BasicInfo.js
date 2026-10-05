@@ -8,27 +8,44 @@ import { Building2, Users, FileText, Maximize2, UtensilsCrossed } from 'lucide-r
 
 
 const capacityOptions = [
-  '10-20', '20-30', '30-40', '40-50', '50-100', '100-200', '200-300',
-  '300-400', '400-500', '500-600', '600-700', '700-800', '800-1000',
-  '1000-1500', '1500-2000', 'More than 2000'
+  'Up to 10', '10-25', '25–50', '50–100', '100–150', '150–200', '200-300',
+  '300-400', '400-500', '500-700', '700-1000', '1000-1500', '1500-2000', '2000+',
+  '10-20', '20-30', '30-40', '40-50', '100-200', 'More than 2000'
+];
+
+const DEFAULT_VENUE_CATEGORIES = [
+  'Meeting Hall',
+  'Restaurant',
+  'Conference Hall',
+  'Co-Work Space',
+  'Auditorium',
+  'Guest House',
+  'Banquet Hall',
+  'Training Center',
+  'Farm House',
+  'Marriage Garden',
+  'Hotel',
+  'Play Zone'
 ];
 
 export default function Step1BasicInfo() {
   const { formData, setFormData, setStep } = useVenueFormStore();
   
-  const initialVenueType = Array.isArray(formData.basicInfo?.venueType)
-    ? (formData.basicInfo.venueType[0] || '')
-    : (formData.basicInfo?.venueType || '');
+  const initialVenueTypes = Array.isArray(formData.basicInfo?.venueType)
+    ? formData.basicInfo.venueType
+    : (formData.basicInfo?.venueType ? [formData.basicInfo.venueType] : []);
+
+  const [selectedVenueTypes, setSelectedVenueTypes] = useState(initialVenueTypes);
+  const [venueTypeError, setVenueTypeError] = useState(false);
 
   const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm({
     defaultValues: {
       ...formData.basicInfo,
-      venueType: initialVenueType,
       foodType: formData.basicInfo?.foodType || 'Veg'
     }
   });
 
-  const [venueTypes, setVenueTypes] = useState([]);
+  const [apiVenueTypes, setApiVenueTypes] = useState([]);
   const [loadingTypes, setLoadingTypes] = useState(true);
 
   const description = watch('description', '');
@@ -43,112 +60,116 @@ export default function Step1BasicInfo() {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venue-types`);
       const data = await response.json();
-      if (data.success) {
-        setVenueTypes(data.venueTypes);
+      if (data.success && Array.isArray(data.venueTypes)) {
+        setApiVenueTypes(data.venueTypes.map((t) => t.name));
       }
     } catch (error) {
       console.error('Error fetching venue types:', error);
-      toast.error('Failed to load venue types');
     } finally {
       setLoadingTypes(false);
     }
   };
 
-  // Auto-populate description if venue type is already selected on load but description is empty
-  useEffect(() => {
-    if (venueTypes.length > 0) {
-      const currentVenueType = watch('venueType');
-      const currentDesc = watch('description');
-      if (currentVenueType && (!currentDesc || !currentDesc.trim())) {
-        const selectedTypeObj = venueTypes.find((t) => t.name === currentVenueType);
-        if (selectedTypeObj && selectedTypeObj.description) {
-          setValue('description', selectedTypeObj.description, { shouldValidate: true });
-        }
-      }
-    }
-  }, [venueTypes]);
+  // Combine default categories, API categories, and currently selected ones (deduplicated)
+  const availableCategories = Array.from(new Set([
+    ...DEFAULT_VENUE_CATEGORIES,
+    ...apiVenueTypes,
+    ...selectedVenueTypes
+  ]));
 
-  const handleVenueTypeChange = (e) => {
-    const selectedTypeName = e.target.value;
-    if (selectedTypeName) {
-      const selectedTypeObj = venueTypes.find((t) => t.name === selectedTypeName);
-      if (selectedTypeObj && selectedTypeObj.description) {
-        setValue('description', selectedTypeObj.description, {
-          shouldValidate: true,
-          shouldDirty: true,
-          shouldTouch: true
-        });
-      }
-    }
+  const toggleVenueType = (type) => {
+    setSelectedVenueTypes((prev) => {
+      const exists = prev.includes(type);
+      const updated = exists ? prev.filter((t) => t !== type) : [...prev, type];
+      if (updated.length > 0) setVenueTypeError(false);
+      return updated;
+    });
   };
 
   const onSubmit = (data) => {
+    if (selectedVenueTypes.length === 0) {
+      setVenueTypeError(true);
+      toast.error('Please select at least 1 Venue Type / Category');
+      return;
+    }
     if (wordCount > 200) {
       toast.error('Description must be 200 words or less');
       return;
     }
     
-    setFormData({ basicInfo: data });
+    setFormData({ basicInfo: { ...data, venueType: selectedVenueTypes } });
     setStep(2);
     toast.success('Step 1 completed! 🎉');
   };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 animate-slide-up">
-      {/* Row 1: Business Name | Venue Type */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Business Name */}
-        <div className="form-group">
-          <label className="flex items-center text-sm font-semibold text-dark-700 mb-2">
+      {/* Row 1: Business Name */}
+      <div className="form-group">
+        <label className="flex items-center text-sm font-semibold text-dark-700 mb-2">
+          <Building2 className="w-4 h-4 mr-2 text-primary-500" />
+          Business / Venue Name *
+        </label>
+        <input
+          type="text"
+          {...register('businessName', { required: 'Business name is required' })}
+          className="input-field"
+          placeholder="Elite Conference Center"
+        />
+        {errors.businessName && (
+          <p className="text-error text-sm mt-1 flex items-center">
+            <span className="mr-1">⚠️</span> {errors.businessName.message}
+          </p>
+        )}
+      </div>
+
+      {/* Row 2: Venue Types / Categories (Multi-select) */}
+      <div className="form-group">
+        <div className="flex items-center justify-between mb-2">
+          <label className="flex items-center text-sm font-semibold text-dark-700">
             <Building2 className="w-4 h-4 mr-2 text-primary-500" />
-            Business/Venue Name *
+            Venue Types / Categories * <span className="text-xs text-gray-500 ml-1.5 font-normal">(Select all that apply)</span>
           </label>
-          <input
-            type="text"
-            {...register('businessName', { required: 'Business name is required' })}
-            className="input-field"
-            placeholder="Elite Conference Center"
-          />
-          {errors.businessName && (
-            <p className="text-error text-sm mt-1 flex items-center">
-              <span className="mr-1">⚠️</span> {errors.businessName.message}
-            </p>
-          )}
+          <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
+            selectedVenueTypes.length > 0
+              ? 'bg-primary-50 text-primary-700 border border-primary-200'
+              : 'bg-amber-50 text-amber-700 border border-amber-200'
+          }`}>
+            {selectedVenueTypes.length} Selected
+          </span>
         </div>
 
-        {/* Venue Type - Single Select Dropdown */}
-        <div className="form-group">
-          <label className="flex items-center text-sm font-semibold text-dark-700 mb-2">
-            <Building2 className="w-4 h-4 mr-2 text-primary-500" />
-            Venue Type *
-          </label>
-          {loadingTypes ? (
-            <div className="flex items-center py-3 px-4 bg-gray-50 rounded-lg">
-              <div className="w-5 h-5 border-3 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
-              <span className="ml-3 text-gray-600 text-sm">Loading...</span>
-            </div>
-          ) : (
-            <select
-              {...register('venueType', {
-                required: 'Venue type is required',
-                onChange: handleVenueTypeChange
-              })}
-              className="input-field"
-            >
-              <option value="">Select venue type</option>
-              {venueTypes.map((type) => (
-                <option key={type._id} value={type.name}>
-                 {type.name}
-                </option>
-              ))}
-            </select>
-          )}
-          {errors.venueType && (
-            <p className="text-error text-sm mt-1 flex items-center">
-              <span className="mr-1">⚠️</span> {errors.venueType.message}
-            </p>
-          )}
+        <div className="p-3 bg-gray-50 dark:bg-slate-800/40 rounded-2xl border border-gray-200 dark:border-slate-700">
+          <div className="flex flex-wrap gap-2">
+            {availableCategories.map((type) => {
+              const isSelected = selectedVenueTypes.includes(type);
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => toggleVenueType(type)}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all border flex items-center gap-1.5 cursor-pointer ${
+                    isSelected
+                      ? 'bg-primary-600 border-primary-600 text-white shadow-xs scale-[1.02]'
+                      : 'bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 hover:border-primary-400 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className={`w-3.5 h-3.5 rounded-md flex items-center justify-center text-[10px] ${
+                    isSelected ? 'bg-white/20 text-white' : 'border border-gray-400 text-transparent'
+                  }`}>
+                    ✓
+                  </span>
+                  {type}
+                </button>
+              );
+            })}
+          </div>
         </div>
+        {venueTypeError && (
+          <p className="text-error text-sm mt-1.5 flex items-center">
+            <span className="mr-1">⚠️</span> Please select at least one venue type / category
+          </p>
+        )}
       </div>
 
       {/* Row 2: Food Type | Maximum Capacity | Total Area */}

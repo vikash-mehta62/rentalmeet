@@ -20,7 +20,7 @@ const router = express.Router();
 
 router.route('/')
   .get(getVenues)
-  .post(protect, authorize('owner', 'ambassador', 'admin'), createVenue);
+  .post(protect, authorize('owner', 'ambassador', 'admin', 'subadmin'), createVenue);
 
 router.get('/my-venues', protect, authorize('owner', 'ambassador'), getMyVenues);
 

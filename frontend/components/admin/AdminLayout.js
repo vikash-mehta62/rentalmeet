@@ -9,7 +9,7 @@ import Image from 'next/image';
 import {
   LayoutDashboard, Building2, Users, BookOpen, Settings,
   LogOut, Menu, X, IndianRupee, Shield, BarChart3, Bell, 
-  Grid3x3, MessageSquare, Image as ImageIcon, ChevronLeft, ChevronRight, Tag, FileText, HelpCircle, Briefcase, Package, Wallet, Home, Award
+  Grid3x3, MessageSquare, Image as ImageIcon, ChevronLeft, ChevronRight, Tag, FileText, HelpCircle, Briefcase, Package, Wallet, Home, Award, PlusCircle
 } from 'lucide-react';
 
 export default function AdminLayout({ children, title, subtitle }) {
@@ -43,6 +43,7 @@ export default function AdminLayout({ children, title, subtitle }) {
     { name: 'Auth Custom Images', href: '/admin/auth-images', icon: ImageIcon, permission: 'authImages', section: 'System' },
 
     { name: 'Venues', href: '/admin/venues', icon: Building2, permission: 'venues', section: 'Venues' },
+    { name: '+ Add New Venue', href: '/admin/venues/add', icon: PlusCircle, permission: 'addVenue', section: 'Venues' },
     { name: 'Venue Types', href: '/admin/venue-types', icon: Grid3x3, permission: 'venueTypes', section: 'Venues' },
     { name: 'Bookings', href: '/admin/bookings', icon: BookOpen, permission: 'bookings', section: 'Venues' },
     { name: 'Payments', href: '/admin/payments', icon: IndianRupee, permission: 'payments', section: 'Venues' },
@@ -72,7 +73,15 @@ export default function AdminLayout({ children, title, subtitle }) {
 
   const filteredNavigation = user?.role === 'admin' 
     ? navigation 
-    : navigation.filter(item => user?.permissions?.[item.permission]);
+    : navigation.filter(item => {
+        if (item.permission === 'addVenue') {
+          if (typeof user?.permissions?.addVenue === 'boolean') {
+            return user.permissions.addVenue;
+          }
+          return user?.permissions?.venues === true;
+        }
+        return Boolean(user?.permissions?.[item.permission]);
+      });
 
   const sectionOrder = ['Overview', 'Venues', 'Vendors', 'System'];
   const groupedNavigation = sectionOrder
@@ -128,7 +137,9 @@ export default function AdminLayout({ children, title, subtitle }) {
 
               <div className="space-y-1">
                 {group.items.map((item) => {
-                  const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+                  const isActive = item.href === '/admin/venues'
+                    ? pathname === '/admin/venues'
+                    : (pathname === item.href || pathname.startsWith(item.href + '/'));
                   const Icon = item.icon;
                   return (
                     <Link

@@ -249,9 +249,13 @@ export default function AmbassadorVenuesPage() {
                     </td>
 
                     <td className="p-4 text-slate-600 dark:text-slate-300">
-                      <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] font-semibold mr-1">
-                        {Array.isArray(v.venueType) ? v.venueType[0] : v.venueType || 'Venue'}
-                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {(Array.isArray(v.venueType) ? v.venueType : [v.venueType].filter(Boolean)).map((vt) => (
+                          <span key={vt} className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] font-semibold text-slate-700 dark:text-slate-300">
+                            {vt}
+                          </span>
+                        ))}
+                      </div>
                       <div className="text-[11px] text-slate-400 mt-1">Cap: {v.capacity} pax</div>
                     </td>
 
@@ -269,7 +273,7 @@ export default function AmbassadorVenuesPage() {
                         </button>
                       ) : (
                         <span className="px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-bold text-[10px] inline-flex items-center gap-1">
-                          <Clock className="w-3 h-3" /> Under Review
+                          <Clock className="w-3 h-3" /> {v.isProvisional || v.onboardingPhase === 1 ? 'Provisional Listing' : 'Under Review'}
                         </span>
                       )}
                     </td>

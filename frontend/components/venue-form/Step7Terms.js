@@ -91,6 +91,21 @@ export default function Step7Terms() {
           nearestMetroTrain: formData.location?.nearestMetroTrain || ''
         },
         
+        // Parking Details
+        parkingDetails: formData.location?.parkingDetails ? {
+          type: formData.location.parkingDetails.type || formData.location?.parkingAvailability || 'None',
+          cars: {
+            capacity: Number(formData.location.parkingDetails.carsCapacity || 0),
+            isChargeable: (formData.location.parkingDetails.type === 'Paid' || Number(formData.location.parkingDetails.carCharges || 0) > 0),
+            chargePerVehicle: Number(formData.location.parkingDetails.carCharges || 0)
+          },
+          twoWheelers: {
+            capacity: Number(formData.location.parkingDetails.twoWheelerCapacity || 0),
+            isChargeable: (formData.location.parkingDetails.type === 'Paid' || Number(formData.location.parkingDetails.twoWheelerCharges || 0) > 0),
+            chargePerVehicle: Number(formData.location.parkingDetails.twoWheelerCharges || 0)
+          }
+        } : (formData.parkingDetails || undefined),
+
         // Step 3: Amenities
         amenities: {
           basic: formData.amenities?.basic || [],
@@ -120,7 +135,11 @@ export default function Step7Terms() {
           extraHourRate: {
             weekday: Number(formData.pricing?.extraHourRate?.weekday) || 0,
             weekend: Number(formData.pricing?.extraHourRate?.weekend) || 0
-          }
+          },
+          selectedPricingModels: formData.pricing?.selectedPricingModels || ['Only Rent'],
+          onlyRent: formData.pricing?.onlyRent || {},
+          rentWithAmenities: formData.pricing?.rentWithAmenities || {},
+          perPax: formData.pricing?.perPax || {}
         },
         availability: {
           openingTime: formData.pricing?.openingTime || '09:00',

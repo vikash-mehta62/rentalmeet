@@ -122,6 +122,7 @@ const userSchema = new mongoose.Schema({
     dashboard:            { type: Boolean, default: false },
     // Venues section
     venues:               { type: Boolean, default: false },
+    addVenue:             { type: Boolean, default: false },
     venueTypes:           { type: Boolean, default: false },
     bookings:             { type: Boolean, default: false },
     payments:             { type: Boolean, default: false },

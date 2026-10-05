@@ -15,13 +15,15 @@ import {
   Package, Dumbbell, Baby, Accessibility, ParkingCircle,
   UtensilsCrossed, CupSoda, Sandwich, ChefHat, Refrigerator,
   Sofa, Bed, Bath, Shirt, Scissors, FlowerIcon, Leaf,
-  Send, AlertTriangle, FileText
+  Send, AlertTriangle, FileText, Bike, Globe, Compass,
+  ExternalLink, Eye, ShieldCheck, Layers, BadgePercent,
+  Ban, Check, Info, Wine, Dog
 } from 'lucide-react';
 import BookingForm from '@/components/booking/BookingForm';
 import VenueReviews from '@/components/venue/VenueReviews';
 import Navbar from '@/components/Navbar';
 import { useAuthStore } from '@/lib/store';
-import { getDateRateKey, getVenueDurationBasePrice, isOnlineBookingOpen, getMinAdvanceBookingDate, formatTime12Hour } from '@/lib/venuePricing';
+import { getDateRateKey, getVenueDurationBasePrice, isOnlineBookingOpen, getMinAdvanceBookingDate, formatTime12Hour, isVenueVerified } from '@/lib/venuePricing';
 import toast from 'react-hot-toast';
 
 // ── Amenity icon map ─────────────────────────────────────────────────────
@@ -601,9 +603,19 @@ export default function VenueDetail() {
   const categories = getImageCategories();
   const filteredImages = getFilteredImages();
   const imagesByCategory = getImagesByCategory();
-  const freeBasicAmenities = venue.amenities?.basic?.filter(a => a.available && (a.type === 'Free' || a.type === 'Included')) || [];
-  const paidBasicAmenities = venue.amenities?.basic?.filter(a => a.available && a.type === 'Paid') || [];
-  const visibleFreeBasicAmenities = showAllIncludedFacilities ? freeBasicAmenities : freeBasicAmenities.slice(0, 4);
+
+  // Consolidate all basic & categorized facilities
+  const allFacilitiesList = [
+    ...(venue.amenities?.basic || []),
+    ...(venue.amenities?.basicFacilities || []),
+    ...(venue.amenities?.meetingFacilities || []),
+    ...(venue.amenities?.eventFacilities || []),
+    ...(venue.amenities?.foodFacilities || [])
+  ].filter((item, index, self) => item?.name && index === self.findIndex(t => t.name?.toLowerCase() === item.name?.toLowerCase()));
+
+  const freeBasicAmenities = allFacilitiesList.filter(a => a.available && (a.type === 'Free' || a.type === 'Included'));
+  const paidBasicAmenities = allFacilitiesList.filter(a => a.available && a.type === 'Paid');
+  const visibleFreeBasicAmenities = showAllIncludedFacilities ? freeBasicAmenities : freeBasicAmenities.slice(0, 6);
 
   // Inactive venue — show banner, no booking
   const isInactive = venue.isActive === false;
@@ -735,40 +747,107 @@ export default function VenueDetail() {
                 <h1 className="font-serif text-3xl sm:text-4xl font-bold text-gray-900 dark:text-slate-100">
                   {venue.businessName}
                 </h1>
-                {venue.venueType?.length > 0 && (
-                  <span className="px-3 py-1 bg-primary-50 dark:bg-slate-800 text-primary-600 dark:text-primary-400 text-xs font-semibold rounded-full border border-primary-200 dark:border-slate-600">
-                    {venue.venueType[0]}
+                {/* Info vs Verified Badge */}
+                {isVenueVerified(venue) ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    Verified
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300 shadow-sm dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800">
+                    <Info className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                    Info
                   </span>
                 )}
+                {venue.venueType?.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 items-center">
+                    {(Array.isArray(venue.venueType) ? venue.venueType : [venue.venueType]).map((vt) => (
+                      <span key={vt} className="px-3 py-1 bg-primary-50 dark:bg-slate-800 text-primary-600 dark:text-primary-400 text-xs font-semibold rounded-full border border-primary-200 dark:border-slate-600">
+                        {vt}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-slate-300">
-                <span className="flex items-center gap-1.5">
-                  <MapPin className="w-4 h-4 text-primary-500" />
+              
+              {/* Quick Specs Badges */}
+              <div className="flex flex-wrap items-center gap-2.5 text-sm text-gray-600 dark:text-slate-300 mb-3">
+                <span className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-lg text-xs font-medium">
+                  <MapPin className="w-3.5 h-3.5 text-primary-500" />
                   {venue.location?.city}, {venue.location?.area}
                 </span>
-                <span className="flex items-center gap-1.5">
-                  <Users className="w-4 h-4 text-primary-500" />
+                <span className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-lg text-xs font-medium">
+                  <Users className="w-3.5 h-3.5 text-primary-500" />
                   Up to {venue.capacity} guests
                 </span>
-                <span className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 px-2.5 py-1 rounded-full">
-                  <FoodTypeIcon className="w-4 h-4" />
+                {venue.areaSqft > 0 && (
+                  <span className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-lg text-xs font-medium">
+                    <Building2 className="w-3.5 h-3.5 text-primary-500" />
+                    {venue.areaSqft.toLocaleString()} sq.ft
+                  </span>
+                )}
+                {venue.floor && (
+                  <span className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-lg text-xs font-medium">
+                    <Layers className="w-3.5 h-3.5 text-primary-500" />
+                    {venue.floor}
+                  </span>
+                )}
+                {venue.yearEstablished && (
+                  <span className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-lg text-xs font-medium">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    Est. {venue.yearEstablished}
+                  </span>
+                )}
+                <span className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 px-3 py-1 rounded-lg text-xs font-semibold">
+                  <FoodTypeIcon className="w-3.5 h-3.5" />
                   {foodType}
                 </span>
                 {venue.rating > 0 && (
-                  <span className="flex items-center gap-1.5 bg-yellow-50 dark:bg-yellow-900/20 px-2.5 py-1 rounded-full">
-                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                    <span className="font-semibold text-gray-900 dark:text-slate-100 text-sm">{venue.rating}</span>
-                    <span className="text-gray-500 dark:text-slate-400 text-xs">({venue.reviewCount} reviews)</span>
+                  <span className="flex items-center gap-1.5 bg-yellow-50 dark:bg-yellow-900/20 px-2.5 py-1 rounded-lg text-xs">
+                    <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
+                    <span className="font-semibold text-gray-900 dark:text-slate-100">{venue.rating}</span>
+                    <span className="text-gray-500 dark:text-slate-400">({venue.reviewCount} reviews)</span>
                   </span>
                 )}
               </div>
 
+              {/* Action Links (360 Tour & Website) */}
+              {(venue.socialLinks?.virtualTourUrl || venue.socialLinks?.website) && (
+                <div className="flex flex-wrap gap-2.5 pt-3 mb-2 border-t border-gray-100 dark:border-slate-800">
+                  {venue.socialLinks?.virtualTourUrl && (
+                    <a
+                      href={venue.socialLinks.virtualTourUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg text-xs font-bold shadow hover:shadow-md transition-all"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      Explore 360° Virtual Tour
+                      <ExternalLink className="w-3 h-3 ml-0.5" />
+                    </a>
+                  )}
+                  {venue.socialLinks?.website && (
+                    <a
+                      href={venue.socialLinks.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-800 dark:text-slate-200 rounded-lg text-xs font-semibold transition-colors"
+                    >
+                      <Globe className="w-3.5 h-3.5 text-primary-500" />
+                      Official Website
+                      <ExternalLink className="w-3 h-3 ml-0.5 opacity-60" />
+                    </a>
+                  )}
+                </div>
+              )}
+
               {/* Availability Info */}
               {(venue.availability?.openingTime || venue.availability?.availableDays?.length > 0) && (
-                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-slate-700 flex flex-wrap gap-4 text-sm text-gray-600 dark:text-slate-300">
+                <div className="mt-3 pt-3 border-t border-gray-100 dark:border-slate-700 flex flex-wrap gap-4 text-xs text-gray-600 dark:text-slate-300">
                   {venue.availability?.openingTime && (
                     <span className="flex items-center gap-1.5">
-                      <Clock className="w-4 h-4 text-primary-500" />
+                      <Clock className="w-3.5 h-3.5 text-primary-500" />
+                      <strong>Operating Hours:</strong>
                       {(() => {
                         const to12 = (t) => {
                           const [h, m] = t.split(':').map(Number);
@@ -782,23 +861,60 @@ export default function VenueDetail() {
                   )}
                   {venue.availability?.availableDays?.length > 0 && (
                     <span className="flex items-center gap-1.5">
-                      <Calendar className="w-4 h-4 text-primary-500" />
-                      {venue.availability.availableDays.join(', ')}
+                      <Calendar className="w-3.5 h-3.5 text-primary-500" />
+                      <strong>Available Days:</strong> {venue.availability.availableDays.join(', ')}
                     </span>
                   )}
                 </div>
               )}
             </div>
+
             {/* Description */}
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-6">
               <h2 className="font-serif text-xl font-bold text-dark-800 dark:text-slate-100 mb-3 flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-primary-500" />
                 About This Venue
               </h2>
-              <p className="text-gray-500 dark:text-slate-400 leading-relaxed whitespace-pre-line text-sm">
+              <p className="text-gray-600 dark:text-slate-300 leading-relaxed whitespace-pre-line text-sm">
                 {venue.description}
               </p>
             </div>
+
+            {/* Seating Arrangements (if available) */}
+            {venue.seatingArrangements?.length > 0 && (
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-6">
+                <h2 className="font-serif text-xl font-bold text-dark-800 dark:text-slate-100 mb-3 flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-primary-500" />
+                  Seating Arrangements & Layouts
+                </h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {venue.seatingArrangements.map((seat, sIdx) => (
+                    <div key={sIdx} className="flex items-center gap-2 p-3 rounded-lg bg-primary-50/60 dark:bg-slate-800/80 border border-primary-100 dark:border-slate-700">
+                      <Users className="w-4 h-4 text-primary-600 dark:text-primary-400 flex-shrink-0" />
+                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">{seat}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Services Available (if available) */}
+            {venue.servicesAvailable?.length > 0 && (
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-6">
+                <h2 className="font-serif text-xl font-bold text-dark-800 dark:text-slate-100 mb-3 flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-primary-500" />
+                  Services & Key Highlights
+                </h2>
+                <div className="flex flex-wrap gap-2">
+                  {venue.servicesAvailable.map((srv, sIdx) => (
+                    <span key={sIdx} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-700">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                      {srv}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Amenities - Interactive Selection */}
             <div className="space-y-4">
@@ -1146,97 +1262,328 @@ export default function VenueDetail() {
               </div>
             </div>
 
-            {/* Location Details */}
+            {/* Dedicated Parking & Transit Information */}
+            {(() => {
+              const pType = venue.location?.parkingDetails?.type || venue.location?.parkingAvailability || 'None';
+              const carCap = venue.location?.parkingDetails?.carsCapacity || 0;
+              const bikeCap = venue.location?.parkingDetails?.twoWheelerCapacity || 0;
+              const carRate = venue.location?.parkingDetails?.carCharges || 0;
+              const bikeRate = venue.location?.parkingDetails?.twoWheelerCharges || 0;
+              const hasValet = venue.location?.parkingDetails?.valetParking || venue.servicesAvailable?.includes('Valet Parking') || false;
+              const valetRate = venue.location?.parkingDetails?.valetCharges || 0;
+              const pNotes = venue.location?.parkingDetails?.notes || '';
+
+              return (
+                <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-6 shadow-xs">
+                  <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                    <h2 className="font-serif text-xl font-bold text-dark-800 dark:text-slate-100 flex items-center gap-2">
+                      <Car className="w-5 h-5 text-primary-500" />
+                      Parking & Transit Information
+                    </h2>
+                    <span className={`px-3 py-1 text-xs font-bold rounded-full ${
+                      pType === 'Free' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300' :
+                      pType === 'Paid' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300' :
+                      pType === 'Limited' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300' :
+                      'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                    }`}>
+                      {pType === 'Free' ? '✓ Free Parking On-Site' :
+                       pType === 'Paid' ? '₹ Paid Parking On-Site' :
+                       pType === 'Limited' ? '⚠️ Limited Parking' : 'No Dedicated Parking'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 mb-4">
+                    {/* 4-Wheeler Car Parking */}
+                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40">
+                      <div className="flex items-center gap-3 mb-2.5">
+                        <div className="w-9 h-9 rounded-lg bg-primary-100 dark:bg-primary-950/60 text-primary-600 dark:text-primary-400 flex items-center justify-center flex-shrink-0">
+                          <Car className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Car Parking</h4>
+                          <p className="text-sm font-black text-slate-900 dark:text-slate-100">
+                            {carCap > 0 ? `${carCap} Cars Capacity` : (pType !== 'None' ? 'Available' : 'Not Available')}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="pt-2 border-t border-slate-200/70 dark:border-slate-700/70 flex items-center justify-between text-xs">
+                        <span className="text-slate-500 dark:text-slate-400">Rate / Charges:</span>
+                        {carRate > 0 ? (
+                          <span className="font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded">₹{carRate}/vehicle</span>
+                        ) : (pType === 'Free' || (carCap > 0 && carRate === 0)) ? (
+                          <span className="font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded">Free of Cost</span>
+                        ) : (
+                          <span className="text-slate-500 font-medium">{pType === 'Paid' ? 'Payable at Venue' : 'N/A'}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 2-Wheeler Bike Parking */}
+                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40">
+                      <div className="flex items-center gap-3 mb-2.5">
+                        <div className="w-9 h-9 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center flex-shrink-0">
+                          <Bike className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Bike / Scooter</h4>
+                          <p className="text-sm font-black text-slate-900 dark:text-slate-100">
+                            {bikeCap > 0 ? `${bikeCap} Bikes Capacity` : (pType !== 'None' ? 'Available' : 'Not Available')}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="pt-2 border-t border-slate-200/70 dark:border-slate-700/70 flex items-center justify-between text-xs">
+                        <span className="text-slate-500 dark:text-slate-400">Rate / Charges:</span>
+                        {bikeRate > 0 ? (
+                          <span className="font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded">₹{bikeRate}/vehicle</span>
+                        ) : (pType === 'Free' || (bikeCap > 0 && bikeRate === 0)) ? (
+                          <span className="font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded">Free of Cost</span>
+                        ) : (
+                          <span className="text-slate-500 font-medium">{pType === 'Paid' ? 'Payable at Venue' : 'N/A'}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Valet Parking */}
+                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40">
+                      <div className="flex items-center gap-3 mb-2.5">
+                        <div className="w-9 h-9 rounded-lg bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center flex-shrink-0">
+                          <ShieldCheck className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Valet Assistance</h4>
+                          <p className="text-sm font-black text-slate-900 dark:text-slate-100">
+                            {hasValet ? 'Valet Available' : 'Self Parking'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="pt-2 border-t border-slate-200/70 dark:border-slate-700/70 flex items-center justify-between text-xs">
+                        <span className="text-slate-500 dark:text-slate-400">Valet Service:</span>
+                        {valetRate > 0 ? (
+                          <span className="font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded">₹{valetRate}/car</span>
+                        ) : hasValet ? (
+                          <span className="font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded">Complimentary</span>
+                        ) : (
+                          <span className="text-slate-500">Standard</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {pNotes && (
+                    <div className="text-xs text-slate-700 dark:text-slate-300 bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 p-3 rounded-lg mb-4">
+                      <strong className="text-amber-800 dark:text-amber-300 font-bold">Parking Note: </strong>
+                      {pNotes}
+                    </div>
+                  )}
+
+                  {/* Transit Links */}
+                  <div className="pt-3.5 border-t border-slate-100 dark:border-slate-800 flex flex-wrap gap-4 text-xs text-slate-600 dark:text-slate-300 items-center justify-between">
+                    <div className="flex flex-wrap gap-3">
+                      {venue.location?.nearestMetroTrain && (
+                        <span className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-md">
+                          <Compass className="w-3.5 h-3.5 text-primary-500" />
+                          <strong className="text-slate-800 dark:text-slate-200">Metro / Train:</strong> {venue.location.nearestMetroTrain}
+                        </span>
+                      )}
+                      {venue.location?.nearestBusAuto && (
+                        <span className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-md">
+                          <Compass className="w-3.5 h-3.5 text-primary-500" />
+                          <strong className="text-slate-800 dark:text-slate-200">Bus / Auto Stop:</strong> {venue.location.nearestBusAuto}
+                        </span>
+                      )}
+                    </div>
+                    {venue.location?.googleMapLink && (
+                      <a
+                        href={venue.location.googleMapLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-primary-600 hover:text-primary-700 font-bold hover:underline"
+                      >
+                        <MapPin className="w-3.5 h-3.5" />
+                        Navigate on Map <ExternalLink className="w-3 h-3 ml-0.5" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Full Location & Address Details */}
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-6">
               <h2 className="font-serif text-xl font-bold text-dark-800 dark:text-slate-100 mb-4 flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-primary-500" />
-                Location
+                Address & Location
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm text-gray-600 dark:text-slate-300">
                 {venue.location?.address && <div><span className="font-semibold text-gray-800 dark:text-slate-200">Address:</span> {venue.location.address}</div>}
                 {venue.location?.landmark && <div><span className="font-semibold text-gray-800 dark:text-slate-200">Landmark:</span> {venue.location.landmark}</div>}
-                {venue.location?.state && <div><span className="font-semibold text-gray-800 dark:text-slate-200">State:</span> {venue.location.state}</div>}
-                {venue.location?.city && <div><span className="font-semibold text-gray-800 dark:text-slate-200">City:</span> {venue.location.city}</div>}
-                {venue.location?.village && <div><span className="font-semibold text-gray-800 dark:text-slate-200">Village:</span> {venue.location.village}</div>}
                 {venue.location?.area && <div><span className="font-semibold text-gray-800 dark:text-slate-200">Area:</span> {venue.location.area}</div>}
+                {venue.location?.city && <div><span className="font-semibold text-gray-800 dark:text-slate-200">City:</span> {venue.location.city}</div>}
+                {venue.location?.state && <div><span className="font-semibold text-gray-800 dark:text-slate-200">State:</span> {venue.location.state}</div>}
                 {venue.location?.pincode && <div><span className="font-semibold text-gray-800 dark:text-slate-200">Pincode:</span> {venue.location.pincode}</div>}
-                {venue.location?.parkingAvailability && <div><span className="font-semibold text-gray-800 dark:text-slate-200">Parking:</span> {venue.location.parkingAvailability}</div>}
-                {venue.location?.nearestBusAuto && <div><span className="font-semibold text-gray-800 dark:text-slate-200">Nearest Bus/Auto:</span> {venue.location.nearestBusAuto}</div>}
-                {venue.location?.nearestMetroTrain && <div><span className="font-semibold text-gray-800 dark:text-slate-200">Nearest Metro/Train:</span> {venue.location.nearestMetroTrain}</div>}
+                {venue.location?.village && <div><span className="font-semibold text-gray-800 dark:text-slate-200">Village:</span> {venue.location.village}</div>}
               </div>
-                {venue.location?.googleMapLink && (
-                  <a
-                    href={venue.location.googleMapLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 mt-3 text-sm text-primary-500 hover:text-primary-600 font-medium"
-                  >
-                    <MapPin className="w-4 h-4" />
-                    View on Google Maps
-                  </a>
-                )}
             </div>
 
-            {/* Pricing - Card Format */}
+            {/* Pricing Details & Tax Transparency */}
             {venue.pricing && (
               <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-6">
-                <h2 className="font-serif text-xl font-bold text-dark-800 dark:text-slate-100 mb-4">Pricing ({quickBookingRateLabel})</h2>
+                <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                  <h2 className="font-serif text-xl font-bold text-dark-800 dark:text-slate-100">Pricing Packages ({quickBookingRateLabel})</h2>
+                  <span className="px-3 py-1 bg-primary-50 dark:bg-primary-950/40 text-primary-700 dark:text-primary-300 text-xs font-bold rounded-full border border-primary-200 dark:border-primary-800">
+                    {venue.taxSettings?.taxType || 'GST Included'} ({venue.taxSettings?.gstRate || 18}%)
+                  </span>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* 1 Hour Card - Only show if enabled */}
+                  {/* 1 Hour Card */}
                   {venue.pricing.enabledOptions?.perHour && venue.pricing.perHour && (
                     <div 
                       onClick={() => setQuickBooking(prev => ({ ...prev, duration: '1' }))}
                       className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${
                         quickBooking.duration === '1' 
-                          ? 'border-primary-500 bg-primary-50' 
-                          : 'border-gray-200 hover:border-primary-300'
+                          ? 'border-primary-500 bg-primary-50 dark:bg-primary-950/30' 
+                          : 'border-gray-200 dark:border-slate-700 hover:border-primary-300'
                       }`}
                     >
                       <div className="text-center">
-                        <h3 className="font-semibold text-sm mb-0.5 text-gray-900 dark:text-slate-100">1 Hour</h3>
+                        <h3 className="font-semibold text-sm mb-0.5 text-gray-900 dark:text-slate-100">1 Hour Slot</h3>
                         <p className="text-lg font-bold text-primary-600">₹{getQuickBookingBasePrice('1').toLocaleString()}</p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">Flexible hourly booking</p>
                       </div>
                     </div>
                   )}
                   
-                  {/* 4 Hours Card - Only show if enabled */}
+                  {/* 4 Hours Card */}
                   {venue.pricing.enabledOptions?.halfDay && venue.pricing.halfDay && (
                     <div 
                       onClick={() => setQuickBooking(prev => ({ ...prev, duration: '4' }))}
                       className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${
                         quickBooking.duration === '4' 
-                          ? 'border-primary-500 bg-primary-50' 
-                          : 'border-gray-200 hover:border-primary-300'
+                          ? 'border-primary-500 bg-primary-50 dark:bg-primary-950/30' 
+                          : 'border-gray-200 dark:border-slate-700 hover:border-primary-300'
                       }`}
                     >
                       <div className="text-center">
                         <h3 className="font-semibold text-sm mb-0.5 text-gray-900 dark:text-slate-100">Half Day</h3>
-                        <p className="text-xs text-gray-400 dark:text-slate-500 mb-0.5">4 hours</p>
+                        <p className="text-xs text-gray-400 dark:text-slate-500 mb-0.5">4 continuous hours</p>
                         <p className="text-lg font-bold text-primary-600">₹{getQuickBookingBasePrice('4').toLocaleString()}</p>
                       </div>
                     </div>
                   )}
                   
-                  {/* 8 Hours Card - Only show if enabled */}
+                  {/* 8 Hours Card */}
                   {venue.pricing.enabledOptions?.fullDay && venue.pricing.fullDay && (
                     <div 
                       onClick={() => setQuickBooking(prev => ({ ...prev, duration: '8' }))}
                       className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${
                         quickBooking.duration === '8' 
-                          ? 'border-primary-500 bg-primary-50' 
-                          : 'border-gray-200 hover:border-primary-300'
+                          ? 'border-primary-500 bg-primary-50 dark:bg-primary-950/30' 
+                          : 'border-gray-200 dark:border-slate-700 hover:border-primary-300'
                       }`}
                     >
                       <div className="text-center">
                         <h3 className="font-semibold text-sm mb-0.5 text-gray-900 dark:text-slate-100">Full Day</h3>
-                        <p className="text-xs text-gray-400 dark:text-slate-500 mb-0.5">8 hours</p>
+                        <p className="text-xs text-gray-400 dark:text-slate-500 mb-0.5">8 full hours</p>
                         <p className="text-lg font-bold text-primary-600">₹{getQuickBookingBasePrice('8').toLocaleString()}</p>
                       </div>
                     </div>
                   )}
                 </div>
+
+                {venue.pricing.extraHourRate?.[quickBookingRateKey] > 0 && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                    * Additional overtime charges: <strong className="text-slate-800 dark:text-slate-200">₹{venue.pricing.extraHourRate[quickBookingRateKey]}/hour</strong>
+                  </p>
+                )}
               </div>
             )}
+
+            {/* Venue Guidelines & House Rules */}
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-6">
+              <h2 className="font-serif text-xl font-bold text-dark-800 dark:text-slate-100 mb-4 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-primary-500" />
+                Venue Guidelines & House Rules
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40">
+                  <div className="flex items-center gap-2 mb-1 text-slate-600 dark:text-slate-300">
+                    <Utensils className="w-4 h-4 text-primary-500" />
+                    <span className="text-xs font-semibold">Food Policy</span>
+                  </div>
+                  <p className="text-xs font-bold text-slate-900 dark:text-slate-100">{venue.rulesAndPolicies?.foodPolicy || 'Both Allowed'}</p>
+                </div>
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40">
+                  <div className="flex items-center gap-2 mb-1 text-slate-600 dark:text-slate-300">
+                    <Users className="w-4 h-4 text-primary-500" />
+                    <span className="text-xs font-semibold">Outside Vendors</span>
+                  </div>
+                  <p className="text-xs font-bold text-slate-900 dark:text-slate-100">{venue.rulesAndPolicies?.outsideVendors || 'Allowed'}</p>
+                </div>
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40">
+                  <div className="flex items-center gap-2 mb-1 text-slate-600 dark:text-slate-300">
+                    <Sparkles className="w-4 h-4 text-primary-500" />
+                    <span className="text-xs font-semibold">Decoration Policy</span>
+                  </div>
+                  <p className="text-xs font-bold text-slate-900 dark:text-slate-100">{venue.rulesAndPolicies?.decoration || 'Allowed'}</p>
+                </div>
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40">
+                  <div className="flex items-center gap-2 mb-1 text-slate-600 dark:text-slate-300">
+                    <Volume2 className="w-4 h-4 text-primary-500" />
+                    <span className="text-xs font-semibold">Music & DJ</span>
+                  </div>
+                  <p className="text-xs font-bold text-slate-900 dark:text-slate-100">{venue.rulesAndPolicies?.musicNoise || 'Restricted after 10 PM'}</p>
+                </div>
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40">
+                  <div className="flex items-center gap-2 mb-1 text-slate-600 dark:text-slate-300">
+                    <Wine className="w-4 h-4 text-primary-500" />
+                    <span className="text-xs font-semibold">Alcohol Policy</span>
+                  </div>
+                  <p className="text-xs font-bold text-slate-900 dark:text-slate-100">{venue.rulesAndPolicies?.alcohol || 'Not Allowed'}</p>
+                </div>
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40">
+                  <div className="flex items-center gap-2 mb-1 text-slate-600 dark:text-slate-300">
+                    <Dog className="w-4 h-4 text-primary-500" />
+                    <span className="text-xs font-semibold">Pet Policy</span>
+                  </div>
+                  <p className="text-xs font-bold text-slate-900 dark:text-slate-100">{venue.rulesAndPolicies?.pets || 'Not Allowed'}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* 4-Tier Cancellation & Refund Policy */}
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-6">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <h2 className="font-serif text-xl font-bold text-dark-800 dark:text-slate-100 flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                  Cancellation & Refund Policy
+                </h2>
+                <span className="px-3 py-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs font-bold rounded-full border border-emerald-200 dark:border-emerald-800">
+                  {venue.cancellationPolicy?.policyType || 'Flexible Policy'}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3.5 rounded-xl border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/50 dark:bg-emerald-950/20 text-center">
+                  <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 mb-1">&gt; {venue.cancellationPolicy?.moreThanDays || 15} Days</p>
+                  <p className="text-xl font-extrabold text-emerald-600">{venue.cancellationPolicy?.moreThanDaysRefund ?? 100}%</p>
+                  <p className="text-[10px] text-emerald-700/80">Full Refund</p>
+                </div>
+                <div className="p-3.5 rounded-xl border border-blue-200 dark:border-blue-800/50 bg-blue-50/50 dark:bg-blue-950/20 text-center">
+                  <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-1">{venue.cancellationPolicy?.withinDays || 7} - {venue.cancellationPolicy?.moreThanDays || 15} Days</p>
+                  <p className="text-xl font-extrabold text-blue-600">{venue.cancellationPolicy?.withinDaysRefund ?? 50}%</p>
+                  <p className="text-[10px] text-blue-700/80">Partial Refund</p>
+                </div>
+                <div className="p-3.5 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-950/20 text-center">
+                  <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 mb-1">24 - 48 Hours</p>
+                  <p className="text-xl font-extrabold text-amber-600">{venue.cancellationPolicy?.withinHoursRefund ?? 20}%</p>
+                  <p className="text-[10px] text-amber-700/80">Partial Refund</p>
+                </div>
+                <div className="p-3.5 rounded-xl border border-rose-200 dark:border-rose-800/50 bg-rose-50/50 dark:bg-rose-950/20 text-center">
+                  <p className="text-xs font-semibold text-rose-700 dark:text-rose-300 mb-1">&lt; 24h / No-Show</p>
+                  <p className="text-xl font-extrabold text-rose-600">{venue.cancellationPolicy?.noShowRefund ?? 0}%</p>
+                  <p className="text-[10px] text-rose-700/80">Non-Refundable</p>
+                </div>
+              </div>
+            </div>
 
             {/* Reviews Section */}
             <VenueReviews venueId={venue._id} />

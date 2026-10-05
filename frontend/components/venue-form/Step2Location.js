@@ -25,7 +25,7 @@ export default function Step2Location() {
       : null
   );
 
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm({
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm({
     defaultValues: savedLocation
   });
 
@@ -41,6 +41,13 @@ export default function Step2Location() {
         state: selectedState.name,
         stateCode: selectedState.value,
         city: selectedCity.name,
+        parkingDetails: {
+          type: data.parkingAvailability,
+          carsCapacity: Number(data.parkingCarsCapacity || data.parkingDetails?.carsCapacity || 0),
+          twoWheelerCapacity: Number(data.parkingTwoWheelerCapacity || data.parkingDetails?.twoWheelerCapacity || 0),
+          carCharges: Number(data.parkingCarCharges || data.parkingDetails?.carCharges || 0),
+          twoWheelerCharges: Number(data.parkingTwoWheelerCharges || data.parkingDetails?.twoWheelerCharges || 0)
+        }
       }
     });
     setStep(3);
@@ -230,6 +237,67 @@ export default function Step2Location() {
           <p className="text-error text-sm mt-1 flex items-center">
             <span className="mr-1">⚠️</span> {errors.parkingAvailability.message}
           </p>
+        )}
+
+        {/* Dynamic Parking Details */}
+        {(watch('parkingAvailability') === 'Free' || watch('parkingAvailability') === 'Limited') && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3 p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">No. of Cars</label>
+              <input
+                type="number"
+                min={0}
+                {...register('parkingCarsCapacity')}
+                defaultValue={savedLocation.parkingDetails?.carsCapacity || ''}
+                placeholder="Ex. 25"
+                className="input-field text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">No. of Two Wheeler</label>
+              <input
+                type="number"
+                min={0}
+                {...register('parkingTwoWheelerCapacity')}
+                defaultValue={savedLocation.parkingDetails?.twoWheelerCapacity || ''}
+                placeholder="Ex. 60"
+                className="input-field text-sm"
+              />
+            </div>
+          </div>
+        )}
+
+        {watch('parkingAvailability') === 'Paid' && (
+          <div className="mt-3 p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Car Charges (₹)</label>
+                <input
+                  type="number"
+                  min={0}
+                  {...register('parkingCarCharges')}
+                  defaultValue={savedLocation.parkingDetails?.carCharges || ''}
+                  placeholder="Ex. 50"
+                  className="input-field text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Two Wheeler Charges (₹)</label>
+                <input
+                  type="number"
+                  min={0}
+                  {...register('parkingTwoWheelerCharges')}
+                  defaultValue={savedLocation.parkingDetails?.twoWheelerCharges || ''}
+                  placeholder="Ex. 20"
+                  className="input-field text-sm"
+                />
+              </div>
+            </div>
+            <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-[11px] text-amber-800 dark:text-amber-300">
+              <span className="font-bold">ℹ️ Note:</span>
+              <span>Paid parking charges are payable directly at the venue during event. (Not charged online during customer booking).</span>
+            </div>
+          </div>
         )}
       </div>
 

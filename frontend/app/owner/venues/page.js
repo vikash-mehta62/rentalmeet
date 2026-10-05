@@ -6,6 +6,7 @@ import Link from 'next/link';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import VenueDetailsModal from '@/components/venue/VenueDetailsModal';
+import OwnerVenueEditModal from '@/components/venue/OwnerVenueEditModal';
 import {
   Building2, Plus, Eye, Edit, Trash2, Search,
   CheckCircle2, Clock, XCircle, AlertCircle, Calendar, IndianRupee, MapPin,
@@ -24,6 +25,10 @@ export default function MyVenues() {
   const [expandedHistory, setExpandedHistory] = useState({});
   const [selectedVenue, setSelectedVenue] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+
+  // 10-Tab Owner Venue Edit/Register Modal state
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingVenue, setEditingVenue] = useState(null);
 
   // Block dates modal state
   const [blockModal, setBlockModal] = useState(null); // venue object
@@ -100,9 +105,15 @@ export default function MyVenues() {
         }
       });
       const data = await response.json();
-      if (data.success) fetchVenues();
+      if (data.success) {
+        toast.success(data.message || 'Venue deleted successfully');
+        fetchVenues();
+      } else {
+        toast.error(data.message || 'Failed to delete venue');
+      }
     } catch (error) {
       console.error('Error deleting venue:', error);
+      toast.error('Error deleting venue');
     }
   };
 
@@ -329,13 +340,17 @@ export default function MyVenues() {
 
       {/* Add Venue Button */}
       <div className="mb-6">
-        <Link
-          href="/register-venue"
-          className="btn-primary inline-flex items-center gap-2"
+        <button
+          type="button"
+          onClick={() => {
+            setEditingVenue(null);
+            setEditModalOpen(true);
+          }}
+          className="btn-primary inline-flex items-center gap-2 cursor-pointer shadow-md"
         >
           <Plus className="w-5 h-5" />
           Add New Venue
-        </Link>
+        </button>
       </div>
 
       {/* Venues List */}
@@ -348,10 +363,17 @@ export default function MyVenues() {
               ? `No ${statusFilter} venues at the moment` 
               : 'Start by adding your first venue'}
           </p>
-          <Link href="/register-venue" className="btn-primary inline-flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setEditingVenue(null);
+              setEditModalOpen(true);
+            }}
+            className="btn-primary inline-flex items-center gap-2 cursor-pointer shadow-md"
+          >
             <Plus className="w-5 h-5" />
             Add Your First Venue
-          </Link>
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -413,29 +435,32 @@ export default function MyVenues() {
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => openModal(venue)}
-                    className="w-full h-10 px-3 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl font-semibold transition-colors flex items-center justify-center gap-1.5 text-xs sm:text-sm border border-blue-100 shadow-sm"
+                    className="w-full h-10 px-3 bg-blue-50 hover:bg-blue-100 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/60 rounded-xl font-semibold transition-colors flex items-center justify-center gap-1.5 text-xs sm:text-sm border border-blue-100 shadow-sm cursor-pointer"
                   >
                     <Eye className="w-4 h-4" />
                     <span>View</span>
                   </button>
-                  <Link
-                    href={`/owner/venues/${venue._id}/edit`}
-                    className="w-full h-10 px-3 bg-primary-50 hover:bg-primary-100 text-primary-600 rounded-xl font-semibold transition-colors flex items-center justify-center gap-1.5 text-xs sm:text-sm border border-primary-100 shadow-sm"
+
+                  <button
+                    onClick={() => handleDelete(venue._id)}
+                    className="w-full h-10 px-3 bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900/60 rounded-xl font-semibold transition-colors flex items-center justify-center gap-1.5 text-xs sm:text-sm border border-red-100 shadow-sm cursor-pointer"
+                    title="Delete venue"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete Venue</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingVenue(venue);
+                      setEditModalOpen(true);
+                    }}
+                    className="col-span-2 w-full h-10 px-3 bg-primary-50 hover:bg-primary-100 text-primary-700 dark:bg-primary-950/40 dark:text-primary-300 dark:border-primary-800 rounded-xl font-bold transition-colors flex items-center justify-center gap-1.5 text-xs sm:text-sm border border-primary-200 shadow-xs cursor-pointer"
                   >
                     <Edit className="w-4 h-4" />
-                    <span>Edit</span>
-                  </Link>
-                  {/* Delete only for non-approved venues */}
-                  {venue.status !== 'approved' && (
-                    <button
-                      onClick={() => handleDelete(venue._id)}
-                      className="col-span-2 w-full h-9 px-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-semibold transition-colors flex items-center justify-center gap-1.5 text-xs border border-red-100"
-                      title="Delete venue"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      <span>Delete Venue</span>
-                    </button>
-                  )}
+                    <span>Update Venue Details</span>
+                  </button>
                 </div>
 
                 {/* Rejected venue — show reason + edit + resubmit */}
@@ -450,12 +475,18 @@ export default function MyVenues() {
                       </p>
                     )}
                     <div className="flex gap-2">
-                      <Link href={`/owner/venues/${venue._id}/edit`}
-                        className="flex-1 px-3 py-2 bg-white border border-red-300 hover:bg-red-50 text-red-700 rounded-lg text-xs font-bold transition-colors text-center flex items-center justify-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingVenue(venue);
+                          setEditModalOpen(true);
+                        }}
+                        className="flex-1 px-3 py-2 bg-white border border-red-300 hover:bg-red-50 text-red-700 rounded-lg text-xs font-bold transition-colors text-center flex items-center justify-center gap-1 cursor-pointer"
+                      >
                         <Edit className="w-3.5 h-3.5" /> Edit & Fix
-                      </Link>
+                      </button>
                       <button onClick={() => handleResubmit(venue._id)}
-                        className="flex-1 px-3 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1">
+                        className="flex-1 px-3 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1 cursor-pointer">
                         ↩ Resubmit
                       </button>
                     </div>
@@ -698,10 +729,24 @@ export default function MyVenues() {
                   No dates are currently blocked for this venue.
                 </div>
               )}
-
             </div>
           </div>
         </div>
+      )}
+
+      {/* Owner 10-Tab Venue Edit / Register Modal */}
+      {editModalOpen && (
+        <OwnerVenueEditModal
+          isOpen={editModalOpen}
+          venue={editingVenue}
+          onClose={() => {
+            setEditModalOpen(false);
+            setEditingVenue(null);
+          }}
+          onSaveSuccess={() => {
+            fetchVenues();
+          }}
+        />
       )}
     </OwnerLayout>
   );

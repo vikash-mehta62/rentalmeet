@@ -31,7 +31,7 @@ const bookingSchema = new mongoose.Schema({
   },
   bookingType: {
     type: String,
-    enum: ['hourly', 'halfday', 'fullday'],
+    enum: ['hourly', 'halfday', 'fullday', 'perpax', 'custom'],
     required: true
   },
   amount: {
@@ -81,7 +81,12 @@ const bookingSchema = new mongoose.Schema({
       charges: { type: Number },
       quantity: { type: Number, default: 1 },
       total: { type: Number }
-    }]
+    }],
+    parking: {
+      cars: { type: Number, default: 0 },
+      twoWheelers: { type: Number, default: 0 },
+      charges: { type: Number, default: 0 }
+    }
   },
   amenitiesTotal: {
     type: Number,
@@ -93,6 +98,10 @@ const bookingSchema = new mongoose.Schema({
     amenitiesTotal: Number,
     subtotal: Number,
     durationHours: Number,
+    pricingModel: String,
+    perPaxPackage: String,
+    guestCount: Number,
+    parkingCharges: Number,
     // Venue GST
     venueCGST: Number,
     venueCGSTRate: Number,

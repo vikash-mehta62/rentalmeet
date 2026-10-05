@@ -7,11 +7,12 @@ import {
   Search, Filter, MapPin, Users, Star, X,
   Building2, Monitor, Landmark, BedDouble, UtensilsCrossed,
   School, PartyPopper, GraduationCap, Leaf, Laptop, BookOpen,
-  Home, Flower2, TreePine, Coffee, Projector, AlertCircle, Utensils
+  Home, Flower2, TreePine, Coffee, Projector, AlertCircle, Utensils, Car
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import CityAutocomplete from '@/components/CityAutocomplete';
+import { getVenueStartingPrice } from '@/lib/venuePricing';
 
 const LIMIT = 30;
 const DEBOUNCE_MS = 400;
@@ -30,6 +31,33 @@ function getFoodTypeIcon(foodType) {
   if (foodType === 'Veg') return Leaf;
   if (foodType === 'Non Veg') return UtensilsCrossed;
   return Utensils;
+}
+
+function isVenueVerified(venue) {
+  if (!venue) return false;
+  if (venue.isVerified === true) return true;
+  if (typeof venue.profileCompletion === 'number' && venue.profileCompletion >= 70) return true;
+  if (venue.documents?.verified === true) return true;
+
+  let score = 0;
+  if (venue.businessName) score += 5;
+  if (venue.venueType && venue.venueType.length > 0) score += 5;
+  if (venue.capacity) score += 5;
+  if (venue.foodType) score += 5;
+  if (venue.location?.address) score += 5;
+  if (venue.location?.city) score += 5;
+  if (venue.location?.pincode && venue.location.pincode !== '000000') score += 5;
+  if (venue.pricing && (getVenueStartingPrice(venue).amount > 0)) score += 15;
+  const imgCount = venue.images?.length || 0;
+  if (imgCount >= 1) score += 5;
+  if (imgCount >= 3) score += 5;
+  if (imgCount >= 5) score += 5;
+  if (venue.bankDetails?.accountNumber || venue.bankDetails?.ifscCode) score += 10;
+  if (venue.documents?.idProof?.number || venue.documents?.idProof?.frontUrl || venue.documents?.businessProof?.documentUrl) score += 10;
+  if (venue.description && venue.description.length > 40) score += 5;
+  if (venue.amenities?.basic?.some(a => a.available) || venue.additionalFacilities?.length > 0) score += 5;
+
+  return score >= 70;
 }
 
 function VenueCardSkeleton() {
@@ -53,15 +81,10 @@ function VenueCardSkeleton() {
 }
 
 function VenueCard({ venue }) {
-  const p = venue.pricing;
   const foodType = getVenueFoodType(venue);
   const FoodIcon = getFoodTypeIcon(foodType);
-  const allPrices = [
-    p?.perHour?.weekday, p?.perHour?.weekend,
-    p?.halfDay?.weekday, p?.halfDay?.weekend,
-    p?.fullDay?.weekday, p?.fullDay?.weekend,
-  ].map(v => parseInt(v)).filter(v => v > 0);
-  const currentPrice = allPrices.length > 0 ? Math.min(...allPrices) : 0;
+  const startingPrice = getVenueStartingPrice(venue);
+  const currentPrice = startingPrice.amount;
 
   return (
     <div className="group bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col sm:flex-row hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300">
@@ -73,11 +96,30 @@ function VenueCard({ venue }) {
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               style={{ backgroundImage: 'linear-gradient(135deg, #e2e8f0 25%, #cbd5e1 50%, #e2e8f0 75%)', backgroundSize: '200% 100%' }}
             />
-            {venue.venueType?.[0] && (
-              <span className="absolute top-2 left-2 bg-white/90 dark:bg-slate-900/90 text-[10px] font-semibold text-slate-700 dark:text-slate-200 px-2 py-0.5 rounded-full shadow-sm">
-                {venue.venueType[0]}
-              </span>
+            {venue.venueType?.length > 0 && (
+              <div className="absolute top-2 left-2 flex flex-wrap gap-1 max-w-[85%]">
+                <span className="bg-white/90 dark:bg-slate-900/90 text-[10px] font-semibold text-slate-700 dark:text-slate-200 px-2 py-0.5 rounded-full shadow-sm backdrop-blur-xs">
+                  {venue.venueType[0]}
+                </span>
+                {venue.venueType.length > 1 && (
+                  <span className="bg-primary-600/90 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded-full shadow-sm backdrop-blur-xs" title={venue.venueType.slice(1).join(', ')}>
+                    +{venue.venueType.length - 1}
+                  </span>
+                )}
+              </div>
             )}
+            {/* Info vs Verified Badge */}
+            <div className="absolute top-2 right-2 z-10">
+              {isVenueVerified(venue) ? (
+                <span className="bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md flex items-center gap-1 backdrop-blur-xs">
+                  ✓ Verified
+                </span>
+              ) : (
+                <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md flex items-center gap-1 backdrop-blur-xs">
+                  ℹ️ Info
+                </span>
+              )}
+            </div>
           </div>
           {venue.images?.length > 1 && (
             <div className="w-20 flex flex-col gap-1">
@@ -97,7 +139,18 @@ function VenueCard({ venue }) {
       </div>
       <div className="flex-1 p-5 flex flex-col min-w-0">
         <div className="flex-1">
-          <h3 className="font-serif text-lg font-bold text-slate-900 dark:text-slate-100 mb-1 line-clamp-1">{venue.businessName}</h3>
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <h3 className="font-serif text-lg font-bold text-slate-900 dark:text-slate-100 line-clamp-1">{venue.businessName}</h3>
+            {isVenueVerified(venue) ? (
+              <span className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                ✓ Verified
+              </span>
+            ) : (
+              <span className="bg-blue-100 text-blue-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                ℹ️ Info
+              </span>
+            )}
+          </div>
           <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1 mb-3">
             <MapPin className="w-3.5 h-3.5 text-primary-500 flex-shrink-0" />
             {[venue.location?.area, venue.location?.city].filter(Boolean).join(', ')}
@@ -117,6 +170,12 @@ function VenueCard({ venue }) {
             <span className="flex items-center gap-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full">
               <FoodIcon className="w-3.5 h-3.5" /> {foodType}
             </span>
+            {venue.location?.parkingAvailability && venue.location.parkingAvailability !== 'None' && (
+              <span className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full text-slate-700 dark:text-slate-300">
+                <Car className="w-3.5 h-3.5 text-primary-500" />
+                {venue.location.parkingAvailability === 'Free' ? 'Free Parking' : 'Parking'}
+              </span>
+            )}
             {venue.amenities?.basic?.filter(a => a.available).slice(0, 3).map((a, i) => (
               <span key={i} className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">{a.name}</span>
             ))}
@@ -129,9 +188,13 @@ function VenueCard({ venue }) {
           <div>
             <div className="flex items-baseline gap-1.5">
               <span className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                {currentPrice > 0 ? `Rs.${currentPrice.toLocaleString('en-IN')}` : 'Price on request'}
+                {currentPrice > 0 ? startingPrice.formatted : 'Price on request'}
               </span>
-              {currentPrice > 0 && <span className="text-xs text-slate-400">onwards</span>}
+              {currentPrice > 0 && (
+                <span className="text-xs text-slate-400">
+                  {startingPrice.label ? `${startingPrice.label} onwards` : 'onwards'}
+                </span>
+              )}
             </div>
             {venue.activeCoupons?.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-1.5">

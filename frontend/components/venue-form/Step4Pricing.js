@@ -29,6 +29,21 @@ export default function Step4Pricing() {
   const [selectedAdvanceRule, setSelectedAdvanceRule] = useState(
     formData.pricing?.advanceBookingRule || '1 Day'
   );
+
+  const [selectedPricingModels, setSelectedPricingModels] = useState(
+    formData.pricing?.selectedPricingModels || ['Only Rent']
+  );
+
+  const togglePricingModel = (model) => {
+    setSelectedPricingModels(prev => {
+      const exists = prev.includes(model);
+      if (exists && prev.length === 1) {
+        toast.error('Select at least one pricing model');
+        return prev;
+      }
+      return exists ? prev.filter(m => m !== model) : [...prev, model];
+    });
+  };
   
   // Prepare default values from existing pricing data
   const prepareDefaultValues = () => {
@@ -49,6 +64,60 @@ export default function Step4Pricing() {
       extraHourRate: {
         weekday: formData.pricing?.extraHourRate?.weekday || '',
         weekend: formData.pricing?.extraHourRate?.weekend || ''
+      },
+      onlyRent: {
+        hourly: {
+          rate: formData.pricing?.onlyRent?.hourly?.rate || formData.pricing?.perHour?.weekday || '',
+          extraPerHour: formData.pricing?.onlyRent?.hourly?.extraPerHour || formData.pricing?.extraHourRate?.weekday || ''
+        },
+        halfDay: {
+          rate: formData.pricing?.onlyRent?.halfDay?.rate || formData.pricing?.halfDay?.weekday || '',
+          extraPerHour: formData.pricing?.onlyRent?.halfDay?.extraPerHour || formData.pricing?.extraHourRate?.weekday || ''
+        },
+        fullDay: {
+          rate: formData.pricing?.onlyRent?.fullDay?.rate || formData.pricing?.fullDay?.weekday || '',
+          extraPerHour: formData.pricing?.onlyRent?.fullDay?.extraPerHour || formData.pricing?.extraHourRate?.weekday || ''
+        }
+      },
+      rentWithAmenities: {
+        hourly: {
+          rate: formData.pricing?.rentWithAmenities?.hourly?.rate || '',
+          extraPerHour: formData.pricing?.rentWithAmenities?.hourly?.extraPerHour || ''
+        },
+        halfDay: {
+          rate: formData.pricing?.rentWithAmenities?.halfDay?.rate || '',
+          extraPerHour: formData.pricing?.rentWithAmenities?.halfDay?.extraPerHour || ''
+        },
+        fullDay: {
+          rate: formData.pricing?.rentWithAmenities?.fullDay?.rate || '',
+          extraPerHour: formData.pricing?.rentWithAmenities?.fullDay?.extraPerHour || ''
+        }
+      },
+      perPax: {
+        withoutFood: {
+          rate: formData.pricing?.perPax?.withoutFood?.rate || '',
+          minPax: formData.pricing?.perPax?.withoutFood?.minPax || '50'
+        },
+        breakfastOnly: {
+          rate: formData.pricing?.perPax?.breakfastOnly?.rate || '',
+          minPax: formData.pricing?.perPax?.breakfastOnly?.minPax || '50'
+        },
+        breakfastLunch: {
+          rate: formData.pricing?.perPax?.breakfastLunch?.rate || '',
+          minPax: formData.pricing?.perPax?.breakfastLunch?.minPax || '50'
+        },
+        lunchOnly: {
+          rate: formData.pricing?.perPax?.lunchOnly?.rate || '',
+          minPax: formData.pricing?.perPax?.lunchOnly?.minPax || '50'
+        },
+        dinnerOnly: {
+          rate: formData.pricing?.perPax?.dinnerOnly?.rate || '',
+          minPax: formData.pricing?.perPax?.dinnerOnly?.minPax || '50'
+        },
+        allMeals: {
+          rate: formData.pricing?.perPax?.allMeals?.rate || '',
+          minPax: formData.pricing?.perPax?.allMeals?.minPax || '50'
+        }
       },
       // Availability (Physical Venue Operating Hours)
       openingTime: formData.pricing?.openingTime || '09:00',
@@ -128,6 +197,7 @@ export default function Step4Pricing() {
     setFormData({ 
       pricing: {
         ...data,
+        selectedPricingModels,
         onlineBookingSchedule: {
           enabled: true,
           openingTime: data.onlineBookingOpeningTime || '06:00',
@@ -311,6 +381,127 @@ export default function Step4Pricing() {
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Pricing Models (As per Venue Form Specification) */}
+      <div className="bg-amber-50/70 dark:bg-slate-800/60 border-l-4 border-amber-500 rounded-2xl p-5 sm:p-6 shadow-sm space-y-5">
+        <div className="flex items-start gap-3">
+          <div className="p-2.5 bg-amber-500 text-white rounded-xl shadow-sm flex-shrink-0 mt-0.5">
+            <Sparkles className="w-5 h-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-lg font-bold text-dark-800 dark:text-white">Additional Pricing Models</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+              Enable Rent (Included Amenities) or Per Pax (Per Person) pricing for this venue
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+              {['Only Rent', 'Rent (Included Amenities)', 'Per Pax'].map((model) => {
+                const isSelected = selectedPricingModels.includes(model);
+                return (
+                  <button
+                    key={model}
+                    type="button"
+                    onClick={() => togglePricingModel(model)}
+                    className={`p-3 rounded-xl border text-xs font-bold transition-all text-left flex items-center justify-between ${
+                      isSelected
+                        ? 'border-amber-500 bg-amber-100/60 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 ring-1 ring-amber-500'
+                        : 'border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    <span>{model}</span>
+                    <span className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] ${
+                      isSelected ? 'bg-amber-600 border-amber-600 text-white' : 'border-gray-300'
+                    }`}>
+                      {isSelected ? '✓' : ''}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Rent with Amenities Model Details */}
+            {selectedPricingModels.includes('Rent (Included Amenities)') && (
+              <div className="mb-5 p-4 bg-white dark:bg-slate-900 rounded-xl border border-blue-200 dark:border-slate-700 space-y-3">
+                <h4 className="text-xs font-bold uppercase text-blue-700 dark:text-blue-300">
+                  Rent (Included Amenities) Rates
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <label className="block text-gray-600 dark:text-gray-400 mb-1">Hourly Rate (₹)</label>
+                    <input
+                      type="number"
+                      {...register('rentWithAmenities.hourly.rate')}
+                      placeholder="Ex. 500"
+                      className="input-field text-xs py-1.5"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-600 dark:text-gray-400 mb-1">Half Day (6 Hrs) (₹)</label>
+                    <input
+                      type="number"
+                      {...register('rentWithAmenities.halfDay.rate')}
+                      placeholder="Ex. 3000"
+                      className="input-field text-xs py-1.5"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-600 dark:text-gray-400 mb-1">Full Day (12 Hrs) (₹)</label>
+                    <input
+                      type="number"
+                      {...register('rentWithAmenities.fullDay.rate')}
+                      placeholder="Ex. 6000"
+                      className="input-field text-xs py-1.5"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Per Pax Model Details */}
+            {selectedPricingModels.includes('Per Pax') && (
+              <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-emerald-200 dark:border-slate-700 space-y-3">
+                <h4 className="text-xs font-bold uppercase text-emerald-700 dark:text-emerald-300">
+                  Per Pax (Per Person) Meal Packages
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  {[
+                    { keyRate: 'perPax.withoutFood.rate', keyPax: 'perPax.withoutFood.minPax', label: 'Without Food' },
+                    { keyRate: 'perPax.breakfastOnly.rate', keyPax: 'perPax.breakfastOnly.minPax', label: 'Only Breakfast' },
+                    { keyRate: 'perPax.breakfastLunch.rate', keyPax: 'perPax.breakfastLunch.minPax', label: 'Breakfast + Lunch' },
+                    { keyRate: 'perPax.lunchOnly.rate', keyPax: 'perPax.lunchOnly.minPax', label: 'Only Lunch' },
+                    { keyRate: 'perPax.dinnerOnly.rate', keyPax: 'perPax.dinnerOnly.minPax', label: 'Only Dinner' },
+                    { keyRate: 'perPax.allMeals.rate', keyPax: 'perPax.allMeals.minPax', label: 'Breakfast + Lunch + Dinner' }
+                  ].map((pkg) => (
+                    <div key={pkg.keyRate} className="p-2.5 rounded-lg bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700">
+                      <p className="font-bold text-gray-800 dark:text-gray-200 mb-1.5">{pkg.label}</p>
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <label className="block text-[10px] text-gray-500 mb-0.5">Rate / Pax (₹)</label>
+                          <input
+                            type="number"
+                            {...register(pkg.keyRate)}
+                            placeholder="₹ Rate"
+                            className="input-field text-xs py-1"
+                          />
+                        </div>
+                        <div className="w-24">
+                          <label className="block text-[10px] text-gray-500 mb-0.5">Min Pax</label>
+                          <input
+                            type="number"
+                            {...register(pkg.keyPax)}
+                            placeholder="50"
+                            className="input-field text-xs py-1"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

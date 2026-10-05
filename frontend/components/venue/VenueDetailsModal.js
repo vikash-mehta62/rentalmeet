@@ -8,7 +8,7 @@ import {
   Phone, Mail, User, CreditCard, FileCheck, Download, Edit3, Navigation,
   Bus, Train, ShieldCheck, Check, Sparkles, Shield, Wifi, Coffee,
   ChevronDown, AlertTriangle, AlertCircle, PlayCircle, PauseCircle, ShieldAlert,
-  RefreshCw
+  RefreshCw, Car, Bike, Globe, ExternalLink
 } from 'lucide-react';
 import { normalizeCustomGST, normalizeCustomPlatformFee } from '@/lib/venuePricing';
 import { downloadVenuePDF } from '@/utils/generateVenuePDF';
@@ -114,11 +114,12 @@ export default function VenueDetailsModal({
     { id: 'basic', label: 'Basic Info', icon: Building2 },
     { id: 'location', label: 'Location & Parking', icon: MapPin },
     { id: 'amenities', label: 'Amenities & Food', icon: Utensils },
-    { id: 'pricing', label: 'Pricing & Timings', icon: IndianRupee },
+    { id: 'pricing', label: 'Pricing & Taxes', icon: IndianRupee },
     { id: 'images', label: 'Photos', icon: ImageIcon },
     { id: 'owner', label: 'Owner & Authorised', icon: User },
     { id: 'documents', label: 'Documents & Proofs', icon: FileCheck },
     { id: 'bank', label: 'Bank Details', icon: CreditCard },
+    { id: 'rules', label: 'Rules & Policies', icon: ShieldCheck },
     { id: 'reviews', label: 'Reviews', icon: FileText },
   ];
 
@@ -532,36 +533,82 @@ export default function VenueDetailsModal({
               </div>
 
               {/* Basic Details Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 bg-white p-4 rounded-xl border border-gray-200">
                 <div>
                   <label className="text-xs font-semibold text-gray-500 block mb-1">Business Name</label>
                   <p className="text-sm text-gray-900 font-bold">{currentVenue.businessName}</p>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-gray-500 block mb-1">Venue Type</label>
+                  <label className="text-xs font-semibold text-gray-500 block mb-1">Category / Venue Type</label>
                   <p className="text-sm text-gray-900 font-semibold">{Array.isArray(currentVenue.venueType) ? currentVenue.venueType.join(', ') : currentVenue.venueType}</p>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-gray-500 block mb-1">Food Type Dropdown</label>
-                  <p className="text-sm text-gray-900 font-semibold">{currentVenue.foodType || 'Veg'}</p>
+                  <label className="text-xs font-semibold text-gray-500 block mb-1">Food Type</label>
+                  <span className="inline-block px-2.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-md text-xs font-bold border border-emerald-200">
+                    {currentVenue.foodType || 'Veg'}
+                  </span>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-gray-500 block mb-1">Capacity Dropdown</label>
+                  <label className="text-xs font-semibold text-gray-500 block mb-1">Guest Capacity</label>
                   <p className="text-sm text-gray-900 font-semibold">{currentVenue.capacity} guests</p>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-gray-500 block mb-1">Total Area</label>
+                  <label className="text-xs font-semibold text-gray-500 block mb-1">Total Space Area</label>
                   <p className="text-sm text-gray-900 font-semibold">{currentVenue.areaSqft} sq.ft</p>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-gray-500 block mb-1">Total Bookings</label>
-                  <p className="text-sm text-gray-900">{currentVenue.totalBookings || 0}</p>
+                  <label className="text-xs font-semibold text-gray-500 block mb-1">Year Established</label>
+                  <p className="text-sm text-gray-900 font-semibold">{currentVenue.yearEstablished || 'Not Specified'}</p>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 block mb-1">Floor Level</label>
+                  <p className="text-sm text-gray-900 font-semibold">{currentVenue.floor || 'Ground Floor'}</p>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 block mb-1">Total Bookings Completed</label>
+                  <p className="text-sm text-gray-900 font-bold text-primary-600">{currentVenue.totalBookings || 0}</p>
                 </div>
               </div>
 
+              {/* Seating Arrangements Card */}
+              {currentVenue.seatingArrangements && currentVenue.seatingArrangements.length > 0 && (
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                    <Users className="w-4 h-4 text-primary-600" />
+                    Seating Arrangements Supported
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {currentVenue.seatingArrangements.map((seat, idx) => (
+                      <span key={idx} className="px-3 py-1 bg-white text-slate-800 rounded-lg text-xs font-semibold border border-slate-300 shadow-xs flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary-500"></span>
+                        {seat}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Services Available Card */}
+              {currentVenue.servicesAvailable && currentVenue.servicesAvailable.length > 0 && (
+                <div className="bg-indigo-50/70 p-4 rounded-xl border border-indigo-200">
+                  <h4 className="text-xs font-bold text-indigo-950 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-indigo-600" />
+                    Services Available
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {currentVenue.servicesAvailable.map((srv, idx) => (
+                      <span key={idx} className="px-3 py-1 bg-white text-indigo-900 rounded-lg text-xs font-semibold border border-indigo-200 shadow-xs flex items-center gap-1.5">
+                        <Check className="w-3.5 h-3.5 text-indigo-600" />
+                        {srv}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div>
-                <label className="text-xs font-semibold text-gray-500 block mb-1.5">Venue Description</label>
-                <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-sm text-gray-700 leading-relaxed whitespace-pre-line">
+                <label className="text-xs font-semibold text-gray-500 block mb-1.5">Venue Description & Highlights</label>
+                <div className="bg-gray-50 p-3.5 rounded-lg border border-gray-200 text-sm text-gray-700 leading-relaxed whitespace-pre-line">
                   {currentVenue.description || 'No description provided.'}
                 </div>
               </div>
@@ -570,11 +617,11 @@ export default function VenueDetailsModal({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-semibold text-gray-500 block mb-1">Rating</label>
-                    <p className="text-sm text-gray-900">⭐ {currentVenue.rating.toFixed(1)}</p>
+                    <p className="text-sm text-gray-900 font-bold">⭐ {currentVenue.rating.toFixed(1)} / 5.0</p>
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-gray-500 block mb-1">Reviews</label>
-                    <p className="text-sm text-gray-900">{currentVenue.reviewCount} reviews</p>
+                    <label className="text-xs font-semibold text-gray-500 block mb-1">Customer Reviews</label>
+                    <p className="text-sm text-gray-900 font-semibold">{currentVenue.reviewCount} verified reviews</p>
                   </div>
                 </div>
               )}
@@ -586,40 +633,86 @@ export default function VenueDetailsModal({
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
-                  <label className="text-xs font-semibold text-gray-500 block mb-1">Complete Address</label>
-                  <p className="text-sm text-gray-900 bg-gray-50 p-2.5 rounded-lg border border-gray-200">{venue.location?.address || 'N/A'}</p>
+                  <label className="text-xs font-semibold text-gray-500 block mb-1">Complete Physical Address</label>
+                  <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg border border-gray-200 font-medium">{venue.location?.address || 'N/A'}</p>
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-gray-500 block mb-1">Landmark</label>
-                  <p className="text-sm text-gray-900">{venue.location?.landmark || 'N/A'}</p>
+                  <p className="text-sm text-gray-900 font-medium">{venue.location?.landmark || 'N/A'}</p>
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-gray-500 block mb-1">Area / Locality</label>
-                  <p className="text-sm text-gray-900">{venue.location?.area || 'N/A'}</p>
+                  <p className="text-sm text-gray-900 font-medium">{venue.location?.area || 'N/A'}</p>
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-gray-500 block mb-1">City</label>
-                  <p className="text-sm text-gray-900">{venue.location?.city || 'N/A'}</p>
+                  <p className="text-sm text-gray-900 font-medium">{venue.location?.city || 'N/A'}</p>
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-gray-500 block mb-1">State</label>
-                  <p className="text-sm text-gray-900">{venue.location?.state || 'N/A'}</p>
+                  <p className="text-sm text-gray-900 font-medium">{venue.location?.state || 'N/A'}</p>
                 </div>
                 {venue.location?.village && (
                   <div>
-                    <label className="text-xs font-semibold text-gray-500 block mb-1">Village</label>
-                    <p className="text-sm text-gray-900">{venue.location?.village}</p>
+                    <label className="text-xs font-semibold text-gray-500 block mb-1">Village / Ward</label>
+                    <p className="text-sm text-gray-900 font-medium">{venue.location?.village}</p>
                   </div>
                 )}
                 <div>
                   <label className="text-xs font-semibold text-gray-500 block mb-1">Pincode</label>
-                  <p className="text-sm text-gray-900">{venue.location?.pincode || 'N/A'}</p>
+                  <p className="text-sm text-gray-900 font-medium">{venue.location?.pincode || 'N/A'}</p>
                 </div>
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 block mb-1">Parking Availability Dropdown</label>
-                  <span className="inline-block px-3 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-bold border border-blue-200">
-                    {venue.location?.parkingAvailability || venue.location?.parkingType || 'Free'} Parking
-                  </span>
+              </div>
+
+              {/* Comprehensive Parking Details Card */}
+              <div className="p-4 bg-blue-50/70 rounded-xl border border-blue-200">
+                <h4 className="text-xs font-bold text-blue-950 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Car className="w-4 h-4 text-blue-600" />
+                  Parking Facility & Capacity
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+                  <div className="bg-white p-3 rounded-lg border border-blue-100">
+                    <span className="text-gray-500 block mb-1">Parking Type</span>
+                    <span className="font-bold text-blue-950 px-2.5 py-0.5 rounded bg-blue-100/70 text-xs">
+                      {venue.parkingDetails?.type || venue.location?.parkingAvailability || venue.location?.parkingType || 'Free'} Parking
+                    </span>
+                  </div>
+                  <div className="bg-white p-3 rounded-lg border border-blue-100">
+                    <span className="text-gray-500 block mb-1 flex items-center gap-1">
+                      <Bike className="w-3.5 h-3.5 text-blue-600" /> 2-Wheeler / Bike
+                    </span>
+                    <p className="font-bold text-gray-900">
+                      {venue.parkingDetails?.twoWheelers?.capacity || venue.location?.parkingDetails?.twoWheelerCapacity || 0} Capacity
+                    </p>
+                    <p className="text-[11px] text-blue-700 font-semibold mt-0.5">
+                      {(venue.parkingDetails?.twoWheelers?.isChargeable || venue.location?.parkingDetails?.twoWheelerCharges > 0)
+                        ? `₹${venue.parkingDetails?.twoWheelers?.chargePerVehicle || venue.location?.parkingDetails?.twoWheelerCharges}/bike`
+                        : 'Free of charge'}
+                    </p>
+                  </div>
+                  <div className="bg-white p-3 rounded-lg border border-blue-100">
+                    <span className="text-gray-500 block mb-1 flex items-center gap-1">
+                      <Car className="w-3.5 h-3.5 text-blue-600" /> 4-Wheeler / Car
+                    </span>
+                    <p className="font-bold text-gray-900">
+                      {venue.parkingDetails?.cars?.capacity || venue.location?.parkingDetails?.carsCapacity || 0} Capacity
+                    </p>
+                    <p className="text-[11px] text-blue-700 font-semibold mt-0.5">
+                      {(venue.parkingDetails?.cars?.isChargeable || venue.location?.parkingDetails?.carCharges > 0)
+                        ? `₹${venue.parkingDetails?.cars?.chargePerVehicle || venue.location?.parkingDetails?.carCharges}/car`
+                        : 'Free of charge'}
+                    </p>
+                  </div>
+                  <div className="bg-white p-3 rounded-lg border border-blue-100">
+                    <span className="text-gray-500 block mb-1">Valet Parking</span>
+                    <span className={`font-bold px-2.5 py-0.5 rounded text-xs inline-block ${
+                      (venue.parkingDetails?.valetAvailable || venue.location?.parkingDetails?.valetParking)
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {(venue.parkingDetails?.valetAvailable || venue.location?.parkingDetails?.valetParking) ? '✓ Available' : '✗ Not Available'}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -632,7 +725,7 @@ export default function VenueDetailsModal({
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <span className="text-xs text-gray-500 flex items-center gap-1 mb-1">
-                      <Train className="w-3.5 h-3.5 text-purple-600" /> Nearest Metro
+                      <Train className="w-3.5 h-3.5 text-purple-600" /> Nearest Metro Station
                     </span>
                     <p className="text-xs font-semibold text-gray-900">{venue.location?.nearestMetro || venue.location?.nearestMetroTrain || 'Not provided'}</p>
                   </div>
@@ -653,14 +746,14 @@ export default function VenueDetailsModal({
 
               {venue.location?.googleMapLink && (
                 <div>
-                  <label className="text-xs font-semibold text-gray-500 block mb-1">Google Maps</label>
+                  <label className="text-xs font-semibold text-gray-500 block mb-1">Google Maps Direction Link</label>
                   <a
                     href={venue.location.googleMapLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-primary-600 hover:text-primary-700 underline text-xs font-bold inline-flex items-center gap-1"
+                    className="text-primary-600 hover:text-primary-700 underline text-xs font-bold inline-flex items-center gap-1.5 bg-primary-50 px-3 py-2 rounded-lg border border-primary-200"
                   >
-                    <Navigation className="w-3.5 h-3.5" /> Open Google Maps Direction →
+                    <ExternalLink className="w-3.5 h-3.5" /> Open Google Maps Direction ({venue.location.googleMapLink}) →
                   </a>
                 </div>
               )}
@@ -669,41 +762,91 @@ export default function VenueDetailsModal({
 
           {/* Amenities Tab */}
           {activeTab === 'amenities' && (
-            <div className="space-y-4">
-              {/* Basic Amenities */}
-              {basicAmenitiesList.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-semibold mb-2 text-gray-800 flex items-center gap-1.5">
-                    <Wifi className="w-4 h-4 text-primary-600" />
-                    Basic Amenities
-                  </h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {basicAmenitiesList.map((amenity, idx) => (
-                      <div key={idx} className="bg-gray-50 rounded-lg p-2.5 border border-gray-200 flex items-center justify-between">
-                        <span className="font-medium text-gray-900 text-xs">{amenity.name}</span>
-                        <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${
-                          amenity.type === 'Paid' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'
-                        }`}>
-                          {amenity.type || 'Included'}
-                        </span>
+            <div className="space-y-5">
+              {/* 4 Categorized Amenity Groups */}
+              {(() => {
+                const groups = {
+                  'Basic Facilities': [],
+                  'Meeting / Conference Facilities': [],
+                  'Event Facilities': [],
+                  'Food Facilities': [],
+                  'Other Facilities': []
+                };
+
+                basicAmenitiesList.forEach(item => {
+                  const cat = item.category || 'Basic Facilities';
+                  if (groups[cat]) {
+                    groups[cat].push(item);
+                  } else {
+                    groups['Other Facilities'].push(item);
+                  }
+                });
+
+                const groupIcons = {
+                  'Basic Facilities': Shield,
+                  'Meeting / Conference Facilities': Users,
+                  'Event Facilities': Sparkles,
+                  'Food Facilities': Utensils,
+                  'Other Facilities': Check
+                };
+
+                const groupColors = {
+                  'Basic Facilities': 'border-slate-200 bg-slate-50/70',
+                  'Meeting / Conference Facilities': 'border-blue-200 bg-blue-50/70',
+                  'Event Facilities': 'border-purple-200 bg-purple-50/70',
+                  'Food Facilities': 'border-amber-200 bg-amber-50/70',
+                  'Other Facilities': 'border-emerald-200 bg-emerald-50/70'
+                };
+
+                return Object.entries(groups).map(([groupTitle, items]) => {
+                  if (!items || items.length === 0) return null;
+                  const GroupIcon = groupIcons[groupTitle] || Shield;
+                  const colorClass = groupColors[groupTitle] || 'border-gray-200 bg-gray-50';
+
+                  return (
+                    <div key={groupTitle} className={`p-4 rounded-xl border ${colorClass}`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
+                          <GroupIcon className="w-4 h-4 text-primary-600" />
+                          {groupTitle} ({items.length})
+                        </h4>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                        {items.map((amenity, idx) => (
+                          <div key={idx} className="bg-white rounded-lg p-2.5 border border-gray-200 shadow-xs flex flex-col justify-between space-y-1">
+                            <span className="font-medium text-gray-900 text-xs">{amenity.name}</span>
+                            <div className="flex items-center justify-between pt-0.5">
+                              <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                                amenity.type === 'Paid' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'
+                              }`}>
+                                {amenity.type || 'Included'}
+                              </span>
+                              {amenity.type === 'Paid' && amenity.rate > 0 && (
+                                <span className="text-[11px] font-bold text-orange-700">
+                                  ₹{amenity.rate} {amenity.rateType ? `(${amenity.rateType})` : ''}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
 
               {/* Beverages */}
               {venue.amenities?.beverages && venue.amenities.beverages.filter(b => b.available).length > 0 && (
-                <div>
-                  <h3 className="text-sm font-semibold mb-2 text-gray-800 flex items-center gap-1.5">
-                    <Coffee className="w-4 h-4 text-blue-600" /> Beverages
+                <div className="p-4 bg-blue-50/70 rounded-xl border border-blue-200">
+                  <h3 className="text-xs font-bold uppercase tracking-wider mb-3 text-blue-950 flex items-center gap-1.5">
+                    <Coffee className="w-4 h-4 text-blue-600" /> Beverages Offered
                   </h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {venue.amenities.beverages.filter(b => b.available).map((bev, idx) => (
-                      <div key={idx} className="bg-blue-50 rounded-lg p-2.5 border border-blue-200">
+                      <div key={idx} className="bg-white rounded-lg p-2.5 border border-blue-100 shadow-xs">
                         <p className="font-bold text-gray-900 text-xs mb-0.5">{bev.name}</p>
-                        {bev.brand && <p className="text-[11px] text-gray-600">Brand: {bev.brand}</p>}
-                        {bev.ratePerUnit && <p className="text-[11px] text-blue-700 font-bold">₹{bev.ratePerUnit}/unit</p>}
+                        {bev.brand && <p className="text-[10px] text-gray-500">Brand: {bev.brand}</p>}
+                        {bev.ratePerUnit && <p className="text-xs text-blue-700 font-bold mt-1">₹{bev.ratePerUnit}/unit</p>}
                       </div>
                     ))}
                   </div>
@@ -712,18 +855,18 @@ export default function VenueDetailsModal({
 
               {/* Refreshment/Food */}
               {venue.amenities?.refreshmentFood && venue.amenities.refreshmentFood.filter(f => f.available).length > 0 && (
-                <div>
-                  <h3 className="text-sm font-semibold mb-2 text-gray-800 flex items-center gap-1.5">
-                    <Utensils className="w-4 h-4 text-orange-600" /> Refreshments & Food
+                <div className="p-4 bg-orange-50/70 rounded-xl border border-orange-200">
+                  <h3 className="text-xs font-bold uppercase tracking-wider mb-3 text-orange-950 flex items-center gap-1.5">
+                    <Utensils className="w-4 h-4 text-orange-600" /> Refreshments & Snacks
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {venue.amenities.refreshmentFood.filter(f => f.available).map((food, idx) => (
-                      <div key={idx} className="bg-orange-50 rounded-lg p-2.5 border border-orange-200 flex items-center justify-between">
+                      <div key={idx} className="bg-white rounded-lg p-2.5 border border-orange-100 shadow-xs flex items-center justify-between">
                         <div>
                           <p className="font-bold text-gray-900 text-xs">{food.name}</p>
-                          {food.items && <p className="text-[11px] text-gray-600">{food.items}</p>}
+                          {food.items && <p className="text-[11px] text-gray-500 mt-0.5">{food.items}</p>}
                         </div>
-                        {food.ratePerPlate && <span className="text-xs font-bold text-orange-700">₹{food.ratePerPlate}/plate</span>}
+                        {food.ratePerPlate && <span className="text-xs font-bold text-orange-700 bg-orange-50 px-2 py-1 rounded">₹{food.ratePerPlate}/plate</span>}
                       </div>
                     ))}
                   </div>
@@ -732,16 +875,18 @@ export default function VenueDetailsModal({
 
               {/* Lunch Thalis */}
               {venue.amenities?.lunchThalis && venue.amenities.lunchThalis.filter(t => t.available !== false).length > 0 && (
-                <div>
-                  <h3 className="text-sm font-semibold mb-2 text-gray-800">Lunch Thalis</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="p-4 bg-amber-50/70 rounded-xl border border-amber-200">
+                  <h3 className="text-xs font-bold uppercase tracking-wider mb-3 text-amber-950 flex items-center gap-1.5">
+                    <Utensils className="w-4 h-4 text-amber-600" /> Lunch Thalis & Meal Packages
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {venue.amenities.lunchThalis.filter(t => t.available !== false).map((thali, idx) => (
-                      <div key={idx} className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
-                        <h4 className="font-bold text-gray-900 text-xs mb-1.5">{thali.thaliType || thali.type}</h4>
+                      <div key={idx} className="bg-white rounded-xl p-3 border border-amber-200 shadow-xs">
+                        <h4 className="font-bold text-gray-900 text-xs mb-2 text-amber-950">{thali.thaliType || thali.type}</h4>
                         {thali.categories && thali.categories.map((cat, catIdx) => (
-                          <div key={catIdx} className="bg-white rounded p-1.5 mb-1 text-xs flex items-center justify-between">
-                            <span className="font-medium">{cat.category}</span>
-                            <span className="font-bold text-primary-600">₹{cat.ratePerPlate}/plate</span>
+                          <div key={catIdx} className="bg-amber-50/50 rounded-lg p-2 mb-1.5 text-xs flex items-center justify-between">
+                            <span className="font-medium text-gray-800">{cat.category}</span>
+                            <span className="font-bold text-amber-800">₹{cat.ratePerPlate}/plate</span>
                           </div>
                         ))}
                       </div>
@@ -750,19 +895,19 @@ export default function VenueDetailsModal({
                 </div>
               )}
 
-              {/* Kitchen & Dining */}
+              {/* Kitchen & Dining Access */}
               {(venue.amenities?.kitchenAccess?.available || venue.amenities?.diningArea?.available) && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {venue.amenities?.kitchenAccess?.available && (
-                    <div className="bg-purple-50 rounded-lg p-3 border border-purple-200 text-xs">
-                      <p className="font-bold text-purple-900">Kitchen Access</p>
-                      <p className="text-gray-600">{venue.amenities.kitchenAccess.type} {venue.amenities.kitchenAccess.charges ? `- ₹${venue.amenities.kitchenAccess.charges}` : ''}</p>
+                    <div className="bg-purple-50/80 rounded-xl p-3.5 border border-purple-200 text-xs">
+                      <p className="font-bold text-purple-950 mb-1">Kitchen Access</p>
+                      <p className="text-gray-700">{venue.amenities.kitchenAccess.type} {venue.amenities.kitchenAccess.charges ? `(₹${venue.amenities.kitchenAccess.charges})` : ''}</p>
                     </div>
                   )}
                   {venue.amenities?.diningArea?.available && (
-                    <div className="bg-purple-50 rounded-lg p-3 border border-purple-200 text-xs">
-                      <p className="font-bold text-purple-900">Dining Area</p>
-                      <p className="text-gray-600">{venue.amenities.diningArea.type} {venue.amenities.diningArea.charges ? `- ₹${venue.amenities.diningArea.charges}` : ''}</p>
+                    <div className="bg-purple-50/80 rounded-xl p-3.5 border border-purple-200 text-xs">
+                      <p className="font-bold text-purple-950 mb-1">Dining Area Access</p>
+                      <p className="text-gray-700">{venue.amenities.diningArea.type} {venue.amenities.diningArea.charges ? `(₹${venue.amenities.diningArea.charges})` : ''}</p>
                     </div>
                   )}
                 </div>
@@ -770,13 +915,13 @@ export default function VenueDetailsModal({
 
               {/* Additional Facilities */}
               {additionalFacilitiesList.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-semibold mb-2 text-gray-800 flex items-center gap-1.5">
+                <div className="p-4 bg-emerald-50/70 rounded-xl border border-emerald-200">
+                  <h3 className="text-xs font-bold uppercase tracking-wider mb-3 text-emerald-950 flex items-center gap-1.5">
                     <Shield className="w-4 h-4 text-emerald-600" /> Additional Facilities & Safety
                   </h3>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {additionalFacilitiesList.map((amenity, idx) => (
-                      <div key={idx} className="bg-emerald-50 rounded-lg p-2 border border-emerald-200 flex items-center gap-2">
+                      <div key={idx} className="bg-white rounded-lg p-2.5 border border-emerald-100 shadow-xs flex items-center gap-2">
                         <Check className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
                         <span className="font-medium text-emerald-950 text-xs">{amenity.name}</span>
                       </div>
@@ -853,6 +998,34 @@ export default function VenueDetailsModal({
                 </div>
               )}
 
+              {/* Taxes & GST Settings Card */}
+              <div className="p-4 bg-teal-50/70 rounded-xl border border-teal-200">
+                <h4 className="text-xs font-bold text-teal-950 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <CreditCard className="w-4 h-4 text-teal-600" />
+                  Taxes & GST Configuration
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div className="bg-white p-3 rounded-lg border border-teal-100 shadow-xs">
+                    <span className="text-gray-500 block mb-1">GST Application Mode</span>
+                    <span className="font-bold text-teal-950 px-2 py-0.5 rounded bg-teal-100/70 text-xs">
+                      {venue.taxSettings?.gstType || (venue.ownerInfo?.hasGST ? 'Extra (Exclusive)' : 'Not Applicable')}
+                    </span>
+                  </div>
+                  <div className="bg-white p-3 rounded-lg border border-teal-100 shadow-xs">
+                    <span className="text-gray-500 block mb-1">Applicable GST Rate</span>
+                    <p className="font-bold text-gray-900 text-sm">
+                      {venue.taxSettings?.gstRate ? `${venue.taxSettings.gstRate}%` : '18% Standard'}
+                    </p>
+                  </div>
+                  <div className="bg-white p-3 rounded-lg border border-teal-100 shadow-xs">
+                    <span className="text-gray-500 block mb-1">GSTIN Registration Number</span>
+                    <p className="font-mono font-bold text-teal-950">
+                      {venue.taxSettings?.gstin || venue.ownerInfo?.gstNumber || venue.documents?.gstNumber || 'Not provided / Unregistered'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               {/* Availability & Operating Schedule */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-2">
@@ -877,7 +1050,7 @@ export default function VenueDetailsModal({
               {/* Advance Booking & Confirmation Rules */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-200">
-                  <span className="text-xs text-gray-500 block mb-1">Minimum Advance Booking Rule Dropdown:</span>
+                  <span className="text-xs text-gray-500 block mb-1">Minimum Advance Booking Rule:</span>
                   <p className="text-sm font-bold text-primary-600">
                     {venue.availability?.advanceBookingRule || venue.pricing?.advanceBookingRule || '1 Day'}
                   </p>
@@ -908,24 +1081,24 @@ export default function VenueDetailsModal({
           {activeTab === 'images' && (
             <div className="space-y-4">
               {venue.images && venue.images.length > 0 ? (
-                ['Featured', 'Exterior', 'Interior', 'Amenities', 'Additional'].map(category => {
+                ['Featured', 'Front / Entrance', 'Main Hall / Space', 'Additional Hall', 'Seating Area', 'Stage', 'Dining Area', 'Kitchen', 'Bedroom', 'Washroom', 'Parking', 'Garden / Lawn', 'Outdoor Area', 'Exterior', 'Interior', 'Amenities', 'Other', 'Additional'].map(category => {
                   const categoryImages = venue.images.filter(img => img.category === category);
                   if (categoryImages.length === 0) return null;
                   
                   return (
                     <div key={category}>
-                      <h3 className="text-xs font-bold uppercase tracking-wider mb-2 text-gray-800">{category} Photos</h3>
+                      <h3 className="text-xs font-bold uppercase tracking-wider mb-2 text-gray-800">{category} Photos ({categoryImages.length})</h3>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         {categoryImages.map((img, idx) => (
-                          <div key={idx} className="relative group rounded-xl overflow-hidden border border-gray-200 shadow-xs">
+                          <div key={idx} className="relative group rounded-xl overflow-hidden border border-gray-200 shadow-xs bg-slate-100">
                             <img
                               src={img.url}
                               alt={`${category} ${idx + 1}`}
-                              className="w-full h-32 object-cover"
+                              className="w-full h-32 object-cover group-hover:scale-105 transition-transform duration-300"
                             />
                             {img.isFeatured && (
-                              <span className="absolute top-1.5 right-1.5 bg-yellow-500 text-white text-[10px] px-2 py-0.5 rounded font-bold">
-                                Featured
+                              <span className="absolute top-1.5 right-1.5 bg-yellow-500 text-white text-[10px] px-2 py-0.5 rounded font-bold shadow-xs">
+                                ⭐ Featured Cover
                               </span>
                             )}
                             <a
@@ -1001,7 +1174,7 @@ export default function VenueDetailsModal({
                     <p className="text-sm text-gray-900 font-bold">{venue.ownerInfo?.authorisedPerson?.fullName || venue.ownerInfo?.authorisedPerson?.name || 'Same as Owner'}</p>
                   </div>
                   <div>
-                    <label className="text-gray-500 block mb-0.5">Designation / Role Dropdown</label>
+                    <label className="text-gray-500 block mb-0.5">Designation / Role</label>
                     <p className="text-sm text-gray-900 font-semibold">{venue.ownerInfo?.authorisedPerson?.designation || venue.ownerInfo?.authorisedPerson?.role || 'Venue Owner / Proprietor'}</p>
                   </div>
                   <div>
@@ -1027,17 +1200,69 @@ export default function VenueDetailsModal({
                   </div>
                 </div>
               </div>
+
+              {/* Social Pages & Web Links Card */}
+              {(venue.socialLinks?.website || venue.socialLinks?.instagram || venue.socialLinks?.facebook || venue.socialLinks?.youtube || venue.socialLinks?.virtualTour) && (
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <h3 className="text-xs font-bold uppercase tracking-wider mb-3 text-slate-800 flex items-center gap-1.5">
+                    <Globe className="w-4 h-4 text-primary-600" />
+                    Social Media & Virtual Tour Links
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    {venue.socialLinks?.website && (
+                      <div>
+                        <span className="text-gray-500 block mb-0.5">Official Website:</span>
+                        <a href={venue.socialLinks.website} target="_blank" rel="noreferrer" className="text-primary-600 hover:underline font-semibold flex items-center gap-1 truncate">
+                          <Globe className="w-3 h-3 flex-shrink-0" /> {venue.socialLinks.website}
+                        </a>
+                      </div>
+                    )}
+                    {venue.socialLinks?.virtualTour && (
+                      <div>
+                        <span className="text-gray-500 block mb-0.5">360° Virtual Tour:</span>
+                        <a href={venue.socialLinks.virtualTour} target="_blank" rel="noreferrer" className="text-primary-600 hover:underline font-semibold flex items-center gap-1 truncate">
+                          <ExternalLink className="w-3 h-3 flex-shrink-0" /> {venue.socialLinks.virtualTour}
+                        </a>
+                      </div>
+                    )}
+                    {venue.socialLinks?.instagram && (
+                      <div>
+                        <span className="text-gray-500 block mb-0.5">Instagram Profile:</span>
+                        <a href={venue.socialLinks.instagram} target="_blank" rel="noreferrer" className="text-pink-600 hover:underline font-semibold flex items-center gap-1 truncate">
+                          <ExternalLink className="w-3 h-3 flex-shrink-0" /> {venue.socialLinks.instagram}
+                        </a>
+                      </div>
+                    )}
+                    {venue.socialLinks?.facebook && (
+                      <div>
+                        <span className="text-gray-500 block mb-0.5">Facebook Page:</span>
+                        <a href={venue.socialLinks.facebook} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline font-semibold flex items-center gap-1 truncate">
+                          <ExternalLink className="w-3 h-3 flex-shrink-0" /> {venue.socialLinks.facebook}
+                        </a>
+                      </div>
+                    )}
+                    {venue.socialLinks?.youtube && (
+                      <div>
+                        <span className="text-gray-500 block mb-0.5">YouTube Video:</span>
+                        <a href={venue.socialLinks.youtube} target="_blank" rel="noreferrer" className="text-red-600 hover:underline font-semibold flex items-center gap-1 truncate">
+                          <ExternalLink className="w-3 h-3 flex-shrink-0" /> {venue.socialLinks.youtube}
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
           {/* Documents Tab */}
           {activeTab === 'documents' && (
             <div className="space-y-4">
-              {/* Authorised Person ID Proofs (Aadhaar & PAN) */}
+              {/* 1. Authorised Person ID Proofs (Aadhaar & PAN) */}
               <div className="bg-blue-50/80 rounded-xl p-4 border border-blue-200">
                 <h3 className="text-sm font-bold mb-3 text-blue-900 flex items-center gap-1.5">
                   <FileCheck className="w-4 h-4 text-blue-600" />
-                  Authorised Person ID Proofs (Aadhaar & PAN)
+                  1. Authorised Person ID Proofs (Aadhaar & PAN)
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Aadhaar Card */}
@@ -1053,11 +1278,13 @@ export default function VenueDetailsModal({
                       <div>
                         <span className="text-[10px] text-gray-500 block mb-1">Front Image</span>
                         {(venue.documents?.idProof?.aadhaarFrontUrl || venue.documents?.idProof?.frontUrl) ? (
-                          <img
-                            src={venue.documents.idProof.aadhaarFrontUrl || venue.documents.idProof.frontUrl}
-                            alt="Aadhaar Front"
-                            className="w-full h-24 object-contain bg-gray-50 rounded border"
-                          />
+                          <a href={venue.documents.idProof.aadhaarFrontUrl || venue.documents.idProof.frontUrl} target="_blank" rel="noreferrer">
+                            <img
+                              src={venue.documents.idProof.aadhaarFrontUrl || venue.documents.idProof.frontUrl}
+                              alt="Aadhaar Front"
+                              className="w-full h-24 object-contain bg-gray-50 rounded border hover:opacity-90"
+                            />
+                          </a>
                         ) : (
                           <p className="text-[11px] text-gray-400 italic">No image</p>
                         )}
@@ -1065,11 +1292,13 @@ export default function VenueDetailsModal({
                       <div>
                         <span className="text-[10px] text-gray-500 block mb-1">Back Image</span>
                         {(venue.documents?.idProof?.aadhaarBackUrl || venue.documents?.idProof?.backUrl) ? (
-                          <img
-                            src={venue.documents.idProof.aadhaarBackUrl || venue.documents.idProof.backUrl}
-                            alt="Aadhaar Back"
-                            className="w-full h-24 object-contain bg-gray-50 rounded border"
-                          />
+                          <a href={venue.documents.idProof.aadhaarBackUrl || venue.documents.idProof.backUrl} target="_blank" rel="noreferrer">
+                            <img
+                              src={venue.documents.idProof.aadhaarBackUrl || venue.documents.idProof.backUrl}
+                              alt="Aadhaar Back"
+                              className="w-full h-24 object-contain bg-gray-50 rounded border hover:opacity-90"
+                            />
+                          </a>
                         ) : (
                           <p className="text-[11px] text-gray-400 italic">No image</p>
                         )}
@@ -1089,11 +1318,13 @@ export default function VenueDetailsModal({
                     <div>
                       <span className="text-[10px] text-gray-500 block mb-1">PAN Card Image</span>
                       {(venue.documents?.idProof?.panUrl) ? (
-                        <img
-                          src={venue.documents.idProof.panUrl}
-                          alt="PAN Card"
-                          className="w-full h-24 object-contain bg-gray-50 rounded border"
-                        />
+                        <a href={venue.documents.idProof.panUrl} target="_blank" rel="noreferrer">
+                          <img
+                            src={venue.documents.idProof.panUrl}
+                            alt="PAN Card"
+                            className="w-full h-24 object-contain bg-gray-50 rounded border hover:opacity-90"
+                          />
+                        </a>
                       ) : (
                         <p className="text-[11px] text-gray-400 italic">No image</p>
                       )}
@@ -1106,26 +1337,28 @@ export default function VenueDetailsModal({
               {venue.documents?.selfieUrl && (
                 <div className="bg-green-50/80 rounded-xl p-4 border border-green-200 flex items-center justify-between">
                   <div>
-                    <h3 className="text-xs font-bold text-green-900 mb-1">Owner / Authorised Person Selfie</h3>
-                    <p className="text-xs text-gray-600">Live captured verification photo</p>
+                    <h3 className="text-xs font-bold text-green-900 mb-1">Live Captured Verification Selfie</h3>
+                    <p className="text-xs text-gray-600">Captured during verification</p>
                   </div>
-                  <img
-                    src={venue.documents.selfieUrl}
-                    alt="Selfie"
-                    className="w-20 h-20 object-cover rounded-xl border border-green-300"
-                  />
+                  <a href={venue.documents.selfieUrl} target="_blank" rel="noreferrer">
+                    <img
+                      src={venue.documents.selfieUrl}
+                      alt="Selfie"
+                      className="w-20 h-20 object-cover rounded-xl border border-green-300 hover:opacity-90"
+                    />
+                  </a>
                 </div>
               )}
 
-              {/* Business Documentation */}
+              {/* 2. Business Documentation */}
               <div className="bg-emerald-50/80 rounded-xl p-4 border border-emerald-200">
                 <h3 className="text-sm font-bold mb-3 text-emerald-950 flex items-center gap-1.5">
                   <FileText className="w-4 h-4 text-emerald-600" />
-                  Business Documentation
+                  2. Business Documentation Proof
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs mb-3">
                   <div>
-                    <span className="text-gray-500 block mb-1">Business Proof Type Dropdown:</span>
+                    <span className="text-gray-500 block mb-1">Business Proof Type:</span>
                     <p className="text-sm font-bold text-emerald-950 bg-white px-3 py-1.5 rounded border border-emerald-200">
                       {venue.documents?.businessProof?.type || 'Not specified'}
                     </p>
@@ -1153,7 +1386,116 @@ export default function VenueDetailsModal({
                 )}
               </div>
 
-              {/* GST Details */}
+              {/* 3. Property Documentation Proof */}
+              <div className="bg-indigo-50/80 rounded-xl p-4 border border-indigo-200">
+                <h3 className="text-sm font-bold mb-3 text-indigo-950 flex items-center gap-1.5">
+                  <Building2 className="w-4 h-4 text-indigo-600" />
+                  3. Property Ownership / Tenancy Proof
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs mb-3">
+                  <div>
+                    <span className="text-gray-500 block mb-1">Property Proof Type:</span>
+                    <p className="text-sm font-bold text-indigo-950 bg-white px-3 py-1.5 rounded border border-indigo-200">
+                      {venue.documents?.propertyProof?.type || 'Not specified'}
+                    </p>
+                  </div>
+                  {venue.documents?.propertyProof?.otherSpecify && (
+                    <div>
+                      <span className="text-gray-500 block mb-1">Specified Detail:</span>
+                      <p className="text-sm font-semibold text-gray-900 bg-white px-3 py-1.5 rounded border border-indigo-200">
+                        {venue.documents.propertyProof.otherSpecify}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                {(venue.documents?.propertyProof?.documentUrl || venue.documents?.propertyProof?.url) && (
+                  <div>
+                    <a
+                      href={venue.documents.propertyProof.documentUrl || venue.documents.propertyProof.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-700 hover:text-indigo-800 bg-white px-3 py-2 rounded-lg border border-indigo-300"
+                    >
+                      <Download className="w-3.5 h-3.5" /> View / Download Property Proof
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              {/* 4. Applicable Certificates & NOCs */}
+              <div className="bg-amber-50/80 rounded-xl p-4 border border-amber-200">
+                <h3 className="text-sm font-bold mb-3 text-amber-950 flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-amber-600" />
+                  4. Applicable Certificates & Compliance NOCs
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Fire NOC */}
+                  <div className="bg-white p-3 rounded-lg border border-amber-200 shadow-xs">
+                    <span className="text-xs font-bold text-amber-900 block mb-1">Fire NOC Certificate</span>
+                    {(venue.documents?.fireNOC?.url || venue.documents?.applicableCertificates?.fireNOCUrl) ? (
+                      <a
+                        href={venue.documents.fireNOC?.url || venue.documents.applicableCertificates?.fireNOCUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 hover:underline"
+                      >
+                        <Download className="w-3.5 h-3.5" /> Download Fire NOC
+                      </a>
+                    ) : (
+                      <p className="text-[11px] text-gray-400 italic">Not provided</p>
+                    )}
+                  </div>
+
+                  {/* FSSAI Certificate */}
+                  <div className="bg-white p-3 rounded-lg border border-amber-200 shadow-xs">
+                    <span className="text-xs font-bold text-amber-900 block mb-1">FSSAI Food License</span>
+                    {(venue.documents?.fssai?.url || venue.documents?.applicableCertificates?.fssaiUrl) ? (
+                      <a
+                        href={venue.documents.fssai?.url || venue.documents.applicableCertificates?.fssaiUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 hover:underline"
+                      >
+                        <Download className="w-3.5 h-3.5" /> Download FSSAI Certificate
+                      </a>
+                    ) : (
+                      <p className="text-[11px] text-gray-400 italic">Not provided</p>
+                    )}
+                  </div>
+
+                  {/* Trade License */}
+                  {venue.documents?.applicableCertificates?.tradeLicenseUrl && (
+                    <div className="bg-white p-3 rounded-lg border border-amber-200 shadow-xs">
+                      <span className="text-xs font-bold text-amber-900 block mb-1">Municipal Trade License</span>
+                      <a
+                        href={venue.documents.applicableCertificates.tradeLicenseUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 hover:underline"
+                      >
+                        <Download className="w-3.5 h-3.5" /> Download Trade License
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Pollution / Safety */}
+                  {venue.documents?.applicableCertificates?.pollutionCertificateUrl && (
+                    <div className="bg-white p-3 rounded-lg border border-amber-200 shadow-xs">
+                      <span className="text-xs font-bold text-amber-900 block mb-1">Pollution / Safety Clearance</span>
+                      <a
+                        href={venue.documents.applicableCertificates.pollutionCertificateUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 hover:underline"
+                      >
+                        <Download className="w-3.5 h-3.5" /> Download Clearance Certificate
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* GST Registration Certificate */}
               <div className="bg-purple-50/80 rounded-xl p-4 border border-purple-200">
                 <h3 className="text-sm font-bold mb-2 text-purple-950 flex items-center gap-1.5">
                   <Building2 className="w-4 h-4 text-purple-600" />
@@ -1182,41 +1524,6 @@ export default function VenueDetailsModal({
                   )}
                 </div>
               </div>
-
-              {/* Fire NOC & FSSAI */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="bg-orange-50/80 rounded-xl p-3.5 border border-orange-200">
-                  <h4 className="text-xs font-bold text-orange-900 mb-2">Fire NOC Certificate</h4>
-                  {venue.documents?.fireNOC?.url ? (
-                    <a
-                      href={venue.documents.fireNOC.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-700 bg-white px-3 py-1.5 rounded-lg border border-orange-300"
-                    >
-                      <Download className="w-3.5 h-3.5" /> Download Fire NOC
-                    </a>
-                  ) : (
-                    <p className="text-xs text-gray-500 italic">Not provided</p>
-                  )}
-                </div>
-
-                <div className="bg-amber-50/80 rounded-xl p-3.5 border border-amber-200">
-                  <h4 className="text-xs font-bold text-amber-900 mb-2">FSSAI Certificate</h4>
-                  {venue.documents?.fssai?.url ? (
-                    <a
-                      href={venue.documents.fssai.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-white px-3 py-1.5 rounded-lg border border-amber-300"
-                    >
-                      <Download className="w-3.5 h-3.5" /> Download FSSAI Certificate
-                    </a>
-                  ) : (
-                    <p className="text-xs text-gray-500 italic">Not provided</p>
-                  )}
-                </div>
-              </div>
             </div>
           )}
 
@@ -1234,7 +1541,7 @@ export default function VenueDetailsModal({
                     <p className="text-sm font-bold text-gray-900">{venue.bankDetails?.accountHolderName || 'N/A'}</p>
                   </div>
                   <div>
-                    <label className="text-gray-500 block mb-0.5">Account Type Dropdown</label>
+                    <label className="text-gray-500 block mb-0.5">Account Type</label>
                     <p className="text-sm font-bold text-emerald-800">{venue.bankDetails?.accountType || 'Current'} Account</p>
                   </div>
                   <div>
@@ -1275,10 +1582,89 @@ export default function VenueDetailsModal({
             </div>
           )}
 
-          {/* Reviews Tab */}
-          {activeTab === 'reviews' && (
+          {/* Rules & Policies Tab */}
+          {activeTab === 'rules' && (
             <div className="space-y-4">
-              <VenueReviews venueId={venue._id} />
+              {/* Venue Rules & Policies */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <h3 className="text-sm font-bold mb-3 text-slate-900 flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-primary-600" />
+                  Venue Rules & Guest Guidelines
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs mb-3">
+                  <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                    <span className="text-gray-500 block mb-1">Alcohol Policy:</span>
+                    <span className={`font-bold ${venue.rulesAndPolicies?.alcoholAllowed ? 'text-green-700' : 'text-rose-700'}`}>
+                      {venue.rulesAndPolicies?.alcoholAllowed ? '✓ Allowed' : '✗ Not Allowed'}
+                    </span>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                    <span className="text-gray-500 block mb-1">Smoking Policy:</span>
+                    <span className={`font-bold ${venue.rulesAndPolicies?.smokingAllowed ? 'text-green-700' : 'text-rose-700'}`}>
+                      {venue.rulesAndPolicies?.smokingAllowed ? '✓ Allowed' : '✗ Not Allowed'}
+                    </span>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                    <span className="text-gray-500 block mb-1">Outside Food Allowed:</span>
+                    <span className={`font-bold ${venue.rulesAndPolicies?.outsideFoodAllowed ? 'text-green-700' : 'text-rose-700'}`}>
+                      {venue.rulesAndPolicies?.outsideFoodAllowed ? '✓ Allowed' : '✗ Not Allowed'}
+                    </span>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                    <span className="text-gray-500 block mb-1">Music / DJ Deadline:</span>
+                    <span className="font-bold text-gray-800">
+                      {venue.rulesAndPolicies?.musicDeadline || '10:00 PM'}
+                    </span>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                    <span className="text-gray-500 block mb-1">Firecrackers Policy:</span>
+                    <span className={`font-bold ${venue.rulesAndPolicies?.firecrackersAllowed ? 'text-green-700' : 'text-rose-700'}`}>
+                      {venue.rulesAndPolicies?.firecrackersAllowed ? '✓ Allowed' : '✗ Not Allowed'}
+                    </span>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                    <span className="text-gray-500 block mb-1">Pet Friendly:</span>
+                    <span className={`font-bold ${venue.rulesAndPolicies?.petFriendly ? 'text-green-700' : 'text-rose-700'}`}>
+                      {venue.rulesAndPolicies?.petFriendly ? '✓ Yes' : '✗ No'}
+                    </span>
+                  </div>
+                </div>
+
+                {venue.rulesAndPolicies?.customRules && (
+                  <div>
+                    <label className="text-xs font-semibold text-gray-500 block mb-1">Custom House Rules</label>
+                    <div className="bg-white p-3 rounded-lg border border-slate-200 text-xs text-gray-700 whitespace-pre-line">
+                      {venue.rulesAndPolicies.customRules}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 4-Tier Custom Cancellation Policy */}
+              <div className="bg-rose-50/70 p-4 rounded-xl border border-rose-200">
+                <h3 className="text-sm font-bold mb-3 text-rose-950 flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4 text-rose-600" />
+                  4-Tier Custom Cancellation Policy
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+                  <div className="bg-white p-3 rounded-lg border border-rose-100 shadow-xs">
+                    <span className="text-gray-500 block mb-1">Tier 1: Before {venue.cancellationPolicy?.tier1?.days || 7} Days</span>
+                    <p className="text-base font-bold text-emerald-600">{venue.cancellationPolicy?.tier1?.refundPercent ?? 100}% Refund</p>
+                  </div>
+                  <div className="bg-white p-3 rounded-lg border border-rose-100 shadow-xs">
+                    <span className="text-gray-500 block mb-1">Tier 2: Within {venue.cancellationPolicy?.tier2?.days || 3} Days</span>
+                    <p className="text-base font-bold text-amber-600">{venue.cancellationPolicy?.tier2?.refundPercent ?? 50}% Refund</p>
+                  </div>
+                  <div className="bg-white p-3 rounded-lg border border-rose-100 shadow-xs">
+                    <span className="text-gray-500 block mb-1">Tier 3: Within {venue.cancellationPolicy?.tier3?.hours || 24} Hours</span>
+                    <p className="text-base font-bold text-rose-600">{venue.cancellationPolicy?.tier3?.refundPercent ?? 0}% Refund</p>
+                  </div>
+                  <div className="bg-white p-3 rounded-lg border border-rose-100 shadow-xs">
+                    <span className="text-gray-500 block mb-1">Tier 4: Event Day / No-Show</span>
+                    <p className="text-base font-bold text-rose-700">{venue.cancellationPolicy?.tier4?.refundPercent ?? 0}% Refund</p>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 

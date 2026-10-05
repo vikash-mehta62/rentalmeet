@@ -49,6 +49,7 @@ const allowedOrigins = [
   'http://localhost:3002',
   'https://rentalmeet.com',
   'https://www.rentalmeet.com',
+  'https://subconsciously-unsuppressible-precious.ngrok-free.dev',
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 

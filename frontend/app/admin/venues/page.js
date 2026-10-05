@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
 import VenueDetailsModal from '@/components/venue/VenueDetailsModal';
@@ -9,7 +10,7 @@ import PermissionGuard from '@/components/admin/PermissionGuard';
 import {
   Building2, Eye, Search, Filter, Download,
   ChevronDown, ChevronLeft, ChevronRight, Award, User, Loader2,
-  Edit3, Check, X, Pencil, Sparkles
+  Edit3, Check, X, Pencil, Sparkles, Calendar, Shield, Plus
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { normalizeCustomGST, normalizeCustomPlatformFee } from '@/lib/venuePricing';
@@ -19,8 +20,17 @@ const LIMIT = 12;
 const DEFAULT_CUSTOM_PLATFORM_FEE = { enabled: false, feeType: 'fixed', feeValue: 0, percentage: 0, platformCGSTRate: 9, platformSGSTRate: 9 };
 const DEFAULT_CUSTOM_GST = { enabled: false, rate: 18, cgstRate: 9, sgstRate: 9, hsnCode: '9973' };
 
+const getAdminCreatorName = (venue) => {
+  if (venue?.addedByAdmin?.name) return venue.addedByAdmin.name;
+  const adminHistory = venue?.statusHistory?.find(
+    (s) => s.action === 'ADMIN_VENUE_CREATED' || s.reason?.toLowerCase()?.includes('admin')
+  );
+  if (adminHistory?.changedBy?.name) return adminHistory.changedBy.name;
+  return null;
+};
+
 export default function AdminVenues() {
-  const { token } = useAuthStore();
+  const { token, user } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [venues, setVenues] = useState([]);
   const [stats, setStats] = useState({ total: 0, approved: 0, pending: 0, rejected: 0, resubmitted: 0, suspended: 0 });
@@ -45,6 +55,41 @@ export default function AdminVenues() {
   const [rejectModal, setRejectModal] = useState({ open: false, venueId: null, reason: '', customReason: '' });
   const [rejectingLoading, setRejectingLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [dateFilter, setDateFilter] = useState('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  const getDateRange = useCallback((filter, customStart, customEnd) => {
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    if (filter === 'today') {
+      return { start: todayStr, end: todayStr };
+    }
+    if (filter === 'yesterday') {
+      const yest = new Date(now);
+      yest.setDate(yest.getDate() - 1);
+      const yestStr = yest.toISOString().split('T')[0];
+      return { start: yestStr, end: yestStr };
+    }
+    if (filter === '7days') {
+      const past7 = new Date(now);
+      past7.setDate(past7.getDate() - 7);
+      return { start: past7.toISOString().split('T')[0], end: todayStr };
+    }
+    if (filter === '30days') {
+      const past30 = new Date(now);
+      past30.setDate(past30.getDate() - 30);
+      return { start: past30.toISOString().split('T')[0], end: todayStr };
+    }
+    if (filter === 'thisMonth') {
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { start: firstDay.toISOString().split('T')[0], end: todayStr };
+    }
+    if (filter === 'custom') {
+      return { start: customStart || '', end: customEnd || '' };
+    }
+    return { start: '', end: '' };
+  }, []);
 
   // Quick Edit & Inline Edit State
   const [quickEditVenue, setQuickEditVenue] = useState(null);
@@ -115,6 +160,9 @@ export default function AdminVenues() {
       if (venueTypeFilter !== 'all') params.set('venueType', venueTypeFilter);
       if (sourceFilter !== 'all') params.set('source', sourceFilter);
       if (searchQuery) params.set('search', searchQuery);
+      const { start, end } = getDateRange(dateFilter, startDate, endDate);
+      if (start) params.set('startDate', start);
+      if (end) params.set('endDate', end);
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/venues?${params}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -124,7 +172,7 @@ export default function AdminVenues() {
       const headers = ['S.No','Venue Name','SKU','Source','Ambassador Name','Ambassador Phone','Owner Name','Owner Email','Owner Phone','City','Area','State','Capacity','Food Type','Total Bookings','Rating','Total Earnings','Status'];
       const rows = allVenues.map((v, i) => [
         i+1, v.businessName||'N/A', v.sku||'N/A',
-        v.listingSource === 'ambassador' || v.ambassador ? 'Ambassador' : 'Direct Owner',
+        v.listingSource === 'ambassador' || v.ambassador ? 'Ambassador' : (v.listingSource === 'admin' || v.addedByAdmin || getAdminCreatorName(v)) ? `Admin Added (${getAdminCreatorName(v) || 'Admin'})` : 'Direct Owner',
         v.ambassador?.name || 'N/A',
         v.ambassador?.phone || 'N/A',
         v.owner?.name||'N/A', v.owner?.email||'N/A', v.owner?.phone||'N/A',
@@ -152,6 +200,9 @@ export default function AdminVenues() {
       if (venueTypeFilter !== 'all') params.set('venueType', venueTypeFilter);
       if (sourceFilter !== 'all') params.set('source', sourceFilter);
       if (searchQuery) params.set('search', searchQuery);
+      const { start, end } = getDateRange(dateFilter, startDate, endDate);
+      if (start) params.set('startDate', start);
+      if (end) params.set('endDate', end);
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/venues?${params}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -167,7 +218,7 @@ export default function AdminVenues() {
     } finally {
       setLoading(false);
     }
-  }, [token, statusFilter, venueTypeFilter, sourceFilter, searchQuery]);
+  }, [token, statusFilter, venueTypeFilter, sourceFilter, searchQuery, dateFilter, startDate, endDate, getDateRange]);
 
   const fetchPlatformSettings = async () => {
     try {
@@ -197,7 +248,7 @@ export default function AdminVenues() {
 
   useEffect(() => {
     if (token) { setCurrentPage(1); fetchVenues(1); }
-  }, [token, statusFilter, venueTypeFilter, sourceFilter, searchQuery]);
+  }, [token, statusFilter, venueTypeFilter, sourceFilter, searchQuery, dateFilter, startDate, endDate]);
 
   // Debounced search
   useEffect(() => {
@@ -340,11 +391,11 @@ export default function AdminVenues() {
   return (
     <AdminLayout title="Venues Management" subtitle={`Total ${totalVenues} venues`}>
       <PermissionGuard permission="venues">
-        {/* Venue Type Filter */}
-        <div className="bg-white rounded-lg shadow-soft border border-gray-100 p-4 mb-6">
-          <div className="flex items-center gap-3">
+        {/* Venue Type Filter & Add Venue Action */}
+        <div className="bg-white rounded-lg shadow-soft border border-gray-100 p-4 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3 flex-1">
             <Building2 className="w-5 h-5 text-gray-600" />
-            <label className="text-sm font-semibold text-gray-700">Filter by Venue Type:</label>
+            <label className="text-sm font-semibold text-gray-700 whitespace-nowrap">Filter by Venue Type:</label>
             <div className="flex-1 relative" ref={dropdownRef}>
               <button
                 onClick={() => setVenueTypeDropdownOpen(!venueTypeDropdownOpen)}
@@ -371,6 +422,15 @@ export default function AdminVenues() {
               )}
             </div>
           </div>
+
+          {(user?.role === 'admin' || user?.permissions?.addVenue === true || (user?.permissions?.addVenue !== false && user?.permissions?.venues === true)) && (
+            <Link
+              href="/admin/venues/add"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-bold shadow-sm transition-all whitespace-nowrap cursor-pointer"
+            >
+              <Plus className="w-4 h-4" /> + Add New Venue
+            </Link>
+          )}
         </div>
 
         {/* Stats Cards */}
@@ -400,10 +460,10 @@ export default function AdminVenues() {
                 value={searchInput} onChange={(e) => setSearchInput(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Filter className="w-5 h-5 text-gray-600" />
               <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white text-sm">
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white text-sm">
                 <option value="all">All Status</option>
                 <option value="approved">Approved</option>
                 <option value="pending">Pending</option>
@@ -412,14 +472,40 @@ export default function AdminVenues() {
                 <option value="suspended">Suspended</option>
               </select>
               <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white text-sm font-medium">
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white text-sm font-medium">
                 <option value="all">All Sources</option>
                 <option value="ambassador">Ambassador Listed 🏆</option>
                 <option value="owner">Direct Owner 🏢</option>
+                <option value="admin">Admin Added 🛡️</option>
               </select>
+
+              {/* Date Filter */}
+              <div className="flex items-center gap-1.5 border border-gray-300 rounded-lg px-2.5 py-1.5 bg-white">
+                <Calendar className="w-4 h-4 text-gray-500" />
+                <select value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}
+                  className="bg-transparent text-sm focus:outline-none font-medium text-gray-700 cursor-pointer">
+                  <option value="all">All Dates</option>
+                  <option value="today">Today</option>
+                  <option value="yesterday">Yesterday</option>
+                  <option value="last7days">Last 7 Days</option>
+                  <option value="last30days">Last 30 Days</option>
+                  <option value="thisMonth">This Month</option>
+                  <option value="custom">Custom Range</option>
+                </select>
+              </div>
+
+              {dateFilter === 'custom' && (
+                <div className="flex items-center gap-1.5 bg-gray-50 p-1.5 rounded-lg border border-gray-200">
+                  <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+                    className="px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-700" />
+                  <span className="text-xs text-gray-400">to</span>
+                  <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
+                    className="px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-700" />
+                </div>
+              )}
             </div>
             <button onClick={handleExportCSV} disabled={exporting || totalVenues === 0}
-              className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors disabled:opacity-50">
+              className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 whitespace-nowrap">
               <Download className="w-4 h-4" />{exporting ? 'Exporting...' : `Export CSV (${totalVenues})`}
             </button>
           </div>
@@ -498,19 +584,39 @@ export default function AdminVenues() {
                               {venue.businessName}
                               <Pencil className="w-2.5 h-2.5 text-gray-400 opacity-0 group-hover/edit:opacity-100 transition-opacity" />
                             </p>
-                            {(venue.listingSource === 'ambassador' || venue.ambassador) ? (
-                              <div className="mt-1 flex items-center gap-1">
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold text-[10px] border border-amber-200" title={venue.ambassador?.email || ''}>
-                                  <Award className="w-3 h-3 text-amber-600" /> Amb: {venue.ambassador?.name || 'Ambassador Partner'}
-                                </span>
-                              </div>
-                            ) : (
-                              <div className="mt-1 flex items-center gap-1">
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gray-100 text-gray-600 text-[10px]">
-                                  Direct Owner
-                                </span>
-                              </div>
-                            )}
+                            {(() => {
+                              const isAmb = venue.listingSource === 'ambassador' || venue.ambassador;
+                              const adminCreator = getAdminCreatorName(venue);
+                              const isAdmin = venue.listingSource === 'admin' || !!venue.addedByAdmin || !!adminCreator;
+
+                              if (isAmb) {
+                                return (
+                                  <div className="mt-1 flex items-center gap-1">
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold text-[10px] border border-amber-200" title={venue.ambassador?.email || ''}>
+                                      <Award className="w-3 h-3 text-amber-600" /> Amb: {venue.ambassador?.name || 'Ambassador Partner'}
+                                    </span>
+                                  </div>
+                                );
+                              }
+
+                              if (isAdmin) {
+                                return (
+                                  <div className="mt-1 flex items-center gap-1">
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-bold text-[10px] border border-blue-200" title={`Onboarded by Admin: ${venue.addedByAdmin?.email || adminCreator || 'Admin'}`}>
+                                      <Shield className="w-3 h-3 text-blue-600" /> Admin: {adminCreator || venue.addedByAdmin?.name || 'Admin'}
+                                    </span>
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <div className="mt-1 flex items-center gap-1">
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gray-100 text-gray-600 text-[10px]">
+                                    Direct Owner
+                                  </span>
+                                </div>
+                              );
+                            })()}
                             {venue.status === 'resubmitted' && venue.rejectionReason && (
                               <p className="text-[10px] text-blue-600 mt-0.5 max-w-[180px] truncate">↩ {venue.rejectionReason}</p>
                             )}

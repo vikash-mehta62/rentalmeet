@@ -48,8 +48,24 @@ exports.createVenue = async (req, res) => {
     let autoPassword = null;
     let isNewAccount = false;
 
-    // Set Owner & Ambassador
-    if (req.user.role === 'ambassador') {
+    // Check SubAdmin permission if request is from a subadmin
+    if (req.user.role === 'subadmin') {
+      const perms = req.user.permissions || {};
+      const hasPerm = typeof perms.addVenue === 'boolean' ? perms.addVenue : perms.venues === true;
+      if (!hasPerm) {
+        return res.status(403).json({
+          success: false,
+          message: "You don't have permission to add new venues"
+        });
+      }
+    }
+
+    // Check if this is an Admin onboarding a venue for an owner
+    const isAdminOnboarding = (req.user.role === 'admin' || req.user.role === 'subadmin') && venueData.ownerInfo && (venueData.ownerInfo.mobile || venueData.ownerInfo.email);
+
+    // Set Owner & Ambassador or Admin Onboarding
+    if (req.user.role === 'ambassador' || isAdminOnboarding) {
+      if (req.user.role === 'ambassador') {
       const AmbassadorProfile = require('../models/AmbassadorProfile');
       const ambProfile = await AmbassadorProfile.findOne({ user: req.user.id });
       if (ambProfile) {
@@ -125,6 +141,7 @@ exports.createVenue = async (req, res) => {
           });
         }
       }
+    }
 
       const ownerInfo = venueData.ownerInfo || {};
       const ownerMobile = (ownerInfo.mobile || '').trim();
@@ -211,19 +228,121 @@ exports.createVenue = async (req, res) => {
       }
 
       venueData.owner = ownerUser._id;
-      venueData.ambassador = req.user.id;
-      venueData.listingSource = 'ambassador';
+      if (req.user.role === 'ambassador') {
+        venueData.ambassador = req.user.id;
+        venueData.listingSource = 'ambassador';
+        venueData.onboardingPhase = 1;
+        venueData.isProvisional = true;
+      } else {
+        venueData.listingSource = 'admin';
+        venueData.addedByAdmin = req.user._id || req.user.id;
+        venueData.onboardingPhase = 1;
+        venueData.isProvisional = false;
+        venueData.status = venueData.status || 'approved';
+      }
+      if (!venueData.ownerInfo.authorisedPerson) {
+        venueData.ownerInfo.authorisedPerson = {
+          name: ownerName,
+          fullName: ownerName,
+          phone: ownerMobile,
+          mobile: ownerMobile,
+          email: ownerEmail
+        };
+      }
     } else {
       venueData.owner = req.user.id;
     }
     console.log('11. Owner set:', venueData.owner);
+
+    // Normalization & Defaults for Phase-1 and general submissions
+    venueData.foodType = normalizeFoodType(venueData.foodType) || 'Veg';
+
+    if (venueData.termsAccepted === undefined) {
+      venueData.termsAccepted = true;
+    }
+
+    venueData.location = venueData.location || {};
+    if (!venueData.location.area) venueData.location.area = venueData.location.city || '';
+    if (!venueData.location.landmark) venueData.location.landmark = venueData.location.address || '';
+    if (!venueData.location.pincode) venueData.location.pincode = '000000';
+    if (!venueData.location.googleMapLink) venueData.location.googleMapLink = '';
+
+    if (venueData.location.parkingDetails) {
+      venueData.location.parkingAvailability = venueData.location.parkingDetails.type || venueData.location.parkingAvailability || 'None';
+      if (!venueData.parkingDetails) {
+        const pd = venueData.location.parkingDetails;
+        venueData.parkingDetails = {
+          type: pd.type || venueData.location.parkingAvailability || 'None',
+          cars: {
+            capacity: Number(pd.carsCapacity || pd.cars?.capacity || 0),
+            isChargeable: (pd.type === 'Paid' || Number(pd.carCharges || pd.cars?.chargePerVehicle || 0) > 0),
+            chargePerVehicle: Number(pd.carCharges || pd.cars?.chargePerVehicle || 0)
+          },
+          twoWheelers: {
+            capacity: Number(pd.twoWheelerCapacity || pd.twoWheelers?.capacity || 0),
+            isChargeable: (pd.type === 'Paid' || Number(pd.twoWheelerCharges || pd.twoWheelers?.chargePerVehicle || 0) > 0),
+            chargePerVehicle: Number(pd.twoWheelerCharges || pd.twoWheelers?.chargePerVehicle || 0)
+          }
+        };
+      }
+    } else if (venueData.parkingDetails) {
+      venueData.location.parkingDetails = venueData.parkingDetails;
+      venueData.location.parkingAvailability = venueData.parkingDetails.type || 'None';
+    }
+
+    if (!venueData.description || !venueData.description.trim()) {
+      const city = venueData.location?.city || '';
+      const state = venueData.location?.state || '';
+      const locStr = [city, state].filter(Boolean).join(', ');
+      const vType = Array.isArray(venueData.venueType) && venueData.venueType.length > 0
+        ? venueData.venueType.join(' / ')
+        : 'Venue';
+      venueData.description = `${venueData.businessName} is a premier ${vType.toLowerCase()}${locStr ? ` located in ${locStr}` : ''}. Featuring spacious event areas, modern amenities, and dedicated hospitality, it is ideal for weddings, conferences, banquets, and celebrations.`;
+    }
+
+    // Auto-map pricing breakdown to legacy rates
+    venueData.pricing = venueData.pricing || {};
+    const baseRateModel = venueData.pricing.onlyRent || venueData.pricing.rentWithAmenities;
+    if (baseRateModel) {
+      if (!venueData.pricing.perHour || (!venueData.pricing.perHour.weekday && !venueData.pricing.perHour.weekend)) {
+        venueData.pricing.perHour = {
+          weekday: Number(baseRateModel.hourly?.rate || 0),
+          weekend: Number(baseRateModel.hourly?.rate || 0)
+        };
+      }
+      if (!venueData.pricing.extraHourRate || (!venueData.pricing.extraHourRate.weekday && !venueData.pricing.extraHourRate.weekend)) {
+        venueData.pricing.extraHourRate = {
+          weekday: Number(baseRateModel.hourly?.extraPerHour || 0),
+          weekend: Number(baseRateModel.hourly?.extraPerHour || 0)
+        };
+      }
+      if (baseRateModel.halfDay?.rate && (!venueData.pricing.halfDay || !venueData.pricing.halfDay.weekday)) {
+        venueData.pricing.halfDay = {
+          weekday: Number(baseRateModel.halfDay.rate || 0),
+          weekend: Number(baseRateModel.halfDay.rate || 0)
+        };
+      }
+      if (baseRateModel.fullDay?.rate && (!venueData.pricing.fullDay || !venueData.pricing.fullDay.weekday)) {
+        venueData.pricing.fullDay = {
+          weekday: Number(baseRateModel.fullDay.rate || 0),
+          weekend: Number(baseRateModel.fullDay.rate || 0)
+        };
+      }
+      venueData.pricing.enabledOptions = {
+        perHour: !!(baseRateModel.hourly?.rate),
+        halfDay: !!(baseRateModel.halfDay?.rate),
+        fullDay: !!(baseRateModel.fullDay?.rate)
+      };
+    }
     
     // Attach initial status history
     venueData.statusHistory = [{
-      action: 'VENUE_SUBMITTED',
-      status: 'pending',
+      action: isAdminOnboarding ? 'ADMIN_VENUE_CREATED' : 'VENUE_SUBMITTED',
+      status: venueData.status || (isAdminOnboarding ? 'approved' : 'pending'),
       isActive: true,
-      reason: req.user.role === 'ambassador' ? 'Submitted by Ambassador' : 'Submitted by Owner',
+      reason: isAdminOnboarding
+        ? `Onboarded directly by Admin: ${req.user.name} (${req.user.email})`
+        : (req.user.role === 'ambassador' ? 'Submitted by Ambassador' : 'Submitted by Owner'),
       changedBy: {
         userId: req.user._id,
         name: req.user.name,
@@ -266,23 +385,53 @@ exports.createVenue = async (req, res) => {
           console.error('[EMAIL] Failed to send owner credentials email:', emailErr.message);
         }
       }
+    } else if (isAdminOnboarding && ownerUser && ownerUser.email) {
+      try {
+        await sendVenueOwnerWelcomeCredentialsEmail({
+          ownerEmail: ownerUser.email,
+          ownerName: ownerUser.name,
+          venueName: venue.businessName,
+          ambassadorName: `RentalMeet Admin (${req.user.name})`,
+          ambassadorPhone: req.user.phone || '',
+          loginEmail: ownerUser.email,
+          temporaryPassword: autoPassword,
+          isNewAccount
+        });
+      } catch (emailErr) {
+        console.error('[EMAIL] Failed to send owner credentials email on admin onboarding:', emailErr.message);
+      }
     }
 
     // Global audit log on successful creation
     logAudit(req, {
       category: 'VENUE',
-      action: 'VENUE_CREATED',
+      action: isAdminOnboarding ? 'ADMIN_VENUE_CREATED' : 'VENUE_CREATED',
       status: 'SUCCESS',
       targetType: 'Venue',
       targetId: venue._id,
       targetName: venue.businessName,
+      performedBy: {
+        userId: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        role: req.user.role
+      },
       newState: { status: venue.status, isActive: venue.isActive, sku: venue.sku },
       details: {
         sku: venue.sku,
         ownerId: venue.owner,
+        ownerEmail: ownerUser?.email,
+        ownerPhone: ownerUser?.phone,
         ambassadorId: venue.ambassador || null,
         city: venue.location?.city,
-        listingSource: venue.listingSource
+        area: venue.location?.area,
+        listingSource: venue.listingSource,
+        adminDetails: isAdminOnboarding ? {
+          adminId: req.user._id,
+          adminName: req.user.name,
+          adminEmail: req.user.email,
+          adminRole: req.user.role
+        } : null
       }
     });
 
@@ -311,8 +460,21 @@ exports.createVenue = async (req, res) => {
     
     res.status(201).json({
       success: true,
-      message: 'Venue submitted successfully. You will receive confirmation within 24-48 hours.',
-      venue
+      message: isAdminOnboarding
+        ? 'Venue successfully created by Admin! Owner login credentials generated.'
+        : (req.user.role === 'ambassador'
+            ? 'Venue provisionally submitted! Owner credentials generated.'
+            : 'Venue submitted successfully. You will receive confirmation within 24-48 hours.'),
+      venue,
+      ownerCredentials: (req.user.role === 'ambassador' || isAdminOnboarding) && ownerUser ? {
+        isNewAccount,
+        loginId: ownerUser.email,
+        email: ownerUser.email,
+        phone: ownerUser.phone,
+        name: ownerUser.name,
+        password: autoPassword || '(Existing account password)',
+        loginUrl: `${process.env.FRONTEND_URL || 'https://rentalmeet.com'}/login?role=owner`
+      } : undefined
     });
   } catch (error) {
     console.error('=== VENUE CREATION ERROR ===');
@@ -557,6 +719,13 @@ exports.getVenues = async (req, res) => {
     venuesWithStats.forEach(v => {
       v.activeCoupons = couponMap[v._id.toString()] || [];
       v.activeCouponCount = v.activeCoupons.length;
+      if (typeof v.profileCompletion !== 'number' || v.isVerified === undefined) {
+        const comp = Venue.calculateProfileCompletion ? Venue.calculateProfileCompletion(v) : null;
+        if (comp) {
+          v.profileCompletion = typeof v.profileCompletion === 'number' ? v.profileCompletion : comp.profileCompletion;
+          v.isVerified = typeof v.isVerified === 'boolean' ? v.isVerified : comp.isVerified;
+        }
+      }
     });
     
     console.log(`Found ${venues.length} venues (page ${pageNum}) with query:`, query);
@@ -635,10 +804,19 @@ exports.getVenueBySKU = async (req, res) => {
         message: 'Venue not found'
       });
     }
+
+    const venueObj = venue.toObject ? venue.toObject() : venue;
+    if (typeof venueObj.profileCompletion !== 'number' || venueObj.isVerified === undefined) {
+      const comp = Venue.calculateProfileCompletion ? Venue.calculateProfileCompletion(venueObj) : null;
+      if (comp) {
+        venueObj.profileCompletion = typeof venueObj.profileCompletion === 'number' ? venueObj.profileCompletion : comp.profileCompletion;
+        venueObj.isVerified = typeof venueObj.isVerified === 'boolean' ? venueObj.isVerified : comp.isVerified;
+      }
+    }
     
     res.json({
       success: true,
-      venue
+      venue: venueObj
     });
   } catch (error) {
     res.status(500).json({
@@ -662,10 +840,19 @@ exports.getVenue = async (req, res) => {
         message: 'Venue not found'
       });
     }
+
+    const venueObj = venue.toObject ? venue.toObject() : venue;
+    if (typeof venueObj.profileCompletion !== 'number' || venueObj.isVerified === undefined) {
+      const comp = Venue.calculateProfileCompletion ? Venue.calculateProfileCompletion(venueObj) : null;
+      if (comp) {
+        venueObj.profileCompletion = typeof venueObj.profileCompletion === 'number' ? venueObj.profileCompletion : comp.profileCompletion;
+        venueObj.isVerified = typeof venueObj.isVerified === 'boolean' ? venueObj.isVerified : comp.isVerified;
+      }
+    }
     
     res.json({
       success: true,
-      venue
+      venue: venueObj
     });
   } catch (error) {
     res.status(500).json({
@@ -758,11 +945,30 @@ exports.updateVenue = async (req, res) => {
         !req.body.bankDetails.accountNumber.startsWith('U2FsdGVk')) {
       req.body.bankDetails.accountNumber = encrypt(req.body.bankDetails.accountNumber);
     }
+
+    if (req.body.foodType) {
+      req.body.foodType = normalizeFoodType(req.body.foodType) || req.body.foodType;
+    }
+
+    if (req.body.location?.parkingDetails && !req.body.parkingDetails) {
+      const pd = req.body.location.parkingDetails;
+      req.body.parkingDetails = {
+        type: pd.type || req.body.location.parkingAvailability || 'None',
+        cars: {
+          capacity: Number(pd.carsCapacity || pd.cars?.capacity || 0),
+          isChargeable: (pd.type === 'Paid' || Number(pd.carCharges || pd.cars?.chargePerVehicle || 0) > 0),
+          chargePerVehicle: Number(pd.carCharges || pd.cars?.chargePerVehicle || 0)
+        },
+        twoWheelers: {
+          capacity: Number(pd.twoWheelerCapacity || pd.twoWheelers?.capacity || 0),
+          isChargeable: (pd.type === 'Paid' || Number(pd.twoWheelerCharges || pd.twoWheelers?.chargePerVehicle || 0) > 0),
+          chargePerVehicle: Number(pd.twoWheelersCharges || pd.twoWheelers?.chargePerVehicle || 0)
+        }
+      };
+    }
     
-    venue = await Venue.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true
-    });
+    venue.set(req.body);
+    await venue.save();
     
     res.json({
       success: true,

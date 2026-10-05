@@ -107,19 +107,37 @@ router.get('/venues', protect, authorize('admin', 'subadmin'), checkPermission('
     const Venue = require('../models/Venue');
     const Booking = require('../models/Booking');
     const VenueReview = require('../models/VenueReview');
-    const { status, search, venueType, owner, ambassador, source, listingSource, page = 1, limit = 12, export: isExport } = req.query;
+    const { status, search, venueType, owner, ambassador, source, listingSource, page = 1, limit = 12, export: isExport, startDate, endDate } = req.query;
     const query = {};
     if (status && status !== 'all') query.status = status;
     if (venueType && venueType !== 'all') query.venueType = venueType;
     if (owner) query.owner = owner;
     if (ambassador) query.ambassador = ambassador;
 
+    // Date Filter (createdAt)
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        query.createdAt.$gte = start;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.createdAt.$lte = end;
+      }
+    }
+
     const sourceFilter = source || listingSource;
     if (sourceFilter === 'ambassador') {
       query.$or = [{ listingSource: 'ambassador' }, { ambassador: { $exists: true, $ne: null } }];
+    } else if (sourceFilter === 'admin') {
+      query.$or = [{ listingSource: 'admin' }, { addedByAdmin: { $exists: true, $ne: null } }];
     } else if (sourceFilter === 'owner') {
-      query.listingSource = { $ne: 'ambassador' };
+      query.listingSource = 'owner';
       query.ambassador = null;
+      query.addedByAdmin = null;
     }
 
     if (search) {
@@ -141,6 +159,7 @@ router.get('/venues', protect, authorize('admin', 'subadmin'), checkPermission('
       const venues = await Venue.find(query)
         .populate('owner', 'name email phone')
         .populate('ambassador', 'name email phone referralCode')
+        .populate('addedByAdmin', 'name email role phone')
         .sort('-createdAt');
       
       // Calculate stats for all venues in export
@@ -197,6 +216,7 @@ router.get('/venues', protect, authorize('admin', 'subadmin'), checkPermission('
       Venue.find(query)
         .populate('owner', 'name email phone')
         .populate('ambassador', 'name email phone referralCode')
+        .populate('addedByAdmin', 'name email role phone')
         .sort('-createdAt')
         .skip(skip)
         .limit(parseInt(limit)),

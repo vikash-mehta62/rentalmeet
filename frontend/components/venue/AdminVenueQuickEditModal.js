@@ -1,32 +1,81 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { State, City } from 'country-state-city';
 import {
   X, Building2, MapPin, IndianRupee, Clock, Users,
   Check, Loader2, UserCheck, ShieldCheck, Sparkles, AlertCircle,
   FileCheck, Coffee, Utensils, Wifi, Shield, Lock, Navigation,
-  Bus, Train, ParkingCircle, FileText, Camera, Award, CreditCard,
+  Bus, Train, FileText, Camera, CreditCard,
   Download, Eye, Image as ImageIcon, Trash2, Plus, Star, Upload,
-  ExternalLink, CheckCircle2, ImagePlus
+  ExternalLink, CheckCircle2, ChevronDown, AlertTriangle, PlayCircle,
+  PauseCircle, ShieldAlert, RefreshCw, Car, Bike, Globe,
+  UtensilsCrossed, Layers, Share2, Locate
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { uploadToStorage, deleteFromStorage, uploadDocument } from '@/lib/storage';
 
-const CAPACITY_OPTIONS = [
-  '10-20', '20-30', '30-40', '40-50', '50-100', '100-200', '200-300',
-  '300-400', '400-500', '500-600', '600-700', '700-800', '800-1000',
-  '1000-1500', '1500-2000', 'More than 2000'
+// ── 12 Specific Categories ──────────────────────────────────────
+const VENUE_CATEGORIES = [
+  'Meeting Hall',
+  'Restaurant',
+  'Conference Hall',
+  'Co-Work Space',
+  'Auditorium',
+  'Guest House',
+  'Banquet Hall',
+  'Training Center',
+  'Farm House',
+  'Marriage Garden',
+  'Hotel',
+  'Play Zone'
 ];
 
-const PARKING_OPTIONS = ['Free', 'Paid', 'Limited', 'None'];
+const CAPACITY_OPTIONS = [
+  'Up to 10',
+  '10-25',
+  '25–50',
+  '50–100',
+  '100–150',
+  '150–200',
+  '200-300',
+  '300-400',
+  '400-500',
+  '500-700',
+  '700-1000',
+  '1000-1500',
+  '1500-2000',
+  '2000+'
+];
 
-const FOOD_TYPE_OPTIONS = ['Veg', 'Non-Veg', 'Both'];
-
-const ADVANCE_DAYS = ['1 Day', '2 Days', '3 Days', '4 Days', '5 Days', '6 Days'];
-const ADVANCE_WEEKS = ['1 Week', '2 Weeks', '3 Weeks', '4 Weeks'];
-const ALL_ADVANCE_RULES = [...ADVANCE_DAYS, ...ADVANCE_WEEKS];
-
+const FOOD_TYPES = ['Veg', 'Non-Veg', 'Both', 'Pure Veg & Jain'];
+const PARKING_OPTIONS = ['None', 'Free', 'Limited', 'Paid'];
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const ADVANCE_DAYS = ['Same Day', '1 Day', '2 Days', '3 Days', '7 Days', '15 Days', '30 Days'];
+
+const FLOOR_OPTIONS = ['Ground Floor', '1st Floor', '2nd Floor', '3rd Floor', 'Other'];
+const SEATING_ARRANGEMENTS = [
+  'Theatre',
+  'Classroom',
+  'Boardroom',
+  'U-Shape',
+  'Cluster',
+  'Banquet',
+  'Cabaret',
+  'Auditorium',
+  'Open Seating'
+];
+
+const SERVICES_AVAILABLE_OPTIONS = [
+  'Catering',
+  'Makeup & Beauty',
+  'Photography',
+  'Entertainment',
+  'Security & Bouncer',
+  'Decor & Floral',
+  'Celebrity / Artist',
+  'Logistic & Support'
+];
 
 const BUSINESS_PROOF_TYPES = [
   'Udyam Aadhaar (MSME)',
@@ -41,18 +90,223 @@ const BUSINESS_PROOF_TYPES = [
   'Other'
 ];
 
-const BASIC_AMENITIES = [
-  'High-Speed WiFi', 'Air Conditioning', 'Projector', 'Projection Screen',
-  'Whiteboard', 'Sound System', 'Microphone', 'LED / Smart TV',
-  'Video Conferencing', 'Conference Phone', 'Comfortable Seating',
-  'Printing / Photocopy'
+const PROPERTY_PROOF_TYPES = [
+  'Electricity Bill',
+  'Property Tax Receipt',
+  'Rent / Lease Agreement',
+  'Ownership Registry / Sale Deed',
+  'NOC from Property Owner',
+  'Other'
 ];
 
-const ADDITIONAL_FACILITIES = [
-  'Separate Washrooms', 'Power Backup', 'Security Personnel',
-  'Daily Cleaning', 'Reception Service', 'Storage Space',
-  'Valet Parking', 'Wheelchair Access', 'Elevator And Lift'
+const REJECTION_REASONS = [
+  'Incomplete or inaccurate venue information',
+  'Poor quality images or missing required photos',
+  'Pricing does not match platform or market standards',
+  'Location or address details are invalid/unclear',
+  'Amenities or capacity information is misleading',
+  'Duplicate listing detected on platform',
+  'Missing owner identification or property documents',
+  'other'
 ];
+
+const SUSPENSION_REASONS = [
+  'Venue temporarily closed / Under renovation',
+  'Owner requested temporary listing pause',
+  'Quality or customer safety compliance issues reported',
+  'Repeated booking rejections or communication failure',
+  'Pricing dispute or unauthorized rate change',
+  'Account verification / KYC compliance audit pending',
+  'other'
+];
+
+const STOP_BOOKING_REASONS = [
+  'Temporary maintenance / Renovation work in progress',
+  'Venue owner requested pause on new online bookings',
+  'High offline booking demand / Dates fully blocked',
+  'Administrative review or safety verification hold',
+  'Payment settlement or bank documentation pending',
+  'other'
+];
+
+const DEFAULT_BASIC_AMENITIES = [
+  // 1. Basic Facilities (18 Items)
+  { name: 'Air Conditioning', category: 'Basic Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Wi-Fi', category: 'Basic Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Parking', category: 'Basic Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Power Backup', category: 'Basic Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Generator', category: 'Basic Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Lift', category: 'Basic Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Washrooms', category: 'Basic Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Drinking Water', category: 'Basic Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Reception', category: 'Basic Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Waiting Area', category: 'Basic Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'CCTV', category: 'Basic Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Security', category: 'Basic Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Wheelchair Accessibility', category: 'Basic Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Ramp', category: 'Basic Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Fire Extinguishers', category: 'Basic Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'First Aid', category: 'Basic Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Locker / Changing Room', category: 'Basic Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Safety Equipment', category: 'Basic Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+
+  // 2. Meeting / Conference Facilities (15 Items)
+  { name: 'Projector', category: 'Meeting / Conference Facilities', type: 'Paid', rate: 500, rateType: 'Fixed' },
+  { name: 'LED Screen', category: 'Meeting / Conference Facilities', type: 'Paid', rate: 1000, rateType: 'Fixed' },
+  { name: 'Sound System', category: 'Meeting / Conference Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Microphone', category: 'Meeting / Conference Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Podium', category: 'Meeting / Conference Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Whiteboard', category: 'Meeting / Conference Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Conference Table', category: 'Meeting / Conference Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Office Chairs', category: 'Meeting / Conference Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Video Conferencing', category: 'Meeting / Conference Facilities', type: 'Paid', rate: 1500, rateType: 'Fixed' },
+  { name: 'Printing Facility', category: 'Meeting / Conference Facilities', type: 'Paid', rate: 200, rateType: 'Fixed' },
+  { name: 'Scanner', category: 'Meeting / Conference Facilities', type: 'Paid', rate: 200, rateType: 'Fixed' },
+  { name: 'Laptop / Computer Facility', category: 'Meeting / Conference Facilities', type: 'Paid', rate: 500, rateType: 'Fixed' },
+  { name: 'Dedicated Workstations', category: 'Meeting / Conference Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Private Cabins / Meeting Rooms', category: 'Meeting / Conference Facilities', type: 'Paid', rate: 1000, rateType: 'Fixed' },
+  { name: 'Training Equipment / AV Setup', category: 'Meeting / Conference Facilities', type: 'Paid', rate: 800, rateType: 'Fixed' },
+
+  // 3. Event Facilities (16 Items)
+  { name: 'Stage', category: 'Event Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Green Room', category: 'Event Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Bridal Room', category: 'Event Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Changing Room', category: 'Event Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Dining Area', category: 'Event Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Kitchen', category: 'Event Facilities', type: 'Paid', rate: 2000, rateType: 'Fixed' },
+  { name: 'Lawn', category: 'Event Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Garden', category: 'Event Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Rooftop', category: 'Event Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Swimming Pool', category: 'Event Facilities', type: 'Paid', rate: 3000, rateType: 'Fixed' },
+  { name: 'DJ Area', category: 'Event Facilities', type: 'Paid', rate: 5000, rateType: 'Fixed' },
+  { name: 'Lighting', category: 'Event Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Overnight Stay / AC Bedrooms', category: 'Event Facilities', type: 'Paid', rate: 2500, rateType: 'Fixed' },
+  { name: 'Private Dining Area', category: 'Event Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Indoor / Outdoor Play Area', category: 'Event Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Gaming & Play Zone Activities', category: 'Event Facilities', type: 'Paid', rate: 1000, rateType: 'Fixed' },
+
+  // 4. Food Facilities (8 Items)
+  { name: 'In-house Catering', category: 'Food Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Outside Catering Allowed', category: 'Food Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Veg Only Kitchen', category: 'Food Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Non-Veg Allowed', category: 'Food Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Jain Food Available', category: 'Food Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Buffet Setup', category: 'Food Facilities', type: 'Included', rate: 0, rateType: 'Fixed' },
+  { name: 'Live Counter Setup', category: 'Food Facilities', type: 'Paid', rate: 1500, rateType: 'Fixed' },
+  { name: 'Bar / Mocktail Counter', category: 'Food Facilities', type: 'Paid', rate: 2500, rateType: 'Fixed' }
+];
+
+const DEFAULT_BEVERAGES = [
+  { name: 'Tea (Regular / Masala)', available: true, ratePerUnit: 15 },
+  { name: 'Coffee (Hot / Cold)', available: true, ratePerUnit: 25 },
+  { name: 'Soft Drinks / Mocktails', available: true, ratePerUnit: 40 },
+  { name: 'Mineral Water Bottles', available: true, ratePerUnit: 20 }
+];
+
+const DEFAULT_BREAKFAST = [
+  { name: 'Poha & Jalebi', available: true, ratePerPlate: 60, items: 'Poha, Jalebi, Sev, Chutney' },
+  { name: 'Idli, Vada & Sambar', available: true, ratePerPlate: 80, items: '2 Idli, 1 Vada, Sambar, Coconut Chutney' },
+  { name: 'Aloo / Paneer Paratha', available: true, ratePerPlate: 90, items: '2 Parathas, Curd, Pickle, Butter' },
+  { name: 'Puri Sabzi & Sweet', available: true, ratePerPlate: 100, items: '4 Puris, Aloo Sabzi, Halwa, Pickle' }
+];
+
+const DEFAULT_LUNCH_DINNER = [
+  { name: 'Standard Veg Buffet', available: true, foodType: 'Veg', ratePerPlate: 350, items: 'Paneer Sabzi, Dal Tadka, Seasonal Veg, Jeera Rice, Rotis, Gulab Jamun, Salad' },
+  { name: 'Deluxe Veg Buffet', available: true, foodType: 'Veg', ratePerPlate: 500, items: '2 Paneer Sabzis, Dal Makhani, Pulao, Naan/Roti, 2 Sweets, Ice Cream, Starter' },
+  { name: 'Non-Veg Special Buffet', available: true, foodType: 'Non-Veg', ratePerPlate: 650, items: 'Chicken Curry, Mutton/Fish, Veg Sabzi, Biryani, Breads, Dessert, Starters' }
+];
+
+const DEFAULT_ADDITIONAL_FACILITIES = [
+  { name: 'AC Guest Rooms / Bridal Suite', available: false, type: 'Paid', charges: 1500, description: 'Comfortable furnished room with attached bathroom' },
+  { name: 'Open Lawn / Garden Area', available: false, type: 'Included', charges: 0, description: 'Lawn space for outdoor functions' },
+  { name: 'DJ & Music Setup', available: false, type: 'Paid', charges: 5000, description: 'DJ with lighting setup (allowed till 10 PM)' },
+  { name: 'Theme Decoration & Florist', available: false, type: 'Paid', charges: 10000, description: 'Customized balloon, flower and stage decor' },
+  { name: 'Valet Parking & Guards', available: false, type: 'Paid', charges: 2000, description: 'Uniformed security and valet staff' }
+];
+
+const PHOTO_CATEGORIES = [
+  'Featured', 'Front / Entrance', 'Main Hall / Space', 'Additional Hall',
+  'Seating Area', 'Stage', 'Dining Area', 'Kitchen', 'Bedroom',
+  'Washroom', 'Parking', 'Garden / Lawn', 'Outdoor Area', 'Exterior',
+  'Interior', 'Amenities', 'Other'
+];
+
+const TABS = [
+  { id: 'basic', label: '1. Basic Info', icon: Building2 },
+  { id: 'location', label: '2. Address Location', icon: MapPin },
+  { id: 'amenities', label: '3. Amenities', icon: Sparkles },
+  { id: 'catering', label: '4. Catering Facility', icon: UtensilsCrossed },
+  { id: 'facilities', label: '5. Additional Facilities', icon: Layers },
+  { id: 'pricing', label: '6. Pricing & Taxes', icon: IndianRupee },
+  { id: 'photos', label: '7. Photos', icon: Camera },
+  { id: 'social', label: '8. Social Pages', icon: Share2 },
+  { id: 'documents', label: '9. Documents & Proofs', icon: FileCheck },
+  { id: 'terms', label: '10. Rules & Terms', icon: ShieldCheck }
+];
+
+// Helper to merge existing amenities with full categorized defaults
+const mergeAmenitiesWithDefaults = (existingList = []) => {
+  if (!existingList || existingList.length === 0) {
+    return DEFAULT_BASIC_AMENITIES.map(a => ({ ...a }));
+  }
+
+  const normalize = (n) => (n || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const existingMap = new Map();
+
+  existingList.forEach((item) => {
+    const key = normalize(item.name);
+    existingMap.set(key, item);
+  });
+
+  const matchedKeys = new Set();
+
+  const merged = DEFAULT_BASIC_AMENITIES.map((def) => {
+    const defKey = normalize(def.name);
+    let matched = existingMap.get(defKey);
+    let matchedKey = defKey;
+
+    if (!matched) {
+      for (const [k, v] of existingMap.entries()) {
+        if (k.includes(defKey) || defKey.includes(k)) {
+          matched = v;
+          matchedKey = k;
+          break;
+        }
+      }
+    }
+
+    if (matched) {
+      matchedKeys.add(matchedKey);
+      return {
+        ...def,
+        type: matched.type || def.type,
+        rate: matched.rate !== undefined ? matched.rate : def.rate,
+        rateType: matched.rateType || def.rateType,
+        available: matched.available !== undefined ? matched.available : true
+      };
+    }
+    return { ...def };
+  });
+
+  const customItems = [];
+  existingList.forEach((item) => {
+    const key = normalize(item.name);
+    if (!matchedKeys.has(key)) {
+      const isDefault = DEFAULT_BASIC_AMENITIES.some((def) => {
+        const defKey = normalize(def.name);
+        return key === defKey || key.includes(defKey) || defKey.includes(key);
+      });
+      if (!isDefault) {
+        customItems.push({
+          ...item,
+          category: item.category || 'Other Facilities'
+        });
+      }
+    }
+  });
+
+  return [...merged, ...customItems];
+};
 
 export default function AdminVenueQuickEditModal({
   venue,
@@ -61,70 +315,128 @@ export default function AdminVenueQuickEditModal({
   onClose,
   onSaveSuccess
 }) {
-  const [activeTab, setActiveTab] = useState('general');
+  const [activeTab, setActiveTab] = useState('basic');
   const [saving, setSaving] = useState(false);
 
-  // Form State initialized from venue
+  // Status Changer & Stop Booking Admin States
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const [statusModal, setStatusModal] = useState({ open: false, targetStatus: '', reason: '', customReason: '' });
+  const [stopBookingModal, setStopBookingModal] = useState({ open: false, reason: '', customReason: '' });
+  const statusMenuRef = useRef(null);
+
+  // States & Cities from library
+  const [indianStates, setIndianStates] = useState([]);
+  const [citiesList, setCitiesList] = useState([]);
+
+  // Upload States
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState({});
+  const [uploadPhotoCategory, setUploadPhotoCategory] = useState('Front / Entrance');
+  const [customAmenity, setCustomAmenity] = useState({ name: '', category: 'Basic Facilities', type: 'Included', rate: 0, rateType: 'Fixed' });
+
+  // Initialize Indian States
+  useEffect(() => {
+    try {
+      const states = State.getStatesOfCountry('IN');
+      setIndianStates(states || []);
+    } catch (_) {}
+  }, []);
+
+  // Form State initialized comprehensively from venue
   const [formData, setFormData] = useState({
     businessName: venue?.businessName || '',
-    description: venue?.description || '',
-    areaSqft: venue?.areaSqft || 0,
+    venueType: Array.isArray(venue?.venueType)
+      ? venue.venueType
+      : (venue?.venueType ? [venue.venueType] : ['Meeting Hall']),
     foodType: venue?.foodType || 'Veg',
-    capacity: venue?.capacity || '50-100',
+    capacity: venue?.capacity || '50–100',
+    areaSqft: venue?.areaSqft || 1000,
+    yearEstablished: venue?.yearEstablished || '',
+    floor: venue?.floor || 'Ground Floor',
+    floorOther: (venue?.floor && !FLOOR_OPTIONS.includes(venue?.floor)) ? venue.floor : '',
+    seatingArrangements: Array.isArray(venue?.seatingArrangements) ? venue.seatingArrangements : ['Banquet', 'Theatre'],
+    servicesAvailable: Array.isArray(venue?.servicesAvailable) ? venue.servicesAvailable : ['Catering', 'Decor & Floral'],
+    description: venue?.description || '',
+
+    // Status & Booking Acceptance Control
     status: venue?.status || 'approved',
     rejectionReason: venue?.rejectionReason || '',
     suspensionReason: venue?.suspensionReason || '',
-    venueType: Array.isArray(venue?.venueType)
-      ? venue.venueType
-      : (venue?.venueType ? [venue.venueType] : []),
-
-    // Photos & Gallery
-    images: Array.isArray(venue?.images) ? venue.images : [],
+    statusReason: venue?.statusReason || '',
+    isBookingStopped: venue?.isBookingStopped ?? false,
+    stopBookingReason: venue?.stopBookingReason || '',
+    stoppedBookingAt: venue?.stoppedBookingAt || null,
 
     // Location
     location: {
       address: venue?.location?.address || '',
       landmark: venue?.location?.landmark || '',
-      city: venue?.location?.city || '',
-      area: venue?.location?.area || '',
       state: venue?.location?.state || '',
+      stateCode: venue?.location?.stateCode || '',
+      city: venue?.location?.city || '',
+      village: venue?.location?.village || '',
+      area: venue?.location?.area || '',
       pincode: venue?.location?.pincode || '',
       googleMapLink: venue?.location?.googleMapLink || '',
-      parkingType: venue?.location?.parkingType || 'Free',
-      nearestMetro: venue?.location?.nearestMetro || '',
-      nearestBusStop: venue?.location?.nearestBusStop || '',
+      parkingAvailability: venue?.location?.parkingAvailability || venue?.location?.parkingType || 'Free',
+      parkingDetails: {
+        type: venue?.parkingDetails?.type || venue?.location?.parkingDetails?.type || venue?.location?.parkingAvailability || 'Free',
+        carsCapacity: venue?.parkingDetails?.cars?.capacity || venue?.location?.parkingDetails?.carsCapacity || 20,
+        twoWheelerCapacity: venue?.parkingDetails?.twoWheelers?.capacity || venue?.location?.parkingDetails?.twoWheelerCapacity || 50,
+        carCharges: venue?.parkingDetails?.cars?.chargePerVehicle || venue?.location?.parkingDetails?.carCharges || 0,
+        twoWheelerCharges: venue?.parkingDetails?.twoWheelers?.chargePerVehicle || venue?.location?.parkingDetails?.twoWheelerCharges || 0,
+        valetAvailable: venue?.parkingDetails?.valetAvailable ?? (venue?.location?.parkingDetails?.valetParking || false)
+      },
+      nearestBusAuto: venue?.location?.nearestBusAuto || venue?.location?.nearestBusStop || '',
+      nearestBusStop: venue?.location?.nearestBusStop || venue?.location?.nearestBusAuto || '',
+      nearestMetroTrain: venue?.location?.nearestMetroTrain || venue?.location?.nearestMetro || '',
+      nearestMetro: venue?.location?.nearestMetro || venue?.location?.nearestMetroTrain || '',
       nearestRailway: venue?.location?.nearestRailway || ''
     },
 
-    // Pricing
+    // Amenities (4 categorized groups)
+    amenities: {
+      basic: mergeAmenitiesWithDefaults(venue?.amenities?.basic || []),
+      beverages: venue?.amenities?.beverages || DEFAULT_BEVERAGES,
+      refreshmentFood: venue?.amenities?.refreshmentFood || DEFAULT_BREAKFAST,
+      lunchThalis: venue?.amenities?.lunchThalis || []
+    },
+
+    // Catering
+    catering: venue?.catering || {
+      available: true,
+      outsideCateringAllowed: true,
+      beverages: DEFAULT_BEVERAGES,
+      breakfast: DEFAULT_BREAKFAST,
+      lunchDinner: DEFAULT_LUNCH_DINNER
+    },
+
+    // Additional Facilities
+    additionalFacilities: venue?.additionalFacilities || DEFAULT_ADDITIONAL_FACILITIES,
+
+    // Pricing & Taxes
     pricing: {
       perHour: {
-        weekday: venue?.pricing?.perHour?.weekday ?? 0,
-        weekend: venue?.pricing?.perHour?.weekend ?? 0
+        weekday: venue?.pricing?.perHour?.weekday ?? 1000,
+        weekend: venue?.pricing?.perHour?.weekend ?? 1200
       },
       halfDay: {
-        weekday: venue?.pricing?.halfDay?.weekday ?? 0,
-        weekend: venue?.pricing?.halfDay?.weekend ?? 0
+        weekday: venue?.pricing?.halfDay?.weekday ?? 4000,
+        weekend: venue?.pricing?.halfDay?.weekend ?? 4800
       },
       fullDay: {
-        weekday: venue?.pricing?.fullDay?.weekday ?? 0,
-        weekend: venue?.pricing?.fullDay?.weekend ?? 0
+        weekday: venue?.pricing?.fullDay?.weekday ?? 8000,
+        weekend: venue?.pricing?.fullDay?.weekend ?? 9500
       },
       extraHourRate: {
-        weekday: venue?.pricing?.extraHourRate?.weekday ?? 0,
-        weekend: venue?.pricing?.extraHourRate?.weekend ?? 0
-      },
-      enabledOptions: {
-        perHour: venue?.pricing?.enabledOptions?.perHour ?? true,
-        halfDay: venue?.pricing?.enabledOptions?.halfDay ?? false,
-        fullDay: venue?.pricing?.enabledOptions?.fullDay ?? false
+        weekday: venue?.pricing?.extraHourRate?.weekday ?? 500,
+        weekend: venue?.pricing?.extraHourRate?.weekend ?? 600
       },
       availableDays: venue?.pricing?.availableDays || venue?.availability?.availableDays || DAYS_OF_WEEK,
       advanceBookingRule: venue?.pricing?.advanceBookingRule || venue?.availability?.advanceBookingRule || '1 Day',
       confirmationHours: venue?.pricing?.confirmationHours ?? venue?.availability?.confirmationHours ?? 3
     },
 
-    // Availability & Timings
     availability: {
       openingTime: venue?.availability?.openingTime || venue?.pricing?.openingTime || '09:00',
       closingTime: venue?.availability?.closingTime || venue?.pricing?.closingTime || '22:00',
@@ -138,10 +450,26 @@ export default function AdminVenueQuickEditModal({
       }
     },
 
-    // Amenities
-    amenities: {
-      basic: venue?.amenities?.basic || [],
-      additional: venue?.amenities?.additional || []
+    // Taxes
+    taxSettings: {
+      gstType: venue?.taxSettings?.gstType || (venue?.ownerInfo?.hasGST ? 'Extra (Exclusive)' : 'Not Applicable'),
+      gstRate: venue?.taxSettings?.gstRate ?? 18,
+      gstin: venue?.taxSettings?.gstin || venue?.ownerInfo?.gstNumber || venue?.documents?.gstNumber || ''
+    },
+
+    // Photos
+    images: Array.isArray(venue?.images) ? venue.images : [],
+
+    // Social Links
+    socialLinks: {
+      website: venue?.socialLinks?.website || '',
+      facebook: venue?.socialLinks?.facebook || '',
+      instagram: venue?.socialLinks?.instagram || '',
+      youtube: venue?.socialLinks?.youtube || '',
+      virtualTour: venue?.socialLinks?.virtualTour || '',
+      contactMobile: venue?.socialLinks?.contactMobile || venue?.ownerInfo?.mobile || '',
+      alternateMobile: venue?.socialLinks?.alternateMobile || venue?.ownerInfo?.alternatePhone || '',
+      contactEmail: venue?.socialLinks?.contactEmail || venue?.ownerInfo?.email || ''
     },
 
     // Owner & Authorised Person
@@ -156,8 +484,8 @@ export default function AdminVenueQuickEditModal({
       authorisedPerson: {
         fullName: venue?.ownerInfo?.authorisedPerson?.fullName || venue?.ownerInfo?.authorisedPerson?.name || '',
         name: venue?.ownerInfo?.authorisedPerson?.name || venue?.ownerInfo?.authorisedPerson?.fullName || '',
-        designation: venue?.ownerInfo?.authorisedPerson?.designation || venue?.ownerInfo?.authorisedPerson?.role || 'Authorised Person',
-        role: venue?.ownerInfo?.authorisedPerson?.role || venue?.ownerInfo?.authorisedPerson?.designation || 'Authorised Person',
+        designation: venue?.ownerInfo?.authorisedPerson?.designation || venue?.ownerInfo?.authorisedPerson?.role || 'Venue Owner / Proprietor',
+        role: venue?.ownerInfo?.authorisedPerson?.role || venue?.ownerInfo?.authorisedPerson?.designation || 'Venue Owner / Proprietor',
         mobile: venue?.ownerInfo?.authorisedPerson?.mobile || venue?.ownerInfo?.authorisedPerson?.phone || '',
         phone: venue?.ownerInfo?.authorisedPerson?.phone || venue?.ownerInfo?.authorisedPerson?.mobile || '',
         alternatePhone: venue?.ownerInfo?.authorisedPerson?.alternatePhone || '',
@@ -165,7 +493,7 @@ export default function AdminVenueQuickEditModal({
       }
     },
 
-    // Documents
+    // Documents (4 Categories)
     documents: {
       idProof: {
         type: venue?.documents?.idProof?.type || 'Both',
@@ -180,18 +508,24 @@ export default function AdminVenueQuickEditModal({
       businessProof: {
         type: venue?.documents?.businessProof?.type || 'Udyam Aadhaar (MSME)',
         otherSpecify: venue?.documents?.businessProof?.otherSpecify || '',
-        documentUrl: venue?.documents?.businessProof?.documentUrl || venue?.documents?.businessProof?.url || '',
-        url: venue?.documents?.businessProof?.documentUrl || venue?.documents?.businessProof?.url || ''
+        documentUrl: venue?.documents?.businessProof?.documentUrl || venue?.documents?.businessProof?.url || ''
+      },
+      propertyProof: {
+        type: venue?.documents?.propertyProof?.type || 'Electricity Bill',
+        otherSpecify: venue?.documents?.propertyProof?.otherSpecify || '',
+        documentUrl: venue?.documents?.propertyProof?.documentUrl || venue?.documents?.propertyProof?.url || ''
+      },
+      applicableCertificates: {
+        fireNOCUrl: venue?.documents?.applicableCertificates?.fireNOCUrl || venue?.documents?.fireNOC?.url || '',
+        fssaiUrl: venue?.documents?.applicableCertificates?.fssaiUrl || venue?.documents?.fssai?.url || '',
+        tradeLicenseUrl: venue?.documents?.applicableCertificates?.tradeLicenseUrl || '',
+        pollutionCertificateUrl: venue?.documents?.applicableCertificates?.pollutionCertificateUrl || ''
       },
       hasGST: venue?.documents?.hasGST ?? venue?.ownerInfo?.hasGST ?? false,
       gstNumber: venue?.documents?.gstNumber || venue?.ownerInfo?.gstNumber || '',
       gstDocUrl: venue?.documents?.gstDocUrl || venue?.ownerInfo?.gstCertificateUrl || '',
-      fireNOC: {
-        url: venue?.documents?.fireNOC?.url || ''
-      },
-      fssai: {
-        url: venue?.documents?.fssai?.url || ''
-      }
+      fireNOC: { url: venue?.documents?.fireNOC?.url || '' },
+      fssai: { url: venue?.documents?.fssai?.url || '' }
     },
 
     // Bank Details
@@ -205,7 +539,26 @@ export default function AdminVenueQuickEditModal({
       bankProofUrl: venue?.bankDetails?.bankProofUrl || ''
     },
 
-    // Custom Platform Fee & GST
+    // Rules & Policies
+    rulesAndPolicies: {
+      alcoholAllowed: venue?.rulesAndPolicies?.alcoholAllowed ?? false,
+      smokingAllowed: venue?.rulesAndPolicies?.smokingAllowed ?? false,
+      outsideFoodAllowed: venue?.rulesAndPolicies?.outsideFoodAllowed ?? true,
+      musicDeadline: venue?.rulesAndPolicies?.musicDeadline || '10:00 PM',
+      firecrackersAllowed: venue?.rulesAndPolicies?.firecrackersAllowed ?? false,
+      petFriendly: venue?.rulesAndPolicies?.petFriendly ?? false,
+      customRules: venue?.rulesAndPolicies?.customRules || ''
+    },
+
+    // 4-Tier Cancellation Policy
+    cancellationPolicy: {
+      tier1: { days: venue?.cancellationPolicy?.tier1?.days ?? 7, refundPercent: venue?.cancellationPolicy?.tier1?.refundPercent ?? 100 },
+      tier2: { days: venue?.cancellationPolicy?.tier2?.days ?? 3, refundPercent: venue?.cancellationPolicy?.tier2?.refundPercent ?? 50 },
+      tier3: { hours: venue?.cancellationPolicy?.tier3?.hours ?? 24, refundPercent: venue?.cancellationPolicy?.tier3?.refundPercent ?? 0 },
+      tier4: { refundPercent: venue?.cancellationPolicy?.tier4?.refundPercent ?? 0 }
+    },
+
+    // Custom Admin Settings
     customPlatformFee: {
       enabled: venue?.customPlatformFee?.enabled ?? false,
       feeType: venue?.customPlatformFee?.feeType || 'percentage',
@@ -220,12 +573,79 @@ export default function AdminVenueQuickEditModal({
     }
   });
 
-  const [uploadingImages, setUploadingImages] = useState(false);
-  const [uploadingDoc, setUploadingDoc] = useState({});
-  const [uploadPhotoCategory, setUploadPhotoCategory] = useState('Exterior');
+  // Populate Cities when state changes
+  useEffect(() => {
+    if (formData.location.stateCode) {
+      try {
+        const cities = City.getCitiesOfState('IN', formData.location.stateCode);
+        setCitiesList(cities || []);
+      } catch (_) {
+        setCitiesList([]);
+      }
+    }
+  }, [formData.location.stateCode]);
 
-  const PHOTO_CATEGORIES = ['Featured', 'Exterior', 'Interior', 'Amenities', 'Additional'];
+  // Status Changer Execution
+  const handleSelectStatus = (targetStatus) => {
+    setStatusMenuOpen(false);
+    if (targetStatus === 'rejected' || targetStatus === 'suspended') {
+      setStatusModal({ open: true, targetStatus, reason: '', customReason: '' });
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        status: targetStatus,
+        rejectionReason: '',
+        suspensionReason: '',
+        statusReason: ''
+      }));
+      toast.success(`Status set to ${targetStatus.toUpperCase()}`);
+    }
+  };
 
+  const confirmStatusChange = () => {
+    const finalReason = statusModal.reason === 'other' ? statusModal.customReason : statusModal.reason;
+    if (!finalReason) {
+      toast.error('Please specify a reason');
+      return;
+    }
+    setFormData(prev => ({
+      ...prev,
+      status: statusModal.targetStatus,
+      rejectionReason: statusModal.targetStatus === 'rejected' ? finalReason : '',
+      suspensionReason: statusModal.targetStatus === 'suspended' ? finalReason : '',
+      statusReason: finalReason
+    }));
+    setStatusModal({ open: false, targetStatus: '', reason: '', customReason: '' });
+    toast.success(`Status updated to ${statusModal.targetStatus.toUpperCase()}`);
+  };
+
+  const confirmStopBooking = () => {
+    const finalReason = stopBookingModal.reason === 'other' ? stopBookingModal.customReason : stopBookingModal.reason;
+    if (!finalReason) {
+      toast.error('Please specify a reason to pause bookings');
+      return;
+    }
+    setFormData(prev => ({
+      ...prev,
+      isBookingStopped: true,
+      stopBookingReason: finalReason,
+      stoppedBookingAt: new Date()
+    }));
+    setStopBookingModal({ open: false, reason: '', customReason: '' });
+    toast.success('Online bookings paused');
+  };
+
+  const resumeBooking = () => {
+    setFormData(prev => ({
+      ...prev,
+      isBookingStopped: false,
+      stopBookingReason: '',
+      stoppedBookingAt: null
+    }));
+    toast.success('Online bookings resumed');
+  };
+
+  // Image upload
   const handleImageFilesUpload = async (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
@@ -243,38 +663,27 @@ export default function AdminVenueQuickEditModal({
         toast.error(`${file.name} is larger than 10MB`);
         continue;
       }
-      if (!file.type.startsWith('image/')) {
-        toast.error(`${file.name} is not a valid image format`);
-        continue;
-      }
-
       try {
         toast.loading(`Uploading ${file.name}...`, { id: file.name });
-        const uploadData = await uploadToStorage(file, 'venues');
-        const isFirst = newImages.length === 0;
+        const res = await uploadToStorage(file, `venues/${venue._id || 'temp'}`);
         newImages.push({
-          url: uploadData.url,
-          publicId: uploadData.publicId,
+          url: res.url,
+          publicId: res.publicId || null,
           category: uploadPhotoCategory,
-          isFeatured: isFirst || uploadPhotoCategory === 'Featured',
-          uploadedAt: new Date()
+          isFeatured: newImages.length === 0
         });
-        toast.success(`${file.name} uploaded!`, { id: file.name });
+        toast.success(`${file.name} uploaded! ✅`, { id: file.name });
       } catch (err) {
-        console.error('Image upload error:', err);
-        toast.error(`Failed to upload ${file.name}`);
+        toast.error(`Failed to upload ${file.name}`, { id: file.name });
       }
     }
 
-    setFormData(prev => ({
-      ...prev,
-      images: newImages
-    }));
+    setFormData(prev => ({ ...prev, images: newImages }));
     setUploadingImages(false);
-    e.target.value = '';
   };
 
-  const handleRemoveImage = async (index, img) => {
+  const handleRemoveImage = async (index) => {
+    const img = formData.images[index];
     try {
       if (img?.publicId) {
         await deleteFromStorage(img.publicId).catch(() => {});
@@ -297,22 +706,10 @@ export default function AdminVenueQuickEditModal({
       images: (prev.images || []).map((img, i) => ({
         ...img,
         isFeatured: i === index,
-        category: i === index ? 'Featured' : (img.category === 'Featured' ? 'Exterior' : img.category)
+        category: i === index ? 'Featured' : (img.category === 'Featured' ? 'Front / Entrance' : img.category)
       }))
     }));
     toast.success('Featured cover photo updated! ⭐');
-  };
-
-  const handleImageCategoryChange = (index, newCat) => {
-    setFormData(prev => {
-      const updated = [...(prev.images || [])];
-      updated[index] = {
-        ...updated[index],
-        category: newCat,
-        isFeatured: newCat === 'Featured' ? true : (updated[index].isFeatured && newCat !== 'Featured' ? false : updated[index].isFeatured)
-      };
-      return { ...prev, images: updated };
-    });
   };
 
   const handleDocFileUpload = async (file, docKey, updateFn) => {
@@ -328,185 +725,34 @@ export default function AdminVenueQuickEditModal({
       updateFn(res.url);
       toast.success(`${file.name} uploaded successfully! ✅`, { id: docKey });
     } catch (err) {
-      console.error('Doc upload error:', err);
       toast.error(`Upload failed: ${err.message || 'Error'}`, { id: docKey });
     } finally {
       setUploadingDoc(prev => ({ ...prev, [docKey]: false }));
     }
   };
 
-  const isPdfUrl = (url) => typeof url === 'string' && url.toLowerCase().includes('.pdf');
-
-  const renderDocUploadCard = ({
-    title,
-    docUrl,
-    docKey,
-    onUrlChange,
-    accept = 'image/jpeg,image/png,image/webp,application/pdf',
-    badgeOptional = false,
-    theme = 'purple'
-  }) => {
-    const isPdf = isPdfUrl(docUrl);
-    const isUploading = uploadingDoc[docKey];
-
-    const colorStyles = {
-      purple: {
-        border: 'border-purple-200 dark:border-purple-800/60',
-        btn: 'border-purple-500 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/50 dark:border-purple-700 text-purple-700 dark:text-purple-300',
-        icon: 'text-purple-600 dark:text-purple-400'
-      },
-      emerald: {
-        border: 'border-emerald-200 dark:border-emerald-800/60',
-        btn: 'border-emerald-500 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300',
-        icon: 'text-emerald-600 dark:text-emerald-400'
-      },
-      orange: {
-        border: 'border-orange-200 dark:border-orange-800/60',
-        btn: 'border-orange-500 bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/50 dark:border-orange-700 text-orange-700 dark:text-orange-300',
-        icon: 'text-orange-600 dark:text-orange-400'
-      },
-      blue: {
-        border: 'border-blue-200 dark:border-blue-800/60',
-        btn: 'border-blue-500 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/50 dark:border-blue-700 text-blue-700 dark:text-blue-300',
-        icon: 'text-blue-600 dark:text-blue-400'
-      }
-    }[theme] || {
-      border: 'border-purple-200 dark:border-purple-800/60',
-      btn: 'border-purple-500 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/50 dark:border-purple-700 text-purple-700 dark:text-purple-300',
-      icon: 'text-purple-600 dark:text-purple-400'
-    };
-
-    return (
-      <div className={`bg-white dark:bg-slate-850 p-3.5 rounded-xl border ${colorStyles.border} flex flex-col gap-2.5 shadow-xs`}>
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-bold text-gray-800 dark:text-gray-200">{title}</span>
-          {docUrl ? (
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3" /> Uploaded
-            </span>
-          ) : (
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:bg-slate-800 dark:text-gray-400">
-              {badgeOptional ? 'Optional' : 'Not Uploaded'}
-            </span>
-          )}
-        </div>
-
-        {/* Visual Image / PDF Preview Box */}
-        {docUrl ? (
-          <div className="relative rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 group">
-            {isPdf ? (
-              <div className="h-36 flex flex-col items-center justify-center p-3 text-center bg-red-50/40 dark:bg-red-950/20">
-                <FileText className="w-9 h-9 text-red-500 mb-1" />
-                <span className="text-xs font-bold text-gray-800 dark:text-gray-200">PDF Document</span>
-                <a
-                  href={docUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-1.5 text-[11px] text-primary-600 hover:underline flex items-center gap-1 font-semibold"
-                >
-                  View / Open PDF <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
-            ) : (
-              <div className="relative h-36 w-full bg-slate-950/5 dark:bg-slate-950/50 flex items-center justify-center overflow-hidden">
-                <img
-                  src={docUrl}
-                  alt={title}
-                  className="max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-105"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                    if (e.target.parentElement) {
-                      e.target.parentElement.innerHTML = '<div class="h-36 flex flex-col items-center justify-center text-xs text-gray-400 p-2 text-center"><span>Document file link saved</span><span class="text-[10px] text-gray-400 mt-1">Click Full View to open</span></div>';
-                    }
-                  }}
-                />
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                  <a
-                    href={docUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-2.5 py-1.5 rounded-lg bg-white/95 text-gray-800 text-xs font-bold flex items-center gap-1 shadow-sm hover:bg-white transition-colors"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" /> Full View
-                  </a>
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="h-24 rounded-xl border border-dashed border-gray-300 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-900/40 flex flex-col items-center justify-center p-2 text-center text-gray-400">
-            <ImageIcon className="w-6 h-6 mb-1 text-gray-300 dark:text-gray-600" />
-            <span className="text-[11px] text-gray-500">No document image uploaded</span>
-          </div>
-        )}
-
-        {/* Action Buttons: Replace / Upload + View + Delete */}
-        <div className="flex items-center gap-2">
-          <label className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold cursor-pointer transition-colors ${colorStyles.btn} ${isUploading ? 'opacity-60 pointer-events-none' : ''}`}>
-            {isUploading ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Uploading...</span>
-              </>
-            ) : (
-              <>
-                <Upload className="w-3.5 h-3.5" />
-                <span>{docUrl ? `Replace ${title}` : `Upload ${title}`}</span>
-              </>
-            )}
-            <input
-              type="file"
-              accept={accept}
-              onChange={(e) => handleDocFileUpload(e.target.files?.[0], docKey, onUrlChange)}
-              className="hidden"
-              disabled={isUploading}
-            />
-          </label>
-
-          {docUrl && (
-            <>
-              <a
-                href={docUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="p-2 rounded-xl bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 text-gray-700 dark:text-gray-300 transition-colors"
-                title="Open in new tab"
-              >
-                <ExternalLink className="w-4 h-4" />
-              </a>
-              <button
-                type="button"
-                onClick={() => onUrlChange('')}
-                className="p-2 rounded-xl bg-red-50 dark:bg-red-950/40 hover:bg-red-100 text-red-600 dark:text-red-400 transition-colors"
-                title="Remove document"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const handleSave = async () => {
-    if (!formData.businessName.trim()) {
-      toast.error('Venue name cannot be empty');
-      return;
-    }
-
+  // Submit Quick Edit
+  const handleSubmit = async (e) => {
+    if (e) e.preventDefault();
     setSaving(true);
     try {
+      const finalFloor = formData.floor === 'Other' ? (formData.floorOther || 'Other') : formData.floor;
+
       const payload = {
         ...formData,
+        floor: finalFloor,
         images: formData.images || [],
         documents: {
           ...formData.documents,
           businessProof: {
             type: formData.documents.businessProof?.type || 'Udyam Aadhaar (MSME)',
             otherSpecify: formData.documents.businessProof?.otherSpecify || '',
-            documentUrl: formData.documents.businessProof?.documentUrl || formData.documents.businessProof?.url || ''
+            documentUrl: formData.documents.businessProof?.documentUrl || ''
+          },
+          propertyProof: {
+            type: formData.documents.propertyProof?.type || 'Electricity Bill',
+            otherSpecify: formData.documents.propertyProof?.otherSpecify || '',
+            documentUrl: formData.documents.propertyProof?.documentUrl || ''
           }
         }
       };
@@ -537,139 +783,148 @@ export default function AdminVenueQuickEditModal({
     }
   };
 
-  const tabs = [
-    { id: 'general', label: 'General & Status', icon: Building2 },
-    { id: 'location', label: 'Location & Parking', icon: MapPin },
-    { id: 'photos', label: 'Photos & Gallery', icon: Camera },
-    { id: 'pricing', label: 'Pricing', icon: IndianRupee },
-    { id: 'timings', label: 'Timings & Window', icon: Clock },
-    { id: 'amenities', label: 'Amenities', icon: Coffee },
-    { id: 'contacts', label: 'Owner & Authorised', icon: UserCheck },
-    { id: 'documents', label: 'Documents & Proofs', icon: FileCheck },
-    { id: 'bank', label: 'Bank Account Details', icon: CreditCard },
-    { id: 'fees', label: 'Fee & GST Settings', icon: ShieldCheck }
-  ];
-
-  const toggleVenueType = (typeName) => {
-    const current = formData.venueType || [];
-    if (current.includes(typeName)) {
-      setFormData({
-        ...formData,
-        venueType: current.filter(t => t !== typeName)
-      });
-    } else {
-      setFormData({
-        ...formData,
-        venueType: [...current, typeName]
-      });
-    }
-  };
-
-  const toggleAmenity = (category, item) => {
-    const current = formData.amenities[category] || [];
-    if (current.includes(item)) {
-      setFormData({
-        ...formData,
-        amenities: {
-          ...formData.amenities,
-          [category]: current.filter(i => i !== item)
-        }
-      });
-    } else {
-      setFormData({
-        ...formData,
-        amenities: {
-          ...formData.amenities,
-          [category]: [...current, item]
-        }
-      });
-    }
-  };
-
-  const toggleAvailableDay = (day) => {
-    const current = formData.availability.availableDays || [];
-    const newDays = current.includes(day)
-      ? current.filter(d => d !== day)
-      : [...current, day];
-    
-    setFormData({
-      ...formData,
-      pricing: { ...formData.pricing, availableDays: newDays },
-      availability: { ...formData.availability, availableDays: newDays }
-    });
-  };
-
-  const copyOwnerToAuthorised = () => {
-    setFormData({
-      ...formData,
-      ownerInfo: {
-        ...formData.ownerInfo,
-        authorisedPerson: {
-          fullName: formData.ownerInfo.fullName,
-          name: formData.ownerInfo.fullName,
-          designation: formData.ownerInfo.role || 'Venue Owner / Proprietor',
-          role: formData.ownerInfo.role || 'Venue Owner / Proprietor',
-          mobile: formData.ownerInfo.mobile,
-          phone: formData.ownerInfo.mobile,
-          alternatePhone: formData.ownerInfo.alternatePhone,
-          email: formData.ownerInfo.email
-        }
-      }
-    });
-    toast.success('Copied owner info to Authorised Person! ✅');
-  };
-
-  const wordCount = formData.description
-    ? formData.description.trim().split(/\s+/).filter(Boolean).length
-    : 0;
-
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[94vh] flex flex-col overflow-hidden border border-gray-200 dark:border-slate-800">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[94vh] overflow-hidden flex flex-col relative border border-slate-200">
         
-        {/* Header */}
-        <div className="px-5 py-3.5 bg-gradient-to-r from-slate-900 via-primary-950 to-slate-900 text-white flex items-center justify-between flex-shrink-0">
+        {/* Modal Header */}
+        <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between flex-shrink-0 flex-wrap gap-2">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary-500/20 border border-primary-500/30 rounded-xl text-primary-400">
-              <Sparkles className="w-5 h-5" />
+            <div className="p-2 rounded-xl bg-primary-600/30 border border-primary-500/40 text-primary-400">
+              <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base sm:text-lg font-bold">Admin Venue Master Edit</h2>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary-500/30 text-primary-300 font-bold uppercase tracking-wider">
-                  Full Access
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base font-bold tracking-tight">{formData.businessName || 'Venue Quick Edit'}</h2>
+                <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                  formData.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                  formData.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                  formData.status === 'rejected' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
+                  formData.status === 'resubmitted' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                  'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                }`}>
+                  {formData.status}
                 </span>
+                {formData.isBookingStopped ? (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold inline-flex items-center gap-1">
+                    <PauseCircle className="w-3 h-3" /> Bookings Paused
+                  </span>
+                ) : (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold inline-flex items-center gap-1">
+                    <PlayCircle className="w-3 h-3" /> Bookings Active
+                  </span>
+                )}
               </div>
-              <p className="text-xs text-slate-300">
-                Venue: <strong className="text-white">{venue?.businessName}</strong> ({venue?.sku || 'Venue'})
-              </p>
+              <p className="text-[11px] text-slate-400 mt-0.5">Admin Full Management & Quick Editor • SKU: {venue.sku || 'N/A'}</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-white/10 rounded-xl text-slate-300 hover:text-white transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+
+          <div className="flex items-center gap-2">
+            {/* Status Selector Dropdown */}
+            <div className="relative" ref={statusMenuRef}>
+              <button
+                type="button"
+                onClick={() => setStatusMenuOpen(!statusMenuOpen)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold border border-slate-700 transition-colors"
+              >
+                <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
+                <span>Set Status</span>
+                <ChevronDown className="w-3 h-3 text-slate-400" />
+              </button>
+
+              {statusMenuOpen && (
+                <div className="absolute right-0 mt-1.5 w-48 bg-white text-gray-900 rounded-xl shadow-xl border border-gray-200 py-1.5 z-50 text-xs">
+                  <div className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                    Change Venue Status
+                  </div>
+                  <button
+                    onClick={() => handleSelectStatus('approved')}
+                    className="w-full text-left px-3 py-2 hover:bg-green-50 text-green-700 font-semibold flex items-center gap-2"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-green-600" /> Approve Venue
+                  </button>
+                  <button
+                    onClick={() => handleSelectStatus('suspended')}
+                    className="w-full text-left px-3 py-2 hover:bg-amber-50 text-amber-700 font-semibold flex items-center gap-2"
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600" /> Suspend (Reason)
+                  </button>
+                  <button
+                    onClick={() => handleSelectStatus('rejected')}
+                    className="w-full text-left px-3 py-2 hover:bg-red-50 text-red-700 font-semibold flex items-center gap-2"
+                  >
+                    <X className="w-3.5 h-3.5 text-red-600" /> Reject (Reason)
+                  </button>
+                  <button
+                    onClick={() => handleSelectStatus('pending')}
+                    className="w-full text-left px-3 py-2 hover:bg-yellow-50 text-yellow-800 font-semibold flex items-center gap-2"
+                  >
+                    <Clock className="w-3.5 h-3.5 text-yellow-600" /> Mark Pending
+                  </button>
+                  <button
+                    onClick={() => handleSelectStatus('resubmitted')}
+                    className="w-full text-left px-3 py-2 hover:bg-blue-50 text-blue-700 font-semibold flex items-center gap-2"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 text-blue-600" /> Mark Resubmitted
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Toggle Booking Button */}
+            {formData.isBookingStopped ? (
+              <button
+                type="button"
+                onClick={resumeBooking}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-sm transition-colors"
+              >
+                <PlayCircle className="w-3.5 h-3.5" /> Allow Booking
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setStopBookingModal({ open: true, reason: '', customReason: '' })}
+                className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-sm transition-colors"
+              >
+                <PauseCircle className="w-3.5 h-3.5" /> Stop Booking
+              </button>
+            )}
+
+            <button
+              onClick={handleSubmit}
+              disabled={saving}
+              className="px-4 py-1.5 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-sm transition-colors"
+            >
+              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+              <span>{saving ? 'Saving...' : 'Save All'}</span>
+            </button>
+
+            <button
+              onClick={onClose}
+              className="p-1.5 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="border-b border-gray-200 dark:border-slate-800 bg-gray-50/80 dark:bg-slate-950 px-3 overflow-x-auto flex-shrink-0">
-          <div className="flex gap-1 py-1.5">
-            {tabs.map((tab) => {
+        {/* 10 Navigation Tabs */}
+        <div className="border-b border-gray-200 bg-slate-50 px-3 overflow-x-auto flex-shrink-0">
+          <div className="flex gap-0.5">
+            {TABS.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                  className={`flex items-center gap-1.5 px-3.5 py-2.5 font-bold text-xs transition-all whitespace-nowrap ${
                     isActive
-                      ? 'bg-white dark:bg-slate-800 text-primary-600 dark:text-primary-400 shadow-sm border border-gray-200 dark:border-slate-700'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-slate-900'
+                      ? 'border-b-2 border-primary-600 text-primary-700 bg-white -mb-px shadow-xs'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                   }`}
                 >
-                  <Icon className="w-3.5 h-3.5" />
+                  <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-primary-600' : 'text-gray-500'}`} />
                   {tab.label}
                 </button>
               );
@@ -677,178 +932,188 @@ export default function AdminVenueQuickEditModal({
           </div>
         </div>
 
-        {/* Form Body */}
-        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
-
-          {/* TAB 1: GENERAL & STATUS */}
-          {activeTab === 'general' && (
-            <div className="space-y-5 animate-in fade-in duration-150">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">
-                    Venue / Business Name *
-                  </label>
+        {/* Modal Scrollable Body */}
+        <div className="flex-1 overflow-y-auto p-5">
+          {/* TAB 1: BASIC INFO */}
+          {activeTab === 'basic' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-bold text-gray-700 block mb-1">Business Name *</label>
                   <input
                     type="text"
                     value={formData.businessName}
                     onChange={(e) => setFormData({ ...formData, businessName: e.target.value })}
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800 focus:ring-2 focus:ring-primary-500 font-semibold"
-                    placeholder="Elite Conference Center"
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-xl font-semibold"
+                    placeholder="e.g. Royal Palace Banquet & Lawns"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">
-                    Status Dropdown *
-                  </label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800 font-semibold focus:ring-2 focus:ring-primary-500"
-                  >
-                    <option value="approved">Approved (Active & Live)</option>
-                    <option value="pending">Pending Review</option>
-                    <option value="rejected">Rejected</option>
-                    <option value="suspended">Suspended</option>
-                    <option value="resubmitted">Resubmitted ↩</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Status Reason if Rejected / Suspended */}
-              {(formData.status === 'rejected' || formData.status === 'suspended' || formData.status === 'resubmitted') && (
-                <div>
-                  <label className="block text-xs font-bold text-red-600 dark:text-red-400 mb-1.5">
-                    {formData.status === 'suspended' ? 'Suspension Reason' : 'Rejection Reason'}
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.status === 'suspended' ? formData.suspensionReason : formData.rejectionReason}
-                    onChange={(e) => {
-                      if (formData.status === 'suspended') {
-                        setFormData({ ...formData, suspensionReason: e.target.value });
-                      } else {
-                        setFormData({ ...formData, rejectionReason: e.target.value });
-                      }
-                    }}
-                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-red-300 dark:border-red-900/60 dark:bg-slate-800 text-red-700 dark:text-red-300"
-                    placeholder="Reason for rejection or suspension..."
-                  />
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {/* Food Type Dropdown */}
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">
-                    Food Type Dropdown *
-                  </label>
+                  <label className="text-xs font-bold text-gray-700 block mb-1">Food Type *</label>
                   <select
                     value={formData.foodType}
                     onChange={(e) => setFormData({ ...formData, foodType: e.target.value })}
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800 font-medium focus:ring-2 focus:ring-primary-500"
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-xl"
                   >
-                    {FOOD_TYPE_OPTIONS.map((f) => (
-                      <option key={f} value={f}>{f}</option>
-                    ))}
+                    {FOOD_TYPES.map(f => <option key={f} value={f}>{f}</option>)}
                   </select>
                 </div>
 
-                {/* Capacity Dropdown */}
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">
-                    Maximum Capacity Dropdown *
-                  </label>
+                  <label className="text-xs font-bold text-gray-700 block mb-1">Guest Capacity *</label>
                   <select
-                    value={typeof formData.capacity === 'string' ? formData.capacity : `${formData.capacity}`}
+                    value={formData.capacity}
                     onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800 font-medium focus:ring-2 focus:ring-primary-500"
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-xl"
                   >
-                    <option value="">Select capacity range</option>
-                    {CAPACITY_OPTIONS.map((option) => (
-                      <option key={option} value={option}>{option} persons</option>
-                    ))}
+                    {CAPACITY_OPTIONS.map(c => <option key={c} value={c}>{c} guests</option>)}
                   </select>
                 </div>
 
-                {/* Total Area */}
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">
-                    Total Area (sq.ft) *
-                  </label>
+                  <label className="text-xs font-bold text-gray-700 block mb-1">Total Space Area (sq.ft) *</label>
                   <input
                     type="number"
-                    min="1"
                     value={formData.areaSqft}
                     onChange={(e) => setFormData({ ...formData, areaSqft: Number(e.target.value) || 0 })}
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800 focus:ring-2 focus:ring-primary-500"
-                    placeholder="1000"
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-xl font-semibold"
                   />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-gray-700 block mb-1">Year Established</label>
+                  <input
+                    type="number"
+                    value={formData.yearEstablished}
+                    onChange={(e) => setFormData({ ...formData, yearEstablished: e.target.value })}
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-xl"
+                    placeholder="e.g. 2018"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-gray-700 block mb-1">Floor Level</label>
+                  <select
+                    value={FLOOR_OPTIONS.includes(formData.floor) ? formData.floor : 'Other'}
+                    onChange={(e) => setFormData({ ...formData, floor: e.target.value })}
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-xl"
+                  >
+                    {FLOOR_OPTIONS.map(fl => <option key={fl} value={fl}>{fl}</option>)}
+                  </select>
+                </div>
+
+                {formData.floor === 'Other' && (
+                  <div>
+                    <label className="text-xs font-bold text-gray-700 block mb-1">Specify Custom Floor</label>
+                    <input
+                      type="text"
+                      value={formData.floorOther}
+                      onChange={(e) => setFormData({ ...formData, floorOther: e.target.value })}
+                      className="w-full px-3 py-2 text-xs border border-gray-300 rounded-xl"
+                      placeholder="e.g. 4th Floor / Rooftop"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Venue Categories (Multi-select) */}
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <label className="text-xs font-bold text-slate-900 block mb-2">Venue Categories (Select all that apply) *</label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                  {VENUE_CATEGORIES.map((cat) => {
+                    const selected = formData.venueType.includes(cat);
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => {
+                          const current = formData.venueType;
+                          const next = selected ? current.filter(c => c !== cat) : [...current, cat];
+                          setFormData({ ...formData, venueType: next.length > 0 ? next : [cat] });
+                        }}
+                        className={`p-2 rounded-lg text-xs font-bold text-left transition-all border ${
+                          selected
+                            ? 'bg-primary-600 text-white border-primary-600 shadow-xs'
+                            : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-100'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Venue Type Dropdown & Badges */}
-              <div>
-                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">
-                  Venue Categories / Types (Multi-select)
+              {/* Seating Arrangements (Multi-select) */}
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <label className="text-xs font-bold text-slate-900 block mb-2 flex items-center gap-1.5">
+                  <Users className="w-4 h-4 text-primary-600" />
+                  Seating Arrangements Supported
                 </label>
-                <div className="flex flex-wrap gap-2">
-                  {venueTypes && venueTypes.length > 0 ? (
-                    venueTypes.map((type) => {
-                      const isSelected = formData.venueType.includes(type.name);
-                      return (
-                        <button
-                          key={type._id || type.name}
-                          type="button"
-                          onClick={() => toggleVenueType(type.name)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
-                            isSelected
-                              ? 'bg-primary-500 border-primary-500 text-white shadow-sm'
-                              : 'bg-gray-50 dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300 hover:border-primary-400'
-                          }`}
-                        >
-                          {isSelected && '✓ '} {type.name}
-                        </button>
-                      );
-                    })
-                  ) : (
-                    ['Banquet Hall', 'Party Lawn', 'Conference Room', 'Resort', 'Rooftop', 'Poolside', 'Farmhouse', 'Auditorium', 'Coworking Space'].map((t) => {
-                      const isSelected = formData.venueType.includes(t);
-                      return (
-                        <button
-                          key={t}
-                          type="button"
-                          onClick={() => toggleVenueType(t)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
-                            isSelected
-                              ? 'bg-primary-500 border-primary-500 text-white shadow-sm'
-                              : 'bg-gray-50 dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300 hover:border-primary-400'
-                          }`}
-                        >
-                          {isSelected && '✓ '} {t}
-                        </button>
-                      );
-                    })
-                  )}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                  {SEATING_ARRANGEMENTS.map((seat) => {
+                    const selected = (formData.seatingArrangements || []).includes(seat);
+                    return (
+                      <label key={seat} className={`flex items-center gap-2 p-2 rounded-lg border text-xs font-semibold cursor-pointer transition-all ${
+                        selected ? 'bg-primary-50 border-primary-300 text-primary-900' : 'bg-white border-gray-200 text-gray-700'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={(e) => {
+                            const cur = formData.seatingArrangements || [];
+                            const next = e.target.checked ? [...cur, seat] : cur.filter(s => s !== seat);
+                            setFormData({ ...formData, seatingArrangements: next });
+                          }}
+                          className="rounded text-primary-600 focus:ring-primary-500"
+                        />
+                        <span>{seat}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Services Available */}
+              <div className="p-4 bg-indigo-50/70 rounded-xl border border-indigo-200">
+                <label className="text-xs font-bold text-indigo-950 block mb-2 flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-indigo-600" />
+                  Services Available At Venue
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {SERVICES_AVAILABLE_OPTIONS.map((srv) => {
+                    const selected = (formData.servicesAvailable || []).includes(srv);
+                    return (
+                      <label key={srv} className={`flex items-center gap-2 p-2 rounded-lg border text-xs font-semibold cursor-pointer transition-all ${
+                        selected ? 'bg-indigo-100/80 border-indigo-300 text-indigo-950' : 'bg-white border-indigo-100 text-gray-700'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={(e) => {
+                            const cur = formData.servicesAvailable || [];
+                            const next = e.target.checked ? [...cur, srv] : cur.filter(s => s !== srv);
+                            setFormData({ ...formData, servicesAvailable: next });
+                          }}
+                          className="rounded text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span>{srv}</span>
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
 
               {/* Venue Description */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">
-                    Venue Description (Max 200 words)
-                  </label>
-                  <span className={`text-xs ${wordCount > 200 ? 'text-red-500 font-bold' : 'text-gray-500'}`}>
-                    {wordCount}/200 words
-                  </span>
-                </div>
+                <label className="text-xs font-bold text-gray-700 block mb-1">Venue Description & Details</label>
                 <textarea
                   rows={4}
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800 focus:ring-2 focus:ring-primary-500 resize-none"
-                  placeholder="Describe venue highlights, seating, ambiance, and special features..."
+                  className="w-full px-3 py-2 text-xs border border-gray-300 rounded-xl"
+                  placeholder="Describe venue highlights, suitable events, rules, ambiance..."
                 />
               </div>
             </div>
@@ -856,185 +1121,223 @@ export default function AdminVenueQuickEditModal({
 
           {/* TAB 2: LOCATION & PARKING */}
           {activeTab === 'location' && (
-            <div className="space-y-5 animate-in fade-in duration-150">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">
-                  Complete Address *
-                </label>
-                <textarea
-                  rows={3}
-                  value={formData.location.address}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    location: { ...formData.location, address: e.target.value }
-                  })}
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800 focus:ring-2 focus:ring-primary-500"
-                  placeholder="Floor, Building, Road..."
-                />
-              </div>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                <div className="sm:col-span-2 md:col-span-3">
+                  <label className="text-xs font-bold text-gray-700 block mb-1">Complete Address *</label>
+                  <input
+                    type="text"
+                    value={formData.location.address}
+                    onChange={(e) => setFormData({ ...formData, location: { ...formData.location, address: e.target.value } })}
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-xl"
+                    placeholder="Full street address, building name, plot number"
+                  />
+                </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">
-                    Landmark *
-                  </label>
+                  <label className="text-xs font-bold text-gray-700 block mb-1">Landmark</label>
                   <input
                     type="text"
                     value={formData.location.landmark}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      location: { ...formData.location, landmark: e.target.value }
-                    })}
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800"
-                    placeholder="Near City Center"
+                    onChange={(e) => setFormData({ ...formData, location: { ...formData.location, landmark: e.target.value } })}
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-xl"
+                    placeholder="Near metro / hospital / ring road"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">
-                    Area / Locality *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.location.area}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      location: { ...formData.location, area: e.target.value }
-                    })}
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800"
-                    placeholder="MP Nagar, Zone 1"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">
-                    City *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.location.city}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      location: { ...formData.location, city: e.target.value }
-                    })}
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800"
-                    placeholder="Bhopal"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">
-                    State *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.location.state}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      location: { ...formData.location, state: e.target.value }
-                    })}
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800"
-                    placeholder="Madhya Pradesh"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">
-                    Pincode *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.location.pincode}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      location: { ...formData.location, pincode: e.target.value }
-                    })}
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800"
-                    placeholder="462011"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Parking Type Dropdown */}
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">
-                    Parking Type Dropdown *
-                  </label>
+                  <label className="text-xs font-bold text-gray-700 block mb-1">State *</label>
                   <select
-                    value={formData.location.parkingType}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      location: { ...formData.location, parkingType: e.target.value }
-                    })}
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800 font-semibold"
+                    value={formData.location.stateCode}
+                    onChange={(e) => {
+                      const selectedState = indianStates.find(s => s.isoCode === e.target.value);
+                      setFormData({
+                        ...formData,
+                        location: {
+                          ...formData.location,
+                          stateCode: e.target.value,
+                          state: selectedState ? selectedState.name : '',
+                          city: ''
+                        }
+                      });
+                    }}
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-xl"
                   >
-                    {PARKING_OPTIONS.map((p) => (
-                      <option key={p} value={p}>{p} Parking</option>
-                    ))}
+                    <option value="">Select State</option>
+                    {indianStates.map(s => <option key={s.isoCode} value={s.isoCode}>{s.name}</option>)}
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">
-                    Google Maps Link
-                  </label>
+                  <label className="text-xs font-bold text-gray-700 block mb-1">City *</label>
+                  <select
+                    value={formData.location.city}
+                    onChange={(e) => setFormData({ ...formData, location: { ...formData.location, city: e.target.value } })}
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-xl"
+                  >
+                    <option value="">Select City</option>
+                    {citiesList.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-gray-700 block mb-1">Area / Locality *</label>
+                  <input
+                    type="text"
+                    value={formData.location.area}
+                    onChange={(e) => setFormData({ ...formData, location: { ...formData.location, area: e.target.value } })}
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-xl"
+                    placeholder="e.g. Vijay Nagar / Whitefield"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-gray-700 block mb-1">Village / Ward</label>
+                  <input
+                    type="text"
+                    value={formData.location.village}
+                    onChange={(e) => setFormData({ ...formData, location: { ...formData.location, village: e.target.value } })}
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-xl"
+                    placeholder="Optional village / sub-district"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-gray-700 block mb-1">Pincode *</label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={formData.location.pincode}
+                    onChange={(e) => setFormData({ ...formData, location: { ...formData.location, pincode: e.target.value } })}
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-xl font-mono font-bold"
+                    placeholder="6-digit pincode"
+                  />
+                </div>
+
+                <div className="sm:col-span-2 md:col-span-3">
+                  <label className="text-xs font-bold text-gray-700 block mb-1">Google Maps Direction Link</label>
                   <input
                     type="url"
                     value={formData.location.googleMapLink}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      location: { ...formData.location, googleMapLink: e.target.value }
-                    })}
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800"
+                    onChange={(e) => setFormData({ ...formData, location: { ...formData.location, googleMapLink: e.target.value } })}
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-xl"
                     placeholder="https://maps.google.com/..."
                   />
                 </div>
               </div>
 
-              {/* Nearest Transit Connectivity */}
-              <div className="p-4 bg-gray-50 dark:bg-slate-800/60 rounded-xl border border-gray-200 dark:border-slate-700">
-                <h4 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <Navigation className="w-4 h-4 text-blue-600" />
+              {/* Parking Configuration Card */}
+              <div className="p-4 bg-blue-50/70 rounded-xl border border-blue-200">
+                <h4 className="text-xs font-bold text-blue-950 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Car className="w-4 h-4 text-blue-600" />
+                  Parking Facility & Capacity
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                  <div>
+                    <label className="text-gray-600 block mb-1 font-semibold">Parking Availability</label>
+                    <select
+                      value={formData.location.parkingDetails?.type || formData.location.parkingAvailability}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        location: {
+                          ...formData.location,
+                          parkingAvailability: e.target.value,
+                          parkingDetails: { ...formData.location.parkingDetails, type: e.target.value }
+                        }
+                      })}
+                      className="w-full px-3 py-2 text-xs border border-blue-200 rounded-lg bg-white"
+                    >
+                      {PARKING_OPTIONS.map(p => <option key={p} value={p}>{p} Parking</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-gray-600 block mb-1 font-semibold">2-Wheeler (Bike) Capacity</label>
+                    <input
+                      type="number"
+                      value={formData.location.parkingDetails?.twoWheelerCapacity || 0}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        location: {
+                          ...formData.location,
+                          parkingDetails: { ...formData.location.parkingDetails, twoWheelerCapacity: Number(e.target.value) || 0 }
+                        }
+                      })}
+                      className="w-full px-3 py-2 text-xs border border-blue-200 rounded-lg bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-gray-600 block mb-1 font-semibold">4-Wheeler (Car) Capacity</label>
+                    <input
+                      type="number"
+                      value={formData.location.parkingDetails?.carsCapacity || 0}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        location: {
+                          ...formData.location,
+                          parkingDetails: { ...formData.location.parkingDetails, carsCapacity: Number(e.target.value) || 0 }
+                        }
+                      })}
+                      className="w-full px-3 py-2 text-xs border border-blue-200 rounded-lg bg-white"
+                    />
+                  </div>
+
+                  <div className="flex items-center pt-5">
+                    <label className="flex items-center gap-2 cursor-pointer font-bold text-blue-950">
+                      <input
+                        type="checkbox"
+                        checked={formData.location.parkingDetails?.valetAvailable || false}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          location: {
+                            ...formData.location,
+                            parkingDetails: { ...formData.location.parkingDetails, valetAvailable: e.target.checked }
+                          }
+                        })}
+                        className="rounded text-blue-600 focus:ring-blue-500"
+                      />
+                      <span>Valet Parking Available</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Transit & Connectivity */}
+              <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Navigation className="w-4 h-4 text-primary-600" />
                   Transit & Connectivity
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 flex items-center gap-1">
-                      <Train className="w-3.5 h-3.5 text-purple-600" /> Nearest Metro
-                    </label>
+                    <label className="text-xs font-semibold text-gray-600 block mb-1">Nearest Metro Station</label>
                     <input
                       type="text"
                       value={formData.location.nearestMetro}
                       onChange={(e) => setFormData({
                         ...formData,
-                        location: { ...formData.location, nearestMetro: e.target.value }
+                        location: { ...formData.location, nearestMetro: e.target.value, nearestMetroTrain: e.target.value }
                       })}
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-gray-300 dark:border-slate-700 dark:bg-slate-800"
-                      placeholder="e.g. AIIMS Metro (1.2 km)"
+                      className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg"
+                      placeholder="e.g. MG Road Metro (500m)"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 flex items-center gap-1">
-                      <Bus className="w-3.5 h-3.5 text-emerald-600" /> Nearest Bus Stop
-                    </label>
+                    <label className="text-xs font-semibold text-gray-600 block mb-1">Nearest Bus / Auto Stand</label>
                     <input
                       type="text"
                       value={formData.location.nearestBusStop}
                       onChange={(e) => setFormData({
                         ...formData,
-                        location: { ...formData.location, nearestBusStop: e.target.value }
+                        location: { ...formData.location, nearestBusStop: e.target.value, nearestBusAuto: e.target.value }
                       })}
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-gray-300 dark:border-slate-700 dark:bg-slate-800"
-                      placeholder="e.g. MP Nagar Bus Stop"
+                      className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg"
+                      placeholder="e.g. Central Bus Stand (200m)"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 flex items-center gap-1">
-                      <Train className="w-3.5 h-3.5 text-orange-600" /> Nearest Railway Station
-                    </label>
+                    <label className="text-xs font-semibold text-gray-600 block mb-1">Nearest Railway Station</label>
                     <input
                       type="text"
                       value={formData.location.nearestRailway}
@@ -1042,8 +1345,8 @@ export default function AdminVenueQuickEditModal({
                         ...formData,
                         location: { ...formData.location, nearestRailway: e.target.value }
                       })}
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-gray-300 dark:border-slate-700 dark:bg-slate-800"
-                      placeholder="e.g. Rani Kamlapati (3 km)"
+                      className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg"
+                      placeholder="e.g. Junction Railway Station (4km)"
                     />
                   </div>
                 </div>
@@ -1051,930 +1354,690 @@ export default function AdminVenueQuickEditModal({
             </div>
           )}
 
-          {/* TAB: PHOTOS & GALLERY */}
-          {activeTab === 'photos' && (
-            <div className="space-y-6 animate-in fade-in duration-150">
-              {/* Upload Box & Category Selector */}
-              <div className="p-5 bg-gradient-to-r from-blue-50 to-indigo-50/60 dark:from-slate-800/80 dark:to-slate-900 rounded-2xl border border-blue-200/80 dark:border-slate-700">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                      <Camera className="w-4 h-4 text-primary-600 dark:text-primary-400" />
-                      Venue Photos & Gallery
-                    </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      Upload high quality photos for the venue listing. Set cover photo and categories.
-                    </p>
-                  </div>
-                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-primary-600 dark:text-primary-400 w-fit">
-                    {(formData.images || []).length} / 30 Photos
-                  </span>
+          {/* TAB 3: AMENITIES (4 Categorized Groups) */}
+          {activeTab === 'amenities' && (
+            <div className="space-y-5">
+              <div className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div>
+                  <h3 className="text-xs font-bold uppercase text-slate-800">Amenities & Facilities Configuration</h3>
+                  <p className="text-[11px] text-gray-500">Configure free included amenities or charge extra per service</p>
                 </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                      Upload Category
-                    </label>
-                    <select
-                      value={uploadPhotoCategory}
-                      onChange={(e) => setUploadPhotoCategory(e.target.value)}
-                      className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-850"
-                    >
-                      {PHOTO_CATEGORIES.map(c => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                      Select Photos from Computer
-                    </label>
-                    <label className={`flex items-center justify-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors shadow-xs ${uploadingImages ? 'opacity-60 pointer-events-none' : ''}`}>
-                      {uploadingImages ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Uploading Photos...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="w-4 h-4" />
-                          <span>Choose Photos & Upload (Multiple)</span>
-                        </>
-                      )}
-                      <input
-                        type="file"
-                        multiple
-                        accept="image/jpeg,image/png,image/webp,image/jpg"
-                        onChange={handleImageFilesUpload}
-                        className="hidden"
-                        disabled={uploadingImages}
-                      />
-                    </label>
-                  </div>
-                </div>
+                <span className="text-xs font-bold text-primary-600 bg-primary-50 px-3 py-1 rounded-lg border border-primary-200">
+                  Total {(formData.amenities.basic || []).length} Facilities
+                </span>
               </div>
 
-              {/* Photos List Grid */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">
-                    Current Venue Photos ({(formData.images || []).length})
-                  </h4>
-                  {(formData.images || []).length > 0 && (
-                    <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                      ⭐ Star icon indicates the Main Cover Photo
-                    </span>
-                  )}
-                </div>
+              {/* 4 Categorized Sections */}
+              {['Basic Facilities', 'Meeting / Conference Facilities', 'Event Facilities', 'Food Facilities'].map((catName) => {
+                const items = (formData.amenities.basic || []).filter(a => a.category === catName);
+                if (items.length === 0) return null;
 
-                {(!formData.images || formData.images.length === 0) ? (
-                  <div className="p-8 text-center bg-gray-50 dark:bg-slate-850 rounded-2xl border-2 border-dashed border-gray-300 dark:border-slate-700">
-                    <ImageIcon className="w-10 h-10 text-gray-400 mx-auto mb-2" />
-                    <p className="text-xs font-bold text-gray-700 dark:text-gray-300">No photos uploaded yet</p>
-                    <p className="text-[11px] text-gray-500 mt-1">Upload photos using the button above to showcase this venue.</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5">
-                    {formData.images.map((img, idx) => {
-                      const imgUrl = typeof img === 'string' ? img : img.url;
-                      const isFeatured = typeof img === 'object' && Boolean(img.isFeatured);
-                      const category = typeof img === 'object' ? (img.category || 'Exterior') : 'Exterior';
-
-                      return (
-                        <div
-                          key={idx}
-                          className={`relative group rounded-xl overflow-hidden border transition-all bg-white dark:bg-slate-800 flex flex-col ${
-                            isFeatured
-                              ? 'border-amber-400 ring-2 ring-amber-400/30 shadow-md'
-                              : 'border-gray-200 dark:border-slate-700 hover:border-gray-400 dark:hover:border-slate-600'
-                          }`}
-                        >
-                          {/* Image Container */}
-                          <div className="relative aspect-[4/3] bg-gray-100 dark:bg-slate-900 overflow-hidden">
-                            <img
-                              src={imgUrl}
-                              alt={`Venue photo ${idx + 1}`}
-                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                              loading="lazy"
-                            />
-
-                            {/* Featured Badge */}
-                            {isFeatured && (
-                              <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center gap-1 shadow-sm">
-                                <Star className="w-3 h-3 fill-current" />
-                                <span>Cover Photo</span>
-                              </div>
-                            )}
-
-                            {/* Hover Actions Overlay */}
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                              <a
-                                href={imgUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="p-1.5 rounded-lg bg-white/90 hover:bg-white text-gray-800 text-xs transition-colors shadow-sm"
-                                title="View Full Size"
-                              >
-                                <ExternalLink className="w-3.5 h-3.5" />
-                              </a>
-                              {!isFeatured && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleSetFeaturedImage(idx)}
-                                  className="p-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs transition-colors shadow-sm"
-                                  title="Set as Cover Photo"
-                                >
-                                  <Star className="w-3.5 h-3.5" />
-                                </button>
-                              )}
+                return (
+                  <div key={catName} className="p-4 bg-white rounded-xl border border-gray-200 shadow-xs">
+                    <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-primary-600" />
+                        {catName} ({items.length} Items)
+                      </span>
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                      {items.map((amenity, idx) => {
+                        const globalIdx = (formData.amenities.basic || []).findIndex(a => a.name === amenity.name && a.category === amenity.category);
+                        return (
+                          <div key={idx} className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex flex-col justify-between space-y-2">
+                            <span className="font-bold text-xs text-gray-900">{amenity.name}</span>
+                            <div className="flex items-center gap-2">
                               <button
                                 type="button"
-                                onClick={() => handleRemoveImage(idx, img)}
-                                className="p-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs transition-colors shadow-sm"
-                                title="Delete Photo"
+                                onClick={() => {
+                                  const updated = [...formData.amenities.basic];
+                                  updated[globalIdx] = { ...updated[globalIdx], type: 'Included', rate: 0 };
+                                  setFormData({ ...formData, amenities: { ...formData.amenities, basic: updated } });
+                                }}
+                                className={`flex-1 py-1 rounded-lg text-xs font-bold transition-all ${
+                                  amenity.type === 'Included' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-white text-gray-600 border border-gray-200'
+                                }`}
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                Free / Included
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = [...formData.amenities.basic];
+                                  updated[globalIdx] = { ...updated[globalIdx], type: 'Paid', rate: updated[globalIdx].rate || 500 };
+                                  setFormData({ ...formData, amenities: { ...formData.amenities, basic: updated } });
+                                }}
+                                className={`flex-1 py-1 rounded-lg text-xs font-bold transition-all ${
+                                  amenity.type === 'Paid' ? 'bg-orange-600 text-white shadow-xs' : 'bg-white text-gray-600 border border-gray-200'
+                                }`}
+                              >
+                                Paid
                               </button>
                             </div>
+                            {amenity.type === 'Paid' && (
+                              <div className="flex items-center gap-1.5 pt-1">
+                                <span className="text-xs font-bold text-gray-500">₹</span>
+                                <input
+                                  type="number"
+                                  value={amenity.rate || 0}
+                                  onChange={(e) => {
+                                    const updated = [...formData.amenities.basic];
+                                    updated[globalIdx] = { ...updated[globalIdx], rate: Number(e.target.value) || 0 };
+                                    setFormData({ ...formData, amenities: { ...formData.amenities, basic: updated } });
+                                  }}
+                                  className="w-20 px-2 py-1 text-xs border border-gray-300 rounded-lg font-bold text-orange-700 bg-white"
+                                />
+                                <select
+                                  value={amenity.rateType || 'Fixed'}
+                                  onChange={(e) => {
+                                    const updated = [...formData.amenities.basic];
+                                    updated[globalIdx] = { ...updated[globalIdx], rateType: e.target.value };
+                                    setFormData({ ...formData, amenities: { ...formData.amenities, basic: updated } });
+                                  }}
+                                  className="flex-1 px-1.5 py-1 text-[11px] border border-gray-300 rounded-lg bg-white"
+                                >
+                                  <option value="Fixed">Fixed</option>
+                                  <option value="Per Hour">Per Hour</option>
+                                  <option value="Per Person">Per Person</option>
+                                </select>
+                              </div>
+                            )}
                           </div>
-
-                          {/* Card Footer: Category Selector */}
-                          <div className="p-2 bg-gray-50 dark:bg-slate-850 border-t border-gray-100 dark:border-slate-700/80 flex items-center justify-between gap-1">
-                            <select
-                              value={category}
-                              onChange={(e) => handleImageCategoryChange(idx, e.target.value)}
-                              className="w-full text-[11px] font-medium py-1 px-1.5 rounded-lg border border-gray-200 dark:border-slate-700 dark:bg-slate-800 text-gray-700 dark:text-gray-300"
-                            >
-                              {PHOTO_CATEGORIES.map(cat => (
-                                <option key={cat} value={cat}>{cat}</option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: PRICING */}
-          {activeTab === 'pricing' && (
-            <div className="space-y-5 animate-in fade-in duration-150">
-              <div className="border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden divide-y divide-gray-200 dark:divide-slate-800">
-                {/* Per Hour */}
-                <div className="p-4 bg-white dark:bg-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      id="optPerHour"
-                      checked={formData.pricing.enabledOptions.perHour}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        pricing: {
-                          ...formData.pricing,
-                          enabledOptions: { ...formData.pricing.enabledOptions, perHour: e.target.checked }
-                        }
+                        );
                       })}
-                      className="w-4 h-4 rounded text-primary-500 focus:ring-primary-500"
-                    />
-                    <label htmlFor="optPerHour" className="text-sm font-bold text-gray-900 dark:text-white cursor-pointer">
-                      Per Hour Pricing
-                    </label>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <span className="text-[11px] font-semibold text-gray-500 block mb-1">Weekday (₹/hr)</span>
-                      <input
-                        type="number"
-                        disabled={!formData.pricing.enabledOptions.perHour}
-                        value={formData.pricing.perHour.weekday}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          pricing: {
-                            ...formData.pricing,
-                            perHour: { ...formData.pricing.perHour, weekday: Number(e.target.value) || 0 }
-                          }
-                        })}
-                        className="w-28 px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-slate-700 dark:bg-slate-900 disabled:opacity-50"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-[11px] font-semibold text-gray-500 block mb-1">Weekend (₹/hr)</span>
-                      <input
-                        type="number"
-                        disabled={!formData.pricing.enabledOptions.perHour}
-                        value={formData.pricing.perHour.weekend}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          pricing: {
-                            ...formData.pricing,
-                            perHour: { ...formData.pricing.perHour, weekend: Number(e.target.value) || 0 }
-                          }
-                        })}
-                        className="w-28 px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-slate-700 dark:bg-slate-900 disabled:opacity-50"
-                      />
                     </div>
                   </div>
-                </div>
+                );
+              })}
 
-                {/* Half Day */}
-                <div className="p-4 bg-white dark:bg-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      id="optHalfDay"
-                      checked={formData.pricing.enabledOptions.halfDay}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        pricing: {
-                          ...formData.pricing,
-                          enabledOptions: { ...formData.pricing.enabledOptions, halfDay: e.target.checked }
-                        }
-                      })}
-                      className="w-4 h-4 rounded text-primary-500 focus:ring-primary-500"
-                    />
-                    <label htmlFor="optHalfDay" className="text-sm font-bold text-gray-900 dark:text-white cursor-pointer">
-                      Half Day Pricing (4 Hours)
-                    </label>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <span className="text-[11px] font-semibold text-gray-500 block mb-1">Weekday (₹)</span>
-                      <input
-                        type="number"
-                        disabled={!formData.pricing.enabledOptions.halfDay}
-                        value={formData.pricing.halfDay.weekday}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          pricing: {
-                            ...formData.pricing,
-                            halfDay: { ...formData.pricing.halfDay, weekday: Number(e.target.value) || 0 }
-                          }
-                        })}
-                        className="w-28 px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-slate-700 dark:bg-slate-900 disabled:opacity-50"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-[11px] font-semibold text-gray-500 block mb-1">Weekend (₹)</span>
-                      <input
-                        type="number"
-                        disabled={!formData.pricing.enabledOptions.halfDay}
-                        value={formData.pricing.halfDay.weekend}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          pricing: {
-                            ...formData.pricing,
-                            halfDay: { ...formData.pricing.halfDay, weekend: Number(e.target.value) || 0 }
-                          }
-                        })}
-                        className="w-28 px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-slate-700 dark:bg-slate-900 disabled:opacity-50"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Full Day */}
-                <div className="p-4 bg-white dark:bg-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      id="optFullDay"
-                      checked={formData.pricing.enabledOptions.fullDay}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        pricing: {
-                          ...formData.pricing,
-                          enabledOptions: { ...formData.pricing.enabledOptions, fullDay: e.target.checked }
-                        }
-                      })}
-                      className="w-4 h-4 rounded text-primary-500 focus:ring-primary-500"
-                    />
-                    <label htmlFor="optFullDay" className="text-sm font-bold text-gray-900 dark:text-white cursor-pointer">
-                      Full Day Pricing (8+ Hours)
-                    </label>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <span className="text-[11px] font-semibold text-gray-500 block mb-1">Weekday (₹)</span>
-                      <input
-                        type="number"
-                        disabled={!formData.pricing.enabledOptions.fullDay}
-                        value={formData.pricing.fullDay.weekday}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          pricing: {
-                            ...formData.pricing,
-                            fullDay: { ...formData.pricing.fullDay, weekday: Number(e.target.value) || 0 }
-                          }
-                        })}
-                        className="w-28 px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-slate-700 dark:bg-slate-900 disabled:opacity-50"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-[11px] font-semibold text-gray-500 block mb-1">Weekend (₹)</span>
-                      <input
-                        type="number"
-                        disabled={!formData.pricing.enabledOptions.fullDay}
-                        value={formData.pricing.fullDay.weekend}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          pricing: {
-                            ...formData.pricing,
-                            fullDay: { ...formData.pricing.fullDay, weekend: Number(e.target.value) || 0 }
-                          }
-                        })}
-                        className="w-28 px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-slate-700 dark:bg-slate-900 disabled:opacity-50"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Extra Hour Rate */}
-                <div className="p-4 bg-white dark:bg-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-bold text-gray-900 dark:text-white">Extra Hour Rate</p>
-                    <p className="text-xs text-gray-500">Overtime hourly charge</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <span className="text-[11px] font-semibold text-gray-500 block mb-1">Weekday (₹/hr)</span>
-                      <input
-                        type="number"
-                        value={formData.pricing.extraHourRate.weekday}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          pricing: {
-                            ...formData.pricing,
-                            extraHourRate: { ...formData.pricing.extraHourRate, weekday: Number(e.target.value) || 0 }
-                          }
-                        })}
-                        className="w-28 px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-slate-700 dark:bg-slate-900"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-[11px] font-semibold text-gray-500 block mb-1">Weekend (₹/hr)</span>
-                      <input
-                        type="number"
-                        value={formData.pricing.extraHourRate.weekend}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          pricing: {
-                            ...formData.pricing,
-                            extraHourRate: { ...formData.pricing.extraHourRate, weekend: Number(e.target.value) || 0 }
-                          }
-                        })}
-                        className="w-28 px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-slate-700 dark:bg-slate-900"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 4: TIMINGS & ONLINE WINDOW */}
-          {activeTab === 'timings' && (
-            <div className="space-y-6 animate-in fade-in duration-150">
-              {/* Available Days */}
-              <div>
-                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">
-                  Available Days of Week *
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
-                  {DAYS_OF_WEEK.map((day) => {
-                    const isChecked = formData.availability.availableDays?.includes(day);
-                    return (
-                      <button
-                        key={day}
-                        type="button"
-                        onClick={() => toggleAvailableDay(day)}
-                        className={`p-2 rounded-xl text-xs font-bold transition-all border text-center ${
-                          isChecked
-                            ? 'bg-primary-500 border-primary-500 text-white shadow-sm'
-                            : 'bg-gray-50 dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300'
-                        }`}
-                      >
-                        {isChecked && '✓ '} {day.slice(0, 3)}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Venue Operating Schedule */}
-              <div className="p-4 bg-gray-50 dark:bg-slate-800/60 rounded-xl border border-gray-200 dark:border-slate-700">
-                <h4 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-blue-600" />
-                  Venue Physical Operating Hours
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                      Venue Opens At (HH:MM)
-                    </label>
-                    <input
-                      type="time"
-                      value={formData.availability.openingTime}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        availability: { ...formData.availability, openingTime: e.target.value }
-                      })}
-                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                      Venue Closes At (HH:MM)
-                    </label>
-                    <input
-                      type="time"
-                      value={formData.availability.closingTime}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        availability: { ...formData.availability, closingTime: e.target.value }
-                      })}
-                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Online Booking Window */}
-              <div className="p-4 bg-indigo-50/70 dark:bg-indigo-950/30 rounded-xl border border-indigo-200 dark:border-indigo-800">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-xs font-bold text-indigo-950 dark:text-indigo-200 uppercase tracking-wider flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-indigo-600" />
-                    Online Booking Window (Accepting Bookings)
-                  </h4>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.availability.onlineBookingSchedule.enabled}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        availability: {
-                          ...formData.availability,
-                          onlineBookingSchedule: {
-                            ...formData.availability.onlineBookingSchedule,
-                            enabled: e.target.checked
-                          }
-                        }
-                      })}
-                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
-                    />
-                    <span className="text-xs font-semibold text-indigo-900 dark:text-indigo-300">Active</span>
-                  </label>
-                </div>
-
-                <div className="flex flex-wrap gap-2 mb-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormData({
-                        ...formData,
-                        availability: {
-                          ...formData.availability,
-                          onlineBookingSchedule: { ...formData.availability.onlineBookingSchedule, openingTime: '06:00', closingTime: '02:00' }
-                        }
-                      });
-                      toast.success('Preset applied: 6 AM to 2 AM Next Day');
-                    }}
-                    className="px-2.5 py-1 text-xs rounded-lg bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-semibold hover:bg-indigo-200"
-                  >
-                    6:00 AM – 2:00 AM (Next Day)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormData({
-                        ...formData,
-                        availability: {
-                          ...formData.availability,
-                          onlineBookingSchedule: { ...formData.availability.onlineBookingSchedule, openingTime: '08:00', closingTime: '23:00' }
-                        }
-                      });
-                      toast.success('Preset applied: 8 AM to 11 PM');
-                    }}
-                    className="px-2.5 py-1 text-xs rounded-lg bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-semibold hover:bg-indigo-200"
-                  >
-                    8:00 AM – 11:00 PM
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormData({
-                        ...formData,
-                        availability: {
-                          ...formData.availability,
-                          onlineBookingSchedule: { ...formData.availability.onlineBookingSchedule, openingTime: '00:00', closingTime: '23:59' }
-                        }
-                      });
-                      toast.success('Preset applied: 24 Hours Open');
-                    }}
-                    className="px-2.5 py-1 text-xs rounded-lg bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-semibold hover:bg-indigo-200"
-                  >
-                    24 Hours Active
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-indigo-900 dark:text-indigo-300 mb-1">
-                      Online Booking Opens (e.g. 06:00)
-                    </label>
-                    <input
-                      type="time"
-                      value={formData.availability.onlineBookingSchedule.openingTime}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        availability: {
-                          ...formData.availability,
-                          onlineBookingSchedule: {
-                            ...formData.availability.onlineBookingSchedule,
-                            openingTime: e.target.value
-                          }
-                        }
-                      })}
-                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-indigo-200 dark:border-indigo-800 dark:bg-slate-800"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-indigo-900 dark:text-indigo-300 mb-1">
-                      Online Booking Closes (e.g. 02:00)
-                    </label>
-                    <input
-                      type="time"
-                      value={formData.availability.onlineBookingSchedule.closingTime}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        availability: {
-                          ...formData.availability,
-                          onlineBookingSchedule: {
-                            ...formData.availability.onlineBookingSchedule,
-                            closingTime: e.target.value
-                          }
-                        }
-                      })}
-                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-indigo-200 dark:border-indigo-800 dark:bg-slate-800"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Minimum Advance Booking Rule */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">
-                    Minimum Advance Booking Required:
-                  </label>
+              {/* Add Custom Amenity */}
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider mb-2">Add Custom Amenity</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                  <input
+                    type="text"
+                    placeholder="Amenity Name"
+                    value={customAmenity.name}
+                    onChange={(e) => setCustomAmenity({ ...customAmenity, name: e.target.value })}
+                    className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg bg-white"
+                  />
                   <select
-                    value={formData.availability.advanceBookingRule}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      pricing: { ...formData.pricing, advanceBookingRule: e.target.value },
-                      availability: { ...formData.availability, advanceBookingRule: e.target.value }
-                    })}
-                    className="px-3 py-1 text-xs rounded-lg border border-gray-300 dark:border-slate-700 font-bold bg-white dark:bg-slate-800"
+                    value={customAmenity.category}
+                    onChange={(e) => setCustomAmenity({ ...customAmenity, category: e.target.value })}
+                    className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg bg-white"
                   >
-                    {ALL_ADVANCE_RULES.map(r => (
-                      <option key={r} value={r}>{r}</option>
-                    ))}
+                    <option value="Basic Facilities">Basic Facilities</option>
+                    <option value="Meeting / Conference Facilities">Meeting / Conference Facilities</option>
+                    <option value="Event Facilities">Event Facilities</option>
+                    <option value="Food Facilities">Food Facilities</option>
                   </select>
+                  <select
+                    value={customAmenity.type}
+                    onChange={(e) => setCustomAmenity({ ...customAmenity, type: e.target.value })}
+                    className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg bg-white"
+                  >
+                    <option value="Included">Free / Included</option>
+                    <option value="Paid">Paid Extra</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!customAmenity.name.trim()) {
+                        toast.error('Please enter amenity name');
+                        return;
+                      }
+                      setFormData({
+                        ...formData,
+                        amenities: {
+                          ...formData.amenities,
+                          basic: [...formData.amenities.basic, { ...customAmenity }]
+                        }
+                      });
+                      setCustomAmenity({ name: '', category: 'Basic Facilities', type: 'Included', rate: 0, rateType: 'Fixed' });
+                      toast.success('Custom amenity added');
+                    }}
+                    className="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-xs font-bold"
+                  >
+                    + Add Amenity
+                  </button>
                 </div>
+              </div>
+            </div>
+          )}
 
-                <div className="space-y-2">
-                  <div className="flex flex-wrap gap-2">
-                    {ADVANCE_DAYS.map((rule) => (
-                      <button
-                        key={rule}
-                        type="button"
-                        onClick={() => setFormData({
-                          ...formData,
-                          pricing: { ...formData.pricing, advanceBookingRule: rule },
-                          availability: { ...formData.availability, advanceBookingRule: rule }
-                        })}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
-                          formData.availability.advanceBookingRule === rule
-                            ? 'bg-primary-500 border-primary-500 text-white shadow-sm'
-                            : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300 hover:border-primary-400'
-                        }`}
-                      >
-                        {rule}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {ADVANCE_WEEKS.map((rule) => (
-                      <button
-                        key={rule}
-                        type="button"
-                        onClick={() => setFormData({
-                          ...formData,
-                          pricing: { ...formData.pricing, advanceBookingRule: rule },
-                          availability: { ...formData.availability, advanceBookingRule: rule }
-                        })}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
-                          formData.availability.advanceBookingRule === rule
-                            ? 'bg-primary-500 border-primary-500 text-white shadow-sm'
-                            : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300 hover:border-primary-400'
-                        }`}
-                      >
-                        {rule}
-                      </button>
-                    ))}
-                  </div>
+          {/* TAB 4: CATERING FACILITY */}
+          {activeTab === 'catering' && (
+            <div className="space-y-4">
+              <div className="p-4 bg-amber-50/70 rounded-xl border border-amber-200">
+                <h4 className="text-xs font-bold text-amber-950 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Utensils className="w-4 h-4 text-amber-600" />
+                  Beverages Rates
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
+                  {(formData.amenities.beverages || []).map((bev, idx) => (
+                    <div key={idx} className="bg-white p-3 rounded-xl border border-amber-100 shadow-xs">
+                      <span className="font-bold text-xs text-gray-900 block mb-1">{bev.name}</span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs font-bold text-gray-500">₹</span>
+                        <input
+                          type="number"
+                          value={bev.ratePerUnit || 0}
+                          onChange={(e) => {
+                            const updated = [...(formData.amenities.beverages || [])];
+                            updated[idx] = { ...updated[idx], ratePerUnit: Number(e.target.value) || 0 };
+                            setFormData({ ...formData, amenities: { ...formData.amenities, beverages: updated } });
+                          }}
+                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded-lg font-bold text-amber-800"
+                        />
+                        <span className="text-[10px] text-gray-400">/unit</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              {/* Confirmation Hours */}
-              <div>
-                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">
-                  Maximum Time to Confirm Booking Request (Max 3 Hours):
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { value: 0.5, label: '30 Min' },
-                    { value: 1, label: '1 Hr' },
-                    { value: 2, label: '2 Hrs' },
-                    { value: 3, label: '3 Hrs' }
-                  ].map(({ value, label }) => (
-                    <button
-                      key={label}
-                      type="button"
-                      onClick={() => setFormData({
-                        ...formData,
-                        pricing: { ...formData.pricing, confirmationHours: value },
-                        availability: { ...formData.availability, confirmationHours: value }
-                      })}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
-                        formData.availability.confirmationHours === value
-                          ? 'bg-amber-500 border-amber-500 text-white shadow-sm'
-                          : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300 hover:border-amber-400'
-                      }`}
-                    >
-                      {label}
-                    </button>
+              {/* Refreshments */}
+              <div className="p-4 bg-orange-50/70 rounded-xl border border-orange-200">
+                <h4 className="text-xs font-bold text-orange-950 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Utensils className="w-4 h-4 text-orange-600" />
+                  Snacks & Breakfast Rates
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {(formData.amenities.refreshmentFood || []).map((food, idx) => (
+                    <div key={idx} className="bg-white p-3 rounded-xl border border-orange-100 shadow-xs flex items-center justify-between gap-3">
+                      <div>
+                        <span className="font-bold text-xs text-gray-900 block">{food.name}</span>
+                        <span className="text-[10px] text-gray-500">{food.items}</span>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <span className="text-xs font-bold text-gray-500">₹</span>
+                        <input
+                          type="number"
+                          value={food.ratePerPlate || 0}
+                          onChange={(e) => {
+                            const updated = [...(formData.amenities.refreshmentFood || [])];
+                            updated[idx] = { ...updated[idx], ratePerPlate: Number(e.target.value) || 0 };
+                            setFormData({ ...formData, amenities: { ...formData.amenities, refreshmentFood: updated } });
+                          }}
+                          className="w-20 px-2 py-1 text-xs border border-gray-300 rounded-lg font-bold text-orange-700"
+                        />
+                        <span className="text-[10px] text-gray-400">/plate</span>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
             </div>
           )}
 
-          {/* TAB 5: AMENITIES */}
-          {activeTab === 'amenities' && (
-            <div className="space-y-6 animate-in fade-in duration-150">
-              <div>
-                <h4 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <Wifi className="w-4 h-4 text-primary-600" />
-                  Basic Amenities
+          {/* TAB 5: ADDITIONAL FACILITIES */}
+          {activeTab === 'facilities' && (
+            <div className="space-y-4">
+              <div className="p-4 bg-emerald-50/70 rounded-xl border border-emerald-200">
+                <h4 className="text-xs font-bold text-emerald-950 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Layers className="w-4 h-4 text-emerald-600" />
+                  Additional Facilities & Event Services
                 </h4>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                  {BASIC_AMENITIES.map((amenity) => {
-                    const isChecked = formData.amenities.basic?.includes(amenity);
-                    return (
-                      <button
-                        key={amenity}
-                        type="button"
-                        onClick={() => toggleAmenity('basic', amenity)}
-                        className={`p-3 rounded-xl text-xs font-semibold text-left transition-all border flex items-center justify-between ${
-                          isChecked
-                            ? 'bg-primary-50 dark:bg-primary-950/40 border-primary-500 text-primary-700 dark:text-primary-300'
-                            : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300'
-                        }`}
-                      >
-                        <span>{amenity}</span>
-                        {isChecked && <Check className="w-4 h-4 text-primary-600" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-emerald-600" />
-                  Additional Facilities & Safety
-                </h4>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                  {ADDITIONAL_FACILITIES.map((facility) => {
-                    const isChecked = formData.amenities.additional?.includes(facility);
-                    return (
-                      <button
-                        key={facility}
-                        type="button"
-                        onClick={() => toggleAmenity('additional', facility)}
-                        className={`p-3 rounded-xl text-xs font-semibold text-left transition-all border flex items-center justify-between ${
-                          isChecked
-                            ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 text-emerald-700 dark:text-emerald-300'
-                            : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300'
-                        }`}
-                      >
-                        <span>{facility}</span>
-                        {isChecked && <Check className="w-4 h-4 text-emerald-600" />}
-                      </button>
-                    );
-                  })}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {(formData.additionalFacilities || []).map((fac, idx) => (
+                    <div key={idx} className="bg-white p-3 rounded-xl border border-emerald-100 shadow-xs">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-xs text-gray-900">{fac.name}</span>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={fac.available || false}
+                            onChange={(e) => {
+                              const updated = [...(formData.additionalFacilities || [])];
+                              updated[idx] = { ...updated[idx], available: e.target.checked };
+                              setFormData({ ...formData, additionalFacilities: updated });
+                            }}
+                            className="sr-only peer"
+                          />
+                          <div className="w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-emerald-600"></div>
+                        </label>
+                      </div>
+                      <p className="text-[11px] text-gray-500 mb-2">{fac.description}</p>
+                      {fac.available && (
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={fac.type || 'Paid'}
+                            onChange={(e) => {
+                              const updated = [...(formData.additionalFacilities || [])];
+                              updated[idx] = { ...updated[idx], type: e.target.value };
+                              setFormData({ ...formData, additionalFacilities: updated });
+                            }}
+                            className="px-2 py-1 text-xs border border-gray-300 rounded-lg bg-white"
+                          >
+                            <option value="Included">Included</option>
+                            <option value="Paid">Paid Extra</option>
+                          </select>
+                          {fac.type === 'Paid' && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs font-bold text-gray-500">₹</span>
+                              <input
+                                type="number"
+                                value={fac.charges || 0}
+                                onChange={(e) => {
+                                  const updated = [...(formData.additionalFacilities || [])];
+                                  updated[idx] = { ...updated[idx], charges: Number(e.target.value) || 0 };
+                                  setFormData({ ...formData, additionalFacilities: updated });
+                                }}
+                                className="w-24 px-2 py-1 text-xs border border-gray-300 rounded-lg font-bold text-emerald-800"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
           )}
 
-          {/* TAB 6: OWNER & AUTHORISED PERSON */}
-          {activeTab === 'contacts' && (
-            <div className="space-y-6 animate-in fade-in duration-150">
-              {/* Owner Info */}
-              <div className="p-4 bg-gray-50 dark:bg-slate-800/60 rounded-xl border border-gray-200 dark:border-slate-700">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                    <UserCheck className="w-4 h-4 text-primary-600" />
-                    Venue Owner Details
-                  </h4>
-                  <button
-                    type="button"
-                    onClick={copyOwnerToAuthorised}
-                    className="text-xs text-primary-600 hover:text-primary-700 font-bold underline"
-                  >
-                    Copy to Authorised Person
-                  </button>
+          {/* TAB 6: PRICING & TAXES */}
+          {activeTab === 'pricing' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Per Hour */}
+                <div className="p-4 bg-blue-50/70 rounded-xl border border-blue-200">
+                  <h4 className="text-xs font-bold text-blue-950 uppercase mb-2">Hourly Rent (₹)</h4>
+                  <div className="space-y-2 text-xs">
+                    <div>
+                      <label className="text-gray-500 block mb-0.5">Weekday Rate / hr</label>
+                      <input
+                        type="number"
+                        value={formData.pricing.perHour?.weekday || 0}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          pricing: { ...formData.pricing, perHour: { ...formData.pricing.perHour, weekday: Number(e.target.value) || 0 } }
+                        })}
+                        className="w-full px-2.5 py-1.5 border border-blue-200 rounded-lg font-bold text-blue-900 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-gray-500 block mb-0.5">Weekend Rate / hr</label>
+                      <input
+                        type="number"
+                        value={formData.pricing.perHour?.weekend || 0}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          pricing: { ...formData.pricing, perHour: { ...formData.pricing.perHour, weekend: Number(e.target.value) || 0 } }
+                        })}
+                        className="w-full px-2.5 py-1.5 border border-blue-200 rounded-lg font-bold text-blue-900 bg-white"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                      Owner Full Name *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.ownerInfo.fullName}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        ownerInfo: { ...formData.ownerInfo, fullName: e.target.value }
-                      })}
-                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800"
-                    />
+
+                {/* Half Day */}
+                <div className="p-4 bg-emerald-50/70 rounded-xl border border-emerald-200">
+                  <h4 className="text-xs font-bold text-emerald-950 uppercase mb-2">Half Day (4 hrs)</h4>
+                  <div className="space-y-2 text-xs">
+                    <div>
+                      <label className="text-gray-500 block mb-0.5">Weekday (4 hrs)</label>
+                      <input
+                        type="number"
+                        value={formData.pricing.halfDay?.weekday || 0}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          pricing: { ...formData.pricing, halfDay: { ...formData.pricing.halfDay, weekday: Number(e.target.value) || 0 } }
+                        })}
+                        className="w-full px-2.5 py-1.5 border border-emerald-200 rounded-lg font-bold text-emerald-900 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-gray-500 block mb-0.5">Weekend (4 hrs)</label>
+                      <input
+                        type="number"
+                        value={formData.pricing.halfDay?.weekend || 0}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          pricing: { ...formData.pricing, halfDay: { ...formData.pricing.halfDay, weekend: Number(e.target.value) || 0 } }
+                        })}
+                        className="w-full px-2.5 py-1.5 border border-emerald-200 rounded-lg font-bold text-emerald-900 bg-white"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                      Owner Email *
-                    </label>
-                    <input
-                      type="email"
-                      value={formData.ownerInfo.email}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        ownerInfo: { ...formData.ownerInfo, email: e.target.value }
-                      })}
-                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                      Owner Mobile *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.ownerInfo.mobile}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        ownerInfo: { ...formData.ownerInfo, mobile: e.target.value }
-                      })}
-                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                      Alternate Mobile
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.ownerInfo.alternatePhone}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        ownerInfo: { ...formData.ownerInfo, alternatePhone: e.target.value }
-                      })}
-                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800"
-                    />
+                </div>
+
+                {/* Full Day */}
+                <div className="p-4 bg-purple-50/70 rounded-xl border border-purple-200">
+                  <h4 className="text-xs font-bold text-purple-950 uppercase mb-2">Full Day (8+ hrs)</h4>
+                  <div className="space-y-2 text-xs">
+                    <div>
+                      <label className="text-gray-500 block mb-0.5">Weekday Full Day</label>
+                      <input
+                        type="number"
+                        value={formData.pricing.fullDay?.weekday || 0}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          pricing: { ...formData.pricing, fullDay: { ...formData.pricing.fullDay, weekday: Number(e.target.value) || 0 } }
+                        })}
+                        className="w-full px-2.5 py-1.5 border border-purple-200 rounded-lg font-bold text-purple-900 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-gray-500 block mb-0.5">Weekend Full Day</label>
+                      <input
+                        type="number"
+                        value={formData.pricing.fullDay?.weekend || 0}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          pricing: { ...formData.pricing, fullDay: { ...formData.pricing.fullDay, weekend: Number(e.target.value) || 0 } }
+                        })}
+                        className="w-full px-2.5 py-1.5 border border-purple-200 rounded-lg font-bold text-purple-900 bg-white"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Authorised Person */}
-              <div className="p-4 bg-blue-50/60 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-800">
-                <h4 className="text-xs font-bold text-blue-950 dark:text-blue-200 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-blue-600" />
-                  Booking Authorised Person (For Booking & Coordination)
+              {/* Taxes & GST Configuration */}
+              <div className="p-4 bg-teal-50/70 rounded-xl border border-teal-200">
+                <h4 className="text-xs font-bold text-teal-950 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <CreditCard className="w-4 h-4 text-teal-600" />
+                  Taxes & GST Configuration
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                   <div>
-                    <label className="block text-xs font-semibold text-blue-900 dark:text-blue-300 mb-1">
-                      Authorised Person Name *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.ownerInfo.authorisedPerson?.fullName || ''}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        ownerInfo: {
-                          ...formData.ownerInfo,
-                          authorisedPerson: {
-                            ...formData.ownerInfo.authorisedPerson,
-                            fullName: e.target.value,
-                            name: e.target.value
-                          }
-                        }
-                      })}
-                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-blue-200 dark:border-blue-800 dark:bg-slate-800"
-                      placeholder="Operational Manager"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-blue-900 dark:text-blue-300 mb-1">
-                      Designation / Role Dropdown *
-                    </label>
+                    <label className="text-gray-600 block mb-1 font-semibold">GST Application Mode</label>
                     <select
-                      value={formData.ownerInfo.authorisedPerson?.designation || 'Venue Owner / Proprietor'}
+                      value={formData.taxSettings.gstType}
                       onChange={(e) => setFormData({
                         ...formData,
-                        ownerInfo: {
-                          ...formData.ownerInfo,
-                          authorisedPerson: {
-                            ...formData.ownerInfo.authorisedPerson,
-                            designation: e.target.value,
-                            role: e.target.value
-                          }
-                        }
+                        taxSettings: { ...formData.taxSettings, gstType: e.target.value }
                       })}
-                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-blue-200 dark:border-blue-800 dark:bg-slate-800 font-semibold"
+                      className="w-full px-3 py-2 text-xs border border-teal-200 rounded-lg bg-white"
                     >
-                      <option value="Venue Owner / Proprietor">Venue Owner / Proprietor</option>
-                      <option value="General Manager / Director">General Manager / Director</option>
-                      <option value="Booking & Sales Manager">Booking & Sales Manager</option>
-                      <option value="Operations Coordinator">Operations Coordinator</option>
-                      <option value="Authorised Representative">Authorised Representative</option>
+                      <option value="Not Applicable">Not Applicable / Exempted</option>
+                      <option value="Included (Inclusive)">Included in price (Inclusive)</option>
+                      <option value="Extra (Exclusive)">Extra Charge (Exclusive)</option>
                     </select>
                   </div>
+
                   <div>
-                    <label className="block text-xs font-semibold text-blue-900 dark:text-blue-300 mb-1">
-                      Authorised Mobile *
-                    </label>
+                    <label className="text-gray-600 block mb-1 font-semibold">GST Rate (%)</label>
                     <input
-                      type="text"
-                      value={formData.ownerInfo.authorisedPerson?.mobile || ''}
+                      type="number"
+                      value={formData.taxSettings.gstRate}
                       onChange={(e) => setFormData({
                         ...formData,
-                        ownerInfo: {
-                          ...formData.ownerInfo,
-                          authorisedPerson: {
-                            ...formData.ownerInfo.authorisedPerson,
-                            mobile: e.target.value,
-                            phone: e.target.value
-                          }
-                        }
+                        taxSettings: { ...formData.taxSettings, gstRate: Number(e.target.value) || 0 }
                       })}
-                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-blue-200 dark:border-blue-800 dark:bg-slate-800"
+                      className="w-full px-3 py-2 text-xs border border-teal-200 rounded-lg bg-white font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-gray-600 block mb-1 font-semibold">GSTIN Registration Number</label>
+                    <input
+                      type="text"
+                      value={formData.taxSettings.gstin}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        taxSettings: { ...formData.taxSettings, gstin: e.target.value }
+                      })}
+                      className="w-full px-3 py-2 text-xs border border-teal-200 rounded-lg bg-white font-mono uppercase"
+                      placeholder="15-digit GSTIN"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Custom Admin Platform Fee & GST Overrides */}
+              <div className="p-4 bg-slate-100 rounded-xl border border-slate-300">
+                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Shield className="w-4 h-4 text-slate-700" />
+                  Admin Custom Fee & GST Overrides (Per-Venue)
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                  {/* Custom Platform Fee */}
+                  <div className="bg-white p-3 rounded-lg border border-slate-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-bold text-gray-800">Custom Platform Fee</span>
+                      <input
+                        type="checkbox"
+                        checked={formData.customPlatformFee.enabled}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          customPlatformFee: { ...formData.customPlatformFee, enabled: e.target.checked }
+                        })}
+                        className="rounded text-primary-600 focus:ring-primary-500"
+                      />
+                    </div>
+                    {formData.customPlatformFee.enabled && (
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        <select
+                          value={formData.customPlatformFee.feeType}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            customPlatformFee: { ...formData.customPlatformFee, feeType: e.target.value }
+                          })}
+                          className="px-2 py-1 text-xs border rounded"
+                        >
+                          <option value="percentage">Percentage (%)</option>
+                          <option value="fixed">Fixed (₹)</option>
+                        </select>
+                        <input
+                          type="number"
+                          value={formData.customPlatformFee.feeValue}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            customPlatformFee: { ...formData.customPlatformFee, feeValue: Number(e.target.value) || 0 }
+                          })}
+                          className="px-2 py-1 text-xs border rounded font-bold"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Custom GST */}
+                  <div className="bg-white p-3 rounded-lg border border-slate-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-bold text-gray-800">Custom GST Override</span>
+                      <input
+                        type="checkbox"
+                        checked={formData.customGST.enabled}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          customGST: { ...formData.customGST, enabled: e.target.checked }
+                        })}
+                        className="rounded text-primary-600 focus:ring-primary-500"
+                      />
+                    </div>
+                    {formData.customGST.enabled && (
+                      <div className="grid grid-cols-3 gap-2 mt-2">
+                        <div>
+                          <span className="text-[10px] text-gray-400 block">CGST %</span>
+                          <input
+                            type="number"
+                            value={formData.customGST.cgstRate}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              customGST: { ...formData.customGST, cgstRate: Number(e.target.value) || 0 }
+                            })}
+                            className="w-full px-2 py-1 text-xs border rounded"
+                          />
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-gray-400 block">SGST %</span>
+                          <input
+                            type="number"
+                            value={formData.customGST.sgstRate}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              customGST: { ...formData.customGST, sgstRate: Number(e.target.value) || 0 }
+                            })}
+                            className="w-full px-2 py-1 text-xs border rounded"
+                          />
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-gray-400 block">HSN</span>
+                          <input
+                            type="text"
+                            value={formData.customGST.hsnCode}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              customGST: { ...formData.customGST, hsnCode: e.target.value }
+                            })}
+                            className="w-full px-2 py-1 text-xs border rounded"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 7: PHOTOS & GALLERY */}
+          {activeTab === 'photos' && (
+            <div className="space-y-4">
+              {/* Upload control */}
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-gray-700">Target Photo Category:</span>
+                  <select
+                    value={uploadPhotoCategory}
+                    onChange={(e) => setUploadPhotoCategory(e.target.value)}
+                    className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg bg-white"
+                  >
+                    {PHOTO_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+
+                <label className={`px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer shadow-sm transition-colors ${uploadingImages ? 'opacity-50 pointer-events-none' : ''}`}>
+                  {uploadingImages ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  <span>{uploadingImages ? 'Uploading...' : 'Upload Photos'}</span>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleImageFilesUpload}
+                    className="hidden"
+                    disabled={uploadingImages}
+                  />
+                </label>
+              </div>
+
+              {/* Photos Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {(formData.images || []).map((img, idx) => (
+                  <div key={idx} className="relative group rounded-xl overflow-hidden border border-gray-200 shadow-xs bg-slate-100">
+                    <img
+                      src={img.url}
+                      alt={`Photo ${idx + 1}`}
+                      className="w-full h-32 object-cover"
+                    />
+                    <div className="absolute top-1.5 left-1.5">
+                      <span className="bg-black/70 text-white text-[10px] px-2 py-0.5 rounded font-bold">
+                        {img.category || 'Photo'}
+                      </span>
+                    </div>
+
+                    {img.isFeatured && (
+                      <span className="absolute top-1.5 right-1.5 bg-yellow-500 text-white text-[10px] px-2 py-0.5 rounded font-bold shadow-xs">
+                        ⭐ Cover
+                      </span>
+                    )}
+
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      {!img.isFeatured && (
+                        <button
+                          type="button"
+                          onClick={() => handleSetFeaturedImage(idx)}
+                          className="p-1.5 bg-yellow-500 text-white rounded-lg text-xs font-bold"
+                          title="Set as Featured Cover"
+                        >
+                          <Star className="w-4 h-4" />
+                        </button>
+                      )}
+                      <a
+                        href={img.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-1.5 bg-white text-gray-800 rounded-lg text-xs font-bold"
+                        title="View Full Photo"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage(idx)}
+                        className="p-1.5 bg-rose-600 text-white rounded-lg text-xs font-bold"
+                        title="Delete Photo"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 8: SOCIAL PAGES & LINKS */}
+          {activeTab === 'social' && (
+            <div className="space-y-4">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Globe className="w-4 h-4 text-primary-600" />
+                  Social Media Profiles & 360 Virtual Tour
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="text-gray-700 font-semibold block mb-1">Official Website URL</label>
+                    <input
+                      type="url"
+                      value={formData.socialLinks.website}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        socialLinks: { ...formData.socialLinks, website: e.target.value }
+                      })}
+                      className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg bg-white"
+                      placeholder="https://venue.com"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-blue-900 dark:text-blue-300 mb-1">
-                      Authorised Alternate Mobile
-                    </label>
+                    <label className="text-gray-700 font-semibold block mb-1">360° Virtual Tour Link</label>
                     <input
-                      type="text"
-                      value={formData.ownerInfo.authorisedPerson?.alternatePhone || ''}
+                      type="url"
+                      value={formData.socialLinks.virtualTour}
                       onChange={(e) => setFormData({
                         ...formData,
-                        ownerInfo: {
-                          ...formData.ownerInfo,
-                          authorisedPerson: {
-                            ...formData.ownerInfo.authorisedPerson,
-                            alternatePhone: e.target.value
-                          }
-                        }
+                        socialLinks: { ...formData.socialLinks, virtualTour: e.target.value }
                       })}
-                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-blue-200 dark:border-blue-800 dark:bg-slate-800"
+                      className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg bg-white"
+                      placeholder="https://my.matterport.com/..."
                     />
                   </div>
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-blue-900 dark:text-blue-300 mb-1">
-                      Authorised Email
-                    </label>
+                  <div>
+                    <label className="text-gray-700 font-semibold block mb-1">Instagram Profile</label>
                     <input
-                      type="email"
-                      value={formData.ownerInfo.authorisedPerson?.email || ''}
+                      type="text"
+                      value={formData.socialLinks.instagram}
                       onChange={(e) => setFormData({
                         ...formData,
-                        ownerInfo: {
-                          ...formData.ownerInfo,
-                          authorisedPerson: {
-                            ...formData.ownerInfo.authorisedPerson,
-                            email: e.target.value
-                          }
-                        }
+                        socialLinks: { ...formData.socialLinks, instagram: e.target.value }
                       })}
-                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-blue-200 dark:border-blue-800 dark:bg-slate-800"
+                      className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg bg-white"
+                      placeholder="https://instagram.com/venue"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-gray-700 font-semibold block mb-1">Facebook Page</label>
+                    <input
+                      type="text"
+                      value={formData.socialLinks.facebook}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        socialLinks: { ...formData.socialLinks, facebook: e.target.value }
+                      })}
+                      className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg bg-white"
+                      placeholder="https://facebook.com/venue"
                     />
                   </div>
                 </div>
@@ -1982,24 +2045,21 @@ export default function AdminVenueQuickEditModal({
             </div>
           )}
 
-          {/* TAB 7: DOCUMENTS & PROOFS */}
+          {/* TAB 9: DOCUMENTS & PROOFS */}
           {activeTab === 'documents' && (
-            <div className="space-y-6 animate-in fade-in duration-150">
-              {/* ID Proofs (Aadhaar & PAN) */}
-              <div className="p-4 bg-gray-50 dark:bg-slate-800/60 rounded-xl border border-gray-200 dark:border-slate-700">
-                <h4 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <UserCheck className="w-4 h-4 text-purple-600" />
-                  Authorised Person / Owner ID Proofs & Selfie
+            <div className="space-y-4">
+              {/* 1. Authorised ID Proofs */}
+              <div className="p-4 bg-blue-50/70 rounded-xl border border-blue-200">
+                <h4 className="text-xs font-bold text-blue-950 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <FileCheck className="w-4 h-4 text-blue-600" />
+                  1. Authorised Person ID Proofs (Aadhaar & PAN)
                 </h4>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                      Aadhaar Number
-                    </label>
+                    <label className="text-gray-700 font-semibold block mb-1">Aadhaar Number</label>
                     <input
                       type="text"
-                      value={formData.documents.idProof?.aadhaarNumber || ''}
+                      value={formData.documents.idProof?.aadhaarNumber || formData.documents.idProof?.number || ''}
                       onChange={(e) => setFormData({
                         ...formData,
                         documents: {
@@ -2007,14 +2067,11 @@ export default function AdminVenueQuickEditModal({
                           idProof: { ...formData.documents.idProof, aadhaarNumber: e.target.value, number: e.target.value }
                         }
                       })}
-                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800 font-mono font-semibold"
-                      placeholder="XXXX XXXX XXXX"
+                      className="w-full px-3 py-2 text-xs border border-blue-200 rounded-lg bg-white font-mono font-bold"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                      PAN Card Number
-                    </label>
+                    <label className="text-gray-700 font-semibold block mb-1">PAN Card Number</label>
                     <input
                       type="text"
                       value={formData.documents.idProof?.panNumber || ''}
@@ -2025,85 +2082,23 @@ export default function AdminVenueQuickEditModal({
                           idProof: { ...formData.documents.idProof, panNumber: e.target.value.toUpperCase() }
                         }
                       })}
-                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800 uppercase font-mono font-bold"
-                      placeholder="ABCDE1234F"
+                      className="w-full px-3 py-2 text-xs border border-blue-200 rounded-lg bg-white font-mono font-bold uppercase"
                     />
                   </div>
                 </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Aadhaar Front */}
-                  {renderDocUploadCard({
-                    title: 'Aadhaar Card (Front)',
-                    docUrl: formData.documents.idProof?.aadhaarFrontUrl,
-                    docKey: 'aadhaarFront',
-                    onUrlChange: (url) => setFormData(prev => ({
-                      ...prev,
-                      documents: {
-                        ...prev.documents,
-                        idProof: { ...prev.documents.idProof, aadhaarFrontUrl: url }
-                      }
-                    })),
-                    theme: 'purple'
-                  })}
-
-                  {/* Aadhaar Back */}
-                  {renderDocUploadCard({
-                    title: 'Aadhaar Card (Back)',
-                    docUrl: formData.documents.idProof?.aadhaarBackUrl,
-                    docKey: 'aadhaarBack',
-                    onUrlChange: (url) => setFormData(prev => ({
-                      ...prev,
-                      documents: {
-                        ...prev.documents,
-                        idProof: { ...prev.documents.idProof, aadhaarBackUrl: url }
-                      }
-                    })),
-                    theme: 'purple'
-                  })}
-
-                  {/* PAN Card */}
-                  {renderDocUploadCard({
-                    title: 'PAN Card Document',
-                    docUrl: formData.documents.idProof?.panUrl,
-                    docKey: 'panDoc',
-                    onUrlChange: (url) => setFormData(prev => ({
-                      ...prev,
-                      documents: {
-                        ...prev.documents,
-                        idProof: { ...prev.documents.idProof, panUrl: url }
-                      }
-                    })),
-                    theme: 'purple'
-                  })}
-
-                  {/* Owner Selfie */}
-                  {renderDocUploadCard({
-                    title: 'Owner Selfie Photo',
-                    docUrl: formData.documents.selfieUrl,
-                    docKey: 'selfie',
-                    onUrlChange: (url) => setFormData(prev => ({
-                      ...prev,
-                      documents: { ...prev.documents, selfieUrl: url }
-                    })),
-                    theme: 'purple'
-                  })}
-                </div>
               </div>
 
-              {/* Business Documentation */}
-              <div className="p-4 bg-emerald-50/60 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-800">
-                <h4 className="text-xs font-bold text-emerald-950 dark:text-emerald-200 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-emerald-600" />
-                  Business Documentation & Proofs
+              {/* 2. Business Documentation Proof */}
+              <div className="p-4 bg-emerald-50/70 rounded-xl border border-emerald-200">
+                <h4 className="text-xs font-bold text-emerald-950 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <FileText className="w-4 h-4 text-emerald-600" />
+                  2. Business Proof Document
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   <div>
-                    <label className="block text-xs font-semibold text-emerald-900 dark:text-emerald-300 mb-1">
-                      Business Document Type Dropdown *
-                    </label>
+                    <label className="text-gray-700 font-semibold block mb-1">Proof Type</label>
                     <select
-                      value={formData.documents.businessProof?.type || 'Udyam Aadhaar (MSME)'}
+                      value={formData.documents.businessProof?.type}
                       onChange={(e) => setFormData({
                         ...formData,
                         documents: {
@@ -2111,430 +2106,537 @@ export default function AdminVenueQuickEditModal({
                           businessProof: { ...formData.documents.businessProof, type: e.target.value }
                         }
                       })}
-                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-emerald-200 dark:border-emerald-800 dark:bg-slate-800 font-semibold"
+                      className="w-full px-3 py-2 text-xs border border-emerald-200 rounded-lg bg-white"
                     >
-                      {BUSINESS_PROOF_TYPES.map((b) => (
-                        <option key={b} value={b}>{b}</option>
-                      ))}
+                      {BUSINESS_PROOF_TYPES.map(b => <option key={b} value={b}>{b}</option>)}
                     </select>
                   </div>
-
-                  {formData.documents.businessProof?.type === 'Other' && (
-                    <div>
-                      <label className="block text-xs font-semibold text-emerald-900 dark:text-emerald-300 mb-1">
-                        Specify Other Document
-                      </label>
+                  <div>
+                    <label className="text-gray-700 font-semibold block mb-1">Upload / Replace Business Doc</label>
+                    <label className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{formData.documents.businessProof?.documentUrl ? 'Replace Document' : 'Upload Document'}</span>
                       <input
-                        type="text"
-                        value={formData.documents.businessProof?.otherSpecify || ''}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          documents: {
-                            ...formData.documents,
-                            businessProof: { ...formData.documents.businessProof, otherSpecify: e.target.value }
-                          }
+                        type="file"
+                        accept="image/*,application/pdf"
+                        onChange={(e) => handleDocFileUpload(e.target.files?.[0], 'businessProof', (url) => {
+                          setFormData(prev => ({
+                            ...prev,
+                            documents: {
+                              ...prev.documents,
+                              businessProof: { ...prev.documents.businessProof, documentUrl: url }
+                            }
+                          }));
                         })}
-                        className="w-full px-3.5 py-2 text-sm rounded-xl border border-emerald-200 dark:border-emerald-800 dark:bg-slate-800"
-                        placeholder="e.g. Gram Panchayat NOC"
+                        className="hidden"
                       />
-                    </div>
-                  )}
-
-                  <div className="sm:col-span-2">
-                    {renderDocUploadCard({
-                      title: `Business Proof (${formData.documents.businessProof?.type || 'Document'})`,
-                      docUrl: formData.documents.businessProof?.documentUrl || formData.documents.businessProof?.url,
-                      docKey: 'bizProof',
-                      onUrlChange: (url) => setFormData(prev => ({
-                        ...prev,
-                        documents: {
-                          ...prev.documents,
-                          businessProof: {
-                            ...prev.documents.businessProof,
-                            documentUrl: url,
-                            url: url
-                          }
-                        }
-                      })),
-                      theme: 'emerald'
-                    })}
-                  </div>
-                </div>
-
-                {/* GST Section */}
-                <div className="pt-3 border-t border-emerald-200 dark:border-emerald-800/80">
-                  <div className="flex items-center gap-2 mb-3">
-                    <input
-                      type="checkbox"
-                      id="editHasGST"
-                      checked={formData.documents.hasGST}
-                      onChange={(e) => {
-                        const val = e.target.checked;
-                        setFormData({
-                          ...formData,
-                          documents: { ...formData.documents, hasGST: val },
-                          ownerInfo: { ...formData.ownerInfo, hasGST: val }
-                        });
-                      }}
-                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <label htmlFor="editHasGST" className="text-xs font-bold text-emerald-900 dark:text-emerald-200 cursor-pointer">
-                      Venue has GST Registration
                     </label>
                   </div>
-
-                  {formData.documents.hasGST && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-semibold text-emerald-900 dark:text-emerald-300 mb-1">
-                          GST Number
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.documents.gstNumber || ''}
-                          onChange={(e) => {
-                            const val = e.target.value.toUpperCase();
-                            setFormData({
-                              ...formData,
-                              documents: { ...formData.documents, gstNumber: val },
-                              ownerInfo: { ...formData.ownerInfo, gstNumber: val }
-                            });
-                          }}
-                          className="w-full px-3.5 py-2 text-sm rounded-xl border border-emerald-200 dark:border-emerald-800 dark:bg-slate-800 uppercase font-mono font-bold"
-                          placeholder="22AAAAA0000A1Z5"
-                        />
-                      </div>
-                      <div>
-                        {renderDocUploadCard({
-                          title: 'GST Certificate Document',
-                          docUrl: formData.documents.gstDocUrl,
-                          docKey: 'gstCert',
-                          onUrlChange: (url) => setFormData(prev => ({
-                            ...prev,
-                            documents: { ...prev.documents, gstDocUrl: url }
-                          })),
-                          theme: 'emerald'
-                        })}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
 
-              {/* Fire NOC & FSSAI */}
-              <div className="p-4 bg-orange-50/60 dark:bg-orange-950/30 rounded-xl border border-orange-200 dark:border-orange-800">
-                <h4 className="text-xs font-bold text-orange-950 dark:text-orange-200 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <FileCheck className="w-4 h-4 text-orange-600" />
-                  Safety & Compliance Certificates (Fire NOC & FSSAI)
+              {/* 3. Property Documentation Proof */}
+              <div className="p-4 bg-indigo-50/70 rounded-xl border border-indigo-200">
+                <h4 className="text-xs font-bold text-indigo-950 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Building2 className="w-4 h-4 text-indigo-600" />
+                  3. Property Proof Document
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Fire NOC */}
-                  {renderDocUploadCard({
-                    title: 'Fire NOC Certificate',
-                    docUrl: formData.documents.fireNOC?.url,
-                    docKey: 'fireNOC',
-                    onUrlChange: (url) => setFormData(prev => ({
-                      ...prev,
-                      documents: {
-                        ...prev.documents,
-                        fireNOC: { ...prev.documents.fireNOC, url }
-                      }
-                    })),
-                    badgeOptional: true,
-                    theme: 'orange'
-                  })}
-
-                  {/* FSSAI */}
-                  {renderDocUploadCard({
-                    title: 'FSSAI Certificate',
-                    docUrl: formData.documents.fssai?.url,
-                    docKey: 'fssai',
-                    onUrlChange: (url) => setFormData(prev => ({
-                      ...prev,
-                      documents: {
-                        ...prev.documents,
-                        fssai: { ...prev.documents.fssai, url }
-                      }
-                    })),
-                    badgeOptional: true,
-                    theme: 'orange'
-                  })}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="text-gray-700 font-semibold block mb-1">Property Proof Type</label>
+                    <select
+                      value={formData.documents.propertyProof?.type}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        documents: {
+                          ...formData.documents,
+                          propertyProof: { ...formData.documents.propertyProof, type: e.target.value }
+                        }
+                      })}
+                      className="w-full px-3 py-2 text-xs border border-indigo-200 rounded-lg bg-white"
+                    >
+                      {PROPERTY_PROOF_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-gray-700 font-semibold block mb-1">Upload / Replace Property Doc</label>
+                    <label className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{formData.documents.propertyProof?.documentUrl ? 'Replace Document' : 'Upload Document'}</span>
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        onChange={(e) => handleDocFileUpload(e.target.files?.[0], 'propertyProof', (url) => {
+                          setFormData(prev => ({
+                            ...prev,
+                            documents: {
+                              ...prev.documents,
+                              propertyProof: { ...prev.documents.propertyProof, documentUrl: url }
+                            }
+                          }));
+                        })}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
 
-          {/* TAB 8: BANK ACCOUNT DETAILS */}
-          {activeTab === 'bank' && (
-            <div className="space-y-6 animate-in fade-in duration-150">
-              <div className="p-4 bg-gray-50 dark:bg-slate-800/60 rounded-xl border border-gray-200 dark:border-slate-700">
-                <h4 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-3 flex items-center gap-2">
+              {/* Bank Account Details */}
+              <div className="p-4 bg-emerald-50/70 rounded-xl border border-emerald-200">
+                <h4 className="text-xs font-bold text-emerald-950 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                   <CreditCard className="w-4 h-4 text-emerald-600" />
                   Payout Bank Account Details
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                      Account Holder Name
-                    </label>
+                    <label className="text-gray-700 font-semibold block mb-1">Account Holder Name</label>
                     <input
                       type="text"
                       value={formData.bankDetails.accountHolderName}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        bankDetails: { ...formData.bankDetails, accountHolderName: e.target.value }
-                      })}
-                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800 font-semibold"
+                      onChange={(e) => setFormData({ ...formData, bankDetails: { ...formData.bankDetails, accountHolderName: e.target.value } })}
+                      className="w-full px-3 py-2 text-xs border border-emerald-200 rounded-lg bg-white font-bold"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                      Account Type Dropdown
-                    </label>
+                    <label className="text-gray-700 font-semibold block mb-1">Account Number</label>
+                    <input
+                      type="text"
+                      value={formData.bankDetails.accountNumber}
+                      onChange={(e) => setFormData({ ...formData, bankDetails: { ...formData.bankDetails, accountNumber: e.target.value } })}
+                      className="w-full px-3 py-2 text-xs border border-emerald-200 rounded-lg bg-white font-mono font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-gray-700 font-semibold block mb-1">IFSC Code</label>
+                    <input
+                      type="text"
+                      value={formData.bankDetails.ifscCode}
+                      onChange={(e) => setFormData({ ...formData, bankDetails: { ...formData.bankDetails, ifscCode: e.target.value.toUpperCase() } })}
+                      className="w-full px-3 py-2 text-xs border border-emerald-200 rounded-lg bg-white font-mono font-bold uppercase"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-gray-700 font-semibold block mb-1">Bank Name</label>
+                    <input
+                      type="text"
+                      value={formData.bankDetails.bankName}
+                      onChange={(e) => setFormData({ ...formData, bankDetails: { ...formData.bankDetails, bankName: e.target.value } })}
+                      className="w-full px-3 py-2 text-xs border border-emerald-200 rounded-lg bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-gray-700 font-semibold block mb-1">Branch Name</label>
+                    <input
+                      type="text"
+                      value={formData.bankDetails.branchName}
+                      onChange={(e) => setFormData({ ...formData, bankDetails: { ...formData.bankDetails, branchName: e.target.value } })}
+                      className="w-full px-3 py-2 text-xs border border-emerald-200 rounded-lg bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-gray-700 font-semibold block mb-1">Account Type</label>
                     <select
                       value={formData.bankDetails.accountType}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        bankDetails: { ...formData.bankDetails, accountType: e.target.value }
-                      })}
-                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800 font-semibold"
+                      onChange={(e) => setFormData({ ...formData, bankDetails: { ...formData.bankDetails, accountType: e.target.value } })}
+                      className="w-full px-3 py-2 text-xs border border-emerald-200 rounded-lg bg-white font-bold text-emerald-900"
                     >
                       <option value="Current">Current Account</option>
                       <option value="Savings">Savings Account</option>
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                      Account Number
-                    </label>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 10: RULES & TERMS */}
+          {activeTab === 'terms' && (
+            <div className="space-y-4">
+              {/* Rules & Policies */}
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-primary-600" />
+                  Venue Rules & Guest Guidelines
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs mb-3">
+                  <label className="flex items-center gap-2 p-2.5 rounded-lg border bg-white border-slate-200 cursor-pointer">
                     <input
-                      type="text"
-                      value={formData.bankDetails.accountNumber}
+                      type="checkbox"
+                      checked={formData.rulesAndPolicies.alcoholAllowed}
                       onChange={(e) => setFormData({
                         ...formData,
-                        bankDetails: { ...formData.bankDetails, accountNumber: e.target.value }
+                        rulesAndPolicies: { ...formData.rulesAndPolicies, alcoholAllowed: e.target.checked }
                       })}
-                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800 font-mono font-bold"
+                      className="rounded text-primary-600 focus:ring-primary-500"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                      IFSC Code
-                    </label>
+                    <span className="font-semibold text-gray-800">Alcohol Allowed</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 p-2.5 rounded-lg border bg-white border-slate-200 cursor-pointer">
                     <input
-                      type="text"
-                      value={formData.bankDetails.ifscCode}
+                      type="checkbox"
+                      checked={formData.rulesAndPolicies.smokingAllowed}
                       onChange={(e) => setFormData({
                         ...formData,
-                        bankDetails: { ...formData.bankDetails, ifscCode: e.target.value.toUpperCase() }
+                        rulesAndPolicies: { ...formData.rulesAndPolicies, smokingAllowed: e.target.checked }
                       })}
-                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800 uppercase font-mono font-bold"
+                      className="rounded text-primary-600 focus:ring-primary-500"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                      Bank Name
-                    </label>
+                    <span className="font-semibold text-gray-800">Smoking Allowed</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 p-2.5 rounded-lg border bg-white border-slate-200 cursor-pointer">
                     <input
-                      type="text"
-                      value={formData.bankDetails.bankName}
+                      type="checkbox"
+                      checked={formData.rulesAndPolicies.outsideFoodAllowed}
                       onChange={(e) => setFormData({
                         ...formData,
-                        bankDetails: { ...formData.bankDetails, bankName: e.target.value }
+                        rulesAndPolicies: { ...formData.rulesAndPolicies, outsideFoodAllowed: e.target.checked }
                       })}
-                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800"
+                      className="rounded text-primary-600 focus:ring-primary-500"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                      Branch Name
-                    </label>
+                    <span className="font-semibold text-gray-800">Outside Food Allowed</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 p-2.5 rounded-lg border bg-white border-slate-200 cursor-pointer">
                     <input
-                      type="text"
-                      value={formData.bankDetails.branchName}
+                      type="checkbox"
+                      checked={formData.rulesAndPolicies.firecrackersAllowed}
                       onChange={(e) => setFormData({
                         ...formData,
-                        bankDetails: { ...formData.bankDetails, branchName: e.target.value }
+                        rulesAndPolicies: { ...formData.rulesAndPolicies, firecrackersAllowed: e.target.checked }
                       })}
-                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800"
+                      className="rounded text-primary-600 focus:ring-primary-500"
+                    />
+                    <span className="font-semibold text-gray-800">Firecrackers Allowed</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 p-2.5 rounded-lg border bg-white border-slate-200 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.rulesAndPolicies.petFriendly}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        rulesAndPolicies: { ...formData.rulesAndPolicies, petFriendly: e.target.checked }
+                      })}
+                      className="rounded text-primary-600 focus:ring-primary-500"
+                    />
+                    <span className="font-semibold text-gray-800">Pet Friendly</span>
+                  </label>
+
+                  <div className="p-2 bg-white rounded-lg border border-slate-200">
+                    <span className="text-[10px] text-gray-500 block mb-0.5">DJ / Music Deadline</span>
+                    <input
+                      type="text"
+                      value={formData.rulesAndPolicies.musicDeadline}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        rulesAndPolicies: { ...formData.rulesAndPolicies, musicDeadline: e.target.value }
+                      })}
+                      className="w-full px-2 py-0.5 text-xs border border-gray-300 rounded font-semibold"
+                      placeholder="e.g. 10:00 PM"
                     />
                   </div>
-                  <div className="sm:col-span-2">
-                    {renderDocUploadCard({
-                      title: 'Cancelled Cheque / Passbook Proof',
-                      docUrl: formData.bankDetails.bankProofUrl,
-                      docKey: 'bankProof',
-                      onUrlChange: (url) => setFormData(prev => ({
-                        ...prev,
-                        bankDetails: { ...prev.bankDetails, bankProofUrl: url }
-                      })),
-                      theme: 'emerald'
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-gray-700 block mb-1">Custom House Rules</label>
+                  <textarea
+                    rows={2}
+                    value={formData.rulesAndPolicies.customRules}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      rulesAndPolicies: { ...formData.rulesAndPolicies, customRules: e.target.value }
                     })}
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg bg-white"
+                    placeholder="Additional custom policies..."
+                  />
+                </div>
+              </div>
+
+              {/* 4-Tier Cancellation Policy */}
+              <div className="p-4 bg-rose-50/70 rounded-xl border border-rose-200">
+                <h4 className="text-xs font-bold text-rose-950 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4 text-rose-600" />
+                  4-Tier Custom Cancellation Policy
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+                  <div className="bg-white p-3 rounded-lg border border-rose-100 shadow-xs">
+                    <span className="text-gray-500 block mb-1">Tier 1: Before Days</span>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        value={formData.cancellationPolicy.tier1.days}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          cancellationPolicy: {
+                            ...formData.cancellationPolicy,
+                            tier1: { ...formData.cancellationPolicy.tier1, days: Number(e.target.value) || 0 }
+                          }
+                        })}
+                        className="w-14 px-1.5 py-1 border rounded text-xs"
+                      />
+                      <span>Days</span>
+                    </div>
+                    <div className="mt-2">
+                      <span className="text-gray-500 block mb-0.5">Refund %</span>
+                      <input
+                        type="number"
+                        value={formData.cancellationPolicy.tier1.refundPercent}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          cancellationPolicy: {
+                            ...formData.cancellationPolicy,
+                            tier1: { ...formData.cancellationPolicy.tier1, refundPercent: Number(e.target.value) || 0 }
+                          }
+                        })}
+                        className="w-full px-2 py-1 border rounded text-xs font-bold text-emerald-600"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-3 rounded-lg border border-rose-100 shadow-xs">
+                    <span className="text-gray-500 block mb-1">Tier 2: Within Days</span>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        value={formData.cancellationPolicy.tier2.days}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          cancellationPolicy: {
+                            ...formData.cancellationPolicy,
+                            tier2: { ...formData.cancellationPolicy.tier2, days: Number(e.target.value) || 0 }
+                          }
+                        })}
+                        className="w-14 px-1.5 py-1 border rounded text-xs"
+                      />
+                      <span>Days</span>
+                    </div>
+                    <div className="mt-2">
+                      <span className="text-gray-500 block mb-0.5">Refund %</span>
+                      <input
+                        type="number"
+                        value={formData.cancellationPolicy.tier2.refundPercent}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          cancellationPolicy: {
+                            ...formData.cancellationPolicy,
+                            tier2: { ...formData.cancellationPolicy.tier2, refundPercent: Number(e.target.value) || 0 }
+                          }
+                        })}
+                        className="w-full px-2 py-1 border rounded text-xs font-bold text-amber-600"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-3 rounded-lg border border-rose-100 shadow-xs">
+                    <span className="text-gray-500 block mb-1">Tier 3: Within Hours</span>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        value={formData.cancellationPolicy.tier3.hours}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          cancellationPolicy: {
+                            ...formData.cancellationPolicy,
+                            tier3: { ...formData.cancellationPolicy.tier3, hours: Number(e.target.value) || 0 }
+                          }
+                        })}
+                        className="w-14 px-1.5 py-1 border rounded text-xs"
+                      />
+                      <span>Hours</span>
+                    </div>
+                    <div className="mt-2">
+                      <span className="text-gray-500 block mb-0.5">Refund %</span>
+                      <input
+                        type="number"
+                        value={formData.cancellationPolicy.tier3.refundPercent}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          cancellationPolicy: {
+                            ...formData.cancellationPolicy,
+                            tier3: { ...formData.cancellationPolicy.tier3, refundPercent: Number(e.target.value) || 0 }
+                          }
+                        })}
+                        className="w-full px-2 py-1 border rounded text-xs font-bold text-rose-600"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-3 rounded-lg border border-rose-100 shadow-xs">
+                    <span className="text-gray-500 block mb-1">Tier 4: Event Day</span>
+                    <p className="text-xs text-gray-500 mb-2">No-Show / Event Day</p>
+                    <div className="mt-2">
+                      <span className="text-gray-500 block mb-0.5">Refund %</span>
+                      <input
+                        type="number"
+                        value={formData.cancellationPolicy.tier4.refundPercent}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          cancellationPolicy: {
+                            ...formData.cancellationPolicy,
+                            tier4: { ...formData.cancellationPolicy.tier4, refundPercent: Number(e.target.value) || 0 }
+                          }
+                        })}
+                        className="w-full px-2 py-1 border rounded text-xs font-bold text-rose-700"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           )}
-
-          {/* TAB 9: FEES & GST */}
-          {activeTab === 'fees' && (
-            <div className="space-y-6 animate-in fade-in duration-150">
-              {/* Custom Platform Fee */}
-              <div className="p-4 bg-gray-50 dark:bg-slate-800/60 rounded-xl border border-gray-200 dark:border-slate-700">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">
-                    Custom Platform Fee for Venue
-                  </h4>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.customPlatformFee.enabled}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        customPlatformFee: { ...formData.customPlatformFee, enabled: e.target.checked }
-                      })}
-                      className="w-4 h-4 rounded text-primary-500 focus:ring-primary-500"
-                    />
-                    <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Custom Override</span>
-                  </label>
-                </div>
-                {formData.customPlatformFee.enabled && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Fee Type Dropdown</label>
-                      <select
-                        value={formData.customPlatformFee.feeType}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          customPlatformFee: { ...formData.customPlatformFee, feeType: e.target.value }
-                        })}
-                        className="w-full px-3.5 py-2 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800 font-semibold"
-                      >
-                        <option value="percentage">Percentage (%)</option>
-                        <option value="fixed">Fixed Amount (₹)</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                        Fee Value {formData.customPlatformFee.feeType === 'fixed' ? '(₹)' : '(%)'}
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={formData.customPlatformFee.feeValue}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          customPlatformFee: { ...formData.customPlatformFee, feeValue: Number(e.target.value) || 0 }
-                        })}
-                        className="w-full px-3.5 py-2 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800 font-bold"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Custom GST */}
-              <div className="p-4 bg-gray-50 dark:bg-slate-800/60 rounded-xl border border-gray-200 dark:border-slate-700">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">
-                    Custom GST Rate for Venue
-                  </h4>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.customGST.enabled}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        customGST: { ...formData.customGST, enabled: e.target.checked }
-                      })}
-                      className="w-4 h-4 rounded text-primary-500 focus:ring-primary-500"
-                    />
-                    <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Custom GST Override</span>
-                  </label>
-                </div>
-                {formData.customGST.enabled && (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-2">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Total Rate (%)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={formData.customGST.rate}
-                        onChange={(e) => {
-                          const val = Number(e.target.value) || 0;
-                          setFormData({
-                            ...formData,
-                            customGST: { ...formData.customGST, rate: val, cgstRate: val / 2, sgstRate: val / 2 }
-                          });
-                        }}
-                        className="w-full px-3.5 py-2 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">CGST Rate (%)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={formData.customGST.cgstRate}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          customGST: { ...formData.customGST, cgstRate: Number(e.target.value) || 0 }
-                        })}
-                        className="w-full px-3.5 py-2 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">SGST Rate (%)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={formData.customGST.sgstRate}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          customGST: { ...formData.customGST, sgstRate: Number(e.target.value) || 0 }
-                        })}
-                        className="w-full px-3.5 py-2 text-sm rounded-xl border border-gray-300 dark:border-slate-700 dark:bg-slate-800"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
         </div>
 
-        {/* Footer Actions */}
-        <div className="px-5 py-3.5 bg-gray-50 dark:bg-slate-950 border-t border-gray-200 dark:border-slate-800 flex items-center justify-between flex-shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            className="px-4 py-2 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-800 rounded-xl transition-colors disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <div className="flex items-center gap-2.5">
+        {/* Modal Footer */}
+        <div className="border-t border-gray-200 bg-slate-50 px-5 py-3.5 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500">Venue Status:</span>
+            <span className="text-xs font-bold uppercase text-gray-900 bg-white px-2 py-0.5 rounded border">
+              {formData.status}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-2 px-6 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold shadow-md shadow-primary-500/20 transition-all disabled:opacity-50 scale-[1.01] active:scale-[0.99]"
+              onClick={onClose}
+              className="px-4 py-2 bg-white hover:bg-gray-100 border border-gray-300 text-gray-700 rounded-xl text-xs font-bold shadow-xs transition-colors"
             >
-              {saving ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Saving All Changes...
-                </>
-              ) : (
-                <>
-                  <Check className="w-3.5 h-3.5" />
-                  Save Changes
-                </>
-              )}
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={saving}
+              className="px-5 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-sm transition-colors"
+            >
+              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+              <span>{saving ? 'Saving Venue Details...' : 'Save All Changes'}</span>
             </button>
           </div>
         </div>
+
+        {/* Status Reason Modal Dialog */}
+        {statusModal.open && (
+          <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl p-5 max-w-md w-full shadow-2xl border border-gray-200">
+              <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                Reason for {statusModal.targetStatus.toUpperCase()}
+              </h3>
+              <p className="text-xs text-gray-500 mb-3">
+                Please select or enter the specific reason why this venue is being {statusModal.targetStatus}.
+              </p>
+
+              <div className="space-y-2 mb-3">
+                {(statusModal.targetStatus === 'rejected' ? REJECTION_REASONS : SUSPENSION_REASONS).map((r) => (
+                  <label key={r} className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="statusReason"
+                      value={r}
+                      checked={statusModal.reason === r}
+                      onChange={(e) => setStatusModal({ ...statusModal, reason: e.target.value })}
+                      className="text-primary-600 focus:ring-primary-500"
+                    />
+                    <span>{r}</span>
+                  </label>
+                ))}
+              </div>
+
+              {statusModal.reason === 'other' && (
+                <div className="mb-3">
+                  <textarea
+                    rows={2}
+                    placeholder="Enter custom reason..."
+                    value={statusModal.customReason}
+                    onChange={(e) => setStatusModal({ ...statusModal, customReason: e.target.value })}
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg"
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setStatusModal({ open: false, targetStatus: '', reason: '', customReason: '' })}
+                  className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmStatusChange}
+                  className="px-4 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-xs font-bold"
+                >
+                  Confirm Status
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Stop Booking Modal Dialog */}
+        {stopBookingModal.open && (
+          <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl p-5 max-w-md w-full shadow-2xl border border-gray-200">
+              <h3 className="text-sm font-bold text-rose-950 mb-2 flex items-center gap-2">
+                <PauseCircle className="w-4 h-4 text-rose-600" />
+                Reason to Pause / Stop Online Bookings
+              </h3>
+              <p className="text-xs text-gray-500 mb-3">
+                Customers will not be able to book this venue online while stopped.
+              </p>
+
+              <div className="space-y-2 mb-3">
+                {STOP_BOOKING_REASONS.map((r) => (
+                  <label key={r} className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="stopReason"
+                      value={r}
+                      checked={stopBookingModal.reason === r}
+                      onChange={(e) => setStopBookingModal({ ...stopBookingModal, reason: e.target.value })}
+                      className="text-rose-600 focus:ring-rose-500"
+                    />
+                    <span>{r}</span>
+                  </label>
+                ))}
+              </div>
+
+              {stopBookingModal.reason === 'other' && (
+                <div className="mb-3">
+                  <textarea
+                    rows={2}
+                    placeholder="Enter custom stop booking reason..."
+                    value={stopBookingModal.customReason}
+                    onChange={(e) => setStopBookingModal({ ...stopBookingModal, customReason: e.target.value })}
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg"
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setStopBookingModal({ open: false, reason: '', customReason: '' })}
+                  className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmStopBooking}
+                  className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold"
+                >
+                  Confirm Stop Booking
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>

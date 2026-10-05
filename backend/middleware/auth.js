@@ -86,7 +86,12 @@ exports.checkPermission = (permission) => {
     
     // Check if subadmin has the required permission
     if (req.user.role === 'subadmin') {
-      if (!req.user.permissions || !req.user.permissions[permission]) {
+      const perms = req.user.permissions || {};
+      const hasPerm = permission === 'addVenue'
+        ? (typeof perms.addVenue === 'boolean' ? perms.addVenue : perms.venues === true)
+        : perms[permission] === true;
+
+      if (!hasPerm) {
         return res.status(403).json({
           success: false,
           message: `You don't have permission to access this resource`

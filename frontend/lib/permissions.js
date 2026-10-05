@@ -7,6 +7,12 @@ export const hasPermission = (user, permission) => {
   
   // Check subadmin permissions
   if (user?.role === 'subadmin') {
+    if (permission === 'addVenue') {
+      if (typeof user?.permissions?.addVenue === 'boolean') {
+        return user.permissions.addVenue;
+      }
+      return user?.permissions?.venues === true;
+    }
     return user?.permissions?.[permission] === true;
   }
   
@@ -20,9 +26,15 @@ export const getAccessibleNavigation = (user, allNavigation) => {
   }
   
   if (user?.role === 'subadmin') {
-    return allNavigation.filter(item => 
-      user?.permissions?.[item.permission] === true
-    );
+    return allNavigation.filter(item => {
+      if (item.permission === 'addVenue') {
+        if (typeof user?.permissions?.addVenue === 'boolean') {
+          return user.permissions.addVenue;
+        }
+        return user?.permissions?.venues === true;
+      }
+      return user?.permissions?.[item.permission] === true;
+    });
   }
   
   return [];

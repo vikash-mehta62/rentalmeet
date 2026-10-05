@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/User');
+const Venue = require('../models/Venue');
 const Counter = require('../models/Counter');
 const { sendEmail, sendOtpVerificationEmail, sendPasswordResetEmail } = require('../utils/emailService');
 const OtpVerification = require('../models/OtpVerification');
@@ -66,15 +67,6 @@ exports.register = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Phone must be 10 digits' });
     }
 
-    // Verify email is verified in OtpVerification
-    const emailVerification = await OtpVerification.findOne({
-      email: email.trim().toLowerCase(),
-      isEmailVerified: true
-    });
-    if (!emailVerification) {
-      return res.status(400).json({ success: false, message: 'Please verify your email address first' });
-    }
-
     // Verify phone is verified in OtpVerification
     const phoneVerification = await OtpVerification.findOne({
       phone: phone.trim(),
@@ -84,11 +76,8 @@ exports.register = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Please verify your phone number first' });
     }
 
-    // Delete verification records
-    await OtpVerification.deleteOne({ _id: emailVerification._id });
-    if (phoneVerification._id.toString() !== emailVerification._id.toString()) {
-      await OtpVerification.deleteOne({ _id: phoneVerification._id });
-    }
+    // Delete phone verification record
+    await OtpVerification.deleteOne({ _id: phoneVerification._id });
 
     // Check if user exists
     const userExists = await User.findOne({ $or: [{ email: email.toLowerCase() }, { phone }] });
@@ -128,6 +117,7 @@ exports.register = async (req, res) => {
       companyName: companyName || undefined,
       gstNumber: gstNumber || undefined,
       panNumber: panNumber || undefined,
+      isPhoneVerified: true,
       vendorCategory: vendorCategory || undefined,
       referredBy: referrer ? referrer._id : null,
       referredByCode: referralCode ? referralCode.toUpperCase() : null
@@ -169,6 +159,117 @@ exports.register = async (req, res) => {
       }
     }
 
+    // Auto-create venue for owner if venueData provided
+    let createdVenue = null;
+    if (userRole === 'owner' && req.body.venueData && req.body.venueData.businessName) {
+      try {
+        const vData = req.body.venueData;
+        const normalizeFoodType = (value) => {
+          const key = String(value || '').toLowerCase().replace(/[\s_-]+/g, '');
+          if (key === 'veg') return 'Veg';
+          if (key === 'nonveg') return 'Non Veg';
+          if (key === 'both') return 'Both';
+          return 'Veg';
+        };
+
+        const venuePayload = {
+          owner: user._id,
+          listingSource: 'owner',
+          businessName: vData.businessName.trim(),
+          venueType: Array.isArray(vData.venueType) && vData.venueType.length > 0 ? vData.venueType : ['Banquet Hall'],
+          foodType: normalizeFoodType(vData.foodType),
+          capacity: vData.capacity || '100–150',
+          areaSqft: Number(vData.areaSqft) || 1000,
+          description: vData.description || '',
+          ownerInfo: {
+            fullName: user.name,
+            mobile: user.phone,
+            email: user.email,
+            authorisedPerson: {
+              name: user.name,
+              fullName: user.name,
+              phone: user.phone,
+              mobile: user.phone,
+              email: user.email
+            }
+          },
+          location: {
+            address: vData.location?.address || 'Main Address',
+            landmark: vData.location?.landmark || '',
+            state: vData.location?.state || user.state || '',
+            city: vData.location?.city || user.city || '',
+            area: vData.location?.area || vData.location?.city || user.city || '',
+            pincode: vData.location?.pincode || '000000',
+            googleMapLink: vData.location?.googleMapLink || '',
+            parkingAvailability: vData.location?.parkingAvailability || vData.parkingDetails?.type || 'None',
+            parkingDetails: {
+              type: vData.location?.parkingDetails?.type || vData.parkingDetails?.type || 'None',
+              carsCapacity: Number(vData.location?.parkingDetails?.carsCapacity || vData.parkingDetails?.cars?.capacity || 0),
+              twoWheelerCapacity: Number(vData.location?.parkingDetails?.twoWheelerCapacity || vData.parkingDetails?.twoWheelers?.capacity || 0),
+              carCharges: Number(vData.location?.parkingDetails?.carCharges || vData.parkingDetails?.cars?.chargePerVehicle || 0),
+              twoWheelerCharges: Number(vData.location?.parkingDetails?.twoWheelerCharges || vData.parkingDetails?.twoWheelers?.chargePerVehicle || 0)
+            }
+          },
+          parkingDetails: {
+            type: vData.parkingDetails?.type || vData.location?.parkingAvailability || 'None',
+            cars: {
+              capacity: Number(vData.parkingDetails?.cars?.capacity || vData.location?.parkingDetails?.carsCapacity || 0),
+              isChargeable: (vData.parkingDetails?.type === 'Paid' || Number(vData.parkingDetails?.cars?.chargePerVehicle || vData.location?.parkingDetails?.carCharges || 0) > 0),
+              chargePerVehicle: Number(vData.parkingDetails?.cars?.chargePerVehicle || vData.location?.parkingDetails?.carCharges || 0)
+            },
+            twoWheelers: {
+              capacity: Number(vData.parkingDetails?.twoWheelers?.capacity || vData.location?.parkingDetails?.twoWheelerCapacity || 0),
+              isChargeable: (vData.parkingDetails?.type === 'Paid' || Number(vData.parkingDetails?.twoWheelers?.chargePerVehicle || vData.location?.parkingDetails?.twoWheelerCharges || 0) > 0),
+              chargePerVehicle: Number(vData.parkingDetails?.twoWheelers?.chargePerVehicle || vData.location?.parkingDetails?.twoWheelerCharges || 0)
+            }
+          },
+          pricing: vData.pricing || {
+            enabledOptions: { perHour: true, halfDay: false, fullDay: false }
+          },
+          images: Array.isArray(vData.images) ? vData.images : [],
+          status: 'pending',
+          isActive: true,
+          termsAccepted: true,
+          statusHistory: [{
+            action: 'VENUE_SUBMITTED',
+            status: 'pending',
+            isActive: true,
+            reason: 'Submitted on owner registration',
+            changedBy: {
+              userId: user._id,
+              name: user.name,
+              email: user.email,
+              role: user.role
+            },
+            ipAddress: extractClientIp(req),
+            timestamp: new Date()
+          }]
+        };
+
+        createdVenue = await Venue.create(venuePayload);
+        console.log(`[AUTH REGISTER] Venue created for owner ${user._id}: ${createdVenue.businessName} (SKU: ${createdVenue.sku})`);
+
+        // Send Welcome & Login Credentials Email to Venue Owner
+        if (user.email) {
+          try {
+            const { sendVenueOwnerWelcomeCredentialsEmail } = require('../utils/emailService');
+            await sendVenueOwnerWelcomeCredentialsEmail({
+              ownerEmail: user.email,
+              ownerName: user.name,
+              venueName: createdVenue.businessName,
+              loginEmail: user.email,
+              temporaryPassword: req.body.password,
+              isNewAccount: true
+            });
+          } catch (emailErr) {
+            console.error('[AUTH REGISTER] Failed to send owner credentials email:', emailErr.message);
+          }
+        }
+      } catch (venueErr) {
+        console.error('[AUTH REGISTER] Error creating venue along with owner:', venueErr.message);
+      }
+    }
+
     logAudit(req, {
       category: 'AUTH',
       action: 'USER_REGISTERED',
@@ -189,13 +290,15 @@ exports.register = async (req, res) => {
         city: user.city,
         state: user.state,
         accountType: user.accountType,
-        referredByCode: user.referredByCode
+        referredByCode: user.referredByCode,
+        createdVenueId: createdVenue?._id || null
       }
     });
 
     res.status(201).json({
       success: true,
       token,
+      venue: createdVenue,
       user: {
         id: user._id,
         userId: user.userId,
@@ -254,10 +357,23 @@ exports.sendEmailOtp = async (req, res) => {
     // Send Email OTP
     await sendOtpVerificationEmail(email.toLowerCase(), name || 'Venue Owner', emailOtp);
 
-    res.status(200).json({
+    const responseData = {
       success: true,
       message: 'OTP has been sent to your email address'
-    });
+    };
+
+    // Add OTP to response for development/testing
+    console.log('NODE_ENV:', process.env.NODE_ENV);
+    console.log('Is production?', process.env.NODE_ENV === 'production');
+    console.log('Generated Email OTP:', emailOtp);
+    
+    // Force show OTP for development (always show if not production)
+    responseData.otp = emailOtp;
+    responseData.developmentNote = 'OTP shown for development/testing purposes';
+    responseData.nodeEnv = process.env.NODE_ENV;
+    console.log('Email OTP added to response:', emailOtp);
+
+    res.status(200).json(responseData);
   } catch (error) {
     console.error('Send Email OTP error:', error);
     res.status(500).json({
@@ -351,10 +467,12 @@ exports.sendPhoneOtp = async (req, res) => {
 
     // Send SMS OTP
     await sendSMS(phone, name || 'Venue Owner', phoneOtp);
+    console.log(`[PHONE OTP] Generated for ${phone}: ${phoneOtp}`);
 
     res.status(200).json({
       success: true,
-      message: 'OTP has been sent to your phone number'
+      message: 'OTP has been sent to your phone number',
+      otp: process.env.NODE_ENV !== 'production' ? phoneOtp : undefined
     });
   } catch (error) {
     console.error('Send Phone OTP error:', error);
@@ -423,8 +541,13 @@ exports.login = async (req, res) => {
       });
     }
     
-    // Find user with password
-    const user = await User.findOne({ email }).select('+password');
+    // Find user with password (supports email or phone)
+    const user = await User.findOne({
+      $or: [
+        { email: email.trim().toLowerCase() },
+        { phone: email.trim() }
+      ]
+    }).select('+password');
     
     if (!user) {
       logAudit(req, {
@@ -982,10 +1105,24 @@ exports.forgotPassword = async (req, res) => {
 
     await sendPasswordResetEmail(user.email, user.name, otp);
 
-    return res.json({
+    // Development/Testing: Show OTP in response (remove in production)
+    const responseData = {
       success: true,
       message: 'If this email is registered, reset OTP has been sent.'
-    });
+    };
+
+    // Add OTP to response for development/testing
+    console.log('NODE_ENV:', process.env.NODE_ENV);
+    console.log('Is production?', process.env.NODE_ENV === 'production');
+    console.log('Generated OTP:', otp);
+    
+    // Force show OTP for development (always show if not production)
+    responseData.otp = otp;
+    responseData.developmentNote = 'OTP shown for development/testing purposes';
+    responseData.nodeEnv = process.env.NODE_ENV;
+    console.log('OTP added to response:', otp);
+
+    return res.json(responseData);
   } catch (error) {
     console.error('Forgot password error:', error);
     return res.status(500).json({

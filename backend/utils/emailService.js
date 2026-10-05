@@ -579,84 +579,256 @@ exports.sendVenueOwnerWelcomeCredentialsEmail = async ({
   temporaryPassword,
   isNewAccount
 }) => {
-  const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login`;
-  
-  const credentialsHtml = isNewAccount ? `
-    <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 2px solid #86efac; border-radius: 14px; padding: 20px; margin: 24px 0;">
-      <h3 style="color: #166534; margin-top: 0; margin-bottom: 12px; font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
-        🔐 Your Venue Owner Login Credentials
-      </h3>
-      <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-        <tr>
-          <td style="padding: 6px 0; color: #4b5563; font-weight: 600; width: 140px;">Login Portal:</td>
-          <td style="padding: 6px 0;"><a href="${loginUrl}" style="color: #ea580c; font-weight: 700; text-decoration: underline;">${loginUrl}</a></td>
-        </tr>
-        <tr>
-          <td style="padding: 6px 0; color: #4b5563; font-weight: 600;">Registered Email:</td>
-          <td style="padding: 6px 0; color: #1e293b; font-weight: 700; font-family: monospace;">${loginEmail}</td>
-        </tr>
-        <tr>
-          <td style="padding: 6px 0; color: #4b5563; font-weight: 600;">Temporary Password:</td>
-          <td style="padding: 6px 0;">
-            <span style="background-color: #ffffff; border: 1px dashed #22c55e; border-radius: 6px; padding: 4px 10px; font-family: monospace; font-size: 16px; font-weight: 800; color: #15803d; letter-spacing: 1px;">
-              ${temporaryPassword}
-            </span>
-          </td>
-        </tr>
-      </table>
-      <p style="margin: 12px 0 0; color: #15803d; font-size: 12px;">
-        💡 <strong>Security Tip:</strong> Please change your password after your first login under Profile Settings.
-      </p>
-    </div>
-  ` : `
-    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; margin: 20px 0;">
-      <p style="margin: 0; color: #334155; font-size: 14px;">
-        Since you already have a registered RentalMeet Owner Account with <strong>${loginEmail}</strong>, this venue has been automatically added to your dashboard! You can log in using your existing password.
-      </p>
-      <div style="margin-top: 14px;">
-        <a href="${loginUrl}" style="display: inline-block; background-color: #ea580c; color: #ffffff; font-weight: 700; font-size: 13px; padding: 10px 20px; border-radius: 8px; text-decoration: none;">
-          Go to Owner Dashboard →
-        </a>
-      </div>
-    </div>
-  `;
+  const baseUrl = process.env.FRONTEND_URL || 'https://rentalmeet.com';
+  const loginUrl = `${baseUrl}/login?role=owner`;
+  const websiteUrl = baseUrl;
+  const playStoreUrl = 'https://play.google.com/store/apps/details?id=com.rentalmeetapp';
+  const appStoreUrl = 'https://apps.apple.com/in/app/rentalmeet/id6785021879';
+  const year = new Date().getFullYear();
 
   const ambassadorSection = ambassadorName ? `
-    <div style="background-color: #fff7ed; border-left: 4px solid #ea580c; border-radius: 8px; padding: 14px 18px; margin: 18px 0;">
+    <div style="background-color: #fff7ed; border-left: 4px solid #ea580c; border-radius: 8px; padding: 12px 16px; margin: 0 0 20px 0;">
       <p style="margin: 0; color: #9a3412; font-size: 13px; line-height: 1.5;">
-        🤝 <strong>Onboarded via RentalMeet Ambassador Partner:</strong><br/>
-        This venue was registered on your behalf by our authorized partner <strong>${ambassadorName}</strong>.
+        🤝 <strong>RentalMeet Partner Onboarding:</strong> यह वेन्यू आपके लिए <strong>${ambassadorName}</strong>${ambassadorPhone ? ` (${ambassadorPhone})` : ''} द्वारा रजिस्टर किया गया है।
       </p>
     </div>
   ` : '';
 
-  const benefitsHtml = `
-    <div style="margin: 24px 0;">
-      <h4 style="color: #1e293b; margin-bottom: 10px; font-size: 14px;">What you can do in your Venue Owner Portal:</h4>
-      <ul style="color: #475569; font-size: 13px; line-height: 1.8; padding-left: 20px; margin: 0;">
-        <li><strong>Calendar & Availability:</strong> Block unavailable dates and manage hourly slots.</li>
-        <li><strong>Direct Payouts:</strong> 100% of your venue booking earnings are transferred directly into your bank account.</li>
-        <li><strong>Venue Customization:</strong> Update photos, pricing, banquet menus, and amenity packages anytime.</li>
-      </ul>
-    </div>
-  `;
+  const passwordDisplay = temporaryPassword || 'आपका मौजूदा पासवर्ड';
 
-  const html = getHtmlTemplate(
-    '🎉 Welcome to RentalMeet - Venue Onboarding Confirmation',
-    ownerName || 'Venue Owner',
-    `Congratulations! Your venue <strong>"${venueName}"</strong> has been successfully registered on RentalMeet.`,
-    null,
-    `${ambassadorSection}${credentialsHtml}${benefitsHtml}`
-  );
+  const html = `
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>बधाई हो! आपका वेन्यू अब RentalMeet पर लाइव है!</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans Devanagari', 'Mangal', Helvetica, Arial, sans-serif; color: #1e293b; line-height: 1.6;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; padding: 25px 10px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 640px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.07); border: 1px solid #e2e8f0;">
+          
+          <!-- Brand Header Banner -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #ea580c 0%, #f97316 50%, #fb923c 100%); padding: 32px 28px; text-align: center;">
+              <div style="display: inline-block; background-color: #ffffff; padding: 8px 24px; border-radius: 12px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.12);">
+                <span style="font-size: 26px; font-weight: 900; color: #ea580c; letter-spacing: -0.5px; font-family: Georgia, serif;">Rental<span style="color: #0f172a;">Meet</span></span>
+              </div>
+              <div style="color: #ffffff; font-size: 14px; font-weight: 700; letter-spacing: 1px; text-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+                🎉 वेन्यू लाइव सूचना • Venue Owner Portal
+              </div>
+            </td>
+          </tr>
+
+          <!-- Main Content -->
+          <tr>
+            <td style="padding: 32px 28px 24px 28px; text-align: left;">
+
+              ${ambassadorSection}
+
+              <h2 style="margin: 0 0 16px 0; font-size: 22px; font-weight: 800; color: #0f172a; line-height: 1.4;">
+                🎉 बधाई हो! आपका वेन्यू अब RentalMeet पर लाइव है!
+              </h2>
+
+              <p style="margin: 0 0 14px 0; font-size: 16px; font-weight: 700; color: #ea580c;">
+                प्रिय ${ownerName || 'Venue Owner'},
+              </p>
+
+              <p style="margin: 0 0 16px 0; font-size: 15px; color: #334155; line-height: 1.7;">
+                हमें आपको यह बताते हुए बेहद खुशी हो रही है कि आपका शानदार वेन्यू <strong style="color: #0f172a; font-size: 16px;">"${venueName || 'Venue'}"</strong> अब <strong style="color: #ea580c;">RentalMeet</strong> प्लेटफॉर्म पर ग्राहकों को जानकारी (information) सुविधा देने की दृष्टि से लाइव कर दिया गया है।
+              </p>
+
+              <p style="margin: 0 0 24px 0; font-size: 15px; color: #334155; line-height: 1.7;">
+                यदि आप अपने वेन्यू की विजिबिलिटी को और अधिक बढ़ाना चाहते हैं और सीधे <strong>RentalMeet</strong> के माध्यम से <strong>ऑनलाइन बुकिंग (Online Bookings)</strong> प्राप्त करना चाहते हैं, जिससे आपके वेन्यू की आय में ओर अधिक बढ़ोतरी हो, तो आज ही <strong>RentalMeet</strong> पर लॉगिन करके अपने वेन्यू की प्रोफाइल (Venue Profile) को कंप्लीट करें। प्रोफाइल कंप्लीट होने के बाद आपका वेन्यू <strong style="background-color: #dcfce7; color: #15803d; padding: 2px 8px; border-radius: 6px; border: 1px solid #86efac; font-size: 14px;">"Verified Category"</strong> में आ जाएगा।
+              </p>
+
+              <!-- RentalMeet Benefits Box -->
+              <div style="background: linear-gradient(145deg, #f0fdf4 0%, #eafaf1 100%); border: 1.5px solid #86efac; border-radius: 14px; padding: 20px 22px; margin: 0 0 28px 0;">
+                <div style="font-size: 16px; font-weight: 800; color: #166534; margin-bottom: 14px;">
+                  ⭐ RentalMeet से जुड़ने के फायदे (सब कुछ बिल्कुल FREE):
+                </div>
+
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                  <tr>
+                    <td style="padding: 6px 0; vertical-align: top; width: 20px; font-size: 15px; color: #16a34a;">•</td>
+                    <td style="padding: 6px 0; font-size: 14px; color: #1f2937; line-height: 1.6;">
+                      <strong style="color: #166534;">100% निशुल्क प्रोफाइल:</strong> आप अपनी वेन्यू प्रोफाइल को बिल्कुल फ्री (Free) में कंप्लीट कर सकते हैं।
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 6px 0; vertical-align: top; width: 20px; font-size: 15px; color: #16a34a;">•</td>
+                    <td style="padding: 6px 0; font-size: 14px; color: #1f2937; line-height: 1.6;">
+                      <strong style="color: #166534;">कोई कमीशन नहीं:</strong> RentalMeet के माध्यम से होने वाली वेन्यू बुकिंग पर आपसे <strong style="color: #ea580c;">₹0 (कोई भी कमीशन)</strong> नहीं लिया जाएगा।
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 6px 0; vertical-align: top; width: 20px; font-size: 15px; color: #16a34a;">•</td>
+                    <td style="padding: 6px 0; font-size: 14px; color: #1f2937; line-height: 1.6;">
+                      <strong style="color: #166534;">कोई मासिक सब्सक्रिप्शन नहीं:</strong> इस प्लेटफॉर्म का उपयोग करने के लिए आपको कोई भी मंथली सब्सक्रिप्शन या हिडन चार्ज नहीं देना है।
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 6px 0; vertical-align: top; width: 20px; font-size: 15px; color: #16a34a;">•</td>
+                    <td style="padding: 6px 0; font-size: 14px; color: #1f2937; line-height: 1.6;">
+                      <strong style="color: #166534;">समर्पित डैशबोर्ड (Dedicated Dashboard):</strong> आपके वेन्यू को मैनेज करने के लिए एक <strong>एडवांस्ड डैशबोर्ड</strong> मिलेगा। जिससे कि आप आसानी से अपनी बुकिंग्स (Bookings), ग्राहक (Customers), वेन्यू डिटेल्स (Photos, Pricing, Amenities etc) और अपनी कमाई (Revenue) को ट्रैक और मैनेज कर सकते हैं।
+                    </td>
+                  </tr>
+                </table>
+              </div>
+
+              <!-- Complete Profile & Credentials Intro -->
+              <h3 style="margin: 0 0 8px 0; font-size: 17px; font-weight: 800; color: #0f172a;">
+                🎯 अपनी प्रोफाइल अभी कंप्लीट करें:
+              </h3>
+              <p style="margin: 0 0 18px 0; font-size: 14px; color: #475569; line-height: 1.6;">
+                इसके लिए आप <strong>RentalMeet</strong> वेबसाइट पर विजिट करें या <strong>Google Play Store / App Store</strong> से <strong>RentalMeet App</strong> डाउनलोड करें और नीचे दिए गए लॉगिन क्रेडेंशियल के माध्यम से अपने Venue Dashboard में लॉगिन करें:
+              </p>
+
+              <!-- Credentials Card -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background: linear-gradient(145deg, #fffbeb 0%, #fef3c7 100%); border: 2px solid #f59e0b; border-radius: 14px; margin: 0 0 20px 0; overflow: hidden; box-shadow: 0 2px 10px rgba(245, 158, 11, 0.12);">
+                <tr>
+                  <td style="padding: 22px 24px;">
+                    <div style="font-size: 15px; font-weight: 800; color: #92400e; margin-bottom: 14px;">
+                      🔐 आपके लॉगिन क्रेडेंशियल (Login Credentials)
+                    </div>
+
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="font-size: 14px;">
+                      <tr>
+                        <td style="padding: 8px 0; color: #78350f; font-weight: 700; width: 140px; vertical-align: middle;">
+                          • लॉगिन पोर्टल:
+                        </td>
+                        <td style="padding: 8px 0;">
+                          <a href="${loginUrl}" target="_blank" style="color: #ea580c; font-weight: 800; font-size: 15px; text-decoration: underline;">
+                            rentalmeet.com
+                          </a>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; color: #78350f; font-weight: 700; vertical-align: middle;">
+                          • लॉगिन ईमेल ID:
+                        </td>
+                        <td style="padding: 8px 0;">
+                          <span style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 15px; font-weight: 800; color: #0f172a; background-color: #ffffff; padding: 5px 12px; border-radius: 6px; border: 1px solid #fcd34d; display: inline-block;">
+                            ${loginEmail}
+                          </span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; color: #78350f; font-weight: 700; vertical-align: middle;">
+                          • पासवर्ड:
+                        </td>
+                        <td style="padding: 8px 0;">
+                          <span style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 16px; font-weight: 900; color: #b45309; background-color: #ffffff; padding: 5px 14px; border-radius: 6px; border: 1.5px dashed #f59e0b; letter-spacing: 1px; display: inline-block;">
+                            ${passwordDisplay}
+                          </span>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Note: Email only -->
+                    <div style="margin-top: 16px; padding: 10px 14px; background-color: #ffffff; border-radius: 8px; border-left: 4px solid #ea580c;">
+                      <p style="margin: 0; font-size: 12.5px; color: #9a3412; line-height: 1.5; font-weight: 600;">
+                        ⚠️ (नोट: सुरक्षा कारणों से कृपया हमेशा अपनी रजिस्टर्ड ईमेल आईडी से ही साइन-इन करें। लॉगिन के लिए मोबाइल नंबर मान्य नहीं है।)
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Main Login Action Button -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin: 20px 0 24px 0;">
+                <tr>
+                  <td align="center">
+                    <a href="${loginUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #ea580c 0%, #f97316 100%); color: #ffffff; font-weight: 800; font-size: 16px; padding: 14px 38px; border-radius: 12px; text-decoration: none; box-shadow: 0 4px 14px rgba(234, 88, 12, 0.35);">
+                      🔑 लॉगिन करें और प्रोफाइल पूरी करें &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Support Assistance -->
+              <div style="background-color: #f1f5f9; border-radius: 10px; padding: 14px 18px; margin: 0 0 22px 0;">
+                <p style="margin: 0; font-size: 14px; color: #334155; line-height: 1.6;">
+                  📞 <strong>यदि आपको वेन्यू प्रोफाइल कंप्लीट करने में कोई समस्या आती है</strong>, तो कृप्या आप हमारी ऑनबोर्डिंग टीम से <strong><a href="tel:07554545348" style="color: #ea580c; text-decoration: none; font-weight: 700;">0755-4545348</a></strong> या <strong><a href="tel:9893072872" style="color: #ea580c; text-decoration: none; font-weight: 700;">9893072872</a></strong> पर संपर्क कर सकते हैं।
+                </p>
+              </div>
+
+              <!-- Motivational Tagline -->
+              <div style="text-align: center; font-weight: 800; color: #ea580c; font-size: 15px; margin: 18px 0 24px 0; padding: 10px; background-color: #fff7ed; border-radius: 8px;">
+                ✨ आज ही बिना किसी खर्च के आपके वेन्यू को वेरीफाइड करें और आपकी कमाई बढ़ाएं! ✨
+              </div>
+
+              <!-- Sign-off -->
+              <p style="margin: 0 0 20px 0; font-size: 14.5px; color: #334155; line-height: 1.6;">
+                धन्यवाद एवं शुभकामनाएँ,<br/>
+                <strong style="color: #0f172a; font-size: 15px;">टीम RentalMeet</strong>
+              </p>
+
+              <!-- App Download & Website Links Buttons -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin: 20px 0 10px 0;">
+                <tr>
+                  <td align="center">
+                    <table role="presentation" cellspacing="0" cellpadding="0">
+                      <tr>
+                        <td style="padding: 4px 6px;">
+                          <a href="${websiteUrl}" target="_blank" style="display: inline-block; background-color: #0f172a; color: #ffffff; font-weight: 700; font-size: 13px; padding: 10px 18px; border-radius: 8px; text-decoration: none;">
+                            🌐 Website Visit
+                          </a>
+                        </td>
+                        <td style="padding: 4px 6px;">
+                          <a href="${playStoreUrl}" target="_blank" style="display: inline-block; background-color: #047857; color: #ffffff; font-weight: 700; font-size: 13px; padding: 10px 18px; border-radius: 8px; text-decoration: none;">
+                            📱 Google Play Store
+                          </a>
+                        </td>
+                        <td style="padding: 4px 6px;">
+                          <a href="${appStoreUrl}" target="_blank" style="display: inline-block; background-color: #2563eb; color: #ffffff; font-weight: 700; font-size: 13px; padding: 10px 18px; border-radius: 8px; text-decoration: none;">
+                            🍎 Apple App Store
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+
+          <!-- Disclaimer Section -->
+          <tr>
+            <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 28px; text-align: left;">
+              <div style="font-size: 12.5px; font-weight: 800; color: #64748b; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
+                📌 डिस्क्लेमर (Disclaimer):
+              </div>
+              <p style="margin: 0; font-size: 12px; color: #64748b; line-height: 1.6; font-style: italic;">
+                कृपया ध्यान दें कि RentalMeet पर आपके वेन्यू से संबंधित शुरुआती जानकारी और फोटोग्राफ सार्वजनिक रूप से उपलब्ध माध्यमों (जैसे गूगल) से केवल ग्राहकों को सूचना देने के उद्देश्य (Information Purpose) से लिए गए हैं। यदि आप इस जानकारी में कोई बदलाव करना चाहते हैं, इसे अपडेट करना चाहते हैं या प्लेटफॉर्म से हटाना चाहते हैं, तो कृपया ऊपर दिए गए क्रेडेंशियल से लॉगिन करके अपनी प्रोफाइल को अपडेट या डिलीट कर सकते है या हमारी सपोर्ट टीम से संपर्क करें।
+              </p>
+              <div style="margin-top: 14px; text-align: center; font-size: 11px; color: #94a3b8;">
+                &copy; ${year} RentalMeet. All rights reserved. • Bhopal, MP, India
+              </div>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
 
   try {
     await exports.sendEmail({
       email: ownerEmail,
-      subject: `🎉 Welcome to RentalMeet - Login Credentials for "${venueName}"`,
+      subject: `🎉 बधाई हो! आपका वेन्यू अब RentalMeet पर लाइव है!`,
       html
     });
-    console.log(`[EMAIL] Sent Owner welcome & credentials email to ${ownerEmail}`);
+    console.log(`[EMAIL] Sent Owner welcome & credentials email in Hindi to ${ownerEmail}`);
+    return { success: true };
   } catch (err) {
     console.error(`[EMAIL] Failed to send owner credentials email to ${ownerEmail}:`, err.message);
+    throw err;
   }
 };

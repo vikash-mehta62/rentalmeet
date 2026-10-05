@@ -7,10 +7,17 @@ import { Image as ImageIcon, Upload, X, CheckCircle, Loader2 } from 'lucide-reac
 import { uploadToStorage, deleteFromStorage } from '@/lib/storage';
 
 const photoCategories = [
-  { value: 'Featured', label: 'Featured Photo', required: true },
-  { value: 'Exterior', label: 'Exterior/Entrance', required: true },
-  { value: 'Interior', label: 'Interior Space', required: true },
-  { value: 'Amenities', label: 'Amenities', required: true },
+  { value: 'Front / Entrance', label: 'Front / Entrance *', required: true },
+  { value: 'Main Hall / Space', label: 'Main Hall / Space *', required: true },
+  { value: 'Seating Area', label: 'Seating Area *', required: true },
+  { value: 'Featured', label: 'Featured Photo', required: false },
+  { value: 'Exterior', label: 'Exterior/Entrance', required: false },
+  { value: 'Interior', label: 'Interior Space', required: false },
+  { value: 'Amenities', label: 'Amenities', required: false },
+  { value: 'Parking', label: 'Parking Area', required: false },
+  { value: 'Facilities', label: 'Facilities', required: false },
+  { value: 'Outdoor Area', label: 'Outdoor Area', required: false },
+  { value: 'Other', label: 'Other', required: false },
   { value: 'Additional', label: 'Additional Areas', required: false },
 ];
 
@@ -31,14 +38,8 @@ export default function Step5Photos() {
     setUploading(true);
 
     for (const file of files) {
-      // Size validation
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error(`${file.name} is larger than 5MB`);
-        continue;
-      }
-
       // Type validation
-      if (!['image/jpeg', 'image/jpg', 'image/png'].includes(file.type)) {
+      if (!file.type || !file.type.startsWith('image/')) {
         toast.error(`${file.name} is not a valid image format`);
         continue;
       }

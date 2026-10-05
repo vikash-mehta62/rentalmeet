@@ -11,6 +11,11 @@ const numberOr = (value, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const positiveOr = (value, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
 const roundMoney = (value) => Math.round(numberOr(value, 0) * 100) / 100;
 
 const getDateDayIndex = (date) => {
@@ -173,20 +178,106 @@ const getDurationHours = ({ bookingType, startTime, endTime, fallback }) => {
   return fallbackHours || 1;
 };
 
-const calculateBasePrice = ({ venue, bookingType, bookingDate, durationHours }) => {
+const calculateBasePrice = ({ venue, bookingType, bookingDate, durationHours, pricingModel, perPaxPackage, guestCount }) => {
   const value = toPlain(venue);
   const dayType = isWeekendDate(bookingDate) ? 'weekend' : 'weekday';
   const pricing = value.pricing || {};
 
+  // Normalize model key
+  const modelKey = String(pricingModel || '').toLowerCase().replace(/[\s_()\-]+/g, '');
+
+  // 1. Per Pax Model Calculation
+  if (modelKey === 'perpax' || bookingType === 'per_pax' || bookingType === 'perpax') {
+    const perPaxConfig = pricing.perPax || {};
+    const pkg = perPaxPackage || 'withoutFood';
+    const pkgConfig = perPaxConfig[pkg] || perPaxConfig.withoutFood || {};
+    const rate = positiveOr(pkgConfig.rate, 0);
+    const minPax = numberOr(pkgConfig.minPax, 1);
+    const guests = Math.max(numberOr(guestCount, 1), minPax);
+    if (rate > 0) {
+      return roundMoney(rate * guests);
+    }
+  }
+
+  // 2. Rent with Amenities Model Calculation
+  if (modelKey === 'rentwithamenities' || modelKey === 'rentincludedamenities' || modelKey.includes('amenities')) {
+    const rentAmenities = pricing.rentWithAmenities || {};
+    if (bookingType === 'hourly') {
+      const rate = positiveOr(rentAmenities.hourly?.rate, pricing.perHour?.[dayType]);
+      if (rate > 0) return roundMoney(rate * numberOr(durationHours, 1));
+    }
+    if (bookingType === 'halfday') {
+      const base = positiveOr(rentAmenities.halfDay?.rate, pricing.halfDay?.[dayType]);
+      if (base > 0) {
+        const extraHours = Math.max(0, numberOr(durationHours, 6) - 6);
+        const extraRate = positiveOr(rentAmenities.halfDay?.extraPerHour, positiveOr(rentAmenities.hourly?.extraPerHour, pricing.extraHourRate?.[dayType] || 0));
+        return roundMoney(base + (extraHours * extraRate));
+      }
+    }
+    if (bookingType === 'fullday') {
+      const base = positiveOr(rentAmenities.fullDay?.rate, pricing.fullDay?.[dayType]);
+      if (base > 0) {
+        const extraHours = Math.max(0, numberOr(durationHours, 12) - 12);
+        const extraRate = positiveOr(rentAmenities.fullDay?.extraPerHour, positiveOr(rentAmenities.hourly?.extraPerHour, pricing.extraHourRate?.[dayType] || 0));
+        return roundMoney(base + (extraHours * extraRate));
+      }
+    }
+  }
+
+  // 3. Only Rent Model Calculation
+  if (modelKey === 'onlyrent' || (!modelKey && pricing.onlyRent?.hourly?.rate)) {
+    const onlyRent = pricing.onlyRent || {};
+    if (bookingType === 'hourly') {
+      const rate = positiveOr(onlyRent.hourly?.rate, pricing.perHour?.[dayType]);
+      if (rate > 0) return roundMoney(rate * numberOr(durationHours, 1));
+    }
+    if (bookingType === 'halfday') {
+      const base = positiveOr(onlyRent.halfDay?.rate, pricing.halfDay?.[dayType]);
+      if (base > 0) {
+        const extraHours = Math.max(0, numberOr(durationHours, 6) - 6);
+        const extraRate = positiveOr(onlyRent.halfDay?.extraPerHour, positiveOr(onlyRent.hourly?.extraPerHour, pricing.extraHourRate?.[dayType] || 0));
+        return roundMoney(base + (extraHours * extraRate));
+      }
+    }
+    if (bookingType === 'fullday') {
+      const base = positiveOr(onlyRent.fullDay?.rate, pricing.fullDay?.[dayType]);
+      if (base > 0) {
+        const extraHours = Math.max(0, numberOr(durationHours, 12) - 12);
+        const extraRate = positiveOr(onlyRent.fullDay?.extraPerHour, positiveOr(onlyRent.hourly?.extraPerHour, pricing.extraHourRate?.[dayType] || 0));
+        return roundMoney(base + (extraHours * extraRate));
+      }
+    }
+  }
+
+  // 4. Standard Hourly / Half Day / Full Day fallback
   if (bookingType === 'hourly') {
-    return roundMoney(numberOr(pricing.perHour?.[dayType], 0) * numberOr(durationHours, 1));
+    const rate = positiveOr(pricing.perHour?.[dayType], positiveOr(pricing.rentWithAmenities?.hourly?.rate, pricing.onlyRent?.hourly?.rate || 0));
+    return roundMoney(rate * numberOr(durationHours, 1));
   }
   if (bookingType === 'halfday') {
-    return roundMoney(pricing.halfDay?.[dayType]);
+    const base = positiveOr(pricing.halfDay?.[dayType], positiveOr(pricing.rentWithAmenities?.halfDay?.rate, pricing.onlyRent?.halfDay?.rate || 0));
+    if (base > 0) {
+      const extraHours = Math.max(0, numberOr(durationHours, 4) - 4);
+      const extraRate = positiveOr(pricing.extraHourRate?.[dayType], 0);
+      return roundMoney(base + (extraHours * extraRate));
+    }
   }
   if (bookingType === 'fullday') {
-    return roundMoney(pricing.fullDay?.[dayType]);
+    const base = positiveOr(pricing.fullDay?.[dayType], positiveOr(pricing.rentWithAmenities?.fullDay?.rate, pricing.onlyRent?.fullDay?.rate || 0));
+    if (base > 0) {
+      const extraHours = Math.max(0, numberOr(durationHours, 8) - 8);
+      const extraRate = positiveOr(pricing.extraHourRate?.[dayType], 0);
+      return roundMoney(base + (extraHours * extraRate));
+    }
   }
+
+  // 5. Fallback to hourly if halfday/fullday not set
+  const perHourRate = positiveOr(pricing.perHour?.[dayType], positiveOr(pricing.rentWithAmenities?.hourly?.rate, pricing.onlyRent?.hourly?.rate || 0));
+  if (perHourRate > 0) {
+    const hours = numberOr(durationHours, bookingType === 'fullday' ? 8 : bookingType === 'halfday' ? 4 : 1);
+    return roundMoney(perHourRate * hours);
+  }
+
   return 0;
 };
 
@@ -225,6 +316,20 @@ const calculateAmenitiesTotal = (selectedAmenities = {}, venue) => {
     total += numberOr(value.amenities.diningArea.charges, 0);
   }
 
+  // Parking charges
+  if (amenities.parking) {
+    const cars = numberOr(amenities.parking.cars, 0);
+    const twoWheelers = numberOr(amenities.parking.twoWheelers, 0);
+    const carRate = numberOr(value.parkingDetails?.cars?.chargePerVehicle, 0);
+    const twRate = numberOr(value.parkingDetails?.twoWheelers?.chargePerVehicle, 0);
+    if (cars > 0 && (value.parkingDetails?.cars?.isChargeable || value.parkingDetails?.type === 'Paid')) {
+      total += cars * carRate;
+    }
+    if (twoWheelers > 0 && (value.parkingDetails?.twoWheelers?.isChargeable || value.parkingDetails?.type === 'Paid')) {
+      total += twoWheelers * twRate;
+    }
+  }
+
   return roundMoney(total);
 };
 
@@ -239,7 +344,10 @@ const calculateVenueBookingPrice = ({
   durationHours: explicitDurationHours,
   basePriceOverride,
   platformFeeConfig: platformFeeConfigOverride,
-  venueGSTConfig: venueGSTConfigOverride
+  venueGSTConfig: venueGSTConfigOverride,
+  pricingModel,
+  perPaxPackage,
+  guestCount
 }) => {
   const durationHours = getDurationHours({
     bookingType,
@@ -249,7 +357,7 @@ const calculateVenueBookingPrice = ({
   });
   const basePrice = basePriceOverride !== undefined
     ? roundMoney(basePriceOverride)
-    : calculateBasePrice({ venue, bookingType, bookingDate, durationHours });
+    : calculateBasePrice({ venue, bookingType, bookingDate, durationHours, pricingModel, perPaxPackage, guestCount });
   const amenitiesTotal = calculateAmenitiesTotal(selectedAmenities, venue);
   const subtotal = roundMoney(basePrice + amenitiesTotal);
   const venueGSTConfig = venueGSTConfigOverride || getVenueGSTConfig(venue, settings);
@@ -290,6 +398,9 @@ const calculateVenueBookingPrice = ({
     platformFeeSGSTRate,
     platformFeeGST,
     platformFeeTotal,
+    pricingModel: pricingModel || null,
+    perPaxPackage: perPaxPackage || null,
+    guestCount: guestCount || null,
     discount: 0,
     couponCode: null,
     total
@@ -351,6 +462,7 @@ const formatTime12Hour = (timeStr) => {
 
 module.exports = {
   numberOr,
+  positiveOr,
   roundMoney,
   normalizeCustomPlatformFee,
   normalizeCustomGST,

@@ -12,6 +12,7 @@ const INITIAL_PERMISSIONS = {
   analytics: false,
   // Venues
   venues: false,
+  addVenue: false,
   venueTypes: false,
   bookings: false,
   payments: false,
@@ -52,7 +53,8 @@ const PERMISSION_GROUPS = [
   {
     section: 'Venues',
     items: [
-      { key: 'venues', label: 'Venues' },
+      { key: 'venues', label: 'Venues (List & Manage)' },
+      { key: 'addVenue', label: '+ Add New Venue' },
       { key: 'venueTypes', label: 'Venue Types' },
       { key: 'bookings', label: 'Bookings' },
       { key: 'payments', label: 'Payments' },

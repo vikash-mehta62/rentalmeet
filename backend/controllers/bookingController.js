@@ -234,7 +234,10 @@ exports.createBooking = async (req, res) => {
       endTime,
       bookingType,
       selectedAmenities: selectedAmenities || {},
-      durationHours: priceBreakdown?.durationHours
+      durationHours: priceBreakdown?.durationHours,
+      pricingModel: priceBreakdown?.pricingModel || req.body.pricingModel || req.body.selectedPricingModel,
+      perPaxPackage: priceBreakdown?.perPaxPackage || req.body.perPaxPackage,
+      guestCount: guestCount || req.body.guestCount || req.body.guests
     });
     const preCouponAmount = serverPrice.total;
     console.log('Server Price Breakdown:', JSON.stringify(serverPrice, null, 2));
@@ -920,7 +923,10 @@ exports.modifyBooking = async (req, res) => {
       durationHours: existingPriceBreakdown.durationHours,
       basePriceOverride: existingPriceBreakdown.basePrice,
       platformFeeConfig: getSnapshotPlatformFeeConfig(existingPriceBreakdown),
-      venueGSTConfig: getSnapshotVenueGSTConfig(existingPriceBreakdown)
+      venueGSTConfig: getSnapshotVenueGSTConfig(existingPriceBreakdown),
+      pricingModel: existingPriceBreakdown.pricingModel || req.body.pricingModel,
+      perPaxPackage: existingPriceBreakdown.perPaxPackage || req.body.perPaxPackage,
+      guestCount: req.body.guestCount || booking.guestCount
     });
     const discountAmount = numberOr(existingPriceBreakdown.discount ?? booking.coupon?.discountAmount, 0);
     const discountAppliesTo = existingPriceBreakdown.discountAppliesTo || booking.coupon?.appliesTo || null;

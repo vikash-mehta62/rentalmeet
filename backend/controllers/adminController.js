@@ -6,6 +6,7 @@ const { sendVenueApprovalEmail, sendVenueRejectionEmail } = require('../utils/em
 const User = require('../models/User');
 const { normalizeCustomPlatformFee, normalizeCustomGST } = require('../utils/venuePricing');
 const { logAudit, logStatusChange, extractClientIp } = require('../utils/auditLogger');
+const { encrypt } = require('../utils/encryption');
 
 // @desc    Get dashboard statistics
 // @route   GET /api/admin/dashboard-stats
@@ -603,6 +604,14 @@ exports.adminQuickEditVenue = async (req, res) => {
       capacity,
       foodType,
       venueType,
+      yearEstablished,
+      floor,
+      seatingArrangements,
+      servicesAvailable,
+      rulesAndPolicies,
+      cancellationPolicy,
+      taxSettings,
+      socialLinks,
       status,
       rejectionReason,
       suspensionReason,
@@ -610,9 +619,13 @@ exports.adminQuickEditVenue = async (req, res) => {
       isBookingStopped,
       stopBookingReason,
       location,
+      parkingDetails,
       pricing,
       availability,
       amenities,
+      catering,
+      cateringFacility,
+      additionalFacilities,
       customPlatformFee,
       customGST,
       customCommission,
@@ -628,6 +641,15 @@ exports.adminQuickEditVenue = async (req, res) => {
     if (areaSqft !== undefined) venue.areaSqft = Number(areaSqft) || 0;
     if (capacity !== undefined) venue.capacity = capacity;
     if (foodType !== undefined) venue.foodType = foodType;
+    if (yearEstablished !== undefined) venue.yearEstablished = yearEstablished;
+    if (floor !== undefined) venue.floor = floor;
+    if (seatingArrangements !== undefined) venue.seatingArrangements = seatingArrangements;
+    if (servicesAvailable !== undefined) venue.servicesAvailable = servicesAvailable;
+    if (rulesAndPolicies !== undefined) venue.rulesAndPolicies = rulesAndPolicies;
+    if (cancellationPolicy !== undefined) venue.cancellationPolicy = cancellationPolicy;
+    if (taxSettings !== undefined) venue.taxSettings = taxSettings;
+    if (socialLinks !== undefined) venue.socialLinks = socialLinks;
+
     if (venueType !== undefined) {
       venue.venueType = Array.isArray(venueType) ? venueType : [venueType].filter(Boolean);
     }
@@ -651,11 +673,36 @@ exports.adminQuickEditVenue = async (req, res) => {
       if (location.stateCode !== undefined) venue.location.stateCode = location.stateCode;
       if (location.pincode !== undefined) venue.location.pincode = location.pincode;
       if (location.area !== undefined) venue.location.area = location.area;
+      if (location.village !== undefined) venue.location.village = location.village;
       if (location.googleMapLink !== undefined) venue.location.googleMapLink = location.googleMapLink;
+      if (location.parkingAvailability !== undefined) venue.location.parkingAvailability = location.parkingAvailability;
       if (location.parkingType !== undefined) venue.location.parkingType = location.parkingType;
       if (location.nearestMetro !== undefined) venue.location.nearestMetro = location.nearestMetro;
       if (location.nearestBusStop !== undefined) venue.location.nearestBusStop = location.nearestBusStop;
       if (location.nearestRailway !== undefined) venue.location.nearestRailway = location.nearestRailway;
+      if (location.nearestBusAuto !== undefined) venue.location.nearestBusAuto = location.nearestBusAuto;
+      if (location.nearestMetroTrain !== undefined) venue.location.nearestMetroTrain = location.nearestMetroTrain;
+      if (location.parkingDetails !== undefined) venue.location.parkingDetails = location.parkingDetails;
+    }
+
+    // Parking Details top-level
+    if (parkingDetails !== undefined) {
+      venue.parkingDetails = parkingDetails;
+    } else if (location?.parkingDetails) {
+      const pd = location.parkingDetails;
+      venue.parkingDetails = {
+        type: pd.type || location.parkingAvailability || 'None',
+        cars: {
+          capacity: Number(pd.carsCapacity || pd.cars?.capacity || 0),
+          isChargeable: (pd.type === 'Paid' || Number(pd.carCharges || pd.cars?.chargePerVehicle || 0) > 0),
+          chargePerVehicle: Number(pd.carCharges || pd.cars?.chargePerVehicle || 0)
+        },
+        twoWheelers: {
+          capacity: Number(pd.twoWheelerCapacity || pd.twoWheelers?.capacity || 0),
+          isChargeable: (pd.type === 'Paid' || Number(pd.twoWheelerCharges || pd.twoWheelers?.chargePerVehicle || 0) > 0),
+          chargePerVehicle: Number(pd.twoWheelerCharges || pd.twoWheelers?.chargePerVehicle || 0)
+        }
+      };
     }
 
     // Pricing
@@ -687,6 +734,11 @@ exports.adminQuickEditVenue = async (req, res) => {
       if (pricing.advanceBookingRule !== undefined) venue.pricing.advanceBookingRule = pricing.advanceBookingRule;
       if (pricing.confirmationHours !== undefined) venue.pricing.confirmationHours = Number(pricing.confirmationHours) || 3;
       if (pricing.availableDays !== undefined) venue.pricing.availableDays = pricing.availableDays;
+      if (pricing.selectedPricingModels !== undefined) venue.pricing.selectedPricingModels = pricing.selectedPricingModels;
+      if (pricing.onlyRent !== undefined) venue.pricing.onlyRent = pricing.onlyRent;
+      if (pricing.rentWithAmenities !== undefined) venue.pricing.rentWithAmenities = pricing.rentWithAmenities;
+      if (pricing.perPax !== undefined) venue.pricing.perPax = pricing.perPax;
+      if (pricing.package !== undefined) venue.pricing.package = pricing.package;
     }
 
     // Availability
@@ -711,7 +763,19 @@ exports.adminQuickEditVenue = async (req, res) => {
       if (amenities.basic !== undefined) venue.amenities.basic = amenities.basic;
       if (amenities.additional !== undefined) venue.amenities.additional = amenities.additional;
       if (amenities.features !== undefined) venue.amenities.features = amenities.features;
+      if (amenities.beverages !== undefined) venue.amenities.beverages = amenities.beverages;
+      if (amenities.refreshmentFood !== undefined) venue.amenities.refreshmentFood = amenities.refreshmentFood;
+      if (amenities.lunchThalis !== undefined) venue.amenities.lunchThalis = amenities.lunchThalis;
+      if (amenities.kitchenAccess !== undefined) venue.amenities.kitchenAccess = amenities.kitchenAccess;
+      if (amenities.diningArea !== undefined) venue.amenities.diningArea = amenities.diningArea;
     }
+
+    // Catering
+    if (cateringFacility !== undefined) venue.catering = cateringFacility;
+    if (catering !== undefined) venue.catering = catering;
+
+    // Additional Facilities
+    if (additionalFacilities !== undefined) venue.additionalFacilities = additionalFacilities;
 
     // Custom Fee & GST
     if (customPlatformFee !== undefined) {
@@ -756,7 +820,13 @@ exports.adminQuickEditVenue = async (req, res) => {
       if (documents.idProof) {
         venue.documents.idProof = {
           ...venue.documents.idProof,
-          ...documents.idProof
+          ...documents.idProof,
+          number: documents.idProof.number || documents.idProof.aadhaarNumber || venue.documents?.idProof?.number || '',
+          aadhaarNumber: documents.idProof.aadhaarNumber || documents.idProof.number || venue.documents?.idProof?.aadhaarNumber || '',
+          aadhaarFrontUrl: documents.idProof.aadhaarFrontUrl || documents.idProof.frontUrl || venue.documents?.idProof?.aadhaarFrontUrl || '',
+          aadhaarBackUrl: documents.idProof.aadhaarBackUrl || documents.idProof.backUrl || venue.documents?.idProof?.aadhaarBackUrl || '',
+          panNumber: documents.idProof.panNumber || venue.documents?.idProof?.panNumber || '',
+          panUrl: documents.idProof.panUrl || venue.documents?.idProof?.panUrl || ''
         };
       }
       if (documents.businessProof) {
@@ -766,6 +836,18 @@ exports.adminQuickEditVenue = async (req, res) => {
           type: documents.businessProof.type || venue.documents?.businessProof?.type || '',
           documentUrl: documents.businessProof.documentUrl || documents.businessProof.url || venue.documents?.businessProof?.documentUrl || '',
           otherSpecify: documents.businessProof.otherSpecify !== undefined ? documents.businessProof.otherSpecify : (venue.documents?.businessProof?.otherSpecify || '')
+        };
+      }
+      if (documents.propertyProof) {
+        venue.documents.propertyProof = {
+          ...venue.documents.propertyProof,
+          ...documents.propertyProof
+        };
+      }
+      if (documents.applicableCertificates) {
+        venue.documents.applicableCertificates = {
+          ...venue.documents.applicableCertificates,
+          ...documents.applicableCertificates
         };
       }
       if (documents.selfieUrl !== undefined) {
@@ -802,7 +884,13 @@ exports.adminQuickEditVenue = async (req, res) => {
     if (bankDetails && typeof bankDetails === 'object') {
       if (!venue.bankDetails) venue.bankDetails = {};
       if (bankDetails.accountHolderName !== undefined) venue.bankDetails.accountHolderName = bankDetails.accountHolderName;
-      if (bankDetails.accountNumber !== undefined) venue.bankDetails.accountNumber = bankDetails.accountNumber;
+      if (bankDetails.accountNumber !== undefined) {
+        if (bankDetails.accountNumber && !bankDetails.accountNumber.startsWith('U2FsdGVk')) {
+          venue.bankDetails.accountNumber = encrypt(bankDetails.accountNumber);
+        } else {
+          venue.bankDetails.accountNumber = bankDetails.accountNumber;
+        }
+      }
       if (bankDetails.ifscCode !== undefined) venue.bankDetails.ifscCode = bankDetails.ifscCode;
       if (bankDetails.bankName !== undefined) venue.bankDetails.bankName = bankDetails.bankName;
       if (bankDetails.branchName !== undefined) venue.bankDetails.branchName = bankDetails.branchName;

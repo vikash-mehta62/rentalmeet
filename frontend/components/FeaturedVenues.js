@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, Star, ArrowRight, Leaf, UtensilsCrossed, Utensils } from 'lucide-react';
+import { Users, Star, ArrowRight, Leaf, UtensilsCrossed, Utensils, CheckCircle2, Info } from 'lucide-react';
+import { getVenueStartingPrice, isVenueVerified } from '@/lib/venuePricing';
 
 function getFoodTypeIcon(foodType) {
   if (foodType === 'Veg') return Leaf;
@@ -11,7 +12,9 @@ function getFoodTypeIcon(foodType) {
 }
 
 function getVenueTypeLabel(venue) {
-  if (Array.isArray(venue?.venueType)) return venue.venueType[0] || 'Venue';
+  if (Array.isArray(venue?.venueType)) {
+    return venue.venueType.join(', ') || 'Venue';
+  }
   return venue?.venueType || 'Venue';
 }
 
@@ -117,15 +120,27 @@ Featured Venues at RentalMeet
                     </span>
                   </div>
 
-                  {/* Rating Badge */}
-                  {(venue.rating > 0 || venue.averageRating > 0) && (
-                    <div className="absolute top-3 right-3 bg-white dark:bg-slate-900 px-2.5 py-1 rounded-full flex items-center gap-1 shadow-md">
-                      <Star className="w-3.5 h-3.5 text-[#F59F0A] fill-[#F59F0A]" />
-                      <span className="text-xs font-bold text-gray-900 dark:text-slate-100">
-                        {(venue.rating || venue.averageRating)?.toFixed(1)}
+                  {/* Top-Right Badges: Info / Verified + Rating */}
+                  <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
+                    {isVenueVerified(venue) ? (
+                      <span className="bg-emerald-600 text-white px-2.5 py-1 rounded-full flex items-center gap-1 shadow-md text-xs font-bold backdrop-blur-xs">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Verified
                       </span>
-                    </div>
-                  )}
+                    ) : (
+                      <span className="bg-blue-600 text-white px-2.5 py-1 rounded-full flex items-center gap-1 shadow-md text-xs font-bold backdrop-blur-xs">
+                        <Info className="w-3.5 h-3.5" /> Info
+                      </span>
+                    )}
+
+                    {(venue.rating > 0 || venue.averageRating > 0) && (
+                      <div className="bg-white dark:bg-slate-900 px-2.5 py-1 rounded-full flex items-center gap-1 shadow-md">
+                        <Star className="w-3.5 h-3.5 text-[#F59F0A] fill-[#F59F0A]" />
+                        <span className="text-xs font-bold text-gray-900 dark:text-slate-100">
+                          {(venue.rating || venue.averageRating)?.toFixed(1)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Coupon Badge — bottom-left overlay */}
                   {venue.activeCoupons?.length > 0 && (
@@ -178,10 +193,25 @@ Featured Venues at RentalMeet
                   <div className="flex items-end justify-between pt-3 border-t border-gray-100 dark:border-slate-800">
                     <div>
                       <p className="text-xs text-gray-500 dark:text-slate-400 mb-0.5">Starting from</p>
-                      <p className="text-lg font-bold text-[#F59F0A]">
-                        ₹{venue.pricing?.perHour?.weekday?.toLocaleString('en-IN') || 0}
-                        <span className="text-xs font-normal text-gray-500 dark:text-slate-400"></span>
-                      </p>
+                      {(() => {
+                        const startingPrice = getVenueStartingPrice(venue);
+                        return (
+                          <p className="text-lg font-bold text-[#F59F0A]">
+                            {startingPrice.amount > 0 ? (
+                              <>
+                                {startingPrice.formatted}
+                                {startingPrice.label && (
+                                  <span className="text-xs font-normal text-gray-500 dark:text-slate-400 ml-1">
+                                    {startingPrice.label}
+                                  </span>
+                                )}
+                              </>
+                            ) : (
+                              'Price on request'
+                            )}
+                          </p>
+                        );
+                      })()}
                     </div>
                     <button className="bg-[#F59F0A] hover:bg-[#D97706] text-white font-semibold px-4 py-2 rounded-lg transition-all duration-300 text-sm whitespace-nowrap">
                       View Details

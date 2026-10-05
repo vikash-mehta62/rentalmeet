@@ -1388,6 +1388,30 @@
                   "listingSource": {
                     "example": "any"
                   },
+                  "onboardingPhase": {
+                    "example": "any"
+                  },
+                  "isProvisional": {
+                    "example": "any"
+                  },
+                  "foodType": {
+                    "example": "any"
+                  },
+                  "termsAccepted": {
+                    "example": "any"
+                  },
+                  "location": {
+                    "example": "any"
+                  },
+                  "parkingDetails": {
+                    "example": "any"
+                  },
+                  "description": {
+                    "example": "any"
+                  },
+                  "pricing": {
+                    "example": "any"
+                  },
                   "statusHistory": {
                     "example": "any"
                   }
@@ -6026,6 +6050,30 @@
                   "venueType": {
                     "example": "any"
                   },
+                  "yearEstablished": {
+                    "example": "any"
+                  },
+                  "floor": {
+                    "example": "any"
+                  },
+                  "seatingArrangements": {
+                    "example": "any"
+                  },
+                  "servicesAvailable": {
+                    "example": "any"
+                  },
+                  "rulesAndPolicies": {
+                    "example": "any"
+                  },
+                  "cancellationPolicy": {
+                    "example": "any"
+                  },
+                  "taxSettings": {
+                    "example": "any"
+                  },
+                  "socialLinks": {
+                    "example": "any"
+                  },
                   "status": {
                     "example": "any"
                   },
@@ -6047,6 +6095,9 @@
                   "location": {
                     "example": "any"
                   },
+                  "parkingDetails": {
+                    "example": "any"
+                  },
                   "pricing": {
                     "example": "any"
                   },
@@ -6054,6 +6105,15 @@
                     "example": "any"
                   },
                   "amenities": {
+                    "example": "any"
+                  },
+                  "catering": {
+                    "example": "any"
+                  },
+                  "cateringFacility": {
+                    "example": "any"
+                  },
+                  "additionalFacilities": {
                     "example": "any"
                   },
                   "customPlatformFee": {
@@ -6069,6 +6129,9 @@
                     "example": "any"
                   },
                   "documents": {
+                    "example": "any"
+                  },
+                  "images": {
                     "example": "any"
                   },
                   "bankDetails": {
@@ -10028,6 +10091,21 @@
                 "type": "object",
                 "properties": {
                   "customerDetails": {
+                    "example": "any"
+                  },
+                  "pricingModel": {
+                    "example": "any"
+                  },
+                  "selectedPricingModel": {
+                    "example": "any"
+                  },
+                  "perPaxPackage": {
+                    "example": "any"
+                  },
+                  "guestCount": {
+                    "example": "any"
+                  },
+                  "guests": {
                     "example": "any"
                   },
                   "venue": {

@@ -32,16 +32,159 @@ export const isWeekendDate = (date) => {
 
 export const getDateRateKey = (date) => (isWeekendDate(date) ? 'weekend' : 'weekday');
 
-export const getVenueDurationBasePrice = (venue = {}, duration, date) => {
+export const positiveOr = (value, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+export const calculateProfileCompletion = (venue = {}) => {
+  if (!venue) return 0;
+  let score = 0;
+  if (venue.businessName) score += 5;
+  if (venue.venueType && (Array.isArray(venue.venueType) ? venue.venueType.length > 0 : Boolean(venue.venueType))) score += 5;
+  if (venue.capacity) score += 5;
+  if (venue.foodType) score += 5;
+
+  if (venue.location?.address) score += 5;
+  if (venue.location?.city) score += 5;
+  if (venue.location?.pincode && venue.location.pincode !== '000000') score += 5;
+
+  const p = venue.pricing || {};
+  const hasPricing = (
+    (Number(p.perHour?.weekday) > 0 || Number(p.perHour?.weekend) > 0) ||
+    (Number(p.halfDay?.weekday) > 0 || Number(p.halfDay?.weekend) > 0) ||
+    (Number(p.fullDay?.weekday) > 0 || Number(p.fullDay?.weekend) > 0) ||
+    (Number(p.onlyRent?.hourly?.rate) > 0 || Number(p.onlyRent?.halfDay?.rate) > 0 || Number(p.onlyRent?.fullDay?.rate) > 0) ||
+    (Number(p.rentWithAmenities?.hourly?.rate) > 0 || Number(p.rentWithAmenities?.halfDay?.rate) > 0 || Number(p.rentWithAmenities?.fullDay?.rate) > 0) ||
+    (p.perPax && Object.values(p.perPax).some(pkg => Number(pkg?.rate) > 0))
+  );
+  if (hasPricing) score += 15;
+
+  const imgCount = venue.images?.length || 0;
+  if (imgCount >= 1) score += 5;
+  if (imgCount >= 3) score += 5;
+  if (imgCount >= 5) score += 5;
+
+  if (venue.documents?.verified) {
+    score += 35;
+  } else {
+    if (venue.bankDetails?.accountNumber || venue.bankDetails?.ifscCode) score += 10;
+    if (venue.documents?.idProof?.number || venue.documents?.idProof?.frontUrl || venue.documents?.businessProof?.documentUrl) score += 10;
+    if (venue.description && venue.description.length > 40) score += 5;
+    if (venue.amenities?.basic?.some(a => a.available) || venue.additionalFacilities?.length > 0) score += 5;
+    if (venue.cateringFacility?.available || venue.socialLinks?.website || venue.socialLinks?.instagram) score += 5;
+  }
+
+  return Math.min(100, Math.max(0, score));
+};
+
+export const isVenueVerified = (venue = {}) => {
+  if (!venue) return false;
+  if (venue.isVerified === true) return true;
+  if (venue.documents?.verified === true) return true;
+  if (typeof venue.profileCompletion === 'number' && venue.profileCompletion >= 70) return true;
+  return calculateProfileCompletion(venue) >= 70;
+};
+
+export const getVenueDurationBasePrice = (venue = {}, duration, date, options = {}) => {
   const pricing = venue?.pricing || {};
   const dayType = getDateRateKey(date);
   const hours = Math.max(1, parseInt(duration, 10) || 1);
+  const { pricingModel, perPaxPackage, guestCount } = options;
 
-  if (hours === 1 || hours === 2) {
-    return roundMoney(numberOr(pricing.perHour?.[dayType], 0) * hours);
+  const modelKey = String(pricingModel || '').toLowerCase().replace(/[\s_()\-]+/g, '');
+
+  // 1. Per Pax Model Calculation
+  if (modelKey === 'perpax' || pricingModel === 'Per Pax') {
+    const perPaxConfig = pricing.perPax || {};
+    const pkg = perPaxPackage || 'withoutFood';
+    const pkgConfig = perPaxConfig[pkg] || perPaxConfig.withoutFood || {};
+    const rate = positiveOr(pkgConfig.rate, 0);
+    const minPax = numberOr(pkgConfig.minPax, 1);
+    const guests = Math.max(numberOr(guestCount, 1), minPax);
+    if (rate > 0) {
+      return roundMoney(rate * guests);
+    }
   }
-  if (hours === 4) return roundMoney(pricing.halfDay?.[dayType]);
-  if (hours === 8) return roundMoney(pricing.fullDay?.[dayType]);
+
+  // 2. Rent with Amenities Model Calculation
+  if (modelKey === 'rentwithamenities' || modelKey === 'rentincludedamenities' || modelKey.includes('amenities') || pricingModel === 'Rent (Included Amenities)') {
+    const rentAmenities = pricing.rentWithAmenities || {};
+    if (hours === 1 || hours === 2) {
+      const rate = positiveOr(rentAmenities.hourly?.rate, pricing.perHour?.[dayType]);
+      if (rate > 0) return roundMoney(rate * hours);
+    }
+    if (hours === 4 || hours === 6) {
+      const base = positiveOr(rentAmenities.halfDay?.rate, pricing.halfDay?.[dayType]);
+      if (base > 0) {
+        const extraHours = Math.max(0, hours - 6);
+        const extraRate = positiveOr(rentAmenities.halfDay?.extraPerHour, positiveOr(rentAmenities.hourly?.extraPerHour, pricing.extraHourRate?.[dayType] || 0));
+        return roundMoney(base + (extraHours * extraRate));
+      }
+    }
+    if (hours === 8 || hours === 12) {
+      const base = positiveOr(rentAmenities.fullDay?.rate, pricing.fullDay?.[dayType]);
+      if (base > 0) {
+        const extraHours = Math.max(0, hours - 12);
+        const extraRate = positiveOr(rentAmenities.fullDay?.extraPerHour, positiveOr(rentAmenities.hourly?.extraPerHour, pricing.extraHourRate?.[dayType] || 0));
+        return roundMoney(base + (extraHours * extraRate));
+      }
+    }
+  }
+
+  // 3. Only Rent Model Calculation
+  if (modelKey === 'onlyrent' || pricingModel === 'Only Rent' || (!modelKey && pricing.onlyRent?.hourly?.rate)) {
+    const onlyRent = pricing.onlyRent || {};
+    if (hours === 1 || hours === 2) {
+      const rate = positiveOr(onlyRent.hourly?.rate, pricing.perHour?.[dayType]);
+      if (rate > 0) return roundMoney(rate * hours);
+    }
+    if (hours === 4 || hours === 6) {
+      const base = positiveOr(onlyRent.halfDay?.rate, pricing.halfDay?.[dayType]);
+      if (base > 0) {
+        const extraHours = Math.max(0, hours - 6);
+        const extraRate = positiveOr(onlyRent.halfDay?.extraPerHour, positiveOr(onlyRent.hourly?.extraPerHour, pricing.extraHourRate?.[dayType] || 0));
+        return roundMoney(base + (extraHours * extraRate));
+      }
+    }
+    if (hours === 8 || hours === 12) {
+      const base = positiveOr(onlyRent.fullDay?.rate, pricing.fullDay?.[dayType]);
+      if (base > 0) {
+        const extraHours = Math.max(0, hours - 12);
+        const extraRate = positiveOr(onlyRent.fullDay?.extraPerHour, positiveOr(onlyRent.hourly?.extraPerHour, pricing.extraHourRate?.[dayType] || 0));
+        return roundMoney(base + (extraHours * extraRate));
+      }
+    }
+  }
+
+  // 4. Standard Hourly / Half Day / Full Day fallback
+  if (hours === 1 || hours === 2) {
+    const rate = positiveOr(pricing.perHour?.[dayType], positiveOr(pricing.rentWithAmenities?.hourly?.rate, pricing.onlyRent?.hourly?.rate || 0));
+    return roundMoney(rate * hours);
+  }
+  if (hours === 4 || hours === 6) {
+    const base = positiveOr(pricing.halfDay?.[dayType], positiveOr(pricing.rentWithAmenities?.halfDay?.rate, pricing.onlyRent?.halfDay?.rate || 0));
+    if (base > 0) {
+      const extraHours = Math.max(0, hours - 4);
+      const extraRate = positiveOr(pricing.extraHourRate?.[dayType], 0);
+      return roundMoney(base + (extraHours * extraRate));
+    }
+  }
+  if (hours === 8 || hours === 12) {
+    const base = positiveOr(pricing.fullDay?.[dayType], positiveOr(pricing.rentWithAmenities?.fullDay?.rate, pricing.onlyRent?.fullDay?.rate || 0));
+    if (base > 0) {
+      const extraHours = Math.max(0, hours - 8);
+      const extraRate = positiveOr(pricing.extraHourRate?.[dayType], 0);
+      return roundMoney(base + (extraHours * extraRate));
+    }
+  }
+
+  // 5. Proportional / General Hourly fallback for other durations
+  const perHourRate = positiveOr(pricing.perHour?.[dayType], positiveOr(pricing.rentWithAmenities?.hourly?.rate, pricing.onlyRent?.hourly?.rate || 0));
+  if (perHourRate > 0) {
+    return roundMoney(perHourRate * hours);
+  }
+
   return 0;
 };
 
@@ -227,4 +370,54 @@ export const formatTime12Hour = (timeStr) => {
   const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
   return `${String(h12).padStart(2, '0')}:${String(m || 0).padStart(2, '0')} ${period}`;
 };
+
+/**
+ * Calculates the accurate minimum starting price across all enabled models:
+ * hourly, halfDay, fullDay, onlyRent, rentWithAmenities, and perPax.
+ */
+export const getVenueStartingPrice = (venue = {}) => {
+  const p = venue?.pricing || {};
+  const candidates = [];
+
+  // 1. Standard Rates
+  if (Number(p?.perHour?.weekday) > 0) candidates.push({ val: Number(p.perHour.weekday), label: '/hour' });
+  if (Number(p?.perHour?.weekend) > 0) candidates.push({ val: Number(p.perHour.weekend), label: '/hour' });
+  if (Number(p?.halfDay?.weekday) > 0) candidates.push({ val: Number(p.halfDay.weekday), label: '/half day' });
+  if (Number(p?.halfDay?.weekend) > 0) candidates.push({ val: Number(p.halfDay.weekend), label: '/half day' });
+  if (Number(p?.fullDay?.weekday) > 0) candidates.push({ val: Number(p.fullDay.weekday), label: '/full day' });
+  if (Number(p?.fullDay?.weekend) > 0) candidates.push({ val: Number(p.fullDay.weekend), label: '/full day' });
+
+  // 2. onlyRent model
+  const onlyRent = p?.onlyRent || {};
+  if (Number(onlyRent.hourly?.rate) > 0) candidates.push({ val: Number(onlyRent.hourly.rate), label: '/hour' });
+  if (Number(onlyRent.halfDay?.rate) > 0) candidates.push({ val: Number(onlyRent.halfDay.rate), label: '/half day' });
+  if (Number(onlyRent.fullDay?.rate) > 0) candidates.push({ val: Number(onlyRent.fullDay.rate), label: '/full day' });
+
+  // 3. rentWithAmenities model
+  const rentWithAmenities = p?.rentWithAmenities || {};
+  if (Number(rentWithAmenities.hourly?.rate) > 0) candidates.push({ val: Number(rentWithAmenities.hourly.rate), label: '/hour' });
+  if (Number(rentWithAmenities.halfDay?.rate) > 0) candidates.push({ val: Number(rentWithAmenities.halfDay.rate), label: '/half day' });
+  if (Number(rentWithAmenities.fullDay?.rate) > 0) candidates.push({ val: Number(rentWithAmenities.fullDay.rate), label: '/full day' });
+
+  // 4. perPax model
+  const perPax = p?.perPax || {};
+  Object.values(perPax).forEach((pkg) => {
+    if (Number(pkg?.rate) > 0) {
+      candidates.push({ val: Number(pkg.rate), label: '/pax' });
+    }
+  });
+
+  if (candidates.length === 0) {
+    return { amount: 0, label: '', formatted: '₹0' };
+  }
+
+  // Find lowest price candidate > 0
+  const minCandidate = candidates.reduce((min, curr) => (curr.val < min.val ? curr : min), candidates[0]);
+  return {
+    amount: minCandidate.val,
+    label: minCandidate.label,
+    formatted: `₹${minCandidate.val.toLocaleString('en-IN')}`
+  };
+};
+
 

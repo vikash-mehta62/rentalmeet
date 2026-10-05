@@ -7,12 +7,12 @@ import toast from 'react-hot-toast';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { 
-  Clock, IndianRupee, X, CheckCircle, Send
+  Clock, IndianRupee, X, CheckCircle, Send, Car
 } from 'lucide-react';
 import Image from 'next/image';
 import QuotationView from './QuotationView';
 import { trackCustomEvent } from '@/lib/analytics';
-import { calculatePlatformFee, formatPlatformFeeLabel, getVenuePricingMeta, isWeekendDate, numberOr, roundMoney, getMinAdvanceBookingDate, isOnlineBookingOpen, formatTime12Hour } from '@/lib/venuePricing';
+import { calculatePlatformFee, formatPlatformFeeLabel, getVenuePricingMeta, isWeekendDate, numberOr, roundMoney, getMinAdvanceBookingDate, isOnlineBookingOpen, formatTime12Hour, getVenueDurationBasePrice } from '@/lib/venuePricing';
 
 function getCapacityLimit(capacity) {
   const text = String(capacity || '').trim();
@@ -112,9 +112,9 @@ export default function BookingForm({
     if (!duration) return '';
     const hours = parseInt(duration);
     if (hours === 1 || hours === 2) return 'hourly';
-    if (hours === 4) return 'halfday';
-    if (hours === 8) return 'fullday';
-    return '';
+    if (hours === 4 || hours === 6) return 'halfday';
+    if (hours === 8 || hours === 12) return 'fullday';
+    return 'hourly';
   };
 
   // Calculate end time from start time and duration (returns 12-hour format)
@@ -160,12 +160,15 @@ export default function BookingForm({
 
   // Get first enabled duration for this venue
   const getDefaultDuration = () => {
-    if (initialData?.duration) return initialData.duration;
+    if (initialData?.duration) return String(initialData.duration);
     const opts = venue?.pricing?.enabledOptions || {};
     if (opts.perHour) return '1';
     if (opts.halfDay) return '4';
     if (opts.fullDay) return '8';
-    return '1';
+    if (Number(venue?.pricing?.perHour?.weekday) > 0 || Number(venue?.pricing?.perHour?.weekend) > 0) return '1';
+    if (Number(venue?.pricing?.halfDay?.weekday) > 0 || Number(venue?.pricing?.halfDay?.weekend) > 0) return '4';
+    if (Number(venue?.pricing?.fullDay?.weekday) > 0 || Number(venue?.pricing?.fullDay?.weekend) > 0) return '8';
+    return '4';
   };
 
   // Form state - Initialize with passed data
@@ -182,6 +185,10 @@ export default function BookingForm({
     eventType: initialEnquiryData?.customerDetails?.eventType || '',
     guestCount: initialData?.guestCount || initialEnquiryData?.customerDetails?.guestCount || '',
     specialRequirements: initialEnquiryData?.customerDetails?.specialRequirements || initialEnquiryData?.notes || '',
+    pricingModel: initialData?.pricingModel || venue?.pricing?.selectedPricingModels?.[0] || 'Rent with Amenities',
+    perPaxPackage: initialData?.perPaxPackage || 'withoutFood',
+    parkingCars: initialData?.parkingCars || 0,
+    parkingTwoWheelers: initialData?.parkingTwoWheelers || 0,
     acceptTerms: false
   });
 
@@ -206,7 +213,9 @@ export default function BookingForm({
         customerPhone: cd.phone || prev.customerPhone || user?.phone || '',
         eventType: cd.eventType || bd.purpose || prev.eventType,
         guestCount: cd.guestCount || bd.guests || prev.guestCount,
-        specialRequirements: cd.specialRequirements || initialEnquiryData.notes || prev.specialRequirements
+        specialRequirements: cd.specialRequirements || initialEnquiryData.notes || prev.specialRequirements,
+        pricingModel: bd.pricingModel || initialEnquiryData?.priceBreakdown?.pricingModel || prev.pricingModel,
+        perPaxPackage: bd.perPaxPackage || initialEnquiryData?.priceBreakdown?.perPaxPackage || prev.perPaxPackage
       }));
     } else if (initialData?.date || initialData?.startTime) {
       setFormData(prev => ({
@@ -215,7 +224,11 @@ export default function BookingForm({
         startTime: initialData.startTime || prev.startTime,
         duration: initialData.duration || prev.duration,
         guestCount: initialData.guestCount || prev.guestCount,
-        isWeekend: isWeekendDate(initialData.date)
+        isWeekend: isWeekendDate(initialData.date),
+        pricingModel: initialData.pricingModel || prev.pricingModel,
+        perPaxPackage: initialData.perPaxPackage || prev.perPaxPackage,
+        parkingCars: initialData.parkingCars || prev.parkingCars,
+        parkingTwoWheelers: initialData.parkingTwoWheelers || prev.parkingTwoWheelers
       }));
     }
   }, [initialEnquiryData, initialData]);
@@ -249,16 +262,26 @@ export default function BookingForm({
 
   // Calculate base price
   const calculateBasePrice = (type, isWeekendDay, duration = formData.duration) => {
-    if (!venue?.pricing) return 0;
-    const dayType = isWeekendDay ? 'weekend' : 'weekday';
-    const hours = Math.max(1, parseInt(duration) || 1);
-    
-    switch (type) {
-      case 'hourly': return (venue.pricing.perHour?.[dayType] || 0) * hours;
-      case 'halfday': return venue.pricing.halfDay?.[dayType] || 0;
-      case 'fullday': return venue.pricing.fullDay?.[dayType] || 0;
-      default: return 0;
+    return getVenueDurationBasePrice(venue, duration, formData.bookingDate, {
+      pricingModel: formData.pricingModel,
+      perPaxPackage: formData.perPaxPackage,
+      guestCount: formData.guestCount
+    });
+  };
+
+  // Calculate parking charges
+  const calculateParkingCharges = () => {
+    if (!venue?.parkingDetails) return 0;
+    let charges = 0;
+    const cars = Number(formData.parkingCars || 0);
+    const twoWheelers = Number(formData.parkingTwoWheelers || 0);
+    if (cars > 0 && (venue.parkingDetails.cars?.isChargeable || venue.parkingDetails.type === 'Paid')) {
+      charges += cars * (venue.parkingDetails.cars?.chargePerVehicle || 0);
     }
+    if (twoWheelers > 0 && (venue.parkingDetails.twoWheelers?.isChargeable || venue.parkingDetails.type === 'Paid')) {
+      charges += twoWheelers * (venue.parkingDetails.twoWheelers?.chargePerVehicle || 0);
+    }
+    return charges;
   };
 
   // Calculate amenities total
@@ -330,8 +353,9 @@ export default function BookingForm({
 
   // Update total price with GST and Platform Fee
   useEffect(() => {
-    if (formData.bookingType) {
+    if (formData.bookingType || formData.pricingModel === 'Per Pax') {
       const basePrice = calculateBasePrice(formData.bookingType, formData.isWeekend, formData.duration);
+      const parkingCharges = calculateParkingCharges();
       const amenitiesTotal = calculateAmenitiesTotal();
       const subtotal = basePrice + amenitiesTotal;
       const pricingMeta = getVenuePricingMeta(venue, platformSettings);
@@ -361,6 +385,7 @@ export default function BookingForm({
       setCalculatedPrice({
         basePrice,
         amenitiesTotal,
+        parkingCharges,
         subtotal,
         durationHours: Math.max(1, parseInt(formData.duration) || 1),
         // Venue GST
@@ -386,12 +411,15 @@ export default function BookingForm({
         platformFeeTotal,
         platformCGSTRate,
         platformSGSTRate,
+        pricingModel: formData.pricingModel,
+        perPaxPackage: formData.perPaxPackage,
+        guestCount: Number(formData.guestCount || 1),
         discount: appliedCoupon ? appliedCoupon.discountAmount : 0,
         couponCode: appliedCoupon?.code || null,
         total: appliedCoupon ? Math.max(0, total - appliedCoupon.discountAmount) : total
       });
     }
-  }, [formData.bookingType, formData.duration, formData.isWeekend, selectedAmenities, quantities, platformSettings, venue, appliedCoupon]);
+  }, [formData.bookingType, formData.duration, formData.isWeekend, formData.bookingDate, formData.pricingModel, formData.perPaxPackage, formData.guestCount, formData.parkingCars, formData.parkingTwoWheelers, selectedAmenities, quantities, platformSettings, venue, appliedCoupon]);
 
   const checkIfWeekend = (dateString) => {
     return isWeekendDate(dateString);
@@ -674,7 +702,12 @@ export default function BookingForm({
           quantity: quantities[`thali_${thali.thaliType}_${thali.category}`] || 1,
           total: (thali.ratePerPlate || 0) * (quantities[`thali_${thali.thaliType}_${thali.category}`] || 1)
         })) : [],
-        additional: selectedAmenities.additional?.length > 0 ? selectedAmenities.additional : []
+        additional: selectedAmenities.additional?.length > 0 ? selectedAmenities.additional : [],
+        parking: {
+          cars: Number(formData.parkingCars || 0),
+          twoWheelers: Number(formData.parkingTwoWheelers || 0),
+          charges: calculatedPrice.parkingCharges || 0
+        }
       };
 
       const bookingData = {
@@ -682,13 +715,20 @@ export default function BookingForm({
         bookingDate: formData.bookingDate,
         startTime: formData.startTime,
         endTime: formData.endTime,
-        bookingType: formData.bookingType,
+        bookingType: formData.pricingModel === 'Per Pax' ? 'perpax' : formData.bookingType,
+        pricingModel: formData.pricingModel,
+        perPaxPackage: formData.perPaxPackage,
+        guestCount: Number(formData.guestCount),
         // Send pre-coupon total — backend will apply coupon and compute finalAmount
         amount: calculatedPrice.subtotal + calculatedPrice.gst + calculatedPrice.platformFeeTotal,
         amenitiesTotal: calculatedPrice.amenitiesTotal,
         selectedAmenities: amenitiesWithDetails,
         priceBreakdown: {
           ...calculatedPrice,
+          parkingCharges: calculatedPrice.parkingCharges || 0,
+          pricingModel: formData.pricingModel,
+          perPaxPackage: formData.perPaxPackage,
+          guestCount: Number(formData.guestCount),
           // Store the actual discount and final total for reference
           discount: calculatedPrice.discount || 0,
           total: calculatedPrice.total
@@ -709,6 +749,8 @@ export default function BookingForm({
       // Build enquiry payload for off-hours draft option
       const enquiryPayload = {
         customerId: user?._id || null,
+        pricingModel: formData.pricingModel,
+        perPaxPackage: formData.perPaxPackage,
         customerDetails: {
           name: formData.customerName,
           email: formData.customerEmail,
@@ -725,7 +767,9 @@ export default function BookingForm({
           startTime: formData.startTime,
           endTime: formData.endTime,
           duration: formData.duration,
-          bookingType: formData.bookingType,
+          bookingType: formData.pricingModel === 'Per Pax' ? 'perpax' : formData.bookingType,
+          pricingModel: formData.pricingModel,
+          perPaxPackage: formData.perPaxPackage,
           guests: Number(formData.guestCount),
           purpose: formData.eventType,
           specialRequests: formData.specialRequirements
@@ -734,6 +778,10 @@ export default function BookingForm({
         estimatedAmount: calculatedPrice.total,
         priceBreakdown: {
           ...calculatedPrice,
+          parkingCharges: calculatedPrice.parkingCharges || 0,
+          pricingModel: formData.pricingModel,
+          perPaxPackage: formData.perPaxPackage,
+          guestCount: Number(formData.guestCount),
           discount: calculatedPrice.discount || 0,
           total: calculatedPrice.total
         },
@@ -950,39 +998,129 @@ export default function BookingForm({
             </div>
           )}
 
-          {/* Duration Selection */}
-          <div>
-            <label className="block text-sm font-semibold text-dark-700 dark:text-slate-200 mb-3">Select Duration *</label>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {(() => {
-                const opts = venue.pricing?.enabledOptions || {};
-                const options = [];
-                if (opts.perHour) {
-                  options.push({ hours: '1', label: '1h' });
-                  options.push({ hours: '2', label: '2h' });
-                }
-                if (opts.halfDay) options.push({ hours: '4', label: '4h' });
-                if (opts.fullDay) options.push({ hours: '8', label: 'Full Day' });
-                return options.map(({ hours, label }) => {
-                  const bookingType = mapDurationToBookingType(hours);
-                  const displayPrice = calculateBasePrice(bookingType, formData.isWeekend, hours);
-                  return (
+          {/* Pricing Model Selector (if multiple available or perPax offered) */}
+          {(() => {
+            const rawModels = venue.pricing?.selectedPricingModels || [];
+            const hasPerPaxRates = Object.values(venue.pricing?.perPax || {}).some(pkg => Number(pkg?.rate) > 0);
+            const models = [...new Set([...rawModels, ...(hasPerPaxRates ? ['Per Pax'] : [])])];
+            if (models.length <= 1) return null;
+            return (
+              <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                <label className="block text-sm font-semibold text-dark-700 dark:text-slate-200 mb-2">
+                  Select Pricing Model *
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {models.map((model) => (
                     <button
-                      key={hours}
+                      key={model}
                       type="button"
-                      onClick={() => handleDurationChange(hours)}
-                      className={`p-3 border-2 rounded-xl text-center transition-all ${
-                        formData.duration === hours ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' : 'border-gray-200 dark:border-slate-700 hover:border-primary-300'
+                      onClick={() => setFormData(prev => ({ ...prev, pricingModel: model }))}
+                      className={`px-3.5 py-2.5 rounded-lg text-xs md:text-sm font-semibold border-2 transition-all text-center ${
+                        formData.pricingModel === model
+                          ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-950/40 dark:text-primary-300'
+                          : 'border-slate-200 dark:border-slate-700 hover:border-primary-200 text-slate-700 dark:text-slate-300'
                       }`}
                     >
-                      <p className="font-semibold text-sm md:text-base dark:text-slate-100">{label}</p>
-                      <p className="text-primary-600 font-bold text-base md:text-lg">₹{displayPrice.toLocaleString()}</p>
+                      {model}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* If Per Pax is active, show Meal Package selection */}
+          {formData.pricingModel === 'Per Pax' ? (
+            <div className="bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <label className="block text-sm font-bold text-dark-800 dark:text-slate-100">
+                    Select Meal / Food Package *
+                  </label>
+                  <p className="text-xs text-slate-500">Rate is charged per person based on your guest count</p>
+                </div>
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200">
+                  Per Pax Rates
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {[
+                  { key: 'withoutFood', label: 'Without Food' },
+                  { key: 'breakfast', label: 'Breakfast Included' },
+                  { key: 'lunch', label: 'Lunch Included' },
+                  { key: 'highTea', label: 'High Tea Included' },
+                  { key: 'dinner', label: 'Dinner Included' },
+                  { key: 'fullDayMeal', label: 'Full Day Meal Included' }
+                ].map(({ key, label }) => {
+                  const pkgConfig = venue.pricing?.perPax?.[key];
+                  const rate = Number(pkgConfig?.rate || 0);
+                  const minPax = Number(pkgConfig?.minPax || 1);
+                  const hasAnyRates = Object.values(venue.pricing?.perPax || {}).some(p => Number(p?.rate) > 0);
+                  if (rate <= 0 && key !== 'withoutFood' && hasAnyRates) {
+                    return null;
+                  }
+                  const isSelected = formData.perPaxPackage === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, perPaxPackage: key }))}
+                      className={`p-3 rounded-xl border-2 text-left transition-all ${
+                        isSelected
+                          ? 'border-primary-500 bg-white dark:bg-slate-900 shadow-sm'
+                          : 'border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/50 hover:border-primary-300'
+                      }`}
+                    >
+                      <p className="font-semibold text-xs text-slate-800 dark:text-slate-200">{label}</p>
+                      <p className="text-primary-600 font-bold text-sm md:text-base mt-0.5">
+                        {rate > 0 ? `₹${rate.toLocaleString()} / pax` : 'Not Offered'}
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">Min: {minPax} pax</p>
                     </button>
                   );
-                });
-              })()}
+                })}
+              </div>
             </div>
-          </div>
+          ) : (
+            /* Duration Selection */
+            <div>
+              <label className="block text-sm font-semibold text-dark-700 dark:text-slate-200 mb-3">Select Duration *</label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {(() => {
+                  const opts = venue.pricing?.enabledOptions || {};
+                  const hasExplicit = opts.perHour || opts.halfDay || opts.fullDay;
+                  const options = [];
+                  if (opts.perHour || (!hasExplicit && (Number(venue.pricing?.perHour?.weekday) > 0 || Number(venue.pricing?.perHour?.weekend) > 0))) {
+                    options.push({ hours: '1', label: '1h' });
+                    options.push({ hours: '2', label: '2h' });
+                  }
+                  if (opts.halfDay || (!hasExplicit && (Number(venue.pricing?.halfDay?.weekday) > 0 || Number(venue.pricing?.halfDay?.weekend) > 0))) {
+                    options.push({ hours: '4', label: 'Half Day' });
+                  }
+                  if (opts.fullDay || (!hasExplicit && (Number(venue.pricing?.fullDay?.weekday) > 0 || Number(venue.pricing?.fullDay?.weekend) > 0))) {
+                    options.push({ hours: '8', label: 'Full Day' });
+                  }
+                  return options.map(({ hours, label }) => {
+                    const bookingType = mapDurationToBookingType(hours);
+                    const displayPrice = calculateBasePrice(bookingType, formData.isWeekend, hours);
+                    return (
+                      <button
+                        key={hours}
+                        type="button"
+                        onClick={() => handleDurationChange(hours)}
+                        className={`p-3 border-2 rounded-xl text-center transition-all ${
+                          formData.duration === hours ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' : 'border-gray-200 dark:border-slate-700 hover:border-primary-300'
+                        }`}
+                      >
+                        <p className="font-semibold text-sm md:text-base dark:text-slate-100">{label}</p>
+                        <p className="text-primary-600 font-bold text-base md:text-lg">₹{displayPrice.toLocaleString('en-IN')}</p>
+                      </button>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+          )}
 
           {/* Date & Time */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1049,6 +1187,66 @@ export default function BookingForm({
             </div>
           </div>
 
+          {/* Parking Requirements (if venue offers parking) */}
+          {venue.parkingDetails && venue.parkingDetails.type !== 'None' && (
+            <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Car className="w-5 h-5 text-primary-500" />
+                  <h4 className="font-semibold text-sm text-dark-800 dark:text-slate-100">
+                    Vehicle Parking ({venue.parkingDetails.type})
+                  </h4>
+                </div>
+                {venue.parkingDetails.type === 'Paid' ? (
+                  <span className="text-xs bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 px-2.5 py-0.5 rounded-full font-medium">Chargeable Parking</span>
+                ) : (
+                  <span className="text-xs bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300 px-2.5 py-0.5 rounded-full font-medium">{venue.parkingDetails.type} Parking</span>
+                )}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Cars {venue.parkingDetails.cars?.isChargeable || venue.parkingDetails.type === 'Paid' ? `(₹${venue.parkingDetails.cars?.chargePerVehicle || 0} / vehicle)` : '(Free)'}
+                    {venue.parkingDetails.cars?.capacity > 0 && <span className="text-slate-400 ml-1">Capacity: {venue.parkingDetails.cars.capacity}</span>}
+                  </label>
+                  <input
+                    type="number"
+                    name="parkingCars"
+                    min="0"
+                    max={venue.parkingDetails.cars?.capacity || undefined}
+                    value={formData.parkingCars || 0}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                    placeholder="Number of cars"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Two-Wheelers {venue.parkingDetails.twoWheelers?.isChargeable || venue.parkingDetails.type === 'Paid' ? `(₹${venue.parkingDetails.twoWheelers?.chargePerVehicle || 0} / vehicle)` : '(Free)'}
+                    {venue.parkingDetails.twoWheelers?.capacity > 0 && <span className="text-slate-400 ml-1">Capacity: {venue.parkingDetails.twoWheelers.capacity}</span>}
+                  </label>
+                  <input
+                    type="number"
+                    name="parkingTwoWheelers"
+                    min="0"
+                    max={venue.parkingDetails.twoWheelers?.capacity || undefined}
+                    value={formData.parkingTwoWheelers || 0}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                    placeholder="Number of two-wheelers"
+                  />
+                </div>
+              </div>
+
+              {venue.parkingDetails.type === 'Paid' && (
+                <div className="mt-3 p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2">
+                  <span>ℹ️</span>
+                  <span><strong>Parking charges are payable directly at the venue:</strong> Parking fee will be paid on-spot to the venue management during your event and is <u>not charged online</u> in this booking.</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Customer Details */}
           <div className="border-t pt-6 border-gray-200 dark:border-slate-800">
             <h3 className="text-lg font-bold mb-4 text-dark-800 dark:text-slate-100">Your Details</h3>
@@ -1091,13 +1289,19 @@ export default function BookingForm({
             <h3 className="text-base font-bold mb-4 text-slate-900 dark:text-slate-100">Price Summary</h3>
             <div className="space-y-2 text-sm mb-4 text-slate-900 dark:text-slate-200">
               <div className="flex justify-between">
-                <span>Venue Rental:</span>
+                <span>{formData.pricingModel === 'Per Pax' ? 'Package Booking (Per Pax):' : 'Venue Rental:'}</span>
                 <span className="font-semibold">₹{calculatedPrice.basePrice.toLocaleString()}</span>
               </div>
               {calculatedPrice.amenitiesTotal > 0 && (
                 <div className="flex justify-between">
                   <span>Amenities & Services:</span>
                   <span className="font-semibold">₹{calculatedPrice.amenitiesTotal.toLocaleString()}</span>
+                </div>
+              )}
+              {calculatedPrice.parkingCharges > 0 && (
+                <div className="flex justify-between items-center text-xs p-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                  <span>Estimated Parking Fee <span className="text-[10px] block text-amber-700 dark:text-amber-400">(Payable directly at venue)</span>:</span>
+                  <span className="font-semibold">₹{calculatedPrice.parkingCharges.toLocaleString()} <span className="font-normal text-[10px]">(On-Spot)</span></span>
                 </div>
               )}
               <div className="flex justify-between border-t pt-2">
