@@ -333,6 +333,15 @@ export default function AdminVenueQuickEditModal({
   const [uploadingDoc, setUploadingDoc] = useState({});
   const [uploadPhotoCategory, setUploadPhotoCategory] = useState('Front / Entrance');
   const [customAmenity, setCustomAmenity] = useState({ name: '', category: 'Basic Facilities', type: 'Included', rate: 0, rateType: 'Fixed' });
+  const [showAddAmenityModal, setShowAddAmenityModal] = useState(false);
+
+  // Catering Custom Add States
+  const [showAddBeverage, setShowAddBeverage] = useState(false);
+  const [newBeverage, setNewBeverage] = useState({ name: '', available: true, ratePerUnit: 20 });
+  const [showAddBreakfast, setShowAddBreakfast] = useState(false);
+  const [newBreakfast, setNewBreakfast] = useState({ name: '', available: true, ratePerPlate: 80, items: '' });
+  const [showAddLunchDinner, setShowAddLunchDinner] = useState(false);
+  const [newLunchDinner, setNewLunchDinner] = useState({ name: '', available: true, foodType: 'Veg', ratePerPlate: 350, items: '' });
 
   // Initialize Indian States
   useEffect(() => {
@@ -397,18 +406,31 @@ export default function AdminVenueQuickEditModal({
     // Amenities (4 categorized groups)
     amenities: {
       basic: mergeAmenitiesWithDefaults(venue?.amenities?.basic || []),
-      beverages: venue?.amenities?.beverages || DEFAULT_BEVERAGES,
-      refreshmentFood: venue?.amenities?.refreshmentFood || DEFAULT_BREAKFAST,
-      lunchThalis: venue?.amenities?.lunchThalis || []
+      beverages: (Array.isArray(venue?.amenities?.beverages) && venue.amenities.beverages.length > 0)
+        ? venue.amenities.beverages
+        : (Array.isArray(venue?.catering?.beverages) && venue.catering.beverages.length > 0)
+          ? venue.catering.beverages
+          : DEFAULT_BEVERAGES,
+      refreshmentFood: (Array.isArray(venue?.amenities?.refreshmentFood) && venue.amenities.refreshmentFood.length > 0)
+        ? venue.amenities.refreshmentFood
+        : (Array.isArray(venue?.catering?.breakfast) && venue.catering.breakfast.length > 0)
+          ? venue.catering.breakfast
+          : DEFAULT_BREAKFAST,
+      lunchThalis: (Array.isArray(venue?.amenities?.lunchThalis) && venue.amenities.lunchThalis.length > 0)
+        ? venue.amenities.lunchThalis
+        : (Array.isArray(venue?.catering?.lunchDinner) && venue.catering.lunchDinner.length > 0)
+          ? venue.catering.lunchDinner
+          : DEFAULT_LUNCH_DINNER
     },
 
     // Catering
-    catering: venue?.catering || {
-      available: true,
-      outsideCateringAllowed: true,
-      beverages: DEFAULT_BEVERAGES,
-      breakfast: DEFAULT_BREAKFAST,
-      lunchDinner: DEFAULT_LUNCH_DINNER
+    catering: {
+      available: venue?.catering?.available ?? venue?.cateringFacility?.available ?? true,
+      outsideCateringAllowed: venue?.catering?.outsideCateringAllowed ?? venue?.cateringFacility?.outsideCateringAllowed ?? true,
+      kitchenAccess: venue?.cateringFacility?.kitchenAccess || { available: true, type: 'Included', charges: 0 },
+      beverages: (Array.isArray(venue?.catering?.beverages) && venue.catering.beverages.length > 0) ? venue.catering.beverages : DEFAULT_BEVERAGES,
+      breakfast: (Array.isArray(venue?.catering?.breakfast) && venue.catering.breakfast.length > 0) ? venue.catering.breakfast : DEFAULT_BREAKFAST,
+      lunchDinner: (Array.isArray(venue?.catering?.lunchDinner) && venue.catering.lunchDinner.length > 0) ? venue.catering.lunchDinner : DEFAULT_LUNCH_DINNER
     },
 
     // Additional Facilities
@@ -416,21 +438,42 @@ export default function AdminVenueQuickEditModal({
 
     // Pricing & Taxes
     pricing: {
+      selectedPricingModels: Array.isArray(venue?.pricing?.selectedPricingModels) && venue.pricing.selectedPricingModels.length > 0
+        ? venue.pricing.selectedPricingModels
+        : ['onlyRent'],
+      onlyRent: {
+        hourly: { rate: Number(venue?.pricing?.onlyRent?.hourly?.rate ?? venue?.pricing?.perHour?.weekday ?? 0) },
+        halfDay: { rate: Number(venue?.pricing?.onlyRent?.halfDay?.rate ?? venue?.pricing?.halfDay?.weekday ?? 0) },
+        fullDay: { rate: Number(venue?.pricing?.onlyRent?.fullDay?.rate ?? venue?.pricing?.fullDay?.weekday ?? 0) }
+      },
+      rentWithAmenities: {
+        hourly: { rate: Number(venue?.pricing?.rentWithAmenities?.hourly?.rate ?? 0) },
+        halfDay: { rate: Number(venue?.pricing?.rentWithAmenities?.halfDay?.rate ?? 0) },
+        fullDay: { rate: Number(venue?.pricing?.rentWithAmenities?.fullDay?.rate ?? 0) }
+      },
+      perPax: {
+        withoutFood: { rate: Number(venue?.pricing?.perPax?.withoutFood?.rate ?? 0) },
+        breakfastOnly: { rate: Number(venue?.pricing?.perPax?.breakfastOnly?.rate ?? venue?.pricing?.perPax?.onlyBreakfast?.rate ?? 0) },
+        breakfastLunch: { rate: Number(venue?.pricing?.perPax?.breakfastLunch?.rate ?? 0) },
+        lunchOnly: { rate: Number(venue?.pricing?.perPax?.lunchOnly?.rate ?? venue?.pricing?.perPax?.onlyLunch?.rate ?? 0) },
+        dinnerOnly: { rate: Number(venue?.pricing?.perPax?.dinnerOnly?.rate ?? venue?.pricing?.perPax?.onlyDinner?.rate ?? 0) },
+        allMeals: { rate: Number(venue?.pricing?.perPax?.allMeals?.rate ?? 0) }
+      },
       perHour: {
-        weekday: venue?.pricing?.perHour?.weekday ?? 1000,
-        weekend: venue?.pricing?.perHour?.weekend ?? 1200
+        weekday: Number(venue?.pricing?.perHour?.weekday ?? venue?.pricing?.onlyRent?.hourly?.rate ?? 0),
+        weekend: Number(venue?.pricing?.perHour?.weekend ?? venue?.pricing?.perHour?.weekday ?? venue?.pricing?.onlyRent?.hourly?.rate ?? 0)
       },
       halfDay: {
-        weekday: venue?.pricing?.halfDay?.weekday ?? 4000,
-        weekend: venue?.pricing?.halfDay?.weekend ?? 4800
+        weekday: Number(venue?.pricing?.halfDay?.weekday ?? venue?.pricing?.onlyRent?.halfDay?.rate ?? 0),
+        weekend: Number(venue?.pricing?.halfDay?.weekend ?? venue?.pricing?.halfDay?.weekday ?? venue?.pricing?.onlyRent?.halfDay?.rate ?? 0)
       },
       fullDay: {
-        weekday: venue?.pricing?.fullDay?.weekday ?? 8000,
-        weekend: venue?.pricing?.fullDay?.weekend ?? 9500
+        weekday: Number(venue?.pricing?.fullDay?.weekday ?? venue?.pricing?.onlyRent?.fullDay?.rate ?? 0),
+        weekend: Number(venue?.pricing?.fullDay?.weekend ?? venue?.pricing?.fullDay?.weekday ?? venue?.pricing?.onlyRent?.fullDay?.rate ?? 0)
       },
       extraHourRate: {
-        weekday: venue?.pricing?.extraHourRate?.weekday ?? 500,
-        weekend: venue?.pricing?.extraHourRate?.weekend ?? 600
+        weekday: Number(venue?.pricing?.extraHourRate?.weekday ?? venue?.pricing?.onlyRent?.hourly?.extraPerHour ?? 0),
+        weekend: Number(venue?.pricing?.extraHourRate?.weekend ?? venue?.pricing?.extraHourRate?.weekday ?? venue?.pricing?.onlyRent?.hourly?.extraPerHour ?? 0)
       },
       availableDays: venue?.pricing?.availableDays || venue?.availability?.availableDays || DAYS_OF_WEEK,
       advanceBookingRule: venue?.pricing?.advanceBookingRule || venue?.availability?.advanceBookingRule || '1 Day',
@@ -1354,92 +1397,290 @@ export default function AdminVenueQuickEditModal({
             </div>
           )}
 
-          {/* TAB 3: AMENITIES (4 Categorized Groups) */}
+          {/* TAB 3: AMENITIES (4 Categorized Groups with Checkboxes & Add Facility) */}
           {activeTab === 'amenities' && (
             <div className="space-y-5">
-              <div className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200">
+              {/* Header Bar */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
                 <div>
-                  <h3 className="text-xs font-bold uppercase text-slate-800">Amenities & Facilities Configuration</h3>
-                  <p className="text-[11px] text-gray-500">Configure free included amenities or charge extra per service</p>
+                  <h3 className="text-xs font-bold uppercase text-slate-800 flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-primary-600" />
+                    Amenities &amp; Facilities Configuration
+                  </h3>
+                  <p className="text-[11px] text-gray-500">Tick/untick to enable facilities, select Free or Paid, and configure custom amenities</p>
                 </div>
-                <span className="text-xs font-bold text-primary-600 bg-primary-50 px-3 py-1 rounded-lg border border-primary-200">
-                  Total {(formData.amenities.basic || []).length} Facilities
-                </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold text-primary-700 bg-primary-50 px-3 py-1.5 rounded-xl border border-primary-200">
+                    {(formData.amenities.basic || []).filter(a => a.available !== false).length} / {(formData.amenities.basic || []).length} Enabled
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddAmenityModal(!showAddAmenityModal)}
+                    className="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{showAddAmenityModal ? 'Close Form' : 'Add Custom Facility'}</span>
+                  </button>
+                </div>
               </div>
+
+              {/* Inline Add Custom Amenity Form */}
+              {showAddAmenityModal && (
+                <div className="p-4 bg-primary-50/60 rounded-2xl border border-primary-200 animate-fadeIn space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-primary-950 uppercase tracking-wider flex items-center gap-1.5">
+                      <Plus className="w-4 h-4 text-primary-600" /> Add New Custom Amenity / Facility
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddAmenityModal(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-600 uppercase block mb-1">Amenity Name *</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Valet Parking, Rooftop Gazebo"
+                        value={customAmenity.name}
+                        onChange={(e) => setCustomAmenity({ ...customAmenity, name: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-primary-200 rounded-xl bg-white outline-none focus:ring-2 focus:ring-primary-500 font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-600 uppercase block mb-1">Category</label>
+                      <select
+                        value={customAmenity.category}
+                        onChange={(e) => setCustomAmenity({ ...customAmenity, category: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-primary-200 rounded-xl bg-white outline-none font-medium"
+                      >
+                        <option value="Basic Facilities">Basic Facilities</option>
+                        <option value="Meeting / Conference Facilities">Meeting / Conference Facilities</option>
+                        <option value="Event Facilities">Event Facilities</option>
+                        <option value="Food Facilities">Food Facilities</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-600 uppercase block mb-1">Type</label>
+                      <select
+                        value={customAmenity.type}
+                        onChange={(e) => setCustomAmenity({ ...customAmenity, type: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-primary-200 rounded-xl bg-white outline-none font-medium"
+                      >
+                        <option value="Included">Free / Included</option>
+                        <option value="Paid">Paid Extra</option>
+                      </select>
+                    </div>
+                    {customAmenity.type === 'Paid' ? (
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-600 uppercase block mb-1">Rate (₹)</label>
+                        <input
+                          type="number"
+                          placeholder="Rate in ₹"
+                          value={customAmenity.rate || ''}
+                          onChange={(e) => setCustomAmenity({ ...customAmenity, rate: Number(e.target.value) || 0 })}
+                          className="w-full px-3 py-2 text-xs border border-primary-200 rounded-xl bg-white outline-none font-bold text-orange-700"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex items-end">
+                        <span className="text-[11px] text-emerald-700 font-bold bg-emerald-100 px-3 py-2 rounded-xl w-full text-center">
+                          ✓ Free / Included in Venue
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddAmenityModal(false)}
+                      className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-900 font-semibold"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!customAmenity.name.trim()) {
+                          toast.error('Please enter amenity name');
+                          return;
+                        }
+                        setFormData({
+                          ...formData,
+                          amenities: {
+                            ...formData.amenities,
+                            basic: [...formData.amenities.basic, { ...customAmenity, available: true }]
+                          }
+                        });
+                        setCustomAmenity({ name: '', category: 'Basic Facilities', type: 'Included', rate: 0, rateType: 'Fixed' });
+                        setShowAddAmenityModal(false);
+                        toast.success('Custom amenity added! ✅');
+                      }}
+                      className="px-4 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold shadow-xs"
+                    >
+                      + Save Facility
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* 4 Categorized Sections */}
               {['Basic Facilities', 'Meeting / Conference Facilities', 'Event Facilities', 'Food Facilities'].map((catName) => {
                 const items = (formData.amenities.basic || []).filter(a => a.category === catName);
                 if (items.length === 0) return null;
 
+                const enabledCount = items.filter(a => a.available !== false).length;
+
                 return (
-                  <div key={catName} className="p-4 bg-white rounded-xl border border-gray-200 shadow-xs">
-                    <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
+                  <div key={catName} className="p-4 bg-white rounded-2xl border border-gray-200 shadow-xs space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                      <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
                         <Sparkles className="w-3.5 h-3.5 text-primary-600" />
-                        {catName} ({items.length} Items)
-                      </span>
-                    </h4>
+                        {catName}
+                        <span className="text-[11px] font-normal text-gray-500">
+                          ({enabledCount}/{items.length} enabled)
+                        </span>
+                      </h4>
+                      <div className="flex items-center gap-1.5 text-[11px]">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = (formData.amenities.basic || []).map(a => {
+                              if (a.category === catName) {
+                                return { ...a, available: true, type: 'Included', rate: 0 };
+                              }
+                              return a;
+                            });
+                            setFormData({ ...formData, amenities: { ...formData.amenities, basic: updated } });
+                            toast.success(`All ${catName} set to Free Included`);
+                          }}
+                          className="text-primary-600 hover:text-primary-800 font-bold px-2 py-0.5 rounded hover:bg-primary-50 transition-colors"
+                        >
+                          Enable All Free
+                        </button>
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
                       {items.map((amenity, idx) => {
                         const globalIdx = (formData.amenities.basic || []).findIndex(a => a.name === amenity.name && a.category === amenity.category);
+                        const isAvailable = amenity.available !== false;
+                        const isDefault = DEFAULT_BASIC_AMENITIES.some(def => def.name.toLowerCase() === (amenity.name || '').toLowerCase());
+
                         return (
-                          <div key={idx} className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex flex-col justify-between space-y-2">
-                            <span className="font-bold text-xs text-gray-900">{amenity.name}</span>
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const updated = [...formData.amenities.basic];
-                                  updated[globalIdx] = { ...updated[globalIdx], type: 'Included', rate: 0 };
-                                  setFormData({ ...formData, amenities: { ...formData.amenities, basic: updated } });
-                                }}
-                                className={`flex-1 py-1 rounded-lg text-xs font-bold transition-all ${
-                                  amenity.type === 'Included' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-white text-gray-600 border border-gray-200'
-                                }`}
-                              >
-                                Free / Included
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const updated = [...formData.amenities.basic];
-                                  updated[globalIdx] = { ...updated[globalIdx], type: 'Paid', rate: updated[globalIdx].rate || 500 };
-                                  setFormData({ ...formData, amenities: { ...formData.amenities, basic: updated } });
-                                }}
-                                className={`flex-1 py-1 rounded-lg text-xs font-bold transition-all ${
-                                  amenity.type === 'Paid' ? 'bg-orange-600 text-white shadow-xs' : 'bg-white text-gray-600 border border-gray-200'
-                                }`}
-                              >
-                                Paid
-                              </button>
-                            </div>
-                            {amenity.type === 'Paid' && (
-                              <div className="flex items-center gap-1.5 pt-1">
-                                <span className="text-xs font-bold text-gray-500">₹</span>
+                          <div
+                            key={idx}
+                            className={`p-3 rounded-xl border transition-all flex flex-col justify-between space-y-2.5 ${
+                              isAvailable
+                                ? 'bg-slate-50/80 border-slate-200 shadow-2xs'
+                                : 'bg-gray-100/60 border-gray-200 opacity-60'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <label className="flex items-center gap-2 cursor-pointer select-none">
                                 <input
-                                  type="number"
-                                  value={amenity.rate || 0}
+                                  type="checkbox"
+                                  checked={isAvailable}
                                   onChange={(e) => {
                                     const updated = [...formData.amenities.basic];
-                                    updated[globalIdx] = { ...updated[globalIdx], rate: Number(e.target.value) || 0 };
+                                    updated[globalIdx] = { ...updated[globalIdx], available: e.target.checked };
                                     setFormData({ ...formData, amenities: { ...formData.amenities, basic: updated } });
                                   }}
-                                  className="w-20 px-2 py-1 text-xs border border-gray-300 rounded-lg font-bold text-orange-700 bg-white"
+                                  className="w-4 h-4 rounded text-primary-600 focus:ring-primary-500 border-gray-300 cursor-pointer"
                                 />
-                                <select
-                                  value={amenity.rateType || 'Fixed'}
-                                  onChange={(e) => {
+                                <span className={`text-xs font-bold ${isAvailable ? 'text-gray-900' : 'text-gray-500 line-through'}`}>
+                                  {amenity.name}
+                                </span>
+                              </label>
+
+                              {!isDefault && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
                                     const updated = [...formData.amenities.basic];
-                                    updated[globalIdx] = { ...updated[globalIdx], rateType: e.target.value };
+                                    updated.splice(globalIdx, 1);
                                     setFormData({ ...formData, amenities: { ...formData.amenities, basic: updated } });
+                                    toast.success('Removed custom amenity');
                                   }}
-                                  className="flex-1 px-1.5 py-1 text-[11px] border border-gray-300 rounded-lg bg-white"
+                                  className="text-red-400 hover:text-red-600 transition-colors"
+                                  title="Delete custom amenity"
                                 >
-                                  <option value="Fixed">Fixed</option>
-                                  <option value="Per Hour">Per Hour</option>
-                                  <option value="Per Person">Per Person</option>
-                                </select>
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+
+                            {isAvailable ? (
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const updated = [...formData.amenities.basic];
+                                      updated[globalIdx] = { ...updated[globalIdx], type: 'Included', rate: 0 };
+                                      setFormData({ ...formData, amenities: { ...formData.amenities, basic: updated } });
+                                    }}
+                                    className={`flex-1 py-1 px-2 rounded-lg text-[11px] font-bold transition-all ${
+                                      amenity.type === 'Included'
+                                        ? 'bg-emerald-600 text-white shadow-xs'
+                                        : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                                    }`}
+                                  >
+                                    Free / Included
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const updated = [...formData.amenities.basic];
+                                      updated[globalIdx] = { ...updated[globalIdx], type: 'Paid', rate: updated[globalIdx].rate || 500 };
+                                      setFormData({ ...formData, amenities: { ...formData.amenities, basic: updated } });
+                                    }}
+                                    className={`flex-1 py-1 px-2 rounded-lg text-[11px] font-bold transition-all ${
+                                      amenity.type === 'Paid'
+                                        ? 'bg-orange-600 text-white shadow-xs'
+                                        : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                                    }`}
+                                  >
+                                    Paid Extra
+                                  </button>
+                                </div>
+
+                                {amenity.type === 'Paid' && (
+                                  <div className="flex items-center gap-1.5 pt-0.5">
+                                    <span className="text-xs font-bold text-gray-500">₹</span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={amenity.rate || 0}
+                                      onChange={(e) => {
+                                        const updated = [...formData.amenities.basic];
+                                        updated[globalIdx] = { ...updated[globalIdx], rate: Number(e.target.value) || 0 };
+                                        setFormData({ ...formData, amenities: { ...formData.amenities, basic: updated } });
+                                      }}
+                                      className="w-20 px-2 py-1 text-xs border border-gray-300 rounded-lg font-bold text-orange-700 bg-white text-center"
+                                    />
+                                    <select
+                                      value={amenity.rateType || 'Fixed'}
+                                      onChange={(e) => {
+                                        const updated = [...formData.amenities.basic];
+                                        updated[globalIdx] = { ...updated[globalIdx], rateType: e.target.value };
+                                        setFormData({ ...formData, amenities: { ...formData.amenities, basic: updated } });
+                                      }}
+                                      className="flex-1 px-1.5 py-1 text-[11px] border border-gray-300 rounded-lg bg-white font-medium"
+                                    >
+                                      <option value="Fixed">Fixed</option>
+                                      <option value="Per Hour">Per Hour</option>
+                                      <option value="Per Person">Per Person</option>
+                                    </select>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="text-[11px] text-gray-400 font-medium py-1 text-center bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                                ✕ Not Available
                               </div>
                             )}
                           </div>
@@ -1449,122 +1690,501 @@ export default function AdminVenueQuickEditModal({
                   </div>
                 );
               })}
-
-              {/* Add Custom Amenity */}
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider mb-2">Add Custom Amenity</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                  <input
-                    type="text"
-                    placeholder="Amenity Name"
-                    value={customAmenity.name}
-                    onChange={(e) => setCustomAmenity({ ...customAmenity, name: e.target.value })}
-                    className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg bg-white"
-                  />
-                  <select
-                    value={customAmenity.category}
-                    onChange={(e) => setCustomAmenity({ ...customAmenity, category: e.target.value })}
-                    className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg bg-white"
-                  >
-                    <option value="Basic Facilities">Basic Facilities</option>
-                    <option value="Meeting / Conference Facilities">Meeting / Conference Facilities</option>
-                    <option value="Event Facilities">Event Facilities</option>
-                    <option value="Food Facilities">Food Facilities</option>
-                  </select>
-                  <select
-                    value={customAmenity.type}
-                    onChange={(e) => setCustomAmenity({ ...customAmenity, type: e.target.value })}
-                    className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg bg-white"
-                  >
-                    <option value="Included">Free / Included</option>
-                    <option value="Paid">Paid Extra</option>
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!customAmenity.name.trim()) {
-                        toast.error('Please enter amenity name');
-                        return;
-                      }
-                      setFormData({
-                        ...formData,
-                        amenities: {
-                          ...formData.amenities,
-                          basic: [...formData.amenities.basic, { ...customAmenity }]
-                        }
-                      });
-                      setCustomAmenity({ name: '', category: 'Basic Facilities', type: 'Included', rate: 0, rateType: 'Fixed' });
-                      toast.success('Custom amenity added');
-                    }}
-                    className="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-xs font-bold"
-                  >
-                    + Add Amenity
-                  </button>
-                </div>
-              </div>
             </div>
           )}
 
-          {/* TAB 4: CATERING FACILITY */}
+          {/* TAB 4: CATERING FACILITY (With Add Buttons & Full Management) */}
           {activeTab === 'catering' && (
-            <div className="space-y-4">
-              <div className="p-4 bg-amber-50/70 rounded-xl border border-amber-200">
-                <h4 className="text-xs font-bold text-amber-950 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                  <Utensils className="w-4 h-4 text-amber-600" />
-                  Beverages Rates
+            <div className="space-y-5">
+              {/* General Catering Settings */}
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <UtensilsCrossed className="w-4 h-4 text-amber-600" />
+                  Catering Facility &amp; Kitchen Options
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
-                  {(formData.amenities.beverages || []).map((bev, idx) => (
-                    <div key={idx} className="bg-white p-3 rounded-xl border border-amber-100 shadow-xs">
-                      <span className="font-bold text-xs text-gray-900 block mb-1">{bev.name}</span>
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs font-bold text-gray-500">₹</span>
-                        <input
-                          type="number"
-                          value={bev.ratePerUnit || 0}
-                          onChange={(e) => {
-                            const updated = [...(formData.amenities.beverages || [])];
-                            updated[idx] = { ...updated[idx], ratePerUnit: Number(e.target.value) || 0 };
-                            setFormData({ ...formData, amenities: { ...formData.amenities, beverages: updated } });
-                          }}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded-lg font-bold text-amber-800"
-                        />
-                        <span className="text-[10px] text-gray-400">/unit</span>
-                      </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                  {/* In-House Catering */}
+                  <div className="bg-white p-3 rounded-xl border border-slate-200">
+                    <span className="font-bold text-gray-800 block mb-1.5">In-House Catering</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, catering: { ...formData.catering, available: true } })}
+                        className={`flex-1 py-1 text-xs font-bold rounded-lg transition-all ${
+                          formData.catering.available ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        Available
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, catering: { ...formData.catering, available: false } })}
+                        className={`flex-1 py-1 text-xs font-bold rounded-lg transition-all ${
+                          !formData.catering.available ? 'bg-rose-600 text-white' : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        No
+                      </button>
                     </div>
-                  ))}
+                  </div>
+
+                  {/* Outside Catering Allowed */}
+                  <div className="bg-white p-3 rounded-xl border border-slate-200">
+                    <span className="font-bold text-gray-800 block mb-1.5">Outside Catering</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, catering: { ...formData.catering, outsideCateringAllowed: true } })}
+                        className={`flex-1 py-1 text-xs font-bold rounded-lg transition-all ${
+                          formData.catering.outsideCateringAllowed ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        Allowed
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, catering: { ...formData.catering, outsideCateringAllowed: false } })}
+                        className={`flex-1 py-1 text-xs font-bold rounded-lg transition-all ${
+                          !formData.catering.outsideCateringAllowed ? 'bg-rose-600 text-white' : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        Not Allowed
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Food Type */}
+                  <div className="bg-white p-3 rounded-xl border border-slate-200">
+                    <span className="font-bold text-gray-800 block mb-1.5">Food Type Served</span>
+                    <select
+                      value={formData.foodType}
+                      onChange={(e) => setFormData({ ...formData, foodType: e.target.value })}
+                      className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg font-bold text-xs bg-white text-gray-800"
+                    >
+                      {FOOD_TYPES.map(ft => (
+                        <option key={ft} value={ft}>{ft}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Kitchen Access */}
+                  <div className="bg-white p-3 rounded-xl border border-slate-200">
+                    <span className="font-bold text-gray-800 block mb-1.5">Kitchen Facility</span>
+                    <select
+                      value={formData.catering.kitchenAccess?.type || 'Included'}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        catering: {
+                          ...formData.catering,
+                          kitchenAccess: { ...formData.catering.kitchenAccess, type: e.target.value }
+                        }
+                      })}
+                      className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg font-bold text-xs bg-white text-gray-800"
+                    >
+                      <option value="Included">Included Free</option>
+                      <option value="Paid">Paid Extra</option>
+                      <option value="Not Available">Not Available</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
-              {/* Refreshments */}
-              <div className="p-4 bg-orange-50/70 rounded-xl border border-orange-200">
-                <h4 className="text-xs font-bold text-orange-950 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                  <Utensils className="w-4 h-4 text-orange-600" />
-                  Snacks & Breakfast Rates
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {(formData.amenities.refreshmentFood || []).map((food, idx) => (
-                    <div key={idx} className="bg-white p-3 rounded-xl border border-orange-100 shadow-xs flex items-center justify-between gap-3">
-                      <div>
-                        <span className="font-bold text-xs text-gray-900 block">{food.name}</span>
-                        <span className="text-[10px] text-gray-500">{food.items}</span>
+              {/* 1. BEVERAGES RATES */}
+              <div className="p-4 bg-amber-50/70 rounded-2xl border border-amber-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
+                    <Coffee className="w-4 h-4 text-amber-600" />
+                    Beverages Rates ({(formData.amenities.beverages || []).filter(b => b.available !== false).length} Available)
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddBeverage(!showAddBeverage)}
+                    className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-2xs transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{showAddBeverage ? 'Cancel' : 'Add Beverage'}</span>
+                  </button>
+                </div>
+
+                {/* Add Beverage Form */}
+                {showAddBeverage && (
+                  <div className="p-3 bg-white rounded-xl border border-amber-300 shadow-xs space-y-2 animate-fadeIn">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Beverage Name (e.g. Masala Chai, Fresh Lime)"
+                        value={newBeverage.name}
+                        onChange={(e) => setNewBeverage({ ...newBeverage, name: e.target.value })}
+                        className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg outline-none font-medium"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Rate in ₹ / unit"
+                        value={newBeverage.ratePerUnit || ''}
+                        onChange={(e) => setNewBeverage({ ...newBeverage, ratePerUnit: Number(e.target.value) || 0 })}
+                        className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg outline-none font-bold text-amber-800"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!newBeverage.name.trim()) {
+                            toast.error('Enter beverage name');
+                            return;
+                          }
+                          const updated = [...(formData.amenities.beverages || []), { ...newBeverage, available: true }];
+                          setFormData({ ...formData, amenities: { ...formData.amenities, beverages: updated } });
+                          setNewBeverage({ name: '', available: true, ratePerUnit: 20 });
+                          setShowAddBeverage(false);
+                          toast.success('Beverage added! ☕');
+                        }}
+                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-2xs"
+                      >
+                        + Save Beverage
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
+                  {(formData.amenities.beverages || []).map((bev, idx) => {
+                    const isAvail = bev.available !== false;
+                    return (
+                      <div
+                        key={idx}
+                        className={`bg-white p-3 rounded-xl border transition-all ${
+                          isAvail ? 'border-amber-100 shadow-2xs' : 'border-gray-200 opacity-60 bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="flex items-center gap-2 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={isAvail}
+                              onChange={(e) => {
+                                const updated = [...(formData.amenities.beverages || [])];
+                                updated[idx] = { ...updated[idx], available: e.target.checked };
+                                setFormData({ ...formData, amenities: { ...formData.amenities, beverages: updated } });
+                              }}
+                              className="w-3.5 h-3.5 rounded text-amber-600 focus:ring-amber-500 border-gray-300 cursor-pointer"
+                            />
+                            <span className={`text-xs font-bold ${isAvail ? 'text-gray-900' : 'text-gray-400 line-through'}`}>
+                              {bev.name}
+                            </span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = [...(formData.amenities.beverages || [])];
+                              updated.splice(idx, 1);
+                              setFormData({ ...formData, amenities: { ...formData.amenities, beverages: updated } });
+                            }}
+                            className="text-red-400 hover:text-red-600 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        {isAvail ? (
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs font-bold text-gray-500">₹</span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={bev.ratePerUnit || 0}
+                              onChange={(e) => {
+                                const updated = [...(formData.amenities.beverages || [])];
+                                updated[idx] = { ...updated[idx], ratePerUnit: Number(e.target.value) || 0 };
+                                setFormData({ ...formData, amenities: { ...formData.amenities, beverages: updated } });
+                              }}
+                              className="w-full px-2 py-1 text-xs border border-gray-300 rounded-lg font-bold text-amber-800 bg-white"
+                            />
+                            <span className="text-[10px] text-gray-400">/unit</span>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-gray-400">✕ Not Offered</span>
+                        )}
                       </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <span className="text-xs font-bold text-gray-500">₹</span>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2. SNACKS & BREAKFAST RATES */}
+              <div className="p-4 bg-orange-50/70 rounded-2xl border border-orange-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-orange-950 uppercase tracking-wider flex items-center gap-1.5">
+                    <Utensils className="w-4 h-4 text-orange-600" />
+                    Snacks &amp; Breakfast Rates ({(formData.amenities.refreshmentFood || []).filter(f => f.available !== false).length} Available)
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddBreakfast(!showAddBreakfast)}
+                    className="px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-2xs transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{showAddBreakfast ? 'Cancel' : 'Add Snack / Item'}</span>
+                  </button>
+                </div>
+
+                {/* Add Snack Form */}
+                {showAddBreakfast && (
+                  <div className="p-3 bg-white rounded-xl border border-orange-300 shadow-xs space-y-2 animate-fadeIn">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Item Name (e.g. Samosa & Jalebi Combo)"
+                        value={newBreakfast.name}
+                        onChange={(e) => setNewBreakfast({ ...newBreakfast, name: e.target.value })}
+                        className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg outline-none font-medium"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Included Items description"
+                        value={newBreakfast.items}
+                        onChange={(e) => setNewBreakfast({ ...newBreakfast, items: e.target.value })}
+                        className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg outline-none font-medium"
+                      />
+                      <div className="flex items-center gap-2">
                         <input
                           type="number"
-                          value={food.ratePerPlate || 0}
-                          onChange={(e) => {
-                            const updated = [...(formData.amenities.refreshmentFood || [])];
-                            updated[idx] = { ...updated[idx], ratePerPlate: Number(e.target.value) || 0 };
-                            setFormData({ ...formData, amenities: { ...formData.amenities, refreshmentFood: updated } });
-                          }}
-                          className="w-20 px-2 py-1 text-xs border border-gray-300 rounded-lg font-bold text-orange-700"
+                          placeholder="Rate ₹ / plate"
+                          value={newBreakfast.ratePerPlate || ''}
+                          onChange={(e) => setNewBreakfast({ ...newBreakfast, ratePerPlate: Number(e.target.value) || 0 })}
+                          className="w-full px-3 py-1.5 text-xs border border-gray-300 rounded-lg outline-none font-bold text-orange-700"
                         />
-                        <span className="text-[10px] text-gray-400">/plate</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!newBreakfast.name.trim()) {
+                              toast.error('Enter item name');
+                              return;
+                            }
+                            const updated = [...(formData.amenities.refreshmentFood || []), { ...newBreakfast, available: true }];
+                            setFormData({ ...formData, amenities: { ...formData.amenities, refreshmentFood: updated } });
+                            setNewBreakfast({ name: '', available: true, ratePerPlate: 80, items: '' });
+                            setShowAddBreakfast(false);
+                            toast.success('Snack item added! 🥪');
+                          }}
+                          className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold whitespace-nowrap shadow-2xs"
+                        >
+                          + Save
+                        </button>
                       </div>
                     </div>
-                  ))}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {(formData.amenities.refreshmentFood || []).map((food, idx) => {
+                    const isAvail = food.available !== false;
+                    return (
+                      <div
+                        key={idx}
+                        className={`bg-white p-3 rounded-xl border transition-all flex items-center justify-between gap-3 ${
+                          isAvail ? 'border-orange-100 shadow-2xs' : 'border-gray-200 opacity-60 bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <label className="flex items-center gap-2 cursor-pointer select-none mb-1">
+                            <input
+                              type="checkbox"
+                              checked={isAvail}
+                              onChange={(e) => {
+                                const updated = [...(formData.amenities.refreshmentFood || [])];
+                                updated[idx] = { ...updated[idx], available: e.target.checked };
+                                setFormData({ ...formData, amenities: { ...formData.amenities, refreshmentFood: updated } });
+                              }}
+                              className="w-3.5 h-3.5 rounded text-orange-600 focus:ring-orange-500 border-gray-300 cursor-pointer"
+                            />
+                            <span className={`text-xs font-bold truncate ${isAvail ? 'text-gray-900' : 'text-gray-400 line-through'}`}>
+                              {food.name}
+                            </span>
+                          </label>
+                          {food.items && (
+                            <p className="text-[10px] text-gray-500 truncate pl-5.5">{food.items}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {isAvail && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs font-bold text-gray-500">₹</span>
+                              <input
+                                type="number"
+                                min="0"
+                                value={food.ratePerPlate || 0}
+                                onChange={(e) => {
+                                  const updated = [...(formData.amenities.refreshmentFood || [])];
+                                  updated[idx] = { ...updated[idx], ratePerPlate: Number(e.target.value) || 0 };
+                                  setFormData({ ...formData, amenities: { ...formData.amenities, refreshmentFood: updated } });
+                                }}
+                                className="w-20 px-2 py-1 text-xs border border-gray-300 rounded-lg font-bold text-orange-700 bg-white text-center"
+                              />
+                              <span className="text-[10px] text-gray-400">/plate</span>
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = [...(formData.amenities.refreshmentFood || [])];
+                              updated.splice(idx, 1);
+                              setFormData({ ...formData, amenities: { ...formData.amenities, refreshmentFood: updated } });
+                            }}
+                            className="text-red-400 hover:text-red-600 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 3. LUNCH & DINNER BUFFET PACKAGES */}
+              <div className="p-4 bg-purple-50/70 rounded-2xl border border-purple-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
+                    <UtensilsCrossed className="w-4 h-4 text-purple-600" />
+                    Lunch &amp; Dinner Buffet Packages ({(formData.amenities.lunchThalis || []).filter(b => b.available !== false).length} Packages)
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddLunchDinner(!showAddLunchDinner)}
+                    className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-2xs transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{showAddLunchDinner ? 'Cancel' : 'Add Buffet Package'}</span>
+                  </button>
+                </div>
+
+                {/* Add Buffet Form */}
+                {showAddLunchDinner && (
+                  <div className="p-3 bg-white rounded-xl border border-purple-300 shadow-xs space-y-2 animate-fadeIn">
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Package Name (e.g. Royal Wedding Buffet)"
+                        value={newLunchDinner.name}
+                        onChange={(e) => setNewLunchDinner({ ...newLunchDinner, name: e.target.value })}
+                        className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg outline-none font-medium"
+                      />
+                      <select
+                        value={newLunchDinner.foodType}
+                        onChange={(e) => setNewLunchDinner({ ...newLunchDinner, foodType: e.target.value })}
+                        className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg outline-none font-medium"
+                      >
+                        <option value="Veg">Pure Veg</option>
+                        <option value="Non-Veg">Non-Veg</option>
+                        <option value="Both">Veg & Non-Veg Combo</option>
+                      </select>
+                      <input
+                        type="text"
+                        placeholder="Menu Items (Paneer, Dal, Breads, Dessert)"
+                        value={newLunchDinner.items}
+                        onChange={(e) => setNewLunchDinner({ ...newLunchDinner, items: e.target.value })}
+                        className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg outline-none font-medium"
+                      />
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          placeholder="Rate ₹ / plate"
+                          value={newLunchDinner.ratePerPlate || ''}
+                          onChange={(e) => setNewLunchDinner({ ...newLunchDinner, ratePerPlate: Number(e.target.value) || 0 })}
+                          className="w-full px-3 py-1.5 text-xs border border-gray-300 rounded-lg outline-none font-bold text-purple-700"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!newLunchDinner.name.trim()) {
+                              toast.error('Enter package name');
+                              return;
+                            }
+                            const updated = [...(formData.amenities.lunchThalis || []), { ...newLunchDinner, available: true }];
+                            setFormData({ ...formData, amenities: { ...formData.amenities, lunchThalis: updated } });
+                            setNewLunchDinner({ name: '', available: true, foodType: 'Veg', ratePerPlate: 350, items: '' });
+                            setShowAddLunchDinner(false);
+                            toast.success('Buffet package added! 🍲');
+                          }}
+                          className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold whitespace-nowrap shadow-2xs"
+                        >
+                          + Save
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {(formData.amenities.lunchThalis || []).map((buffet, idx) => {
+                    const isAvail = buffet.available !== false;
+                    return (
+                      <div
+                        key={idx}
+                        className={`bg-white p-3 rounded-xl border transition-all flex items-center justify-between gap-3 ${
+                          isAvail ? 'border-purple-100 shadow-2xs' : 'border-gray-200 opacity-60 bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={isAvail}
+                                onChange={(e) => {
+                                  const updated = [...(formData.amenities.lunchThalis || [])];
+                                  updated[idx] = { ...updated[idx], available: e.target.checked };
+                                  setFormData({ ...formData, amenities: { ...formData.amenities, lunchThalis: updated } });
+                                }}
+                                className="w-3.5 h-3.5 rounded text-purple-600 focus:ring-purple-500 border-gray-300 cursor-pointer"
+                              />
+                              <span className={`text-xs font-bold truncate ${isAvail ? 'text-gray-900' : 'text-gray-400 line-through'}`}>
+                                {buffet.name || buffet.thaliType}
+                              </span>
+                            </label>
+                            {buffet.foodType && (
+                              <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${
+                                buffet.foodType === 'Non-Veg' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
+                              }`}>
+                                {buffet.foodType}
+                              </span>
+                            )}
+                          </div>
+                          {buffet.items && (
+                            <p className="text-[10px] text-gray-500 truncate pl-5.5">{buffet.items}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {isAvail && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs font-bold text-gray-500">₹</span>
+                              <input
+                                type="number"
+                                min="0"
+                                value={buffet.ratePerPlate || buffet.rate || 0}
+                                onChange={(e) => {
+                                  const updated = [...(formData.amenities.lunchThalis || [])];
+                                  updated[idx] = { ...updated[idx], ratePerPlate: Number(e.target.value) || 0, rate: Number(e.target.value) || 0 };
+                                  setFormData({ ...formData, amenities: { ...formData.amenities, lunchThalis: updated } });
+                                }}
+                                className="w-20 px-2 py-1 text-xs border border-gray-300 rounded-lg font-bold text-purple-700 bg-white text-center"
+                              />
+                              <span className="text-[10px] text-gray-400">/plate</span>
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = [...(formData.amenities.lunchThalis || [])];
+                              updated.splice(idx, 1);
+                              setFormData({ ...formData, amenities: { ...formData.amenities, lunchThalis: updated } });
+                            }}
+                            className="text-red-400 hover:text-red-600 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -1573,14 +2193,14 @@ export default function AdminVenueQuickEditModal({
           {/* TAB 5: ADDITIONAL FACILITIES */}
           {activeTab === 'facilities' && (
             <div className="space-y-4">
-              <div className="p-4 bg-emerald-50/70 rounded-xl border border-emerald-200">
+              <div className="p-4 bg-emerald-50/70 rounded-2xl border border-emerald-200">
                 <h4 className="text-xs font-bold text-emerald-950 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                   <Layers className="w-4 h-4 text-emerald-600" />
-                  Additional Facilities & Event Services
+                  Additional Facilities &amp; Event Services
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {(formData.additionalFacilities || []).map((fac, idx) => (
-                    <div key={idx} className="bg-white p-3 rounded-xl border border-emerald-100 shadow-xs">
+                    <div key={idx} className="bg-white p-3.5 rounded-xl border border-emerald-100 shadow-2xs">
                       <div className="flex items-center justify-between mb-2">
                         <span className="font-bold text-xs text-gray-900">{fac.name}</span>
                         <label className="relative inline-flex items-center cursor-pointer">
@@ -1636,16 +2256,257 @@ export default function AdminVenueQuickEditModal({
             </div>
           )}
 
-          {/* TAB 6: PRICING & TAXES */}
+          {/* TAB 6: PRICING MODELS & TAXES */}
           {activeTab === 'pricing' && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* Per Hour */}
-                <div className="p-4 bg-blue-50/70 rounded-xl border border-blue-200">
-                  <h4 className="text-xs font-bold text-blue-950 uppercase mb-2">Hourly Rent (₹)</h4>
-                  <div className="space-y-2 text-xs">
+            <div className="space-y-5">
+              {/* Pricing Model Selector Chips */}
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-primary-100 text-primary-600 flex items-center justify-center font-bold text-xs">
+                    ₹
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                      Pricing Models Selection
+                    </h4>
+                    <p className="text-[11px] text-slate-500">
+                      Select which pricing schemes are applicable for this venue
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {[
+                    { key: 'onlyRent', label: '1. Only Rent' },
+                    { key: 'rentWithAmenities', label: '2. Rent with Included Amenities' },
+                    { key: 'perPax', label: '3. Per Pax (Food Packages per Person)' }
+                  ].map((m) => {
+                    const isSelected = (formData.pricing.selectedPricingModels || []).includes(m.key);
+                    return (
+                      <button
+                        key={m.key}
+                        type="button"
+                        onClick={() => {
+                          const curr = formData.pricing.selectedPricingModels || [];
+                          let updated;
+                          if (curr.includes(m.key)) {
+                            updated = curr.filter(k => k !== m.key);
+                            if (updated.length === 0) updated = [m.key]; // keep at least 1
+                          } else {
+                            updated = [...curr, m.key];
+                          }
+                          setFormData({
+                            ...formData,
+                            pricing: { ...formData.pricing, selectedPricingModels: updated }
+                          });
+                        }}
+                        className={`py-2 px-3.5 rounded-xl border text-xs font-bold flex items-center gap-2 transition-all ${
+                          isSelected
+                            ? 'border-primary-500 bg-primary-50 text-primary-700 ring-1 ring-primary-500 shadow-2xs'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                        }`}
+                      >
+                        <span>{m.label}</span>
+                        <span
+                          className={`w-4 h-4 rounded flex items-center justify-center text-[10px] font-bold ${
+                            isSelected ? 'bg-primary-600 text-white' : 'border border-slate-300 text-transparent'
+                          }`}
+                        >
+                          ✓
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 1. Only Rent Section */}
+              {(formData.pricing.selectedPricingModels || []).includes('onlyRent') && (
+                <div className="p-4 bg-blue-50/70 rounded-2xl border border-blue-200 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-blue-950 uppercase tracking-wider">
+                    <IndianRupee className="w-4 h-4 text-blue-600" /> Model 1: Only Rent Rates
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                     <div>
-                      <label className="text-gray-500 block mb-0.5">Weekday Rate / hr</label>
+                      <label className="text-gray-600 font-semibold block mb-1">Hourly Rate (₹)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.pricing.onlyRent?.hourly?.rate || ''}
+                        onChange={(e) => {
+                          const val = Number(e.target.value) || 0;
+                          setFormData({
+                            ...formData,
+                            pricing: {
+                              ...formData.pricing,
+                              onlyRent: { ...formData.pricing.onlyRent, hourly: { rate: val } },
+                              perHour: { ...formData.pricing.perHour, weekday: val }
+                            }
+                          });
+                        }}
+                        placeholder="e.g. 1000"
+                        className="w-full px-3 py-2 border border-blue-200 rounded-xl font-bold text-blue-900 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-gray-600 font-semibold block mb-1">Half-Day Rate (4 hrs) (₹)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.pricing.onlyRent?.halfDay?.rate || ''}
+                        onChange={(e) => {
+                          const val = Number(e.target.value) || 0;
+                          setFormData({
+                            ...formData,
+                            pricing: {
+                              ...formData.pricing,
+                              onlyRent: { ...formData.pricing.onlyRent, halfDay: { rate: val } },
+                              halfDay: { ...formData.pricing.halfDay, weekday: val }
+                            }
+                          });
+                        }}
+                        placeholder="e.g. 5000"
+                        className="w-full px-3 py-2 border border-blue-200 rounded-xl font-bold text-blue-900 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-gray-600 font-semibold block mb-1">Full-Day Rate (8+ hrs) (₹)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.pricing.onlyRent?.fullDay?.rate || ''}
+                        onChange={(e) => {
+                          const val = Number(e.target.value) || 0;
+                          setFormData({
+                            ...formData,
+                            pricing: {
+                              ...formData.pricing,
+                              onlyRent: { ...formData.pricing.onlyRent, fullDay: { rate: val } },
+                              fullDay: { ...formData.pricing.fullDay, weekday: val }
+                            }
+                          });
+                        }}
+                        placeholder="e.g. 8000"
+                        className="w-full px-3 py-2 border border-blue-200 rounded-xl font-bold text-blue-900 bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 2. Rent with Included Amenities Section */}
+              {(formData.pricing.selectedPricingModels || []).includes('rentWithAmenities') && (
+                <div className="p-4 bg-emerald-50/70 rounded-2xl border border-emerald-200 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-emerald-950 uppercase tracking-wider">
+                    <Sparkles className="w-4 h-4 text-emerald-600" /> Model 2: Rent with Included Amenities Rates
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div>
+                      <label className="text-gray-600 font-semibold block mb-1">Hourly Rate (₹)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.pricing.rentWithAmenities?.hourly?.rate || ''}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          pricing: {
+                            ...formData.pricing,
+                            rentWithAmenities: { ...formData.pricing.rentWithAmenities, hourly: { rate: Number(e.target.value) || 0 } }
+                          }
+                        })}
+                        placeholder="e.g. 1500"
+                        className="w-full px-3 py-2 border border-emerald-200 rounded-xl font-bold text-emerald-900 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-gray-600 font-semibold block mb-1">Half-Day Rate (4 hrs) (₹)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.pricing.rentWithAmenities?.halfDay?.rate || ''}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          pricing: {
+                            ...formData.pricing,
+                            rentWithAmenities: { ...formData.pricing.rentWithAmenities, halfDay: { rate: Number(e.target.value) || 0 } }
+                          }
+                        })}
+                        placeholder="e.g. 7000"
+                        className="w-full px-3 py-2 border border-emerald-200 rounded-xl font-bold text-emerald-900 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-gray-600 font-semibold block mb-1">Full-Day Rate (8+ hrs) (₹)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.pricing.rentWithAmenities?.fullDay?.rate || ''}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          pricing: {
+                            ...formData.pricing,
+                            rentWithAmenities: { ...formData.pricing.rentWithAmenities, fullDay: { rate: Number(e.target.value) || 0 } }
+                          }
+                        })}
+                        placeholder="e.g. 12000"
+                        className="w-full px-3 py-2 border border-emerald-200 rounded-xl font-bold text-emerald-900 bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 3. Per Pax Food Packages Section */}
+              {(formData.pricing.selectedPricingModels || []).includes('perPax') && (
+                <div className="p-4 bg-amber-50/70 rounded-2xl border border-amber-200 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-amber-950 uppercase tracking-wider">
+                    <UtensilsCrossed className="w-4 h-4 text-amber-600" /> Model 3: Per Pax Rates (Rate per Person)
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                    {[
+                      { key: 'withoutFood', label: 'Without Food (₹)' },
+                      { key: 'breakfastOnly', label: 'Breakfast Only (₹)' },
+                      { key: 'breakfastLunch', label: 'Breakfast + Lunch (₹)' },
+                      { key: 'lunchOnly', label: 'Lunch Only (₹)' },
+                      { key: 'dinnerOnly', label: 'Dinner Only (₹)' },
+                      { key: 'allMeals', label: 'All Meals (₹)' }
+                    ].map((pp) => (
+                      <div key={pp.key}>
+                        <label className="text-gray-600 font-semibold block mb-1">{pp.label}</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={formData.pricing.perPax?.[pp.key]?.rate || ''}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            pricing: {
+                              ...formData.pricing,
+                              perPax: {
+                                ...formData.pricing.perPax,
+                                [pp.key]: { rate: Number(e.target.value) || 0 }
+                              }
+                            }
+                          })}
+                          placeholder="₹ / person"
+                          className="w-full px-3 py-2 border border-amber-200 rounded-xl font-bold text-amber-900 bg-white"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Base Weekday / Weekend Breakdown */}
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                  Base Rental Rates (Weekday vs Weekend)
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Per Hour */}
+                  <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2 text-xs">
+                    <span className="font-bold text-gray-800 block">Hourly Rent (₹)</span>
+                    <div>
+                      <label className="text-[10px] text-gray-500 block">Weekday / hr</label>
                       <input
                         type="number"
                         value={formData.pricing.perHour?.weekday || 0}
@@ -1653,11 +2514,11 @@ export default function AdminVenueQuickEditModal({
                           ...formData,
                           pricing: { ...formData.pricing, perHour: { ...formData.pricing.perHour, weekday: Number(e.target.value) || 0 } }
                         })}
-                        className="w-full px-2.5 py-1.5 border border-blue-200 rounded-lg font-bold text-blue-900 bg-white"
+                        className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg font-bold text-slate-900 bg-white"
                       />
                     </div>
                     <div>
-                      <label className="text-gray-500 block mb-0.5">Weekend Rate / hr</label>
+                      <label className="text-[10px] text-gray-500 block">Weekend / hr</label>
                       <input
                         type="number"
                         value={formData.pricing.perHour?.weekend || 0}
@@ -1665,18 +2526,16 @@ export default function AdminVenueQuickEditModal({
                           ...formData,
                           pricing: { ...formData.pricing, perHour: { ...formData.pricing.perHour, weekend: Number(e.target.value) || 0 } }
                         })}
-                        className="w-full px-2.5 py-1.5 border border-blue-200 rounded-lg font-bold text-blue-900 bg-white"
+                        className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg font-bold text-slate-900 bg-white"
                       />
                     </div>
                   </div>
-                </div>
 
-                {/* Half Day */}
-                <div className="p-4 bg-emerald-50/70 rounded-xl border border-emerald-200">
-                  <h4 className="text-xs font-bold text-emerald-950 uppercase mb-2">Half Day (4 hrs)</h4>
-                  <div className="space-y-2 text-xs">
+                  {/* Half Day */}
+                  <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2 text-xs">
+                    <span className="font-bold text-gray-800 block">Half Day (4 hrs) (₹)</span>
                     <div>
-                      <label className="text-gray-500 block mb-0.5">Weekday (4 hrs)</label>
+                      <label className="text-[10px] text-gray-500 block">Weekday (4 hrs)</label>
                       <input
                         type="number"
                         value={formData.pricing.halfDay?.weekday || 0}
@@ -1684,11 +2543,11 @@ export default function AdminVenueQuickEditModal({
                           ...formData,
                           pricing: { ...formData.pricing, halfDay: { ...formData.pricing.halfDay, weekday: Number(e.target.value) || 0 } }
                         })}
-                        className="w-full px-2.5 py-1.5 border border-emerald-200 rounded-lg font-bold text-emerald-900 bg-white"
+                        className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg font-bold text-slate-900 bg-white"
                       />
                     </div>
                     <div>
-                      <label className="text-gray-500 block mb-0.5">Weekend (4 hrs)</label>
+                      <label className="text-[10px] text-gray-500 block">Weekend (4 hrs)</label>
                       <input
                         type="number"
                         value={formData.pricing.halfDay?.weekend || 0}
@@ -1696,18 +2555,16 @@ export default function AdminVenueQuickEditModal({
                           ...formData,
                           pricing: { ...formData.pricing, halfDay: { ...formData.pricing.halfDay, weekend: Number(e.target.value) || 0 } }
                         })}
-                        className="w-full px-2.5 py-1.5 border border-emerald-200 rounded-lg font-bold text-emerald-900 bg-white"
+                        className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg font-bold text-slate-900 bg-white"
                       />
                     </div>
                   </div>
-                </div>
 
-                {/* Full Day */}
-                <div className="p-4 bg-purple-50/70 rounded-xl border border-purple-200">
-                  <h4 className="text-xs font-bold text-purple-950 uppercase mb-2">Full Day (8+ hrs)</h4>
-                  <div className="space-y-2 text-xs">
+                  {/* Full Day */}
+                  <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2 text-xs">
+                    <span className="font-bold text-gray-800 block">Full Day (8+ hrs) (₹)</span>
                     <div>
-                      <label className="text-gray-500 block mb-0.5">Weekday Full Day</label>
+                      <label className="text-[10px] text-gray-500 block">Weekday Full Day</label>
                       <input
                         type="number"
                         value={formData.pricing.fullDay?.weekday || 0}
@@ -1715,11 +2572,11 @@ export default function AdminVenueQuickEditModal({
                           ...formData,
                           pricing: { ...formData.pricing, fullDay: { ...formData.pricing.fullDay, weekday: Number(e.target.value) || 0 } }
                         })}
-                        className="w-full px-2.5 py-1.5 border border-purple-200 rounded-lg font-bold text-purple-900 bg-white"
+                        className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg font-bold text-slate-900 bg-white"
                       />
                     </div>
                     <div>
-                      <label className="text-gray-500 block mb-0.5">Weekend Full Day</label>
+                      <label className="text-[10px] text-gray-500 block">Weekend Full Day</label>
                       <input
                         type="number"
                         value={formData.pricing.fullDay?.weekend || 0}
@@ -1727,7 +2584,7 @@ export default function AdminVenueQuickEditModal({
                           ...formData,
                           pricing: { ...formData.pricing, fullDay: { ...formData.pricing.fullDay, weekend: Number(e.target.value) || 0 } }
                         })}
-                        className="w-full px-2.5 py-1.5 border border-purple-200 rounded-lg font-bold text-purple-900 bg-white"
+                        className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg font-bold text-slate-900 bg-white"
                       />
                     </div>
                   </div>
@@ -1735,10 +2592,10 @@ export default function AdminVenueQuickEditModal({
               </div>
 
               {/* Taxes & GST Configuration */}
-              <div className="p-4 bg-teal-50/70 rounded-xl border border-teal-200">
+              <div className="p-4 bg-teal-50/70 rounded-2xl border border-teal-200">
                 <h4 className="text-xs font-bold text-teal-950 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                   <CreditCard className="w-4 h-4 text-teal-600" />
-                  Taxes & GST Configuration
+                  Taxes &amp; GST Configuration
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                   <div>
@@ -1749,7 +2606,7 @@ export default function AdminVenueQuickEditModal({
                         ...formData,
                         taxSettings: { ...formData.taxSettings, gstType: e.target.value }
                       })}
-                      className="w-full px-3 py-2 text-xs border border-teal-200 rounded-lg bg-white"
+                      className="w-full px-3 py-2 text-xs border border-teal-200 rounded-xl bg-white"
                     >
                       <option value="Not Applicable">Not Applicable / Exempted</option>
                       <option value="Included (Inclusive)">Included in price (Inclusive)</option>
@@ -1766,7 +2623,7 @@ export default function AdminVenueQuickEditModal({
                         ...formData,
                         taxSettings: { ...formData.taxSettings, gstRate: Number(e.target.value) || 0 }
                       })}
-                      className="w-full px-3 py-2 text-xs border border-teal-200 rounded-lg bg-white font-bold"
+                      className="w-full px-3 py-2 text-xs border border-teal-200 rounded-xl bg-white font-bold"
                     />
                   </div>
 
@@ -1779,7 +2636,7 @@ export default function AdminVenueQuickEditModal({
                         ...formData,
                         taxSettings: { ...formData.taxSettings, gstin: e.target.value }
                       })}
-                      className="w-full px-3 py-2 text-xs border border-teal-200 rounded-lg bg-white font-mono uppercase"
+                      className="w-full px-3 py-2 text-xs border border-teal-200 rounded-xl bg-white font-mono uppercase"
                       placeholder="15-digit GSTIN"
                     />
                   </div>
@@ -1787,14 +2644,14 @@ export default function AdminVenueQuickEditModal({
               </div>
 
               {/* Custom Admin Platform Fee & GST Overrides */}
-              <div className="p-4 bg-slate-100 rounded-xl border border-slate-300">
+              <div className="p-4 bg-slate-100 rounded-2xl border border-slate-300">
                 <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                   <Shield className="w-4 h-4 text-slate-700" />
-                  Admin Custom Fee & GST Overrides (Per-Venue)
+                  Admin Custom Fee &amp; GST Overrides (Per-Venue)
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                   {/* Custom Platform Fee */}
-                  <div className="bg-white p-3 rounded-lg border border-slate-200">
+                  <div className="bg-white p-3.5 rounded-xl border border-slate-200">
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-bold text-gray-800">Custom Platform Fee</span>
                       <input
@@ -1804,37 +2661,43 @@ export default function AdminVenueQuickEditModal({
                           ...formData,
                           customPlatformFee: { ...formData.customPlatformFee, enabled: e.target.checked }
                         })}
-                        className="rounded text-primary-600 focus:ring-primary-500"
+                        className="w-4 h-4 rounded text-primary-600"
                       />
                     </div>
                     {formData.customPlatformFee.enabled && (
-                      <div className="grid grid-cols-2 gap-2 mt-2">
-                        <select
-                          value={formData.customPlatformFee.feeType}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            customPlatformFee: { ...formData.customPlatformFee, feeType: e.target.value }
-                          })}
-                          className="px-2 py-1 text-xs border rounded"
-                        >
-                          <option value="percentage">Percentage (%)</option>
-                          <option value="fixed">Fixed (₹)</option>
-                        </select>
-                        <input
-                          type="number"
-                          value={formData.customPlatformFee.feeValue}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            customPlatformFee: { ...formData.customPlatformFee, feeValue: Number(e.target.value) || 0 }
-                          })}
-                          className="px-2 py-1 text-xs border rounded font-bold"
-                        />
+                      <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-gray-100">
+                        <div>
+                          <label className="text-[10px] text-gray-500 block mb-0.5">Fee Type</label>
+                          <select
+                            value={formData.customPlatformFee.feeType}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              customPlatformFee: { ...formData.customPlatformFee, feeType: e.target.value }
+                            })}
+                            className="w-full px-2 py-1 text-xs border rounded-lg"
+                          >
+                            <option value="percentage">Percentage (%)</option>
+                            <option value="fixed">Fixed Amount (₹)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-gray-500 block mb-0.5">Value</label>
+                          <input
+                            type="number"
+                            value={formData.customPlatformFee.feeValue}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              customPlatformFee: { ...formData.customPlatformFee, feeValue: Number(e.target.value) || 0 }
+                            })}
+                            className="w-full px-2 py-1 text-xs border rounded-lg font-bold"
+                          />
+                        </div>
                       </div>
                     )}
                   </div>
 
-                  {/* Custom GST */}
-                  <div className="bg-white p-3 rounded-lg border border-slate-200">
+                  {/* Custom GST Override */}
+                  <div className="bg-white p-3.5 rounded-xl border border-slate-200">
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-bold text-gray-800">Custom GST Override</span>
                       <input
@@ -1844,37 +2707,28 @@ export default function AdminVenueQuickEditModal({
                           ...formData,
                           customGST: { ...formData.customGST, enabled: e.target.checked }
                         })}
-                        className="rounded text-primary-600 focus:ring-primary-500"
+                        className="w-4 h-4 rounded text-primary-600"
                       />
                     </div>
                     {formData.customGST.enabled && (
-                      <div className="grid grid-cols-3 gap-2 mt-2">
+                      <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-gray-100">
                         <div>
-                          <span className="text-[10px] text-gray-400 block">CGST %</span>
+                          <label className="text-[10px] text-gray-500 block mb-0.5">GST Rate (%)</label>
                           <input
                             type="number"
-                            value={formData.customGST.cgstRate}
-                            onChange={(e) => setFormData({
-                              ...formData,
-                              customGST: { ...formData.customGST, cgstRate: Number(e.target.value) || 0 }
-                            })}
-                            className="w-full px-2 py-1 text-xs border rounded"
+                            value={formData.customGST.rate}
+                            onChange={(e) => {
+                              const r = Number(e.target.value) || 0;
+                              setFormData({
+                                ...formData,
+                                customGST: { ...formData.customGST, rate: r, cgstRate: r / 2, sgstRate: r / 2 }
+                              });
+                            }}
+                            className="w-full px-2 py-1 text-xs border rounded-lg font-bold"
                           />
                         </div>
                         <div>
-                          <span className="text-[10px] text-gray-400 block">SGST %</span>
-                          <input
-                            type="number"
-                            value={formData.customGST.sgstRate}
-                            onChange={(e) => setFormData({
-                              ...formData,
-                              customGST: { ...formData.customGST, sgstRate: Number(e.target.value) || 0 }
-                            })}
-                            className="w-full px-2 py-1 text-xs border rounded"
-                          />
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-gray-400 block">HSN</span>
+                          <label className="text-[10px] text-gray-500 block mb-0.5">HSN / SAC Code</label>
                           <input
                             type="text"
                             value={formData.customGST.hsnCode}
@@ -1882,7 +2736,7 @@ export default function AdminVenueQuickEditModal({
                               ...formData,
                               customGST: { ...formData.customGST, hsnCode: e.target.value }
                             })}
-                            className="w-full px-2 py-1 text-xs border rounded"
+                            className="w-full px-2 py-1 text-xs border rounded-lg"
                           />
                         </div>
                       </div>
@@ -1892,6 +2746,8 @@ export default function AdminVenueQuickEditModal({
               </div>
             </div>
           )}
+
+
 
           {/* TAB 7: PHOTOS & GALLERY */}
           {activeTab === 'photos' && (

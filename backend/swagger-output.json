@@ -1394,6 +1394,12 @@
                   "isProvisional": {
                     "example": "any"
                   },
+                  "addedByAdmin": {
+                    "example": "any"
+                  },
+                  "status": {
+                    "example": "any"
+                  },
                   "foodType": {
                     "example": "any"
                   },
@@ -1407,6 +1413,9 @@
                     "example": "any"
                   },
                   "description": {
+                    "example": "any"
+                  },
+                  "venueType": {
                     "example": "any"
                   },
                   "pricing": {
@@ -5533,6 +5542,20 @@
           },
           {
             "name": "export",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
             "in": "query",
             "schema": {
               "type": "string"

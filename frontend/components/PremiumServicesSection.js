@@ -5,27 +5,43 @@ import { useState, useEffect } from 'react';
 import { Utensils, Sparkles, Camera, Music, Flower2, Truck, Shield, Package, ArrowRight } from 'lucide-react';
 
 const CATEGORY_ICONS = {
+  'Catering': Utensils,
   'Catering & Food': Utensils,
+  'Makeup & Beauty': Sparkles,
+  'Photography': Camera,
   'Photography & Video': Camera,
-  'Decoration & Flowers': Flower2,
+  'Entertainment': Music,
   'Entertainment & Music': Music,
+  'Decor & Floral': Flower2,
+  'Decoration & Flowers': Flower2,
+  'Security': Shield,
+  'Security Services': Shield,
+  'Celebrity': Package,
+  'Logistics & Support': Truck,
   'Event Management': Package,
   'AV & Tech Equipment': Package,
   'Transportation': Truck,
-  'Security Services': Shield,
   'Cleaning Services': Package,
   'Other': Package,
 };
 
 const CATEGORY_IMAGES = {
+  'Catering': 'https://images.unsplash.com/photo-1555244162-803834f70033?w=600&q=80',
   'Catering & Food': 'https://images.unsplash.com/photo-1555244162-803834f70033?w=600&q=80',
+  'Makeup & Beauty': 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=600&q=80',
+  'Photography': 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=600&q=80',
   'Photography & Video': 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=600&q=80',
-  'Decoration & Flowers': 'https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=600&q=80',
+  'Entertainment': 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&q=80',
   'Entertainment & Music': 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&q=80',
+  'Decor & Floral': 'https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=600&q=80',
+  'Decoration & Flowers': 'https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=600&q=80',
+  'Security': 'https://images.unsplash.com/photo-1582139329536-e7284fece509?w=600&q=80',
+  'Security Services': 'https://images.unsplash.com/photo-1582139329536-e7284fece509?w=600&q=80',
+  'Celebrity': 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&q=80',
+  'Logistics & Support': 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=600&q=80',
   'Event Management': 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=600&q=80',
   'AV & Tech Equipment': 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80',
   'Transportation': 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=600&q=80',
-  'Security Services': 'https://images.unsplash.com/photo-1582139329536-e7284fece509?w=600&q=80',
   'Cleaning Services': 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=600&q=80',
   'Other': 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=600&q=80',
 };
@@ -49,12 +65,12 @@ export default function PremiumServicesSection() {
 
   // Fallback static if no services yet
   const fallback = [
-    { category: 'Catering & Food', vendors: 8, minPrice: 350 },
-    { category: 'Photography & Video', vendors: 6, minPrice: 15000 },
-    { category: 'Decoration & Flowers', vendors: 7, minPrice: 8000 },
-    { category: 'Entertainment & Music', vendors: 9, minPrice: 7000 },
-    { category: 'Event Management', vendors: 5, minPrice: 10000 },
-    { category: 'Transportation', vendors: 4, minPrice: 800 },
+    { category: 'Catering', vendors: 8, minPrice: 350 },
+    { category: 'Photography', vendors: 6, minPrice: 15000 },
+    { category: 'Decor & Floral', vendors: 7, minPrice: 8000 },
+    { category: 'Entertainment', vendors: 9, minPrice: 7000 },
+    { category: 'Makeup & Beauty', vendors: 5, minPrice: 5000 },
+    { category: 'Security', vendors: 4, minPrice: 800 },
   ];
 
   const display = categories;

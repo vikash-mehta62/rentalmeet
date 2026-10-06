@@ -406,22 +406,22 @@ export default function OwnerVenueEditModal({
     pricing: {
       selectedPricingModels: ['Only Rent'],
       onlyRent: {
-        hourly: { rate: 1000, extraPerHour: 500 },
-        halfDay: { rate: 4000, extraPerHour: 500 },
-        fullDay: { rate: 8000, extraPerHour: 500 }
+        hourly: { rate: 0, extraPerHour: 0 },
+        halfDay: { rate: 0, extraPerHour: 0 },
+        fullDay: { rate: 0, extraPerHour: 0 }
       },
       rentWithAmenities: {
-        hourly: { rate: 1500, extraPerHour: 600 },
-        halfDay: { rate: 6000, extraPerHour: 600 },
-        fullDay: { rate: 12000, extraPerHour: 600 }
+        hourly: { rate: 0, extraPerHour: 0 },
+        halfDay: { rate: 0, extraPerHour: 0 },
+        fullDay: { rate: 0, extraPerHour: 0 }
       },
       perPax: {
-        withoutFood: { rate: 200, minPax: 25 },
-        breakfastOnly: { rate: 350, minPax: 25 },
-        breakfastLunch: { rate: 600, minPax: 25 },
-        lunchOnly: { rate: 450, minPax: 25 },
-        dinnerOnly: { rate: 500, minPax: 25 },
-        allMeals: { rate: 850, minPax: 25 }
+        withoutFood: { rate: 0, minPax: 50 },
+        breakfastOnly: { rate: 0, minPax: 50 },
+        breakfastLunch: { rate: 0, minPax: 50 },
+        lunchOnly: { rate: 0, minPax: 50 },
+        dinnerOnly: { rate: 0, minPax: 50 },
+        allMeals: { rate: 0, minPax: 50 }
       },
       advanceBookingRule: '1 Day',
       confirmationHours: 3,
@@ -599,6 +599,60 @@ export default function OwnerVenueEditModal({
           ...prev.pricing,
           ...(venue.pricing || {}),
           selectedPricingModels: venue.pricing?.selectedPricingModels?.length ? venue.pricing.selectedPricingModels : ['Only Rent'],
+          onlyRent: {
+            hourly: {
+              rate: venue.pricing?.onlyRent?.hourly?.rate ?? venue.pricing?.perHour?.weekday ?? 0,
+              extraPerHour: venue.pricing?.onlyRent?.hourly?.extraPerHour ?? venue.pricing?.extraHourRate?.weekday ?? 0
+            },
+            halfDay: {
+              rate: venue.pricing?.onlyRent?.halfDay?.rate ?? venue.pricing?.halfDay?.weekday ?? 0,
+              extraPerHour: venue.pricing?.onlyRent?.halfDay?.extraPerHour ?? venue.pricing?.extraHourRate?.weekday ?? 0
+            },
+            fullDay: {
+              rate: venue.pricing?.onlyRent?.fullDay?.rate ?? venue.pricing?.fullDay?.weekday ?? 0,
+              extraPerHour: venue.pricing?.onlyRent?.fullDay?.extraPerHour ?? venue.pricing?.extraHourRate?.weekday ?? 0
+            }
+          },
+          rentWithAmenities: {
+            hourly: {
+              rate: venue.pricing?.rentWithAmenities?.hourly?.rate ?? 0,
+              extraPerHour: venue.pricing?.rentWithAmenities?.hourly?.extraPerHour ?? 0
+            },
+            halfDay: {
+              rate: venue.pricing?.rentWithAmenities?.halfDay?.rate ?? 0,
+              extraPerHour: venue.pricing?.rentWithAmenities?.halfDay?.extraPerHour ?? 0
+            },
+            fullDay: {
+              rate: venue.pricing?.rentWithAmenities?.fullDay?.rate ?? 0,
+              extraPerHour: venue.pricing?.rentWithAmenities?.fullDay?.extraPerHour ?? 0
+            }
+          },
+          perPax: {
+            withoutFood: {
+              rate: venue.pricing?.perPax?.withoutFood?.rate ?? 0,
+              minPax: venue.pricing?.perPax?.withoutFood?.minPax ?? 50
+            },
+            breakfastOnly: {
+              rate: venue.pricing?.perPax?.breakfastOnly?.rate ?? 0,
+              minPax: venue.pricing?.perPax?.breakfastOnly?.minPax ?? 50
+            },
+            breakfastLunch: {
+              rate: venue.pricing?.perPax?.breakfastLunch?.rate ?? 0,
+              minPax: venue.pricing?.perPax?.breakfastLunch?.minPax ?? 50
+            },
+            lunchOnly: {
+              rate: venue.pricing?.perPax?.lunchOnly?.rate ?? 0,
+              minPax: venue.pricing?.perPax?.lunchOnly?.minPax ?? 50
+            },
+            dinnerOnly: {
+              rate: venue.pricing?.perPax?.dinnerOnly?.rate ?? 0,
+              minPax: venue.pricing?.perPax?.dinnerOnly?.minPax ?? 50
+            },
+            allMeals: {
+              rate: venue.pricing?.perPax?.allMeals?.rate ?? 0,
+              minPax: venue.pricing?.perPax?.allMeals?.minPax ?? 50
+            }
+          },
           advanceBookingRule: venue.pricing?.advanceBookingRule || venue.availability?.advanceBookingRule || '1 Day',
           confirmationHours: venue.pricing?.confirmationHours ?? venue.availability?.confirmationHours ?? 3,
           openingTime: venue.availability?.openingTime || venue.pricing?.openingTime || '09:00',

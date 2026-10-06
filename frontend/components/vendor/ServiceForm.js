@@ -28,15 +28,22 @@ const STEPS = [
 const CATEGORIES = serviceCategories.map(c => c.id);
 
 const CATEGORY_UNITS = {
+  'Catering':              ['Per Person','Per Plate','Per Unit','Per Item'],
   'Catering & Food':       ['Per Person','Per Plate','Per Unit','Per Item'],
+  'Makeup & Beauty':       ['Per Person','Per Session','Per Event','Per Package'],
+  'Photography':           ['Per Event','Per Day','Per Session','Per Album','Per Unit','Per Night'],
   'Photography & Video':   ['Per Event','Per Day','Per Session','Per Album','Per Unit','Per Night'],
-  'Decoration & Flowers':  ['Per Event','Per Arch','Per Table','Per Setup','Per Area','Per Unit','Per Day','Per Night'],
+  'Entertainment':         ['Per Event','Per Day','Per Session','Per Programme','Per Unit','Per Night'],
   'Entertainment & Music': ['Per Event','Per Day','Per Session','Per Programme','Per Unit','Per Night'],
+  'Decor & Floral':        ['Per Event','Per Arch','Per Table','Per Setup','Per Area','Per Unit','Per Day','Per Night'],
+  'Decoration & Flowers':  ['Per Event','Per Arch','Per Table','Per Setup','Per Area','Per Unit','Per Day','Per Night'],
+  'Security':              ['Per Guard','Per Bouncer','Per Day','Per Event','Per Person','Per Night'],
+  'Security Services':     ['Per Guard','Per Bouncer','Per Day','Per Event','Per Person','Per Night'],
+  'Celebrity':             ['Per Appearance','Per Event','Per Day','Per Post'],
+  'Logistics & Support':   ['Per Trip','Per Day','Per Night','Per Person','Per Event','Per KM'],
   'Event Management':      ['Per Event','Per Day','Per Person','Per Unit'],
   'AV & Tech Equipment':   ['Per Event','Per Day','Per Unit','Per Setup'],
   'Transportation':        ['Per KM','Per Trip','Per Day','Per Night','Per Person','Per Event'],
-  'Security Services':     ['Per Guard','Per Bouncer','Per Day','Per Event','Per Person','Per Night'],
-  'Celebrity':             ['Per Appearance','Per Event','Per Day','Per Post'],
   'Cleaning Services':     ['Per Event','Per Day','Per Area','Per Unit'],
   'Other':                 ['Per Event','Per Day','Per Hour','Per Person','Per Unit'],
 };

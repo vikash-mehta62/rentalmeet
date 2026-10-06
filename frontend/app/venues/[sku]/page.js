@@ -23,7 +23,7 @@ import BookingForm from '@/components/booking/BookingForm';
 import VenueReviews from '@/components/venue/VenueReviews';
 import Navbar from '@/components/Navbar';
 import { useAuthStore } from '@/lib/store';
-import { getDateRateKey, getVenueDurationBasePrice, isOnlineBookingOpen, getMinAdvanceBookingDate, formatTime12Hour, isVenueVerified } from '@/lib/venuePricing';
+import { getDateRateKey, getVenueDurationBasePrice, getVenueStartingPrice, isOnlineBookingOpen, getMinAdvanceBookingDate, formatTime12Hour, isVenueVerified } from '@/lib/venuePricing';
 import toast from 'react-hot-toast';
 
 // ── Amenity icon map ─────────────────────────────────────────────────────
@@ -249,12 +249,11 @@ export default function VenueDetail() {
       }
     }
 
-    // Auto-select first enabled duration
-    if (venue?.pricing?.enabledOptions) {
-      const opts = venue.pricing.enabledOptions;
-      if (opts.perHour) setQuickBooking(prev => ({ ...prev, duration: '1' }));
-      else if (opts.halfDay) setQuickBooking(prev => ({ ...prev, duration: '4' }));
-      else if (opts.fullDay) setQuickBooking(prev => ({ ...prev, duration: '8' }));
+    // Auto-select first available duration
+    if (venue?.pricing) {
+      if (getVenueDurationBasePrice(venue, '1') > 0) setQuickBooking(prev => ({ ...prev, duration: '1' }));
+      else if (getVenueDurationBasePrice(venue, '4') > 0) setQuickBooking(prev => ({ ...prev, duration: '4' }));
+      else if (getVenueDurationBasePrice(venue, '8') > 0) setQuickBooking(prev => ({ ...prev, duration: '8' }));
     }
   }, [venue]);
 
@@ -1609,23 +1608,22 @@ export default function VenueDetail() {
                 {/* Price Range */}
                 <div className="mb-3 pb-3 border-b border-gray-200 dark:border-slate-700">
                   {(() => {
-                    const p = venue.pricing;
-                    const opts = p?.enabledOptions || {};
-                    // Find the lowest enabled price
-                    const prices = [];
-                    if (opts.perHour && p?.perHour?.[quickBookingRateKey]) prices.push({ label: '/hour', val: p.perHour[quickBookingRateKey] });
-                    if (opts.halfDay && p?.halfDay?.[quickBookingRateKey]) prices.push({ label: '/half day', val: p.halfDay[quickBookingRateKey] });
-                    if (opts.fullDay && p?.fullDay?.[quickBookingRateKey]) prices.push({ label: '/full day', val: p.fullDay[quickBookingRateKey] });
-                    const min = prices.length > 0 ? prices.reduce((a, b) => a.val < b.val ? a : b) : null;
-                    return min ? (
+                    const startingPrice = getVenueStartingPrice(venue);
+                    return startingPrice.amount > 0 ? (
                       <>
                         <p className="text-gray-600 dark:text-slate-400 text-xs mb-0.5">Starting from</p>
                         <p className="text-2xl font-bold text-primary-600">
-                          ₹{min.val.toLocaleString()}
-                          <span className="text-xs text-gray-600 dark:text-slate-400">{min.label}</span>
+                          {startingPrice.formatted}
+                          {startingPrice.label && (
+                            <span className="text-xs text-gray-600 dark:text-slate-400 ml-1">
+                              {startingPrice.label}
+                            </span>
+                          )}
                         </p>
                       </>
-                    ) : null;
+                    ) : (
+                      <p className="text-sm font-semibold text-gray-500">Price on request</p>
+                    );
                   })()}
                 </div>
 
@@ -1691,7 +1689,7 @@ export default function VenueDetail() {
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200 mb-1">Select Duration</label>
                     <div className="grid grid-cols-2 gap-1.5">
-                      {venue.pricing?.enabledOptions?.perHour && venue.pricing?.perHour?.[quickBookingRateKey] && (
+                      {getQuickBookingBasePrice('1') > 0 && (
                         <>
                           {[{ dur: '1', label: '1h', price: getQuickBookingBasePrice('1') }, { dur: '2', label: '2h', price: getQuickBookingBasePrice('2') }].map(({ dur, label, price }) => (
                             <button
@@ -1710,7 +1708,7 @@ export default function VenueDetail() {
                           ))}
                         </>
                       )}
-                      {venue.pricing?.enabledOptions?.halfDay && venue.pricing?.halfDay?.[quickBookingRateKey] && (
+                      {getQuickBookingBasePrice('4') > 0 && (
                         <button
                           type="button"
                           onClick={() => setQuickBooking(prev => ({ ...prev, duration: '4' }))}
@@ -1724,7 +1722,7 @@ export default function VenueDetail() {
                           <span className={`text-xs font-semibold ${quickBooking.duration === '4' ? 'text-primary-600' : 'text-gray-500 dark:text-slate-400'}`}>₹{getQuickBookingBasePrice('4').toLocaleString('en-IN')}</span>
                         </button>
                       )}
-                      {venue.pricing?.enabledOptions?.fullDay && venue.pricing?.fullDay?.[quickBookingRateKey] && (
+                      {getQuickBookingBasePrice('8') > 0 && (
                         <button
                           type="button"
                           onClick={() => setQuickBooking(prev => ({ ...prev, duration: '8' }))}

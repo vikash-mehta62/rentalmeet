@@ -51,9 +51,14 @@ const CAPACITY_OPTIONS = [
 ];
 
 const VENDOR_CATEGORIES = [
-  'Catering & Food', 'Photography & Video', 'Decoration & Flowers',
-  'Entertainment & Music', 'Event Management', 'AV & Tech Equipment',
-  'Transportation', 'Security Services', 'Cleaning Services', 'Other'
+  'Catering',
+  'Makeup & Beauty',
+  'Photography',
+  'Entertainment',
+  'Decor & Floral',
+  'Security',
+  'Celebrity',
+  'Logistics & Support'
 ];
 
 const PHOTO_SLOTS = [
