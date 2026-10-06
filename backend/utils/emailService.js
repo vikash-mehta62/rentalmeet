@@ -586,13 +586,7 @@ exports.sendVenueOwnerWelcomeCredentialsEmail = async ({
   const appStoreUrl = 'https://apps.apple.com/in/app/rentalmeet/id6785021879';
   const year = new Date().getFullYear();
 
-  const ambassadorSection = ambassadorName ? `
-    <div style="background-color: #fff7ed; border-left: 4px solid #ea580c; border-radius: 8px; padding: 12px 16px; margin: 0 0 20px 0;">
-      <p style="margin: 0; color: #9a3412; font-size: 13px; line-height: 1.5;">
-        🤝 <strong>RentalMeet Partner Onboarding:</strong> यह वेन्यू आपके लिए <strong>${ambassadorName}</strong>${ambassadorPhone ? ` (${ambassadorPhone})` : ''} द्वारा रजिस्टर किया गया है।
-      </p>
-    </div>
-  ` : '';
+  const bannerUrl = process.env.EMAIL_BANNER_URL || 'https://rentalmeet.s3.ap-south-1.amazonaws.com/public/email-assets/1791308539809-4f38d355-141f-4a7e-b655-5130dca67d65.png';
 
   const passwordDisplay = temporaryPassword || 'आपका मौजूदा पासवर्ड';
 
@@ -610,13 +604,18 @@ exports.sendVenueOwnerWelcomeCredentialsEmail = async ({
       <td align="center">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 640px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.07); border: 1px solid #e2e8f0;">
           
-          <!-- Brand Header Banner -->
+          <!-- Brand Header Banner Image -->
           <tr>
-            <td style="background: linear-gradient(135deg, #ea580c 0%, #f97316 50%, #fb923c 100%); padding: 32px 28px; text-align: center;">
-              <div style="display: inline-block; background-color: #ffffff; padding: 8px 24px; border-radius: 12px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.12);">
-                <span style="font-size: 26px; font-weight: 900; color: #ea580c; letter-spacing: -0.5px; font-family: Georgia, serif;">Rental<span style="color: #0f172a;">Meet</span></span>
-              </div>
-              <div style="color: #ffffff; font-size: 14px; font-weight: 700; letter-spacing: 1px; text-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+            <td style="padding: 0; background-color: #ffffff; text-align: center; border-radius: 16px 16px 0 0; overflow: hidden;">
+              <a href="${websiteUrl}" target="_blank" style="display: block; text-decoration: none;">
+                <img 
+                  src="${bannerUrl}" 
+                  alt="RentalMeet - Book Your Premium Meeting Venues..! Find. Compare. Book." 
+                  width="640" 
+                  style="width: 100%; max-width: 640px; height: auto; display: block; border: 0; outline: none; margin: 0 auto;"
+                />
+              </a>
+              <div style="background-color: #fff7ed; padding: 10px 18px; border-bottom: 1px solid #fed7aa; color: #ea580c; font-size: 13.5px; font-weight: 800; letter-spacing: 0.5px; text-align: center;">
                 🎉 वेन्यू लाइव सूचना • Venue Owner Portal
               </div>
             </td>
@@ -625,8 +624,6 @@ exports.sendVenueOwnerWelcomeCredentialsEmail = async ({
           <!-- Main Content -->
           <tr>
             <td style="padding: 32px 28px 24px 28px; text-align: left;">
-
-              ${ambassadorSection}
 
               <h2 style="margin: 0 0 16px 0; font-size: 22px; font-weight: 800; color: #0f172a; line-height: 1.4;">
                 🎉 बधाई हो! आपका वेन्यू अब RentalMeet पर लाइव है!

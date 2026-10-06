@@ -53,6 +53,11 @@ async function cleanupUser(targetEmail, isDryRun = false) {
     process.exit(1);
   }
 
+  const makeOrQuery = (clauses) => {
+    const valid = clauses.filter(Boolean);
+    return valid.length > 0 ? { $or: valid } : { _id: null };
+  };
+
   try {
     const emailRegex = new RegExp('^' + cleanEmail + '$', 'i');
 
@@ -69,99 +74,73 @@ async function cleanupUser(targetEmail, isDryRun = false) {
     }
 
     // 2. Find Venues
-    const venueFilter = {
-      $or: [
-        ...(userIds.length > 0 ? [{ owner: { $in: userIds } }] : []),
-        { 'ownerInfo.email': emailRegex }
-      ]
-    };
+    const venueFilter = makeOrQuery([
+      userIds.length > 0 ? { owner: { $in: userIds } } : null,
+      { 'ownerInfo.email': emailRegex }
+    ]);
     const venues = await Venue.find(venueFilter).lean();
     const venueIds = venues.map(v => v._id);
     console.log(`\n2. Venues (${venues.length} found):`);
     venues.forEach(v => console.log(`   • ${v.businessName} (SKU: ${v.sku}, ID: ${v._id})`));
 
     // 3. Find Bookings
-    const bookingFilter = {
-      $or: [
-        ...(userIds.length > 0 ? [{ customer: { $in: userIds } }] : []),
-        ...(venueIds.length > 0 ? [{ venue: { $in: venueIds } }] : []),
-        { 'customerDetails.email': emailRegex }
-      ]
-    };
+    const bookingFilter = makeOrQuery([
+      userIds.length > 0 ? { customer: { $in: userIds } } : null,
+      venueIds.length > 0 ? { venue: { $in: venueIds } } : null,
+      { 'customerDetails.email': emailRegex }
+    ]);
     const bookings = await Booking.find(bookingFilter).lean();
     console.log(`\n3. Bookings (${bookings.length} found)`);
 
     // 4. Ambassador Data
-    const ambProfiles = await AmbassadorProfile.find({
-      $or: [
-        ...(userIds.length > 0 ? [{ user: { $in: userIds } }] : []),
-        { email: emailRegex }
-      ]
-    }).lean();
+    const ambProfiles = await AmbassadorProfile.find(makeOrQuery([
+      userIds.length > 0 ? { user: { $in: userIds } } : null,
+      { email: emailRegex }
+    ])).lean();
     const ambProfileIds = ambProfiles.map(a => a._id);
-    const ambPayouts = await AmbassadorPayout.find({
-      $or: [
-        ...(userIds.length > 0 ? [{ ambassador: { $in: userIds } }] : []),
-        ...(ambProfileIds.length > 0 ? [{ ambassadorProfile: { $in: ambProfileIds } }] : [])
-      ]
-    }).lean();
-    const ambRewards = await AmbassadorReward.find({
-      $or: [
-        ...(userIds.length > 0 ? [{ ambassador: { $in: userIds } }] : [])
-      ]
-    }).lean();
+    const ambPayouts = await AmbassadorPayout.find(makeOrQuery([
+      userIds.length > 0 ? { ambassador: { $in: userIds } } : null,
+      ambProfileIds.length > 0 ? { ambassadorProfile: { $in: ambProfileIds } } : null
+    ])).lean();
+    const ambRewards = await AmbassadorReward.find(makeOrQuery([
+      userIds.length > 0 ? { ambassador: { $in: userIds } } : null
+    ])).lean();
     console.log(`\n4. Ambassador Profiles: ${ambProfiles.length}, Payouts: ${ambPayouts.length}, Rewards: ${ambRewards.length}`);
 
     // 5. Vendor Data
-    const vendorProfiles = await VendorProfile.find({
-      $or: [
-        ...(userIds.length > 0 ? [{ user: { $in: userIds } }] : []),
-        { email: emailRegex }
-      ]
-    }).lean();
-    const vendorServices = await VendorService.find({
-      $or: [
-        ...(userIds.length > 0 ? [{ vendor: { $in: userIds } }] : []),
-        { 'contactInfo.email': emailRegex }
-      ]
-    }).lean();
-    const serviceBookings = await ServiceBooking.find({
-      $or: [
-        ...(userIds.length > 0 ? [{ customer: { $in: userIds } }] : []),
-        { 'customerInfo.email': emailRegex }
-      ]
-    }).lean();
+    const vendorProfiles = await VendorProfile.find(makeOrQuery([
+      userIds.length > 0 ? { user: { $in: userIds } } : null,
+      { email: emailRegex }
+    ])).lean();
+    const vendorServices = await VendorService.find(makeOrQuery([
+      userIds.length > 0 ? { vendor: { $in: userIds } } : null,
+      { 'contactInfo.email': emailRegex }
+    ])).lean();
+    const serviceBookings = await ServiceBooking.find(makeOrQuery([
+      userIds.length > 0 ? { customer: { $in: userIds } } : null,
+      { 'customerInfo.email': emailRegex }
+    ])).lean();
     console.log(`\n5. Vendor Profiles: ${vendorProfiles.length}, Services: ${vendorServices.length}, Service Bookings: ${serviceBookings.length}`);
 
     // 6. Quotation Downloads, Reviews, Enquiries, OTPs
-    const quotations = await QuotationDownload.find({
-      $or: [
-        ...(userIds.length > 0 ? [{ user: { $in: userIds } }] : []),
-        { email: emailRegex }
-      ]
-    }).lean();
-    const serviceQuotations = await ServiceQuotationDownload.find({
-      $or: [
-        ...(userIds.length > 0 ? [{ user: { $in: userIds } }] : []),
-        { email: emailRegex }
-      ]
-    }).lean();
-    const reviews = await Review.find({
-      $or: [
-        ...(userIds.length > 0 ? [{ user: { $in: userIds } }] : [])
-      ]
-    }).lean();
-    const venueReviews = await VenueReview.find({
-      $or: [
-        ...(userIds.length > 0 ? [{ user: { $in: userIds } }] : [])
-      ]
-    }).lean();
-    const enquiries = await VenueEnquiry.find({
-      $or: [
-        ...(userIds.length > 0 ? [{ user: { $in: userIds } }] : []),
-        { email: emailRegex }
-      ]
-    }).lean();
+    const quotations = await QuotationDownload.find(makeOrQuery([
+      userIds.length > 0 ? { user: { $in: userIds } } : null,
+      { email: emailRegex }
+    ])).lean();
+    const serviceQuotations = await ServiceQuotationDownload.find(makeOrQuery([
+      userIds.length > 0 ? { user: { $in: userIds } } : null,
+      { email: emailRegex }
+    ])).lean();
+    const reviews = await Review.find(makeOrQuery([
+      userIds.length > 0 ? { user: { $in: userIds } } : null
+    ])).lean();
+    const venueReviews = await VenueReview.find(makeOrQuery([
+      userIds.length > 0 ? { user: { $in: userIds } } : null
+    ])).lean();
+    const enquiries = await VenueEnquiry.find(makeOrQuery([
+      userIds.length > 0 ? { user: { $in: userIds } } : null,
+      { email: emailRegex }
+    ])).lean();
     const otps = await OtpVerification.find({ email: emailRegex }).lean();
     const notifications = userIds.length > 0 ? await Notification.find({ recipient: { $in: userIds } }).lean() : [];
     const sessionLogs = userIds.length > 0 ? await SessionLog.find({ user: { $in: userIds } }).lean() : [];
