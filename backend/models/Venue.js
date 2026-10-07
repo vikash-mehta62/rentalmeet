@@ -228,33 +228,16 @@ const venueSchema = new mongoose.Schema({
     }],
     lunchThalis: [{
       thaliType: {
-        type: String,
-        enum: [
-          'North Indian Thali',
-          'Punjabi Thali',
-          'Non-Veg Thali',
-          'South Indian Thali',
-          'Gujarati Thali',
-          'Rajasthani Thali',
-          'Bengali Thali',
-          'Maharashtrian Thali',
-          'Kashmiri Thali',
-          'Simple/Daily Thali',
-          'Protein-Packed Thali',
-          'Festive/Banquet Thali'
-        ],
-        required: true
+        type: String
       },
       available: Boolean,
       categories: [{
         category: {
-          type: String,
-          enum: ['Regular Thali', 'Special Thali', 'Maharaja Thali'],
-          required: true
+          type: String
         },
-        ratePerPlate: { type: Number, required: true },
-        numberOfItems: { type: Number, required: true },
-        itemNames: { type: String, required: true }
+        ratePerPlate: { type: Number },
+        numberOfItems: { type: Number },
+        itemNames: { type: String }
       }]
     }],
     kitchenAccess: {

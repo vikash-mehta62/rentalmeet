@@ -408,29 +408,47 @@ export default function AdminVenueQuickEditModal({
       basic: mergeAmenitiesWithDefaults(venue?.amenities?.basic || []),
       beverages: (Array.isArray(venue?.amenities?.beverages) && venue.amenities.beverages.length > 0)
         ? venue.amenities.beverages
-        : (Array.isArray(venue?.catering?.beverages) && venue.catering.beverages.length > 0)
-          ? venue.catering.beverages
-          : DEFAULT_BEVERAGES,
+        : (Array.isArray(venue?.cateringFacility?.beverages) && venue.cateringFacility.beverages.length > 0)
+          ? venue.cateringFacility.beverages
+          : (Array.isArray(venue?.catering?.beverages) && venue.catering.beverages.length > 0)
+            ? venue.catering.beverages
+            : DEFAULT_BEVERAGES,
       refreshmentFood: (Array.isArray(venue?.amenities?.refreshmentFood) && venue.amenities.refreshmentFood.length > 0)
         ? venue.amenities.refreshmentFood
-        : (Array.isArray(venue?.catering?.breakfast) && venue.catering.breakfast.length > 0)
-          ? venue.catering.breakfast
-          : DEFAULT_BREAKFAST,
+        : (Array.isArray(venue?.cateringFacility?.breakfast) && venue.cateringFacility.breakfast.length > 0)
+          ? venue.cateringFacility.breakfast
+          : (Array.isArray(venue?.catering?.breakfast) && venue.catering.breakfast.length > 0)
+            ? venue.catering.breakfast
+            : DEFAULT_BREAKFAST,
       lunchThalis: (Array.isArray(venue?.amenities?.lunchThalis) && venue.amenities.lunchThalis.length > 0)
-        ? venue.amenities.lunchThalis
-        : (Array.isArray(venue?.catering?.lunchDinner) && venue.catering.lunchDinner.length > 0)
-          ? venue.catering.lunchDinner
-          : DEFAULT_LUNCH_DINNER
+        ? venue.amenities.lunchThalis.filter(t => t && (t.thaliType || t.name))
+        : []
     },
 
     // Catering
     catering: {
-      available: venue?.catering?.available ?? venue?.cateringFacility?.available ?? true,
-      outsideCateringAllowed: venue?.catering?.outsideCateringAllowed ?? venue?.cateringFacility?.outsideCateringAllowed ?? true,
+      available: venue?.cateringFacility?.available ?? venue?.catering?.available ?? true,
+      outsideCateringAllowed: venue?.cateringFacility?.outsideCateringAllowed ?? venue?.catering?.outsideCateringAllowed ?? true,
       kitchenAccess: venue?.cateringFacility?.kitchenAccess || { available: true, type: 'Included', charges: 0 },
-      beverages: (Array.isArray(venue?.catering?.beverages) && venue.catering.beverages.length > 0) ? venue.catering.beverages : DEFAULT_BEVERAGES,
-      breakfast: (Array.isArray(venue?.catering?.breakfast) && venue.catering.breakfast.length > 0) ? venue.catering.breakfast : DEFAULT_BREAKFAST,
-      lunchDinner: (Array.isArray(venue?.catering?.lunchDinner) && venue.catering.lunchDinner.length > 0) ? venue.catering.lunchDinner : DEFAULT_LUNCH_DINNER
+      beverages: (Array.isArray(venue?.cateringFacility?.beverages) && venue.cateringFacility.beverages.length > 0)
+        ? venue.cateringFacility.beverages
+        : (Array.isArray(venue?.catering?.beverages) && venue.catering.beverages.length > 0)
+          ? venue.catering.beverages
+          : (Array.isArray(venue?.amenities?.beverages) && venue.amenities.beverages.length > 0)
+            ? venue.amenities.beverages
+            : DEFAULT_BEVERAGES,
+      breakfast: (Array.isArray(venue?.cateringFacility?.breakfast) && venue.cateringFacility.breakfast.length > 0)
+        ? venue.cateringFacility.breakfast
+        : (Array.isArray(venue?.catering?.breakfast) && venue.catering.breakfast.length > 0)
+          ? venue.catering.breakfast
+          : (Array.isArray(venue?.amenities?.refreshmentFood) && venue.amenities.refreshmentFood.length > 0)
+            ? venue.amenities.refreshmentFood
+            : DEFAULT_BREAKFAST,
+      lunchDinner: (Array.isArray(venue?.cateringFacility?.lunchDinner) && venue.cateringFacility.lunchDinner.length > 0)
+        ? venue.cateringFacility.lunchDinner
+        : (Array.isArray(venue?.catering?.lunchDinner) && venue.catering.lunchDinner.length > 0)
+          ? venue.catering.lunchDinner
+          : DEFAULT_LUNCH_DINNER
     },
 
     // Additional Facilities
@@ -784,6 +802,13 @@ export default function AdminVenueQuickEditModal({
       const payload = {
         ...formData,
         floor: finalFloor,
+        cateringFacility: formData.catering,
+        amenities: {
+          ...formData.amenities,
+          lunchThalis: Array.isArray(formData.amenities?.lunchThalis)
+            ? formData.amenities.lunchThalis.filter(t => t && (t.thaliType || t.name))
+            : []
+        },
         images: formData.images || [],
         documents: {
           ...formData.documents,
@@ -1831,8 +1856,12 @@ export default function AdminVenueQuickEditModal({
                             toast.error('Enter beverage name');
                             return;
                           }
-                          const updated = [...(formData.amenities.beverages || []), { ...newBeverage, available: true }];
-                          setFormData({ ...formData, amenities: { ...formData.amenities, beverages: updated } });
+                          const updated = [...(formData.catering.beverages || []), { ...newBeverage, available: true }];
+                          setFormData({
+                            ...formData,
+                            catering: { ...formData.catering, beverages: updated },
+                            amenities: { ...formData.amenities, beverages: updated }
+                          });
                           setNewBeverage({ name: '', available: true, ratePerUnit: 20 });
                           setShowAddBeverage(false);
                           toast.success('Beverage added! ☕');
@@ -1846,7 +1875,7 @@ export default function AdminVenueQuickEditModal({
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
-                  {(formData.amenities.beverages || []).map((bev, idx) => {
+                  {(formData.catering.beverages || []).map((bev, idx) => {
                     const isAvail = bev.available !== false;
                     return (
                       <div
@@ -1861,9 +1890,13 @@ export default function AdminVenueQuickEditModal({
                               type="checkbox"
                               checked={isAvail}
                               onChange={(e) => {
-                                const updated = [...(formData.amenities.beverages || [])];
+                                const updated = [...(formData.catering.beverages || [])];
                                 updated[idx] = { ...updated[idx], available: e.target.checked };
-                                setFormData({ ...formData, amenities: { ...formData.amenities, beverages: updated } });
+                                setFormData({
+                                  ...formData,
+                                  catering: { ...formData.catering, beverages: updated },
+                                  amenities: { ...formData.amenities, beverages: updated }
+                                });
                               }}
                               className="w-3.5 h-3.5 rounded text-amber-600 focus:ring-amber-500 border-gray-300 cursor-pointer"
                             />
@@ -1874,9 +1907,13 @@ export default function AdminVenueQuickEditModal({
                           <button
                             type="button"
                             onClick={() => {
-                              const updated = [...(formData.amenities.beverages || [])];
+                              const updated = [...(formData.catering.beverages || [])];
                               updated.splice(idx, 1);
-                              setFormData({ ...formData, amenities: { ...formData.amenities, beverages: updated } });
+                              setFormData({
+                                ...formData,
+                                catering: { ...formData.catering, beverages: updated },
+                                amenities: { ...formData.amenities, beverages: updated }
+                              });
                             }}
                             className="text-red-400 hover:text-red-600 transition-colors"
                           >
@@ -1891,9 +1928,13 @@ export default function AdminVenueQuickEditModal({
                               min="0"
                               value={bev.ratePerUnit || 0}
                               onChange={(e) => {
-                                const updated = [...(formData.amenities.beverages || [])];
+                                const updated = [...(formData.catering.beverages || [])];
                                 updated[idx] = { ...updated[idx], ratePerUnit: Number(e.target.value) || 0 };
-                                setFormData({ ...formData, amenities: { ...formData.amenities, beverages: updated } });
+                                setFormData({
+                                  ...formData,
+                                  catering: { ...formData.catering, beverages: updated },
+                                  amenities: { ...formData.amenities, beverages: updated }
+                                });
                               }}
                               className="w-full px-2 py-1 text-xs border border-gray-300 rounded-lg font-bold text-amber-800 bg-white"
                             />
@@ -1913,7 +1954,7 @@ export default function AdminVenueQuickEditModal({
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-bold text-orange-950 uppercase tracking-wider flex items-center gap-1.5">
                     <Utensils className="w-4 h-4 text-orange-600" />
-                    Snacks &amp; Breakfast Rates ({(formData.amenities.refreshmentFood || []).filter(f => f.available !== false).length} Available)
+                    Snacks &amp; Breakfast Rates ({(formData.catering.breakfast || []).filter(f => f.available !== false).length} Available)
                   </h4>
                   <button
                     type="button"
@@ -1958,8 +1999,12 @@ export default function AdminVenueQuickEditModal({
                               toast.error('Enter item name');
                               return;
                             }
-                            const updated = [...(formData.amenities.refreshmentFood || []), { ...newBreakfast, available: true }];
-                            setFormData({ ...formData, amenities: { ...formData.amenities, refreshmentFood: updated } });
+                            const updated = [...(formData.catering.breakfast || []), { ...newBreakfast, available: true }];
+                            setFormData({
+                              ...formData,
+                              catering: { ...formData.catering, breakfast: updated },
+                              amenities: { ...formData.amenities, refreshmentFood: updated }
+                            });
                             setNewBreakfast({ name: '', available: true, ratePerPlate: 80, items: '' });
                             setShowAddBreakfast(false);
                             toast.success('Snack item added! 🥪');
@@ -1974,7 +2019,7 @@ export default function AdminVenueQuickEditModal({
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {(formData.amenities.refreshmentFood || []).map((food, idx) => {
+                  {(formData.catering.breakfast || []).map((food, idx) => {
                     const isAvail = food.available !== false;
                     return (
                       <div
@@ -1989,9 +2034,13 @@ export default function AdminVenueQuickEditModal({
                               type="checkbox"
                               checked={isAvail}
                               onChange={(e) => {
-                                const updated = [...(formData.amenities.refreshmentFood || [])];
+                                const updated = [...(formData.catering.breakfast || [])];
                                 updated[idx] = { ...updated[idx], available: e.target.checked };
-                                setFormData({ ...formData, amenities: { ...formData.amenities, refreshmentFood: updated } });
+                                setFormData({
+                                  ...formData,
+                                  catering: { ...formData.catering, breakfast: updated },
+                                  amenities: { ...formData.amenities, refreshmentFood: updated }
+                                });
                               }}
                               className="w-3.5 h-3.5 rounded text-orange-600 focus:ring-orange-500 border-gray-300 cursor-pointer"
                             />
@@ -2012,9 +2061,13 @@ export default function AdminVenueQuickEditModal({
                                 min="0"
                                 value={food.ratePerPlate || 0}
                                 onChange={(e) => {
-                                  const updated = [...(formData.amenities.refreshmentFood || [])];
+                                  const updated = [...(formData.catering.breakfast || [])];
                                   updated[idx] = { ...updated[idx], ratePerPlate: Number(e.target.value) || 0 };
-                                  setFormData({ ...formData, amenities: { ...formData.amenities, refreshmentFood: updated } });
+                                  setFormData({
+                                    ...formData,
+                                    catering: { ...formData.catering, breakfast: updated },
+                                    amenities: { ...formData.amenities, refreshmentFood: updated }
+                                  });
                                 }}
                                 className="w-20 px-2 py-1 text-xs border border-gray-300 rounded-lg font-bold text-orange-700 bg-white text-center"
                               />
@@ -2024,9 +2077,13 @@ export default function AdminVenueQuickEditModal({
                           <button
                             type="button"
                             onClick={() => {
-                              const updated = [...(formData.amenities.refreshmentFood || [])];
+                              const updated = [...(formData.catering.breakfast || [])];
                               updated.splice(idx, 1);
-                              setFormData({ ...formData, amenities: { ...formData.amenities, refreshmentFood: updated } });
+                              setFormData({
+                                ...formData,
+                                catering: { ...formData.catering, breakfast: updated },
+                                amenities: { ...formData.amenities, refreshmentFood: updated }
+                              });
                             }}
                             className="text-red-400 hover:text-red-600 transition-colors"
                           >
@@ -2044,7 +2101,7 @@ export default function AdminVenueQuickEditModal({
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-bold text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
                     <UtensilsCrossed className="w-4 h-4 text-purple-600" />
-                    Lunch &amp; Dinner Buffet Packages ({(formData.amenities.lunchThalis || []).filter(b => b.available !== false).length} Packages)
+                    Lunch &amp; Dinner Buffet Packages ({(formData.catering.lunchDinner || []).filter(b => b.available !== false).length} Packages)
                   </h4>
                   <button
                     type="button"
@@ -2098,8 +2155,11 @@ export default function AdminVenueQuickEditModal({
                               toast.error('Enter package name');
                               return;
                             }
-                            const updated = [...(formData.amenities.lunchThalis || []), { ...newLunchDinner, available: true }];
-                            setFormData({ ...formData, amenities: { ...formData.amenities, lunchThalis: updated } });
+                            const updated = [...(formData.catering.lunchDinner || []), { ...newLunchDinner, available: true }];
+                            setFormData({
+                              ...formData,
+                              catering: { ...formData.catering, lunchDinner: updated }
+                            });
                             setNewLunchDinner({ name: '', available: true, foodType: 'Veg', ratePerPlate: 350, items: '' });
                             setShowAddLunchDinner(false);
                             toast.success('Buffet package added! 🍲');
@@ -2114,7 +2174,7 @@ export default function AdminVenueQuickEditModal({
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {(formData.amenities.lunchThalis || []).map((buffet, idx) => {
+                  {(formData.catering.lunchDinner || []).map((buffet, idx) => {
                     const isAvail = buffet.available !== false;
                     return (
                       <div
@@ -2130,9 +2190,12 @@ export default function AdminVenueQuickEditModal({
                                 type="checkbox"
                                 checked={isAvail}
                                 onChange={(e) => {
-                                  const updated = [...(formData.amenities.lunchThalis || [])];
+                                  const updated = [...(formData.catering.lunchDinner || [])];
                                   updated[idx] = { ...updated[idx], available: e.target.checked };
-                                  setFormData({ ...formData, amenities: { ...formData.amenities, lunchThalis: updated } });
+                                  setFormData({
+                                    ...formData,
+                                    catering: { ...formData.catering, lunchDinner: updated }
+                                  });
                                 }}
                                 className="w-3.5 h-3.5 rounded text-purple-600 focus:ring-purple-500 border-gray-300 cursor-pointer"
                               />
@@ -2161,9 +2224,12 @@ export default function AdminVenueQuickEditModal({
                                 min="0"
                                 value={buffet.ratePerPlate || buffet.rate || 0}
                                 onChange={(e) => {
-                                  const updated = [...(formData.amenities.lunchThalis || [])];
+                                  const updated = [...(formData.catering.lunchDinner || [])];
                                   updated[idx] = { ...updated[idx], ratePerPlate: Number(e.target.value) || 0, rate: Number(e.target.value) || 0 };
-                                  setFormData({ ...formData, amenities: { ...formData.amenities, lunchThalis: updated } });
+                                  setFormData({
+                                    ...formData,
+                                    catering: { ...formData.catering, lunchDinner: updated }
+                                  });
                                 }}
                                 className="w-20 px-2 py-1 text-xs border border-gray-300 rounded-lg font-bold text-purple-700 bg-white text-center"
                               />
@@ -2173,9 +2239,12 @@ export default function AdminVenueQuickEditModal({
                           <button
                             type="button"
                             onClick={() => {
-                              const updated = [...(formData.amenities.lunchThalis || [])];
+                              const updated = [...(formData.catering.lunchDinner || [])];
                               updated.splice(idx, 1);
-                              setFormData({ ...formData, amenities: { ...formData.amenities, lunchThalis: updated } });
+                              setFormData({
+                                ...formData,
+                                catering: { ...formData.catering, lunchDinner: updated }
+                              });
                             }}
                             className="text-red-400 hover:text-red-600 transition-colors"
                           >

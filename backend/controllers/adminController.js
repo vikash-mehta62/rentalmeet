@@ -765,14 +765,24 @@ exports.adminQuickEditVenue = async (req, res) => {
       if (amenities.features !== undefined) venue.amenities.features = amenities.features;
       if (amenities.beverages !== undefined) venue.amenities.beverages = amenities.beverages;
       if (amenities.refreshmentFood !== undefined) venue.amenities.refreshmentFood = amenities.refreshmentFood;
-      if (amenities.lunchThalis !== undefined) venue.amenities.lunchThalis = amenities.lunchThalis;
+      if (amenities.lunchThalis !== undefined) {
+        if (Array.isArray(amenities.lunchThalis)) {
+          // Keep only items that have thaliType or valid category structure
+          venue.amenities.lunchThalis = amenities.lunchThalis.filter(t => t && (t.thaliType || t.name));
+        } else {
+          venue.amenities.lunchThalis = [];
+        }
+      }
       if (amenities.kitchenAccess !== undefined) venue.amenities.kitchenAccess = amenities.kitchenAccess;
       if (amenities.diningArea !== undefined) venue.amenities.diningArea = amenities.diningArea;
     }
 
-    // Catering
-    if (cateringFacility !== undefined) venue.catering = cateringFacility;
-    if (catering !== undefined) venue.catering = catering;
+    // Catering / Catering Facility
+    if (cateringFacility !== undefined) {
+      venue.cateringFacility = cateringFacility;
+    } else if (catering !== undefined) {
+      venue.cateringFacility = catering;
+    }
 
     // Additional Facilities
     if (additionalFacilities !== undefined) venue.additionalFacilities = additionalFacilities;
