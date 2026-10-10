@@ -601,14 +601,38 @@ exports.getVenues = async (req, res) => {
       ];
     }
     
-    // City filter
-    if (city) query['location.city'] = city;
+    // City filter (case-insensitive regex)
+    if (city) {
+      const cleanCity = String(city).trim().split(',')[0].trim();
+      query['location.city'] = { $regex: cleanCity, $options: 'i' };
+    }
     
-    // Location filter (area)
-    if (location) query['location.area'] = location;
+    // Location filter (matches city or area or address if city not explicitly provided)
+    if (location && !city) {
+      const cleanLoc = String(location).trim().split(',')[0].trim();
+      const locRegex = { $regex: cleanLoc, $options: 'i' };
+      if (query.$or) {
+        query.$and = [
+          { $or: query.$or },
+          { $or: [{ 'location.city': locRegex }, { 'location.area': locRegex }, { 'location.address': locRegex }] }
+        ];
+        delete query.$or;
+      } else {
+        query.$or = [
+          { 'location.city': locRegex },
+          { 'location.area': locRegex },
+          { 'location.address': locRegex }
+        ];
+      }
+    } else if (location && city) {
+      const cleanLoc = String(location).trim().split(',')[0].trim();
+      query['location.area'] = { $regex: cleanLoc, $options: 'i' };
+    }
     
-    // Venue type filter
-    if (venueType) query.venueType = venueType;
+    // Venue type filter (case-insensitive)
+    if (venueType) {
+      query.venueType = { $regex: `^${String(venueType).trim()}$`, $options: 'i' };
+    }
     
     // Capacity filter
     if (capacity) query.capacity = capacity;
@@ -665,11 +689,16 @@ exports.getVenues = async (req, res) => {
     // Get total count for pagination
     const totalVenues = await Venue.countDocuments(query);
     
+    // Sorting: Verified venues first by default
+    let sortOption = { isVerified: -1, 'documents.verified': -1, profileCompletion: -1, createdAt: -1 };
+    if (req.query.sort === 'newest') sortOption = { createdAt: -1 };
+    else if (req.query.sort === 'rating') sortOption = { averageRating: -1, createdAt: -1 };
+
     // Get venues with pagination
     const venues = await Venue.find(query)
       .select(PUBLIC_VENUE_EXCLUDE)
       .populate('owner', 'name email phone')
-      .sort('-createdAt')
+      .sort(sortOption)
       .skip(skip)
       .limit(limitNum);
 

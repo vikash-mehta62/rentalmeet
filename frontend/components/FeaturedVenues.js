@@ -33,10 +33,17 @@ export default function FeaturedVenues() {
 
   const fetchFeaturedVenues = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues?limit=6`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues?limit=36`);
       const data = await response.json();
-      if (data.success) {
-        setVenues(data.venues.slice(0, 6));
+      if (data.success && Array.isArray(data.venues)) {
+        // Sort: Verified first, then Info venues
+        const sorted = [...data.venues].sort((a, b) => {
+          const aVer = isVenueVerified(a) ? 1 : 0;
+          const bVer = isVenueVerified(b) ? 1 : 0;
+          return bVer - aVer;
+        });
+        // 4x6 Cards layout = 24 venues
+        setVenues(sorted.slice(0, 24));
       }
     } catch (error) {
       console.error('Error fetching venues:', error);
@@ -47,20 +54,20 @@ export default function FeaturedVenues() {
 
   if (loading) {
     return (
-      <section className="py-5 px-4 sm:px-6 bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
+      <section className="py-6 px-4 sm:px-6 bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-4">
+          <div className="text-center mb-5">
             <p className="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-1">Our Venues</p>
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-slate-100 leading-10" style={{ fontFamily: 'Georgia, serif' }}>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-slate-100" style={{ fontFamily: 'Georgia, serif' }}>
               Featured Venues at RentalMeet
             </h2>
-            <p className="mt-3 text-sm md:text-base text-gray-600 dark:text-slate-300 max-w-2xl mx-auto">
+            <p className="mt-2 text-sm text-gray-600 dark:text-slate-300 max-w-2xl mx-auto">
               Discover our handpicked selection of premium venues designed to make every meeting and event exceptional.
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-gray-200 dark:bg-slate-800 rounded-xl h-80 animate-pulse"></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+              <div key={i} className="bg-gray-200 dark:bg-slate-800 rounded-2xl h-80 animate-pulse"></div>
             ))}
           </div>
         </div>
@@ -69,23 +76,21 @@ export default function FeaturedVenues() {
   }
 
   return (
-    <section className="py-5 px-4 sm:px-6">
+    <section className="py-6 px-4 sm:px-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-4">
+        <div className="text-center mb-5">
           <p className="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-1">Our Venues</p>
-        <h2 
-className="font-serif text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-slate-100"
->
-Featured Venues at RentalMeet
-</h2>
-          <p className="mt-1 text-sm text-gray-600 dark:text-slate-300 max-w-2xl mx-auto">
+          <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-slate-100">
+            Featured Venues at RentalMeet
+          </h2>
+          <p className="mt-2 text-sm text-gray-600 dark:text-slate-300 max-w-2xl mx-auto">
             Discover our handpicked selection of premium venues designed to make every meeting and event exceptional.
           </p>
         </div>
 
-        {/* Venues Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Venues Grid — 4x6 Cards (4 Columns on Desktop) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
           {venues.map((venue) => {
             const featuredImage = venue.images?.find((img) => img.isFeatured)?.url || venue.images?.[0]?.url || '/hero-img.jpg';
             const foodType = venue.foodType || 'Veg';

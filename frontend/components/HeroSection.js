@@ -67,10 +67,8 @@ export default function HeroSection() {
 
   if (loading) {
     return (
-      <section className="relative h-[60vh] md:h-[75vh] w-full overflow-hidden mt-[102px] bg-gray-900">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
-        </div>
+      <section className="relative min-h-[calc(100vh-102px)] w-full overflow-hidden mt-[102px] bg-gray-900 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
       </section>
     );
   }
@@ -78,70 +76,34 @@ export default function HeroSection() {
   const slide = slides[currentSlide];
 
   return (
-    <section className="relative h-[60vh] md:h-[75vh] w-full overflow-hidden mt-[102px]">
+    <section className="relative min-h-[calc(100vh-102px)] min-h-[calc(100dvh-102px)] w-full overflow-hidden mt-[102px] flex flex-col justify-center items-center">
       {/* Background Image */}
       <div className="absolute inset-0">
         <Image
-          src={slide.image}
-          alt={slide.title}
+          src={slide.image || '/her-img2.jpg'}
+          alt={slide.title || 'RentalMeet Venues'}
           fill
-          className="object-cover transition-opacity duration-500"
+          className="object-cover transition-opacity duration-700"
           priority
         />
-        {/* Dark Overlay */}
-        <div className="absolute inset-0 bg-black/60"></div>
+        {/* Dark Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/45 to-black/75"></div>
       </div>
 
-      {/* Content */}
-      <div className="relative h-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center text-center">
-        {/* Main Heading */}
-        <h1 style={{ fontFamily: "var(--font-playfair), 'Playfair Display', Georgia, serif" }} className="text-3xl sm:text-4xl lg:text-6xl font-bold text-white mb-4 leading-tight">
-          {slide.title}
-          {slide.subtitle && (
-            <>
-              <br />
-              {slide.subtitle.includes('RentalMeet')
-                ? slide.subtitle.split('RentalMeet').map((part, i, arr) => (
-                    <span key={i} style={{ fontFamily: "var(--font-playfair), 'Playfair Display', Georgia, serif" }}>
-                      {part}
-                      {i < arr.length - 1 && (
-                        <span style={{ fontFamily: "var(--font-playfair), 'Playfair Display', Georgia, serif", color: '#F59F0A' }}>RentalMeet</span>
-                      )}
-                    </span>
-                  ))
-                : <span style={{ fontFamily: "var(--font-playfair), 'Playfair Display', Georgia, serif" }} className="text-primary-500">{slide.subtitle}</span>
-              }
-            </>
-          )}
+      {/* Hero Content */}
+      <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 text-center pt-8 pb-32 sm:pb-36 md:pb-40 flex flex-col items-center">
+        <h1
+          style={{ fontFamily: "var(--font-playfair), 'Playfair Display', Georgia, serif" }}
+          className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-3 sm:mb-4 leading-tight drop-shadow-lg"
+        >
+          {slide.title || 'Book Your Perfect Venue'}{' '}
+          <span style={{ color: '#F59F0A' }}>With RentalMeet</span>
         </h1>
-
-        {/* Description */}
         {slide.description && (
-          <p className="text-white/90 text-base md:text-lg max-w-2xl mb-8 leading-relaxed px-4 animate-fade-in">
+          <p className="text-white/90 text-sm sm:text-base md:text-lg max-w-2xl mx-auto leading-relaxed drop-shadow-md">
             {slide.description}
           </p>
         )}
-
-        {/* CTA Button */}
-        <Link 
-          href={slide.buttonLink}
-          className="inline-flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white font-semibold px-8 py-3 rounded-md transition-all duration-300 transform hover:scale-105 animate-fade-in"
-        >
-          {slide.buttonText}
-          <svg 
-            className="w-5 h-5" 
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
-          >
-            <path 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              strokeWidth={2} 
-              d="M17 8l4 4m0 0l-4 4m4-4H3" 
-            />
-          </svg>
-        </Link>
       </div>
 
       {/* Navigation Arrows - Only show if multiple slides */}
@@ -149,29 +111,29 @@ export default function HeroSection() {
         <>
           <button
             onClick={prevSlide}
-            className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white p-3 rounded-full transition-all duration-300 z-10"
+            className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white p-2.5 rounded-full transition-all duration-300 z-10"
             aria-label="Previous slide"
           >
-            <ChevronLeft className="w-6 h-6" />
+            <ChevronLeft className="w-5 h-5" />
           </button>
           <button
             onClick={nextSlide}
-            className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white p-3 rounded-full transition-all duration-300 z-10"
+            className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white p-2.5 rounded-full transition-all duration-300 z-10"
             aria-label="Next slide"
           >
-            <ChevronRight className="w-6 h-6" />
+            <ChevronRight className="w-5 h-5" />
           </button>
 
           {/* Slide Indicators */}
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+          <div className="absolute top-4 right-6 flex gap-1.5 z-10">
             {slides.map((_, index) => (
               <button
                 key={index}
                 onClick={() => setCurrentSlide(index)}
-                className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                className={`h-2 rounded-full transition-all duration-300 ${
                   index === currentSlide
-                    ? 'bg-primary-500 w-8'
-                    : 'bg-white/50 hover:bg-white/70'
+                    ? 'bg-primary-500 w-6'
+                    : 'bg-white/50 w-2 hover:bg-white/70'
                 }`}
                 aria-label={`Go to slide ${index + 1}`}
               />
