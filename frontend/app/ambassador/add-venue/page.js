@@ -916,13 +916,8 @@ export default function AmbassadorAddVenuePage() {
               {/* Inline OTP Verification Box */}
               {otpSent && !isPhoneVerified && (
                 <div className="mt-2.5 p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl space-y-2">
-                  <div className="flex items-center justify-between text-xs font-medium text-amber-800 dark:text-amber-200">
+                  <div className="text-xs font-medium text-amber-800 dark:text-amber-200">
                     <span>Enter 6-digit OTP sent to {formData.mobile}</span>
-                    {debugOtp && (
-                      <span className="font-mono text-[10px] bg-amber-200 dark:bg-amber-800 px-1.5 py-0.5 rounded text-amber-900 dark:text-amber-100">
-                        OTP: {debugOtp}
-                      </span>
-                    )}
                   </div>
                   <div className="flex gap-2">
                     <input

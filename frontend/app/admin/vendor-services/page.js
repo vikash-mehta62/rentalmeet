@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
 import PermissionGuard from '@/components/admin/PermissionGuard';
 import toast from 'react-hot-toast';
 import {
-  Search, Eye, X, CheckCircle, XCircle, Package,
+  Search, Eye, X, CheckCircle, XCircle, Package, Plus, UserCheck,
   ChevronDown, ChevronUp, ExternalLink, CreditCard, MapPin, Calendar, Download,
   ChevronLeft, ChevronRight
 } from 'lucide-react';
@@ -207,6 +208,12 @@ export default function AdminVendorServices() {
             className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50">
             <Download className="w-4 h-4" /> {exporting ? 'Exporting...' : `CSV (${totalServices})`}
           </button>
+          <Link
+            href="/admin/vendor-services/add"
+            className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-semibold whitespace-nowrap shadow-sm transition-colors cursor-pointer"
+          >
+            <Plus className="w-4 h-4" /> + Add Service
+          </Link>
         </div>
 
         {/* Table */}
@@ -218,6 +225,7 @@ export default function AdminVendorServices() {
                   <th className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase">#</th>
                   <th className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase">Service</th>
                   <th className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase">Vendor</th>
+                  <th className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase">Listed By</th>
                   <th className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase">Category</th>
                   <th className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase">Location</th>
                   <th className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase">Price</th>
@@ -228,9 +236,9 @@ export default function AdminVendorServices() {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {loading ? (
-                  <tr><td colSpan={9} className="text-center py-12 text-gray-400">Loading...</td></tr>
+                  <tr><td colSpan={10} className="text-center py-12 text-gray-400">Loading...</td></tr>
                 ) : services.length === 0 ? (
-                  <tr><td colSpan={9} className="text-center py-12 text-gray-400">No services found</td></tr>
+                  <tr><td colSpan={10} className="text-center py-12 text-gray-400">No services found</td></tr>
                 ) : services.map((svc, i) => (
                   <tr key={svc._id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 text-xs text-gray-400">{(currentPage - 1) * LIMIT + i + 1}</td>
@@ -249,6 +257,23 @@ export default function AdminVendorServices() {
                     <td className="px-4 py-3">
                       <p className="text-xs font-semibold text-gray-700">{svc.vendor?.name || '—'}</p>
                       <p className="text-xs text-gray-400">{svc.vendor?.email}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      {svc.listedBy?.name ? (
+                        <div>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                            {svc.listedBy.name}
+                          </span>
+                          <p className="text-[10px] text-gray-400 capitalize">{svc.listedBy.role || svc.listingSource || 'Admin'}</p>
+                        </div>
+                      ) : (
+                        <div>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-gray-100 text-gray-600">
+                            {svc.vendor?.name || 'Vendor Self'}
+                          </span>
+                          <p className="text-[10px] text-gray-400">Self Listed</p>
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-600">{svc.category || '—'}</td>
                     <td className="px-4 py-3 text-xs text-gray-600">{[svc.city, svc.state].filter(Boolean).join(', ') || '—'}</td>
@@ -337,6 +362,23 @@ export default function AdminVendorServices() {
               </div>
 
               <div className="overflow-y-auto flex-1 p-6 space-y-5">
+                {/* Listed By Card */}
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex items-center justify-between">
+                  <div>
+                    <span className="text-[11px] text-slate-500 font-medium block">Listed By</span>
+                    <span className="text-sm font-bold text-slate-800">
+                      {selected.listedBy?.name || selected.vendor?.name || 'Self Listed by Vendor'}
+                    </span>
+                    <span className="text-xs text-slate-500 block">
+                      Role: <strong className="capitalize">{selected.listedBy?.role || selected.listingSource || 'Vendor'}</strong>
+                      {selected.listedBy?.email ? ` · ${selected.listedBy.email}` : ''}
+                    </span>
+                  </div>
+                  <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 capitalize">
+                    Source: {selected.listingSource || 'vendor'}
+                  </span>
+                </div>
+
                 {/* Basic Info */}
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                   {[

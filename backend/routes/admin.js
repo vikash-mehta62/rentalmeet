@@ -1155,6 +1155,297 @@ router.get('/vendor-services', protect, authorize('admin'), checkPermission('ven
   }
 });
 
+// Get list of vendors for dropdown in Admin Add Vendor Service
+router.get('/vendors-list', protect, authorize('admin', 'subadmin'), checkPermission('vendorServices'), async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const vendors = await User.find({ role: 'vendor', isActive: { $ne: false } })
+      .select('name email phone companyName vendorCategory city state')
+      .sort('name');
+    res.json({ success: true, vendors });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// Check if vendor mobile or email already exists in database
+router.get('/check-vendor-exists', protect, authorize('admin', 'subadmin'), async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const { mobile, email } = req.query;
+    const cleanMobile = (mobile || '').replace(/\D/g, '').slice(-10);
+    const cleanEmail = (email || '').trim().toLowerCase();
+
+    if (cleanMobile) {
+      const exists = await User.findOne({ phone: cleanMobile });
+      if (exists) {
+        return res.json({
+          exists: true,
+          field: 'mobile',
+          message: `Account with mobile number ${cleanMobile} already exists.`
+        });
+      }
+    }
+
+    if (cleanEmail) {
+      const exists = await User.findOne({ email: cleanEmail });
+      if (exists) {
+        return res.json({
+          exists: true,
+          field: 'email',
+          message: `Account with email address ${cleanEmail} already exists.`
+        });
+      }
+    }
+
+    return res.json({ exists: false });
+  } catch (e) {
+    res.status(500).json({ exists: false, error: e.message });
+  }
+});
+
+// Admin Add New Vendor Service (with instant approval and listedBy tracking)
+router.post('/vendor-services', protect, authorize('admin', 'subadmin'), checkPermission('vendorServices'), async (req, res) => {
+  const clientIp = extractClientIp(req);
+  try {
+    const User = require('../models/User');
+    const {
+      vendorId,
+      vendorName,
+      vendorMobile,
+      vendorEmail,
+
+      title,
+      category,
+      companyName,
+      brandName,
+      experienceYears,
+      description,
+      specialization,
+      tags,
+
+      officeAddress,
+      state,
+      city,
+      area,
+      pincode,
+      serviceableAreas,
+      website,
+      instagram,
+      facebook,
+
+      startingPrice,
+      minimumOrderPrice,
+      packages,
+
+      featuredImage,
+      images,
+      videoLinks,
+
+      advanceBooking,
+      confirmationHours
+    } = req.body;
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({ success: false, message: 'Service title is required' });
+    }
+    if (!category || !category.trim()) {
+      return res.status(400).json({ success: false, message: 'Service category is required' });
+    }
+
+    let vendorUser = null;
+    let isNewAccount = false;
+    let autoPassword = null;
+
+    if (vendorId) {
+      vendorUser = await User.findById(vendorId);
+      if (!vendorUser) {
+        return res.status(404).json({ success: false, message: 'Selected vendor not found' });
+      }
+    } else {
+      const cleanMobile = (vendorMobile || '').replace(/\D/g, '').slice(-10);
+      const cleanEmail = (vendorEmail || '').trim().toLowerCase();
+      const cleanName = (vendorName || companyName || title + ' Vendor').trim();
+
+      if (!cleanMobile && !cleanEmail) {
+        return res.status(400).json({ success: false, message: 'Vendor contact information (mobile or email) is required' });
+      }
+
+      // Check if user/vendor already exists with this mobile number
+      if (cleanMobile) {
+        const existingMobileUser = await User.findOne({ phone: cleanMobile });
+        if (existingMobileUser) {
+          return res.status(400).json({
+            success: false,
+            message: `Account with mobile number ${cleanMobile} already exists.`
+          });
+        }
+      }
+
+      // Check if user/vendor already exists with this email address
+      if (cleanEmail) {
+        const existingEmailUser = await User.findOne({ email: cleanEmail });
+        if (existingEmailUser) {
+          return res.status(400).json({
+            success: false,
+            message: `Account with email address ${cleanEmail} already exists.`
+          });
+        }
+      }
+
+      isNewAccount = true;
+      const fallbackEmail = cleanEmail || `vendor.${cleanMobile || Date.now()}@rentalmeet.com`;
+      autoPassword = `RM@${(cleanMobile || '1234567890').slice(-4)}${Math.floor(100 + Math.random() * 900)}`;
+
+      vendorUser = await User.create({
+        name: cleanName,
+        phone: cleanMobile || undefined,
+        email: fallbackEmail,
+        password: autoPassword,
+        role: 'vendor',
+        isPhoneVerified: true,
+        isEmailVerified: !!cleanEmail,
+        statusHistory: [{
+          action: 'ACCOUNT_AUTO_CREATED_ON_VENDOR_ONBOARD',
+          role: 'vendor',
+          isActive: true,
+          reason: 'Auto-created by admin vendor service registration',
+          changedBy: { userId: req.user._id, name: req.user.name, email: req.user.email, role: req.user.role },
+          ipAddress: clientIp,
+          timestamp: new Date()
+        }]
+      });
+    }
+
+    const serviceData = {
+      vendor: vendorUser._id,
+      title: title.trim(),
+      category: category.trim(),
+      companyName: companyName?.trim() || vendorUser.companyName || vendorUser.name,
+      brandName: brandName?.trim() || undefined,
+      experienceYears: Number(experienceYears) || 0,
+      description: description?.trim() || undefined,
+      specialization: Array.isArray(specialization) ? specialization : (specialization ? specialization.split(',').map(s => s.trim()).filter(Boolean) : []),
+      tags: Array.isArray(tags) ? tags : (tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : []),
+
+      contactInfo: {
+        fullName: vendorUser.name,
+        primaryMobile: vendorUser.phone || vendorMobile,
+        role: 'owner'
+      },
+
+      officeAddress: officeAddress?.trim() || undefined,
+      state: state?.trim() || undefined,
+      city: city?.trim() || undefined,
+      area: area?.trim() || undefined,
+      pincode: pincode?.trim() || undefined,
+      serviceableAreas: Array.isArray(serviceableAreas) ? serviceableAreas : (serviceableAreas ? serviceableAreas.split(',').map(a => a.trim()).filter(Boolean) : []),
+      website: website?.trim() || undefined,
+      instagram: instagram?.trim() || undefined,
+      facebook: facebook?.trim() || undefined,
+
+      startingPrice: Number(startingPrice) || 0,
+      minimumOrderPrice: Number(minimumOrderPrice) || 0,
+      packages: Array.isArray(packages) ? packages : [],
+
+      featuredImage: featuredImage || undefined,
+      images: Array.isArray(images) ? images : [],
+      videoLinks: Array.isArray(videoLinks) ? videoLinks : [],
+
+      advanceBooking: advanceBooking || '24h',
+      confirmationHours: Number(confirmationHours) || 3,
+      termsAccepted: true,
+
+      // Admin Instant Approval & Source Tracking
+      status: 'approved',
+      isActive: true,
+      listingSource: 'admin',
+      addedByAdmin: req.user._id,
+      listedBy: {
+        name: req.user.name,
+        role: req.user.role,
+        email: req.user.email,
+        phone: req.user.phone,
+        userId: req.user._id
+      },
+      statusHistory: [{
+        action: 'SERVICE_CREATED_AND_APPROVED_BY_ADMIN',
+        status: 'approved',
+        isActive: true,
+        reason: 'Direct listing and instant approval by administrator',
+        changedBy: {
+          userId: req.user._id,
+          name: req.user.name,
+          email: req.user.email,
+          role: req.user.role
+        },
+        ipAddress: clientIp,
+        timestamp: new Date()
+      }]
+    };
+
+    const newService = await VendorService.create(serviceData);
+
+    const vendorCredentials = isNewAccount ? {
+      isNewAccount: true,
+      loginId: vendorUser.email,
+      email: vendorUser.email,
+      password: autoPassword,
+      loginUrl: 'https://rentalmeet.com/login?role=vendor'
+    } : {
+      isNewAccount: false,
+      loginId: vendorUser.email,
+      email: vendorUser.email
+    };
+
+    // Send Welcome & Login Credentials Email to Vendor
+    if (vendorUser && vendorUser.email) {
+      try {
+        const { sendVendorWelcomeCredentialsEmail } = require('../utils/emailService');
+        await sendVendorWelcomeCredentialsEmail({
+          vendorEmail: vendorUser.email,
+          vendorName: vendorUser.name,
+          serviceTitle: newService.title,
+          category: newService.category,
+          companyName: newService.companyName,
+          adminName: req.user.name,
+          adminPhone: req.user.phone || '',
+          loginEmail: vendorUser.email,
+          temporaryPassword: autoPassword,
+          isNewAccount: isNewAccount
+        });
+        console.log(`[EMAIL] Sent vendor welcome & credentials email to ${vendorUser.email}`);
+      } catch (emailErr) {
+        console.error('[EMAIL] Failed to send vendor credentials email:', emailErr.message);
+      }
+    }
+
+    // Create In-app Notification for Vendor
+    try {
+      const Notification = require('../models/Notification');
+      await Notification.create({
+        userId: vendorUser._id,
+        type: 'general',
+        title: '🎉 सर्विस लाइव सूचना!',
+        body: `बधाई हो! आपकी सर्विस "${newService.title}" अब RentalMeet पर लाइव और अप्रूव हो चुकी है।`,
+        data: { link: '/vendor/dashboard' }
+      });
+    } catch (notifErr) {
+      console.error('[NOTIFICATION] Failed to create vendor notification:', notifErr.message);
+    }
+
+    res.status(201).json({
+      success: true,
+      service: newService,
+      vendorCredentials,
+      message: 'Vendor service successfully created and approved!'
+    });
+  } catch (e) {
+    console.error('Error creating vendor service by admin:', e);
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
 // ── Service Coupons (admin) ──────────────────────────────────────────────────
 router.get('/service-coupons', protect, authorize('admin'), checkPermission('vendorCoupons'), async (req, res) => {
   try {

@@ -362,16 +362,7 @@ exports.sendEmailOtp = async (req, res) => {
       message: 'OTP has been sent to your email address'
     };
 
-    // Add OTP to response for development/testing
-    console.log('NODE_ENV:', process.env.NODE_ENV);
-    console.log('Is production?', process.env.NODE_ENV === 'production');
     console.log('Generated Email OTP:', emailOtp);
-    
-    // Force show OTP for development (always show if not production)
-    responseData.otp = emailOtp;
-    responseData.developmentNote = 'OTP shown for development/testing purposes';
-    responseData.nodeEnv = process.env.NODE_ENV;
-    console.log('Email OTP added to response:', emailOtp);
 
     res.status(200).json(responseData);
   } catch (error) {
@@ -471,8 +462,7 @@ exports.sendPhoneOtp = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'OTP has been sent to your phone number',
-      otp: process.env.NODE_ENV !== 'production' ? phoneOtp : undefined
+      message: 'OTP has been sent to your phone number'
     });
   } catch (error) {
     console.error('Send Phone OTP error:', error);

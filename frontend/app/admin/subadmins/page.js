@@ -66,6 +66,7 @@ const PERMISSION_GROUPS = [
     section: 'Vendors',
     items: [
       { key: 'vendorServices', label: 'Vendor Services' },
+      { key: 'addVendorService', label: '+ Add Service' },
       { key: 'vendorPayments', label: 'Vendor Payments' },
       { key: 'vendorCoupons', label: 'Vendor Coupons' },
       { key: 'serviceBookings', label: 'Service Bookings' },

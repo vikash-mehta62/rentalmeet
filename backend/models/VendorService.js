@@ -28,6 +28,22 @@ async function generateUniqueSlug(title, city, existingId = null) {
 
 const vendorServiceSchema = new mongoose.Schema({
   vendor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  listingSource: {
+    type: String,
+    enum: ['vendor', 'admin', 'ambassador'],
+    default: 'vendor'
+  },
+  addedByAdmin: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  listedBy: {
+    name:   String,
+    role:   String,
+    email:  String,
+    phone:  String,
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+  },
 
   // Step 1 — Contact Info
   contactInfo: {

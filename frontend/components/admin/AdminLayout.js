@@ -51,6 +51,7 @@ export default function AdminLayout({ children, title, subtitle }) {
     { name: 'Quotations', href: '/admin/quotation-downloads', icon: FileText, permission: 'quotations', section: 'Venues' },
 
     { name: 'Vendor Services', href: '/admin/vendor-services', icon: Package, permission: 'vendorServices', section: 'Vendors' },
+    { name: '+ Add Service', href: '/admin/vendor-services/add', icon: PlusCircle, permission: 'addVendorService', section: 'Vendors' },
     { name: 'Vendor Payments', href: '/admin/vendor-payments', icon: IndianRupee, permission: 'vendorPayments', section: 'Vendors' },
     { name: 'Vendor Coupons', href: '/admin/vendor-coupons', icon: Tag, permission: 'vendorCoupons', section: 'Vendors' },
     { name: 'Service Bookings', href: '/admin/service-bookings', icon: Package, permission: 'serviceBookings', section: 'Vendors' },
@@ -79,6 +80,12 @@ export default function AdminLayout({ children, title, subtitle }) {
             return user.permissions.addVenue;
           }
           return user?.permissions?.venues === true;
+        }
+        if (item.permission === 'addVendorService') {
+          if (typeof user?.permissions?.addVendorService === 'boolean') {
+            return user.permissions.addVendorService;
+          }
+          return user?.permissions?.vendorServices === true;
         }
         return Boolean(user?.permissions?.[item.permission]);
       });
@@ -137,8 +144,8 @@ export default function AdminLayout({ children, title, subtitle }) {
 
               <div className="space-y-1">
                 {group.items.map((item) => {
-                  const isActive = item.href === '/admin/venues'
-                    ? pathname === '/admin/venues'
+                  const isActive = (item.href === '/admin/venues' || item.href === '/admin/vendor-services')
+                    ? pathname === item.href
                     : (pathname === item.href || pathname.startsWith(item.href + '/'));
                   const Icon = item.icon;
                   return (
