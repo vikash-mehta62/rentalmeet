@@ -593,45 +593,55 @@ exports.getVenues = async (req, res) => {
     let query = {};
     
     // Search filter (business name, city, area)
+    const andConditions = [];
+
     if (search) {
-      query.$or = [
-        { businessName: { $regex: search, $options: 'i' } },
-        { 'location.city': { $regex: search, $options: 'i' } },
-        { 'location.area': { $regex: search, $options: 'i' } }
-      ];
+      const searchRegex = { $regex: String(search).trim(), $options: 'i' };
+      andConditions.push({
+        $or: [
+          { businessName: searchRegex },
+          { 'location.city': searchRegex },
+          { 'location.area': searchRegex },
+          { 'location.address': searchRegex }
+        ]
+      });
     }
     
-    // City filter (case-insensitive regex)
-    if (city) {
-      const cleanCity = String(city).trim().split(',')[0].trim();
-      query['location.city'] = { $regex: cleanCity, $options: 'i' };
-    }
-    
-    // Location filter (matches city or area or address if city not explicitly provided)
-    if (location && !city) {
-      const cleanLoc = String(location).trim().split(',')[0].trim();
+    // City & Location filters
+    const cleanCity = city ? String(city).trim().split(',')[0].trim() : '';
+    const cleanLoc = location ? String(location).trim().split(',')[0].trim() : '';
+
+    if (cleanCity && cleanLoc) {
+      andConditions.push({ 'location.city': { $regex: cleanCity, $options: 'i' } });
+      if (cleanLoc.toLowerCase() !== cleanCity.toLowerCase()) {
+        const locRegex = { $regex: cleanLoc, $options: 'i' };
+        andConditions.push({
+          $or: [
+            { 'location.area': locRegex },
+            { 'location.address': locRegex }
+          ]
+        });
+      }
+    } else if (cleanCity) {
+      andConditions.push({ 'location.city': { $regex: cleanCity, $options: 'i' } });
+    } else if (cleanLoc) {
       const locRegex = { $regex: cleanLoc, $options: 'i' };
-      if (query.$or) {
-        query.$and = [
-          { $or: query.$or },
-          { $or: [{ 'location.city': locRegex }, { 'location.area': locRegex }, { 'location.address': locRegex }] }
-        ];
-        delete query.$or;
-      } else {
-        query.$or = [
+      andConditions.push({
+        $or: [
           { 'location.city': locRegex },
           { 'location.area': locRegex },
           { 'location.address': locRegex }
-        ];
-      }
-    } else if (location && city) {
-      const cleanLoc = String(location).trim().split(',')[0].trim();
-      query['location.area'] = { $regex: cleanLoc, $options: 'i' };
+        ]
+      });
+    }
+
+    if (andConditions.length > 0) {
+      query.$and = [...(query.$and || []), ...andConditions];
     }
     
-    // Venue type filter (case-insensitive)
+    // Venue type filter (case-insensitive, matches comma-separated venueTypes)
     if (venueType) {
-      query.venueType = { $regex: `^${String(venueType).trim()}$`, $options: 'i' };
+      query.venueType = { $regex: String(venueType).trim(), $options: 'i' };
     }
     
     // Capacity filter

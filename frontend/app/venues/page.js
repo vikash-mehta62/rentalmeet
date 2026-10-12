@@ -322,6 +322,10 @@ function BrowseVenuesContent() {
   // Search & Filter State
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [cityInput, setCityInput] = useState(() => {
+    const loc = searchParams.get('location') || searchParams.get('city');
+    return loc ? loc.trim() : '';
+  });
   const [cityFilter, setCityFilter] = useState(() => {
     const loc = searchParams.get('location') || searchParams.get('city');
     return loc ? loc.trim() : '';
@@ -364,6 +368,12 @@ function BrowseVenuesContent() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
+  // Sync debounced city
+  useEffect(() => {
+    const t = setTimeout(() => setCityFilter(cityInput), DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [cityInput]);
+
   // Sync filters from URL parameters if navigated via link
   const didInitRef = useRef(false);
   useEffect(() => {
@@ -374,7 +384,10 @@ function BrowseVenuesContent() {
     const loc = searchParams.get('location') || searchParams.get('city');
     const vt = searchParams.get('venueType') || searchParams.get('type') || searchParams.get('category');
     const ft = searchParams.get('foodType');
-    if (loc !== null) setCityFilter(loc.trim());
+    if (loc !== null) {
+      setCityInput(loc.trim());
+      setCityFilter(loc.trim());
+    }
     if (vt) setSelectedCategory(vt);
     if (ft) setFoodTypeFilter(ft);
   }, [searchParams]);
@@ -384,12 +397,12 @@ function BrowseVenuesContent() {
   const isFetchingRef = useRef(false);
 
   const fetchVenues = useCallback(async (pageNum, reset) => {
-    if (isFetchingRef.current) return;
-    isFetchingRef.current = true;
+    if (!reset && isFetchingRef.current) return;
     if (abortRef.current) abortRef.current.abort();
 
     const controller = new AbortController();
     abortRef.current = controller;
+    isFetchingRef.current = true;
 
     if (reset) {
       setLoading(true);
@@ -405,6 +418,7 @@ function BrowseVenuesContent() {
       if (selectedCategory) params.set('venueType', selectedCategory);
       if (foodTypeFilter) params.set('foodType', foodTypeFilter);
       if (priceRange && priceRange < 25000) params.set('maxPrice', priceRange);
+      if (personsFilter) params.set('capacity', personsFilter);
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues?${params}`, { signal: controller.signal });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -415,7 +429,7 @@ function BrowseVenuesContent() {
         setVenues((prev) => (reset ? newVenues : [...prev, ...newVenues]));
         const tot = data.totalVenues || data.total || 0;
         setTotalVenues(tot);
-        const totalPgs = data.totalPages || Math.ceil(tot / LIMIT);
+        const totalPgs = data.totalPages || data.pages || Math.ceil(tot / LIMIT);
         setHasMore(pageNum < totalPgs);
         pageRef.current = pageNum;
       }
@@ -426,7 +440,7 @@ function BrowseVenuesContent() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [searchTerm, cityFilter, selectedCategory, foodTypeFilter, priceRange]);
+  }, [searchTerm, cityFilter, selectedCategory, foodTypeFilter, priceRange, personsFilter]);
 
   useEffect(() => {
     pageRef.current = 1;
@@ -451,6 +465,7 @@ function BrowseVenuesContent() {
   const resetFilters = () => {
     setSearchInput('');
     setSearchTerm('');
+    setCityInput('');
     setCityFilter('');
     setSelectedCategory('');
     setFoodTypeFilter('');
@@ -565,12 +580,12 @@ function BrowseVenuesContent() {
                 <input
                   type="text"
                   placeholder="Location (Bhopal, Indore...)"
-                  value={cityFilter}
-                  onChange={(e) => setCityFilter(e.target.value)}
+                  value={cityInput}
+                  onChange={(e) => setCityInput(e.target.value)}
                   className="w-full bg-transparent text-xs sm:text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none"
                 />
-                {cityFilter && (
-                  <button onClick={() => setCityFilter('')} className="text-slate-400 hover:text-slate-600">
+                {cityInput && (
+                  <button onClick={() => { setCityInput(''); setCityFilter(''); }} className="text-slate-400 hover:text-slate-600">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 )}

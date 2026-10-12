@@ -73,15 +73,15 @@ export default function WhyChooseRentalMeet() {
             return (
               <div
                 key={index}
-                className={`${c.bg} border ${c.border} rounded-xl p-4 hover:shadow-md transition-all duration-300 flex flex-col`}
+                className={`${c.bg} border ${c.border} rounded-xl p-4 hover:shadow-md transition-all duration-300 flex flex-col items-center text-center`}
               >
-                <div className={`w-10 h-10 ${c.bg} border ${c.border} rounded-lg flex items-center justify-center mb-3 flex-shrink-0`}>
+                <div className={`w-10 h-10 ${c.bg} border ${c.border} rounded-lg flex items-center justify-center mb-3 flex-shrink-0 mx-auto`}>
                   <Icon className={`w-5 h-5 ${c.icon}`} />
                 </div>
-                <h3 className="font-semibold text-sm text-slate-900 dark:text-slate-100 mb-1.5 leading-snug">
+                <h3 className="font-semibold text-sm text-slate-900 dark:text-slate-100 mb-1.5 leading-snug text-center">
                   {reason.title}
                 </h3>
-                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed flex-1">
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed flex-1 text-center">
                   {reason.description}
                 </p>
               </div>

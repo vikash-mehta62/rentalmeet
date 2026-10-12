@@ -93,11 +93,15 @@ export default function HeroSection() {
       {/* Hero Content */}
       <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 text-center pt-8 pb-32 sm:pb-36 md:pb-40 flex flex-col items-center">
         <h1
+          className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-3 sm:mb-4 leading-tight drop-shadow-lg"
           style={{ fontFamily: "var(--font-playfair), 'Playfair Display', Georgia, serif" }}
-          className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-3 sm:mb-4 leading-tight drop-shadow-lg"
         >
-          {slide.title || 'Book Your Perfect Venue'}{' '}
-          <span style={{ color: '#F59F0A' }}>With RentalMeet</span>
+          <span className="font-serif" style={{ fontFamily: "inherit" }}>
+            {slide.title || 'Book Your Perfect Venue'}
+          </span>{' '}
+          <span className="font-serif" style={{ fontFamily: "inherit", color: '#F59F0A' }}>
+            With RentalMeet
+          </span>
         </h1>
         {slide.description && (
           <p className="text-white/90 text-sm sm:text-base md:text-lg max-w-2xl mx-auto leading-relaxed drop-shadow-md">

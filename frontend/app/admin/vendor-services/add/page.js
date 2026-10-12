@@ -37,19 +37,14 @@ import {
 } from 'lucide-react';
 
 const SERVICE_CATEGORIES = [
-  'Photography',
   'Catering',
-  'Decor & Floral',
-  'Entertainment',
   'Makeup & Beauty',
+  'Photography',
+  'Entertainment',
+  'Decor & Floral',
   'Security',
-  'Logistics & Support',
   'Celebrity',
-  'AV & Tech Equipment',
-  'Transportation',
-  'Event Management',
-  'Cleaning Services',
-  'Other'
+  'Logistics & Support'
 ];
 
 export default function AdminAddVendorServicePage() {
@@ -1032,6 +1027,7 @@ export default function AdminAddVendorServicePage() {
                       <option value="Per Plate">Per Plate</option>
                       <option value="Per Person">Per Person</option>
                       <option value="Per Hour">Per Hour</option>
+                      <option value="Per Unit">Per Unit</option>
                     </select>
                     <button
                       type="button"
