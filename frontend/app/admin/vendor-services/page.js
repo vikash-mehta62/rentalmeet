@@ -9,8 +9,9 @@ import toast from 'react-hot-toast';
 import {
   Search, Eye, X, CheckCircle, XCircle, Package, Plus, UserCheck,
   ChevronDown, ChevronUp, ExternalLink, CreditCard, MapPin, Calendar, Download,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Edit3, PauseCircle
 } from 'lucide-react';
+import AdminVendorServiceQuickEditModal from '@/components/vendor/AdminVendorServiceQuickEditModal';
 
 const STATUS_STYLE = {
   draft:        'bg-gray-100 text-gray-500',
@@ -52,6 +53,7 @@ export default function AdminVendorServices() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selected, setSelected] = useState(null);
+  const [quickEditService, setQuickEditService] = useState(null);
   const [expanded, setExpanded] = useState({});
   const [rejectModal, setRejectModal] = useState({ open: false, id: '', reason: '' });
   const [actionLoading, setActionLoading] = useState(false);
@@ -279,16 +281,31 @@ export default function AdminVendorServices() {
                     <td className="px-4 py-3 text-xs text-gray-600">{[svc.city, svc.state].filter(Boolean).join(', ') || '—'}</td>
                     <td className="px-4 py-3 text-xs font-semibold text-green-700">{svc.startingPrice ? `₹${svc.startingPrice.toLocaleString()}+` : '—'}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_STYLE[svc.status] || STATUS_STYLE.draft}`}>
-                        {svc.status}
-                      </span>
+                      <div className="flex flex-col gap-1 items-start">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_STYLE[svc.status] || STATUS_STYLE.draft}`}>
+                          {svc.status}
+                        </span>
+                        {svc.isBookingStopped && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200">
+                            🚫 Bookings Paused
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-500">{new Date(svc.createdAt).toLocaleDateString('en-IN')}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
                         <button onClick={() => setSelected(svc)}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-xs font-semibold transition-colors">
-                          <Eye className="w-3 h-3" /> View
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-xs font-semibold transition-colors shadow-sm"
+                          title="View Details">
+                          <Eye className="w-3.5 h-3.5" /> View
+                        </button>
+                        <button
+                          onClick={() => setQuickEditService(svc)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold transition-colors shadow-sm"
+                          title="Admin Quick Edit"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" /> Edit
                         </button>
                         {(svc.status === 'pending' || svc.status === 'resubmitted') && (
                           <>
@@ -357,6 +374,22 @@ export default function AdminVendorServices() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLE[selected.status] || STATUS_STYLE.draft}`}>{selected.status}</span>
+                  {selected.isBookingStopped && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold border border-rose-200">
+                      🚫 Bookings Paused
+                    </span>
+                  )}
+                  <button
+                    onClick={() => {
+                      const toEdit = selected;
+                      setSelected(null);
+                      setQuickEditService(toEdit);
+                    }}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors"
+                    title="Admin Quick Edit"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" /> Edit Service
+                  </button>
                   <button onClick={() => setSelected(null)} className="p-2 hover:bg-gray-100 rounded-xl"><X className="w-5 h-5 text-gray-400" /></button>
                 </div>
               </div>
@@ -583,6 +616,21 @@ export default function AdminVendorServices() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Admin Vendor Service Quick Edit Modal */}
+        {quickEditService && (
+          <AdminVendorServiceQuickEditModal
+            service={quickEditService}
+            token={token}
+            onClose={() => setQuickEditService(null)}
+            onSaveSuccess={(updatedService) => {
+              fetchServices(currentPage);
+              if (selected && selected._id === updatedService._id) {
+                setSelected(updatedService);
+              }
+            }}
+          />
         )}
 
       </PermissionGuard>

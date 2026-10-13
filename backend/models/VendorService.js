@@ -172,6 +172,20 @@ const vendorServiceSchema = new mongoose.Schema({
   totalBookings:  { type: Number, default: 0 },
   isActive:       { type: Boolean, default: true },
 
+  // Stop Booking / Allow Booking toggle (Admin control)
+  // Default: isBookingStopped: false (booking is allowed by default)
+  isBookingStopped: {
+    type: Boolean,
+    default: false
+  },
+  stopBookingReason: {
+    type: String,
+    default: ''
+  },
+  stoppedBookingAt: {
+    type: Date
+  },
+
   // Owner-blocked dates
   blockedDates: [{
     date:   { type: Date, required: true },
@@ -183,6 +197,7 @@ const vendorServiceSchema = new mongoose.Schema({
     action: { type: String },
     status: { type: String },
     isActive: { type: Boolean },
+    isBookingStopped: { type: Boolean },
     reason: { type: String },
     changedBy: {
       userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

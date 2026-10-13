@@ -1,27 +1,39 @@
 const nodemailer = require('nodemailer');
 
-const smtpPort = Number(process.env.SMTP_PORT) || 587;
-const smtpSecure = process.env.SMTP_SECURE
+const smtpPort = Number(process.env.SMTP_PORT) || 465;
+const smtpSecure = process.env.SMTP_SECURE !== undefined
   ? process.env.SMTP_SECURE === 'true'
   : smtpPort === 465;
-const smtpFrom = process.env.SMTP_FROM || process.env.SMTP_USER;
+
+const cleanHost = (process.env.SMTP_HOST || 'smtp.hostinger.com').trim();
+const cleanUser = (process.env.SMTP_USER || '').trim();
+const cleanPass = (process.env.SMTP_PASSWORD || '').trim();
+const cleanFrom = (process.env.SMTP_FROM || cleanUser).trim();
 
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
+  host: cleanHost,
   port: smtpPort,
   secure: smtpSecure,
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD
+    user: cleanUser,
+    pass: cleanPass
+  },
+  tls: {
+    rejectUnauthorized: false
   }
 });
 
 exports.sendEmail = async (options) => {
+  const senderEmail = cleanUser || cleanFrom;
   const mailOptions = {
-    from: `RentalMeet <${smtpFrom}>`,
+    from: `"RentalMeet" <${senderEmail}>`,
     to: options.email,
     subject: options.subject,
-    html: options.html
+    html: options.html,
+    envelope: {
+      from: senderEmail,
+      to: options.email
+    }
   };
   
   await transporter.sendMail(mailOptions);

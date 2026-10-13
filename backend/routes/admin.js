@@ -1075,6 +1075,317 @@ router.put('/vendor-services/:id/reject', protect, authorize('admin'), checkPerm
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
+// Toggle Booking Status (Stop Booking / Resume Booking)
+router.put('/vendor-services/:id/booking-status', protect, authorize('admin', 'subadmin'), checkPermission('vendorServices'), async (req, res) => {
+  const clientIp = extractClientIp(req);
+  try {
+    const { isBookingStopped, stopBookingReason } = req.body;
+    const svc = await VendorService.findById(req.params.id).populate('vendor', 'name email companyName');
+    if (!svc) return res.status(404).json({ success: false, message: 'Vendor service not found' });
+
+    const previousState = { isBookingStopped: svc.isBookingStopped, stopBookingReason: svc.stopBookingReason };
+    const stopped = Boolean(isBookingStopped);
+    svc.isBookingStopped = stopped;
+    svc.stopBookingReason = stopped ? (stopBookingReason || 'Bookings temporarily stopped by administration') : '';
+    svc.stoppedBookingAt = stopped ? new Date() : null;
+
+    if (!svc.statusHistory) svc.statusHistory = [];
+    svc.statusHistory.push({
+      action: stopped ? 'SERVICE_BOOKING_STOPPED' : 'SERVICE_BOOKING_RESUMED',
+      status: svc.status,
+      isActive: svc.isActive,
+      isBookingStopped: stopped,
+      reason: svc.stopBookingReason,
+      changedBy: {
+        userId: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        role: req.user.role
+      },
+      ipAddress: clientIp,
+      timestamp: new Date()
+    });
+
+    await svc.save();
+
+    logStatusChange(req, {
+      category: 'VENDOR',
+      action: stopped ? 'SERVICE_BOOKING_STOPPED' : 'SERVICE_BOOKING_RESUMED',
+      status: 'SUCCESS',
+      targetType: 'VendorService',
+      targetId: svc._id,
+      targetName: svc.title,
+      previousState,
+      newState: { isBookingStopped: stopped, stopBookingReason: svc.stopBookingReason },
+      reason: svc.stopBookingReason
+    });
+
+    res.json({
+      success: true,
+      message: stopped ? 'Online bookings paused for this service' : 'Online bookings resumed for this service',
+      service: svc
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// Update Service Status (Approve, Suspend, Reject, Pending, Resubmitted)
+router.put('/vendor-services/:id/status', protect, authorize('admin', 'subadmin'), checkPermission('vendorServices'), async (req, res) => {
+  const clientIp = extractClientIp(req);
+  try {
+    const { status, reason } = req.body;
+    if (!status) return res.status(400).json({ success: false, message: 'Status is required' });
+
+    const validStatuses = ['approved', 'suspended', 'rejected', 'pending', 'resubmitted'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ success: false, message: `Invalid status. Must be one of: ${validStatuses.join(', ')}` });
+    }
+
+    const svc = await VendorService.findById(req.params.id).populate('vendor', 'name email companyName');
+    if (!svc) return res.status(404).json({ success: false, message: 'Vendor service not found' });
+
+    const previousState = { status: svc.status, rejectionReason: svc.rejectionReason };
+    svc.status = status;
+    if (status === 'rejected') {
+      svc.rejectionReason = reason || 'Rejected by administration';
+      if (!svc.rejectionHistory) svc.rejectionHistory = [];
+      svc.rejectionHistory.push({ reason: svc.rejectionReason, rejectedAt: new Date(), rejectedBy: req.user._id });
+    } else if (status === 'suspended') {
+      svc.rejectionReason = reason || 'Suspended by administration';
+    } else if (status === 'approved') {
+      svc.rejectionReason = undefined;
+    }
+
+    if (!svc.statusHistory) svc.statusHistory = [];
+    svc.statusHistory.push({
+      action: `SERVICE_STATUS_CHANGED_TO_${status.toUpperCase()}`,
+      status,
+      isActive: svc.isActive,
+      isBookingStopped: svc.isBookingStopped,
+      reason: reason || `Status set to ${status}`,
+      changedBy: {
+        userId: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        role: req.user.role
+      },
+      ipAddress: clientIp,
+      timestamp: new Date()
+    });
+
+    await svc.save();
+
+    logStatusChange(req, {
+      category: 'VENDOR',
+      action: `SERVICE_STATUS_CHANGED_TO_${status.toUpperCase()}`,
+      status: 'SUCCESS',
+      targetType: 'VendorService',
+      targetId: svc._id,
+      targetName: svc.title,
+      previousState,
+      newState: { status, rejectionReason: svc.rejectionReason },
+      reason: reason || `Status set to ${status}`
+    });
+
+    res.json({
+      success: true,
+      message: `Status updated to ${status.toUpperCase()}`,
+      service: svc
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// Admin Quick Edit Vendor Service (Full updates & status/booking controls)
+router.put('/vendor-services/:id/quick-edit', protect, authorize('admin', 'subadmin'), checkPermission('vendorServices'), async (req, res) => {
+  const clientIp = extractClientIp(req);
+  try {
+    const svc = await VendorService.findById(req.params.id);
+    if (!svc) return res.status(404).json({ success: false, message: 'Vendor service not found' });
+
+    const {
+      title,
+      category,
+      companyName,
+      brandName,
+      experienceYears,
+      description,
+      specialization,
+      tags,
+
+      contactInfo,
+      officeAddress,
+      state,
+      city,
+      area,
+      village,
+      pincode,
+      serviceableAreas,
+      website,
+      instagram,
+      facebook,
+
+      startingPrice,
+      minimumOrderPrice,
+      packages,
+
+      featuredImage,
+      images,
+      videoLinks,
+      previousWorkLinks,
+
+      businessDocs,
+      ownerDocs,
+      bankDetails,
+
+      availability,
+      publicHoliday,
+      advanceBooking,
+      customAdvanceDays,
+      confirmationHours,
+
+      status,
+      rejectionReason,
+      isBookingStopped,
+      stopBookingReason,
+      isActive
+    } = req.body;
+
+    const previousState = {
+      status: svc.status,
+      isActive: svc.isActive,
+      isBookingStopped: svc.isBookingStopped
+    };
+
+    // Update Basic Info
+    if (title !== undefined) svc.title = title.trim();
+    if (category !== undefined) svc.category = category;
+    if (companyName !== undefined) svc.companyName = companyName;
+    if (brandName !== undefined) svc.brandName = brandName;
+    if (experienceYears !== undefined) svc.experienceYears = Number(experienceYears) || 0;
+    if (description !== undefined) svc.description = description;
+    if (specialization !== undefined) svc.specialization = Array.isArray(specialization) ? specialization : [];
+    if (tags !== undefined) svc.tags = Array.isArray(tags) ? tags : [];
+
+    // Contact Info
+    if (contactInfo !== undefined) {
+      svc.contactInfo = {
+        fullName: contactInfo.fullName || svc.contactInfo?.fullName,
+        primaryMobile: contactInfo.primaryMobile || svc.contactInfo?.primaryMobile,
+        secondaryMobile: contactInfo.secondaryMobile !== undefined ? contactInfo.secondaryMobile : svc.contactInfo?.secondaryMobile,
+        role: contactInfo.role || svc.contactInfo?.role || 'owner'
+      };
+    }
+
+    // Address & Location
+    if (officeAddress !== undefined) svc.officeAddress = officeAddress;
+    if (state !== undefined) svc.state = state;
+    if (city !== undefined) svc.city = city;
+    if (area !== undefined) svc.area = area;
+    if (village !== undefined) svc.village = village;
+    if (pincode !== undefined) svc.pincode = pincode;
+    if (serviceableAreas !== undefined) {
+      svc.serviceableAreas = Array.isArray(serviceableAreas)
+        ? serviceableAreas
+        : (typeof serviceableAreas === 'string' ? serviceableAreas.split(',').map(s => s.trim()).filter(Boolean) : []);
+    }
+    if (website !== undefined) svc.website = website;
+    if (instagram !== undefined) svc.instagram = instagram;
+    if (facebook !== undefined) svc.facebook = facebook;
+
+    // Pricing & Packages
+    if (startingPrice !== undefined) svc.startingPrice = Number(startingPrice) || 0;
+    if (minimumOrderPrice !== undefined) svc.minimumOrderPrice = Number(minimumOrderPrice) || 0;
+    if (packages !== undefined && Array.isArray(packages)) svc.packages = packages;
+
+    // Portfolio
+    if (featuredImage !== undefined) svc.featuredImage = featuredImage;
+    if (images !== undefined && Array.isArray(images)) svc.images = images;
+    if (videoLinks !== undefined && Array.isArray(videoLinks)) svc.videoLinks = videoLinks;
+    if (previousWorkLinks !== undefined && Array.isArray(previousWorkLinks)) svc.previousWorkLinks = previousWorkLinks;
+
+    // Documents
+    if (businessDocs !== undefined) svc.businessDocs = { ...svc.businessDocs, ...businessDocs };
+    if (ownerDocs !== undefined) svc.ownerDocs = { ...svc.ownerDocs, ...ownerDocs };
+
+    // Bank Details
+    if (bankDetails !== undefined) svc.bankDetails = { ...svc.bankDetails, ...bankDetails };
+
+    // Availability
+    if (availability !== undefined && Array.isArray(availability)) svc.availability = availability;
+    if (publicHoliday !== undefined) svc.publicHoliday = { ...svc.publicHoliday, ...publicHoliday };
+    if (advanceBooking !== undefined) svc.advanceBooking = advanceBooking;
+    if (customAdvanceDays !== undefined) svc.customAdvanceDays = Number(customAdvanceDays) || 0;
+    if (confirmationHours !== undefined) svc.confirmationHours = Number(confirmationHours) || 3;
+
+    // Status & Booking Stop Admin Controls
+    let statusChanged = false;
+    if (status !== undefined && status !== svc.status) {
+      svc.status = status;
+      statusChanged = true;
+      if (status === 'rejected') {
+        svc.rejectionReason = rejectionReason || 'Rejected by administrator';
+        if (!svc.rejectionHistory) svc.rejectionHistory = [];
+        svc.rejectionHistory.push({ reason: svc.rejectionReason, rejectedAt: new Date(), rejectedBy: req.user._id });
+      } else if (status === 'suspended') {
+        svc.rejectionReason = rejectionReason || 'Suspended by administrator';
+      } else if (status === 'approved') {
+        svc.rejectionReason = undefined;
+      }
+    }
+
+    let bookingStoppedChanged = false;
+    if (isBookingStopped !== undefined && Boolean(isBookingStopped) !== svc.isBookingStopped) {
+      svc.isBookingStopped = Boolean(isBookingStopped);
+      bookingStoppedChanged = true;
+      svc.stopBookingReason = svc.isBookingStopped ? (stopBookingReason || 'Bookings temporarily stopped by administration') : '';
+      svc.stoppedBookingAt = svc.isBookingStopped ? new Date() : null;
+    } else if (stopBookingReason !== undefined && svc.isBookingStopped) {
+      svc.stopBookingReason = stopBookingReason;
+    }
+
+    if (isActive !== undefined) {
+      svc.isActive = Boolean(isActive);
+    }
+
+    // Status History
+    if (!svc.statusHistory) svc.statusHistory = [];
+    if (statusChanged || bookingStoppedChanged) {
+      svc.statusHistory.push({
+        action: statusChanged ? `SERVICE_STATUS_CHANGED_TO_${svc.status.toUpperCase()}` : (svc.isBookingStopped ? 'SERVICE_BOOKING_STOPPED' : 'SERVICE_BOOKING_RESUMED'),
+        status: svc.status,
+        isActive: svc.isActive,
+        isBookingStopped: svc.isBookingStopped,
+        reason: svc.stopBookingReason || svc.rejectionReason || 'Updated via Admin Quick Edit',
+        changedBy: {
+          userId: req.user._id,
+          name: req.user.name,
+          email: req.user.email,
+          role: req.user.role
+        },
+        ipAddress: clientIp,
+        timestamp: new Date()
+      });
+    }
+
+    await svc.save();
+
+    const populatedSvc = await VendorService.findById(svc._id)
+      .populate('vendor', 'name email companyName vendorCategory city state');
+
+    res.json({
+      success: true,
+      message: 'Vendor service updated successfully! ✅',
+      service: populatedSvc
+    });
+  } catch (e) {
+    console.error('Vendor service quick-edit error:', e);
+    res.status(500).json({ success: false, message: e.message || 'Failed to update vendor service' });
+  }
+});
+
 // Get all pending services
 router.get('/vendor-services/pending', protect, authorize('admin'), checkPermission('vendorServices'), async (req, res) => {
   try {

@@ -272,6 +272,13 @@ app.post('/api/service-bookings', async (req, res) => {
     const svc = await VendorService.findById(serviceId);
     if (!svc) return res.status(404).json({ success: false, message: 'Service not found' });
 
+    if (svc.isBookingStopped) {
+      return res.status(400).json({
+        success: false,
+        message: 'Online bookings are currently paused for this service. Please contact support or check back later.'
+      });
+    }
+
     const authUser = await getOptionalAuthenticatedUser(req);
 
     // Coupon validation

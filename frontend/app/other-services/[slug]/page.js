@@ -11,7 +11,8 @@ import ServiceQuotationModal from '@/components/service/ServiceQuotationModal';
 import {
   ArrowLeft, MapPin, BadgeCheck, Package, FileText,
   Plus, Minus, Download, ChevronLeft, ChevronRight,
-  Clock, Globe, Instagram, Facebook, Star, X, CheckCircle2, Share2
+  Clock, Globe, Instagram, Facebook, Star, X, CheckCircle2, Share2,
+  PauseCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -820,12 +821,19 @@ export default function ServiceDetailPage() {
                         Minimum order: ₹{svc.minimumOrderPrice.toLocaleString()}
                       </p>
                     )}
+                    {svc.isBookingStopped && (
+                      <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-semibold flex items-center gap-2">
+                        <PauseCircle className="w-4 h-4 flex-shrink-0 text-rose-600" />
+                        <span>Online bookings are temporarily paused for this service.</span>
+                      </div>
+                    )}
                   </div>
 
                   <button onClick={handleBookNow}
-                    disabled={!svc.isActive || !hasItems || !selectedDate || !selectedTime || (svc.minimumOrderPrice && subtotal < svc.minimumOrderPrice)}
+                    disabled={!svc.isActive || svc.isBookingStopped || !hasItems || !selectedDate || !selectedTime || (svc.minimumOrderPrice && subtotal < svc.minimumOrderPrice)}
                     className="w-full py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-bold text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-                    {!svc.isActive ? 'Service Unavailable'
+                    {svc.isBookingStopped ? '🚫 Bookings Temporarily Paused'
+                      : !svc.isActive ? 'Service Unavailable'
                       : !selectedDate ? 'Select a Date First'
                       : !selectedTime ? 'Select a Time First'
                       : !hasItems ? 'Select Services First'
