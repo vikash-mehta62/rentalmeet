@@ -618,18 +618,18 @@ exports.getAnalyticsStats = async (req, res) => {
     if (userRole) { visitMatch.userRole = userRole; sessionMatch.userRole = userRole; }
     if (path) { visitMatch.path = { $regex: path, $options: 'i' }; }
 
-    // Parallel Aggregation Pipeline Execution
+    // Parallel Aggregation Pipeline Execution (Memory-optimized with allowDiskUse and safe deduplication)
     const [
       totalPageviews,
-      uniqueVisitorsArr,
-      sessionStats,
-      bounceStats,
+      uniqueVisitorsCountRes,
+      combinedSessionStats,
       liveVisitorsCount,
-      trendData,
+      dailyVisits,
+      dailyUniques,
       countryStats,
       stateStats,
       cityStats,
-      topPages,
+      topPagesRaw,
       landingPages,
       exitPages,
       deviceStats,
@@ -642,7 +642,11 @@ exports.getAnalyticsStats = async (req, res) => {
       recentLogs
     ] = await Promise.all([
       VisitLog.countDocuments(visitMatch),
-      VisitLog.distinct('visitorId', visitMatch),
+      VisitLog.aggregate([
+        { $match: visitMatch },
+        { $group: { _id: '$visitorId' } },
+        { $count: 'total' }
+      ]).allowDiskUse(true),
       SessionLog.aggregate([
         { $match: sessionMatch },
         {
@@ -650,20 +654,11 @@ exports.getAnalyticsStats = async (req, res) => {
             _id: null,
             totalSessions: { $sum: 1 },
             totalDuration: { $sum: '$totalDurationSeconds' },
-            avgDuration: { $avg: '$totalDurationSeconds' }
-          }
-        }
-      ]),
-      SessionLog.aggregate([
-        { $match: sessionMatch },
-        {
-          $group: {
-            _id: null,
-            totalSessions: { $sum: 1 },
+            avgDuration: { $avg: '$totalDurationSeconds' },
             bounces: { $sum: { $cond: ['$isBounce', 1, 0] } }
           }
         }
-      ]),
+      ]).allowDiskUse(true),
       SessionLog.countDocuments({
         lastActiveTime: { $gte: new Date(Date.now() - 90 * 1000) },
         userRole: { $nin: ['admin', 'subadmin'] },
@@ -675,91 +670,88 @@ exports.getAnalyticsStats = async (req, res) => {
         {
           $group: {
             _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-            visits: { $sum: 1 },
-            uniqueVisitors: { $addToSet: '$visitorId' }
+            visits: { $sum: 1 }
           }
         },
-        { $sort: { _id: 1 } },
+        { $sort: { _id: 1 } }
+      ]).allowDiskUse(true),
+      VisitLog.aggregate([
+        { $match: visitMatch },
         {
-          $project: {
-            date: '$_id',
-            visits: 1,
-            uniques: { $size: '$uniqueVisitors' },
-            _id: 0
+          $group: {
+            _id: {
+              date: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+              visitorId: '$visitorId'
+            }
+          }
+        },
+        {
+          $group: {
+            _id: '$_id.date',
+            uniques: { $sum: 1 }
           }
         }
-      ]),
+      ]).allowDiskUse(true),
       VisitLog.aggregate([
         { $match: visitMatch },
         { $group: { _id: '$country', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 50 }
-      ]),
+      ]).allowDiskUse(true),
       VisitLog.aggregate([
         { $match: visitMatch },
         { $group: { _id: '$state', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 100 }
-      ]),
+      ]).allowDiskUse(true),
       VisitLog.aggregate([
         { $match: visitMatch },
         { $group: { _id: '$city', state: { $first: '$state' }, count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 100 }
-      ]),
+      ]).allowDiskUse(true),
       VisitLog.aggregate([
         { $match: visitMatch },
         {
           $group: {
             _id: '$path',
             pageviews: { $sum: 1 },
-            uniqueVisitors: { $addToSet: '$visitorId' },
             totalTime: { $sum: '$durationSeconds' },
             avgTime: { $avg: '$durationSeconds' }
           }
         },
         { $sort: { pageviews: -1 } },
-        { $limit: 20 },
-        {
-          $project: {
-            path: '$_id',
-            pageviews: 1,
-            uniques: { $size: '$uniqueVisitors' },
-            totalTimeSeconds: '$totalTime',
-            avgTimeSeconds: { $round: ['$avgTime', 1] },
-            _id: 0
-          }
-        }
-      ]),
+        { $limit: 20 }
+      ]).allowDiskUse(true),
       SessionLog.aggregate([
         { $match: sessionMatch },
         { $group: { _id: '$landingPage', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 10 }
-      ]),
+      ]).allowDiskUse(true),
       SessionLog.aggregate([
         { $match: sessionMatch },
         { $group: { _id: '$exitPage', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 10 }
-      ]),
+      ]).allowDiskUse(true),
       VisitLog.aggregate([
         { $match: visitMatch },
         { $group: { _id: '$deviceType', count: { $sum: 1 } } },
         { $sort: { count: -1 } }
-      ]),
+      ]).allowDiskUse(true),
       VisitLog.aggregate([
         { $match: visitMatch },
         { $group: { _id: '$browser', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 8 }
-      ]),
+      ]).allowDiskUse(true),
       VisitLog.aggregate([
         { $match: visitMatch },
         { $group: { _id: '$os', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 8 }
-      ]),
+      ]).allowDiskUse(true),
       SessionLog.aggregate([
         { $match: { ...sessionMatch, 'lastTouch.source': { $ne: null } } },
         {
@@ -774,7 +766,7 @@ exports.getAnalyticsStats = async (req, res) => {
         },
         { $sort: { count: -1 } },
         { $limit: 10 }
-      ]),
+      ]).allowDiskUse(true),
       Promise.all([
         SessionLog.countDocuments(sessionMatch),
         VisitLog.countDocuments({ ...visitMatch, path: { $regex: '/(venues|vendor-services|other-services|booking)/', $options: 'i' } }),
@@ -786,7 +778,7 @@ exports.getAnalyticsStats = async (req, res) => {
         { $match: eventMatch },
         { $group: { _id: '$eventName', category: { $first: '$eventCategory' }, count: { $sum: 1 } } },
         { $sort: { count: -1 } }
-      ]),
+      ]).allowDiskUse(true),
       VisitLog.aggregate([
         { $match: { ...visitMatch, userRole: { $nin: ['guest', 'admin', 'subadmin'] }, userEmail: { $ne: null } } },
         {
@@ -800,17 +792,55 @@ exports.getAnalyticsStats = async (req, res) => {
         },
         { $sort: { pageviews: -1 } },
         { $limit: 15 }
-      ]),
+      ]).allowDiskUse(true),
       VisitLog.find(visitMatch)
         .select('visitId sessionId visitorId userRole userName userEmail path pageTitle ip country state city deviceType browser os isBot durationSeconds createdAt')
         .sort({ createdAt: -1 })
         .limit(50)
     ]);
 
-    const uniqueVisitorsCount = uniqueVisitorsArr.length;
-    const totalSessionsCount = sessionStats[0]?.totalSessions || 0;
-    const avgSessionDuration = Math.round(sessionStats[0]?.avgDuration || 0);
-    const bouncesCount = bounceStats[0]?.bounces || 0;
+    // Top Pages Uniques resolution (safe two-phase calculation for top 20 pages only)
+    const topPaths = (topPagesRaw || []).map(p => p._id);
+    const topPageUniquesMap = {};
+    if (topPaths.length > 0) {
+      const uniques = await VisitLog.aggregate([
+        { $match: { ...visitMatch, path: { $in: topPaths } } },
+        {
+          $group: {
+            _id: { path: '$path', visitorId: '$visitorId' }
+          }
+        },
+        {
+          $group: {
+            _id: '$_id.path',
+            uniques: { $sum: 1 }
+          }
+        }
+      ]).allowDiskUse(true);
+      uniques.forEach(u => { topPageUniquesMap[u._id] = u.uniques; });
+    }
+
+    const topPages = (topPagesRaw || []).map(p => ({
+      path: p._id,
+      pageviews: p.pageviews,
+      uniques: topPageUniquesMap[p._id] || 0,
+      totalTimeSeconds: p.totalTime || 0,
+      avgTimeSeconds: Math.round((p.avgTime || 0) * 10) / 10
+    }));
+
+    // Trend Data resolution (safe two-stage grouping without unbounded arrays)
+    const dailyUniquesMap = {};
+    (dailyUniques || []).forEach(u => { dailyUniquesMap[u._id] = u.uniques; });
+    const trendData = (dailyVisits || []).map(d => ({
+      date: d._id,
+      visits: d.visits,
+      uniques: dailyUniquesMap[d._id] || 0
+    }));
+
+    const uniqueVisitorsCount = uniqueVisitorsCountRes[0]?.total || 0;
+    const totalSessionsCount = combinedSessionStats[0]?.totalSessions || 0;
+    const avgSessionDuration = Math.round(combinedSessionStats[0]?.avgDuration || 0);
+    const bouncesCount = combinedSessionStats[0]?.bounces || 0;
     const bounceRatePercent = totalSessionsCount > 0 ? Number(((bouncesCount / totalSessionsCount) * 100).toFixed(1)) : 0;
 
     const sanitizedRecentLogs = recentLogs.map(log => {
