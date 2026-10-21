@@ -345,13 +345,14 @@ router.get('/expenses', protect, authorize('admin'), checkPermission('expenses')
 router.post('/expenses', protect, authorize('admin'), checkPermission('expenses'), async (req, res) => {
   try {
     const Expense = require('../models/Expense');
-    const { head, subHead, amount, remark, expenseDate } = req.body;
-    if (!head?.trim()) return res.status(400).json({ success: false, message: 'Head is required' });
+    const { head, name, subHead, amount, remark, expenseDate } = req.body;
+    const finalHead = (name || head || '').trim();
+    if (!finalHead) return res.status(400).json({ success: false, message: 'Expense name/head is required' });
     if (amount === undefined || amount === null || Number(amount) < 0) {
       return res.status(400).json({ success: false, message: 'Valid amount is required' });
     }
     const expense = await Expense.create({
-      head: head.trim(),
+      head: finalHead,
       subHead: (subHead || '').trim(),
       amount: Number(amount),
       remark: (remark || '').trim(),
@@ -368,13 +369,14 @@ router.post('/expenses', protect, authorize('admin'), checkPermission('expenses'
 router.put('/expenses/:id', protect, authorize('admin'), checkPermission('expenses'), async (req, res) => {
   try {
     const Expense = require('../models/Expense');
-    const { head, subHead, amount, remark, expenseDate } = req.body;
-    if (!head?.trim()) return res.status(400).json({ success: false, message: 'Head is required' });
+    const { head, name, subHead, amount, remark, expenseDate } = req.body;
+    const finalHead = (name || head || '').trim();
+    if (!finalHead) return res.status(400).json({ success: false, message: 'Expense name/head is required' });
     if (amount === undefined || amount === null || Number(amount) < 0)
       return res.status(400).json({ success: false, message: 'Valid amount is required' });
     const expense = await Expense.findByIdAndUpdate(
       req.params.id,
-      { head: head.trim(), subHead: (subHead || '').trim(), amount: Number(amount), remark: (remark || '').trim(), expenseDate: expenseDate ? new Date(expenseDate) : new Date() },
+      { head: (finalHead || head || '').trim(), subHead: (subHead || '').trim(), amount: Number(amount), remark: (remark || '').trim(), expenseDate: expenseDate ? new Date(expenseDate) : new Date() },
       { new: true }
     ).populate('createdBy', 'name email role');
     if (!expense) return res.status(404).json({ success: false, message: 'Expense not found' });

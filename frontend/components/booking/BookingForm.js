@@ -358,7 +358,7 @@ export default function BookingForm({
       const parkingCharges = calculateParkingCharges();
       const amenitiesTotal = calculateAmenitiesTotal();
       const subtotal = basePrice + amenitiesTotal;
-      const pricingMeta = getVenuePricingMeta(venue, platformSettings);
+      const pricingMeta = getVenuePricingMeta(venue, platformSettings, subtotal);
       const venueCGSTRate = pricingMeta.venueCGSTRate;
       const venueSGSTRate = pricingMeta.venueSGSTRate;
       const venueCGST = roundMoney((subtotal * venueCGSTRate) / 100);

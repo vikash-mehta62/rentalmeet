@@ -1116,7 +1116,8 @@ exports.getPublicPlatformSettings = async (req, res) => {
         platformFeeValue,
         platformFeePercentage: platformFeeType === 'percentage' ? platformFeeValue : 0,
         gstInvoiceSignature: settings.gstInvoiceSignature || null,
-        platformInvoiceSignature: settings.platformInvoiceSignature || null
+        platformInvoiceSignature: settings.platformInvoiceSignature || null,
+        venueCostSlabs: settings.venueCostSlabs || []
       }
     });
   } catch (error) {

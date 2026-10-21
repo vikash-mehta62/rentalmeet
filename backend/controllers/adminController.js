@@ -819,8 +819,23 @@ exports.adminQuickEditVenue = async (req, res) => {
           mobile: ap.mobile || ap.phone || venue.ownerInfo?.authorisedPerson?.mobile || '',
           alternatePhone: ap.alternatePhone !== undefined ? ap.alternatePhone : (venue.ownerInfo?.authorisedPerson?.alternatePhone || ''),
           designation: ap.designation || ap.role || venue.ownerInfo?.authorisedPerson?.designation || '',
-          role: ap.role || ap.designation || venue.ownerInfo?.authorisedPerson?.role || ''
         };
+      }
+
+      // Sync owner details with linked User account
+      if (venue.owner && (ownerInfo.fullName || ownerInfo.mobile || ownerInfo.email)) {
+        try {
+          const User = require('../models/User');
+          const userUpdates = {};
+          if (ownerInfo.fullName) userUpdates.name = ownerInfo.fullName.trim();
+          if (ownerInfo.mobile) userUpdates.phone = ownerInfo.mobile.trim();
+          if (ownerInfo.email) userUpdates.email = ownerInfo.email.trim().toLowerCase();
+          if (Object.keys(userUpdates).length > 0) {
+            await User.findByIdAndUpdate(venue.owner, userUpdates);
+          }
+        } catch (syncErr) {
+          console.warn('Could not sync linked User account for owner:', syncErr.message);
+        }
       }
     }
 
@@ -978,6 +993,9 @@ exports.getPlatformSettings = async (req, res) => {
     settingsObj.platformFeeType = settingsObj.platformFeeType || 'percentage';
     settingsObj.platformFeeValue = platformFeeValue;
     settingsObj.platformFeePercentage = settingsObj.platformFeeType === 'percentage' ? platformFeeValue : 0;
+    if (!settingsObj.venueCostSlabs || settingsObj.venueCostSlabs.length === 0) {
+      settingsObj.venueCostSlabs = PlatformSettings.DEFAULT_VENUE_COST_SLABS;
+    }
     
     res.json({
       success: true,
@@ -1001,6 +1019,7 @@ exports.updatePlatformSettings = async (req, res) => {
     const { 
       gstRate, platformFeeType, platformFeeValue, platformFeePercentage,
       venueCGST, venueSGST, venueHSN, platformCGST, platformSGST,
+      venueCostSlabs,
       // Service fields
       serviceCGST, serviceSGST, serviceHSN, servicePlatformFee, servicePlatformCGST, servicePlatformSGST, serviceCategoryRates
     } = req.body;
@@ -1028,6 +1047,7 @@ exports.updatePlatformSettings = async (req, res) => {
       if (servicePlatformCGST !== undefined) settings.servicePlatformCGST = servicePlatformCGST;
       if (servicePlatformSGST !== undefined) settings.servicePlatformSGST = servicePlatformSGST;
       if (serviceCategoryRates !== undefined) settings.serviceCategoryRates = typeof serviceCategoryRates === 'string' ? JSON.parse(serviceCategoryRates) : serviceCategoryRates;
+      if (venueCostSlabs !== undefined) settings.venueCostSlabs = typeof venueCostSlabs === 'string' ? JSON.parse(venueCostSlabs) : venueCostSlabs;
       
       if (req.files) {
         if (req.files.gstInvoiceSignature?.[0]) {
@@ -1052,6 +1072,7 @@ exports.updatePlatformSettings = async (req, res) => {
         serviceHSN: serviceHSN || '', servicePlatformFee: servicePlatformFee || 5,
         servicePlatformCGST: servicePlatformCGST || 9, servicePlatformSGST: servicePlatformSGST || 9,
         serviceCategoryRates: serviceCategoryRates ? (typeof serviceCategoryRates === 'string' ? JSON.parse(serviceCategoryRates) : serviceCategoryRates) : [],
+        venueCostSlabs: venueCostSlabs ? (typeof venueCostSlabs === 'string' ? JSON.parse(venueCostSlabs) : venueCostSlabs) : PlatformSettings.DEFAULT_VENUE_COST_SLABS,
         updatedBy: req.user.id
       };
       if (req.files) {

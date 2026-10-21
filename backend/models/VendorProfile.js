@@ -11,14 +11,18 @@ const vendorProfileSchema = new mongoose.Schema({
     role:            { type: String, enum: ['owner', 'manager', 'representative'], default: 'owner' }
   },
 
-  // Business Info
+  // Business Info & GST Details
   businessInfo: {
     companyName:     { type: String },
     brandName:       { type: String },
     experienceYears: { type: Number, default: 0 },
     category:        { type: String },
     description:     { type: String },
-    specialization:  { type: String }
+    specialization:  { type: String },
+    hasGST:          { type: Boolean, default: false },
+    gstNumber:       { type: String, uppercase: true, trim: true, default: '' },
+    legalName:       { type: String, trim: true, default: '' },
+    panNumber:       { type: String, uppercase: true, trim: true, default: '' }
   },
 
   // Address

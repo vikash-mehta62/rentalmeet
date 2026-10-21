@@ -264,8 +264,8 @@ export default function AdminAddVendorServicePage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 8 * 1024 * 1024) {
-      toast.error('File size must be under 8MB');
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error('File size must be under 50MB');
       return;
     }
 

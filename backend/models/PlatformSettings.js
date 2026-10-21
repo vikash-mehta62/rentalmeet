@@ -1,5 +1,14 @@
 const mongoose = require('mongoose');
 
+const DEFAULT_VENUE_COST_SLABS = [
+  { label: 'Up to ₹10,000', minCost: 0, maxCost: 10000, feeType: 'percentage', feeValue: 5, cgst: 9, sgst: 9 },
+  { label: '₹10,001 – ₹20,000', minCost: 10001, maxCost: 20000, feeType: 'percentage', feeValue: 5, cgst: 9, sgst: 9 },
+  { label: '₹20,001 – ₹30,000', minCost: 20001, maxCost: 30000, feeType: 'percentage', feeValue: 5, cgst: 9, sgst: 9 },
+  { label: '₹30,001 – ₹50,000', minCost: 30001, maxCost: 50000, feeType: 'percentage', feeValue: 5, cgst: 9, sgst: 9 },
+  { label: '₹50,001 – ₹1,00,000', minCost: 50001, maxCost: 100000, feeType: 'percentage', feeValue: 5, cgst: 9, sgst: 9 },
+  { label: '₹1,00,000 and above', minCost: 100001, maxCost: null, feeType: 'percentage', feeValue: 5, cgst: 9, sgst: 9 }
+];
+
 const platformSettingsSchema = new mongoose.Schema({
   // Venue GST Settings (for Venue Invoice)
   venueCGST: {
@@ -78,6 +87,17 @@ const platformSettingsSchema = new mongoose.Schema({
     platformSGST: { type: Number, default: 9 },
     hsn:         { type: String, default: '' }
   }],
+
+  // ── Venue Cost Slabs (Category-wise Platform Fee System) ───────────────
+  venueCostSlabs: [{
+    label:    { type: String, default: '' },
+    minCost:  { type: Number, default: 0 },
+    maxCost:  { type: Number, default: null }, // null means above / infinity
+    feeType:  { type: String, enum: ['percentage', 'fixed'], default: 'percentage' },
+    feeValue: { type: Number, default: 5 },
+    cgst:     { type: Number, default: 9 },
+    sgst:     { type: Number, default: 9 }
+  }],
   
   // Legacy fields (kept for backward compatibility)
   gstRate: {
@@ -119,10 +139,16 @@ platformSettingsSchema.statics.getSettings = async function() {
       gstRate: 18, platformFeeValue: 5,
       gstInvoiceSignature: null, platformInvoiceSignature: null,
       serviceCGST: 9, serviceSGST: 9, serviceHSN: '',
-      servicePlatformFee: 5, servicePlatformCGST: 9, servicePlatformSGST: 9, serviceCategoryRates: []
+      servicePlatformFee: 5, servicePlatformCGST: 9, servicePlatformSGST: 9, serviceCategoryRates: [],
+      venueCostSlabs: DEFAULT_VENUE_COST_SLABS
     });
+  } else if (!settings.venueCostSlabs || settings.venueCostSlabs.length === 0) {
+    settings.venueCostSlabs = DEFAULT_VENUE_COST_SLABS;
+    await settings.save();
   }
   return settings;
 };
+
+platformSettingsSchema.statics.DEFAULT_VENUE_COST_SLABS = DEFAULT_VENUE_COST_SLABS;
 
 module.exports = mongoose.model('PlatformSettings', platformSettingsSchema);

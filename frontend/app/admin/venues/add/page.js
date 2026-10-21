@@ -38,8 +38,40 @@ import {
   Info,
   ArrowLeft,
   KeyRound,
-  ExternalLink
+  ExternalLink,
+  Clock
 } from 'lucide-react';
+
+// ── Floor Levels ─────────────────────────────────────────────────────────────
+const FLOOR_OPTIONS = ['Ground Floor', '1st Floor', '2nd Floor', '3rd Floor', 'Other'];
+
+// ── Seating Arrangements ─────────────────────────────────────────────────────
+const SEATING_ARRANGEMENTS = [
+  'Theatre',
+  'Classroom',
+  'Boardroom',
+  'U-Shape',
+  'Cluster',
+  'Banquet',
+  'Cabaret',
+  'Auditorium',
+  'Open Seating'
+];
+
+// ── Services Available Options ───────────────────────────────────────────────
+const SERVICES_AVAILABLE_OPTIONS = [
+  'Catering',
+  'Makeup & Beauty',
+  'Photography',
+  'Entertainment',
+  'Security & Bouncer',
+  'Decor & Floral',
+  'Celebrity / Artist',
+  'Logistic & Support'
+];
+
+// ── Advance Booking Options ──────────────────────────────────────────────────
+const ADVANCE_DAYS = ['Same Day', '1 Day', '2 Days', '3 Days', '7 Days', '15 Days', '30 Days'];
 
 // ── 12 Standard Categories ───────────────────────────────────────────────────
 const VENUE_CATEGORIES = [
@@ -104,12 +136,15 @@ export default function AdminAddVenuePage() {
 
     // Location
     address: '',
+    landmark: '',
     area: '',
     pincode: '',
     state: '',
     stateCode: '',
     city: '',
     googleMapLink: '',
+    nearestBusAuto: '',
+    nearestMetroTrain: '',
     latitude: null,
     longitude: null,
 
@@ -118,6 +153,20 @@ export default function AdminAddVenuePage() {
     foodType: 'Veg',
     capacity: '50–100',
     totalAreaSqft: '',
+    yearEstablished: '',
+    floor: 'Ground Floor',
+    floorOther: '',
+    seatingArrangements: ['Banquet', 'Theatre'],
+    servicesAvailable: ['Catering', 'Decor & Floral'],
+
+    // Timings & Availability
+    openingTime: '09:00',
+    closingTime: '23:00',
+    advanceBookingRule: '1 Day',
+
+    // GST
+    hasGST: false,
+    gstNumber: '',
 
     // Pricing Models
     pricingModels: ['Only Rent'], // 'Only Rent', 'Rent (Included Amenities)', 'Per Pax'
@@ -314,8 +363,8 @@ export default function AdminAddVenuePage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 8 * 1024 * 1024) {
-      toast.error('File size must be under 8MB');
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error('File size must be under 50MB');
       return;
     }
 
@@ -443,16 +492,35 @@ export default function AdminAddVenuePage() {
         foodType: formData.foodType,
         capacity: formData.capacity,
         areaSqft: Number(formData.totalAreaSqft),
+        yearEstablished: formData.yearEstablished ? String(formData.yearEstablished) : undefined,
+        floor: formData.floor === 'Other' ? (formData.floorOther || 'Other') : formData.floor,
+        seatingArrangements: formData.seatingArrangements || [],
+        servicesAvailable: formData.servicesAvailable || [],
         termsAccepted: true,
         listingSource: 'admin',
         onboardingPhase: 1,
         isProvisional: false,
+
+        // Availability / Operating Hours
+        availability: {
+          openingTime: formData.openingTime || '09:00',
+          closingTime: formData.closingTime || '23:00',
+          advanceBookingRule: formData.advanceBookingRule || '1 Day'
+        },
+
+        // Tax Settings
+        taxSettings: {
+          taxType: formData.hasGST ? 'GST Included' : 'GST Not Applicable',
+          gstRate: 18
+        },
 
         // Owner Info (Admin registers on behalf of owner without OTP)
         ownerInfo: {
           fullName: formData.authorizedPerson.trim(),
           mobile: cleanPhone,
           email: formData.email.trim().toLowerCase(),
+          hasGST: Boolean(formData.hasGST),
+          gstNumber: formData.hasGST ? formData.gstNumber.trim().toUpperCase() : '',
           authorisedPerson: {
             name: formData.authorizedPerson.trim(),
             fullName: formData.authorizedPerson.trim(),
@@ -465,11 +533,13 @@ export default function AdminAddVenuePage() {
         // Location
         location: {
           address: formData.address.trim(),
-          landmark: formData.address.trim(),
+          landmark: formData.landmark?.trim() || formData.address.trim(),
           state: formData.state,
           city: formData.city,
           area: formData.area?.trim() || formData.city,
           pincode: formData.pincode?.trim() || '000000',
+          nearestBusAuto: formData.nearestBusAuto?.trim() || undefined,
+          nearestMetroTrain: formData.nearestMetroTrain?.trim() || undefined,
           googleMapLink:
             formData.googleMapLink ||
             `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
@@ -861,6 +931,45 @@ export default function AdminAddVenuePage() {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      Landmark <span className="text-gray-400 text-[10px] font-normal">(Optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Near City Mall / Ring Road"
+                      value={formData.landmark}
+                      onChange={(e) => handleChange('landmark', e.target.value)}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      Nearest Bus / Auto Stand <span className="text-gray-400 text-[10px] font-normal">(Optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. City Bus Stand (500m)"
+                      value={formData.nearestBusAuto}
+                      onChange={(e) => handleChange('nearestBusAuto', e.target.value)}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      Nearest Metro / Railway Station <span className="text-gray-400 text-[10px] font-normal">(Optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Metro Station (1.5 km)"
+                      value={formData.nearestMetroTrain}
+                      onChange={(e) => handleChange('nearestMetroTrain', e.target.value)}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+                    />
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
@@ -1052,6 +1161,126 @@ export default function AdminAddVenuePage() {
                       </button>
                     ))}
                   </div>
+                </div>
+              </div>
+
+              {/* Year Established & Floor Level */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-2">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Year Established <span className="text-gray-400 text-[10px] font-normal">(Optional)</span>
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 2018"
+                    value={formData.yearEstablished}
+                    onChange={(e) => handleChange('yearEstablished', e.target.value)}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Floor Level
+                  </label>
+                  <select
+                    value={FLOOR_OPTIONS.includes(formData.floor) ? formData.floor : 'Other'}
+                    onChange={(e) => handleChange('floor', e.target.value)}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 bg-white outline-none"
+                  >
+                    {FLOOR_OPTIONS.map((fl) => (
+                      <option key={fl} value={fl}>{fl}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {formData.floor === 'Other' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      Specify Custom Floor
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 4th Floor / Rooftop"
+                      value={formData.floorOther}
+                      onChange={(e) => handleChange('floorOther', e.target.value)}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Seating Arrangements (Multi-select) */}
+              <div className="pt-2">
+                <label className="block text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
+                  <Users className="w-4 h-4 text-primary-600" />
+                  Seating Arrangements Supported
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                  {SEATING_ARRANGEMENTS.map((seat) => {
+                    const isSelected = (formData.seatingArrangements || []).includes(seat);
+                    return (
+                      <label
+                        key={seat}
+                        className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+                          isSelected
+                            ? 'bg-primary-50 border-primary-500 text-primary-900 shadow-xs'
+                            : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            const cur = formData.seatingArrangements || [];
+                            const next = e.target.checked
+                              ? [...cur, seat]
+                              : cur.filter((s) => s !== seat);
+                            handleChange('seatingArrangements', next);
+                          }}
+                          className="rounded text-primary-600 focus:ring-primary-500"
+                        />
+                        <span>{seat}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Services Available (Multi-select) */}
+              <div className="pt-2">
+                <label className="block text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-primary-600" />
+                  Services Available At Venue
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {SERVICES_AVAILABLE_OPTIONS.map((srv) => {
+                    const isSelected = (formData.servicesAvailable || []).includes(srv);
+                    return (
+                      <label
+                        key={srv}
+                        className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+                          isSelected
+                            ? 'bg-primary-50 border-primary-500 text-primary-900 shadow-xs'
+                            : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            const cur = formData.servicesAvailable || [];
+                            const next = e.target.checked
+                              ? [...cur, srv]
+                              : cur.filter((s) => s !== srv);
+                            handleChange('servicesAvailable', next);
+                          }}
+                          className="rounded text-primary-600 focus:ring-primary-500"
+                        />
+                        <span>{srv}</span>
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -1351,7 +1580,7 @@ export default function AdminAddVenuePage() {
               )}
             </div>
 
-            {/* ── SECTION 6: Photo Upload ─────────────────────────────────────────── */}
+            {/* ── SECTION 6: Operating Hours, Booking Rules & Taxes (GST) ───────────────────────── */}
             <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                 <div className="flex items-center gap-2.5">
@@ -1359,9 +1588,97 @@ export default function AdminAddVenuePage() {
                     6
                   </span>
                   <div>
+                    <h2 className="text-sm font-bold text-gray-900">Operating Hours &amp; Tax Settings</h2>
+                    <p className="text-[11px] text-gray-500">Configure daily opening/closing timings, advance notice, and GST details</p>
+                  </div>
+                </div>
+                <Clock className="w-5 h-5 text-gray-400" />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Daily Opening Time
+                  </label>
+                  <input
+                    type="time"
+                    value={formData.openingTime}
+                    onChange={(e) => handleChange('openingTime', e.target.value)}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Daily Closing Time
+                  </label>
+                  <input
+                    type="time"
+                    value={formData.closingTime}
+                    onChange={(e) => handleChange('closingTime', e.target.value)}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Advance Booking Notice
+                  </label>
+                  <select
+                    value={formData.advanceBookingRule}
+                    onChange={(e) => handleChange('advanceBookingRule', e.target.value)}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 bg-white outline-none"
+                  >
+                    {ADVANCE_DAYS.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* GST Details */}
+              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    type="checkbox"
+                    id="hasGST"
+                    checked={formData.hasGST}
+                    onChange={(e) => handleChange('hasGST', e.target.checked)}
+                    className="w-4 h-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500 cursor-pointer"
+                  />
+                  <label htmlFor="hasGST" className="text-xs font-bold text-gray-800 cursor-pointer select-none">
+                    Venue has GST Registration Certificate
+                  </label>
+                </div>
+                {formData.hasGST && (
+                  <div className="mt-2 pt-2 border-t border-slate-200">
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      15-Digit GSTIN Number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={15}
+                      placeholder="e.g. 23AAAAA0000A1Z5"
+                      value={formData.gstNumber}
+                      onChange={(e) => handleChange('gstNumber', e.target.value.toUpperCase())}
+                      className="w-full sm:w-1/2 px-3 py-2 border border-gray-300 rounded-xl text-sm font-mono uppercase focus:ring-2 focus:ring-primary-500 outline-none"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ── SECTION 7: Photo Upload ─────────────────────────────────────────── */}
+            <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-7 h-7 rounded-lg bg-primary-100 text-primary-700 font-bold text-xs flex items-center justify-center">
+                    7
+                  </span>
+                  <div>
                     <h2 className="text-sm font-bold text-gray-900">Venue Photos</h2>
                     <p className="text-[11px] text-gray-500">
-                      Upload minimum 3 mandatory photos (Entrance, Main Hall, Seating)
+                      Upload minimum 3 mandatory photos (Entrance, Main Hall, Seating) • Large photos (up to 50 MB) auto-compressed
                     </p>
                   </div>
                 </div>
@@ -1444,7 +1761,7 @@ export default function AdminAddVenuePage() {
               </div>
             </div>
 
-            {/* ── SECTION 7: Admin Confirmation & Submit ──────────────────────────── */}
+            {/* ── SECTION 8: Admin Confirmation & Submit ──────────────────────────── */}
             <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm space-y-4">
               <div className="flex items-start gap-3">
                 <input

@@ -186,7 +186,7 @@ export default function BookingPage() {
     const subtotal = basePrice + amenitiesTotal;
 
     // GST rates
-    const pricingMeta = getVenuePricingMeta(venue, platformSettings);
+    const pricingMeta = getVenuePricingMeta(venue, platformSettings, subtotal);
     const venueCGSTRate = pricingMeta.venueCGSTRate;
     const venueSGSTRate = pricingMeta.venueSGSTRate;
     const gstRate = venueCGSTRate + venueSGSTRate;

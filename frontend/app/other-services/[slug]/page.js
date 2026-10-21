@@ -256,8 +256,16 @@ export default function ServiceDetailPage() {
 
   // Get rates for this service's category
   const catRate = platformSettings?.serviceCategoryRates?.find(r => r.category === svc.category);
-  const cgstPct = catRate?.cgst ?? platformSettings?.serviceCGST ?? 9;
-  const sgstPct = catRate?.sgst ?? platformSettings?.serviceSGST ?? 9;
+  const vendorHasGST = Boolean(
+    svc.hasGST ||
+    svc.businessDocs?.gst ||
+    svc.gstNumber ||
+    svc.vendor?.gstNumber ||
+    svc.vendor?.businessInfo?.hasGST ||
+    svc.vendor?.businessInfo?.gstNumber
+  );
+  const cgstPct = vendorHasGST ? (catRate?.cgst ?? platformSettings?.serviceCGST ?? 9) : 0;
+  const sgstPct = vendorHasGST ? (catRate?.sgst ?? platformSettings?.serviceSGST ?? 9) : 0;
   const platformFeePct = catRate?.platformFee ?? platformSettings?.servicePlatformFee ?? 5;
   const platformCgstPct = catRate?.platformCGST ?? platformSettings?.servicePlatformCGST ?? platformSettings?.platformCGST ?? 9;
   const platformSgstPct = catRate?.platformSGST ?? platformSettings?.servicePlatformSGST ?? platformSettings?.platformSGST ?? 9;
@@ -788,7 +796,13 @@ export default function ServiceDetailPage() {
                     </div>
                     <div className="px-3 py-2.5 space-y-1 text-xs">
                       <div className="flex justify-between text-gray-600"><span>Base Price:</span><span className="font-semibold">₹{subtotal.toLocaleString()}</span></div>
-                      <div className="flex justify-between text-gray-600"><span>CGST ({cgstPct}%)</span><span>₹{serviceCgst.toLocaleString()}</span></div>
+                      {vendorHasGST ? (
+                        <>
+                          <div className="flex justify-between text-gray-600"><span>CGST ({cgstPct}%)</span><span>₹{serviceCgst.toLocaleString()}</span></div>
+                            </>
+                      ) : (
+                        <div className="flex justify-between text-gray-500"><span>Service GST:</span><span className="text-gray-400">₹0 (Unregistered)</span></div>
+                      )}
                       <div className="flex justify-between text-gray-600"><span>SGST ({sgstPct}%)</span><span>₹{serviceSgst.toLocaleString()}</span></div>
                       <div className="flex justify-between text-gray-600"><span>Platform Fee ({platformFeePct}%)</span><span>₹{platformFee.toLocaleString()}</span></div>
                       <div className="flex justify-between text-gray-600"><span>Platform CGST ({platformCgstPct}%)</span><span>₹{platformFeeCgst.toLocaleString()}</span></div>
@@ -979,7 +993,11 @@ export default function ServiceDetailPage() {
                     </table>
                     <div className="border-t border-gray-200 px-3 py-2 space-y-1 bg-gray-50 text-xs">
                       <div className="flex justify-between text-gray-500"><span>Subtotal</span><span>₹{subtotal.toLocaleString()}</span></div>
-                      <div className="flex justify-between text-gray-500"><span>CGST ({cgstPct}%) + SGST ({sgstPct}%)</span><span>₹{(serviceCgst + serviceSgst).toLocaleString()}</span></div>
+                      {vendorHasGST ? (
+                        <div className="flex justify-between text-gray-500"><span>CGST ({cgstPct}%) + SGST ({sgstPct}%)</span><span>₹{(serviceCgst + serviceSgst).toLocaleString()}</span></div>
+                      ) : (
+                        <div className="flex justify-between text-gray-500"><span>Service GST</span><span className="text-gray-400">₹0 (Unregistered)</span></div>
+                      )}
                       <div className="flex justify-between text-gray-500"><span>Platform Fee ({platformFeePct}%) + GST</span><span>₹{(platformFee + platformFeeGst).toLocaleString()}</span></div>
                       {couponApplied && <div className="flex justify-between text-green-600 font-semibold"><span>Coupon ({couponApplied.code})</span><span>- ₹{couponApplied.discountAmount.toLocaleString()}</span></div>}
                       <div className="flex justify-between font-bold text-gray-900 text-sm pt-1 border-t border-gray-200"><span>Total</span><span className="text-primary-600">₹{finalTotal.toLocaleString()}</span></div>

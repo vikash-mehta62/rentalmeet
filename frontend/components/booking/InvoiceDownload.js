@@ -200,7 +200,9 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
         const city      = booking?.venue?.location?.city || '';
         const area      = booking?.venue?.location?.area || '';
         const location  = city + (area ? ', ' + area : '');
-        const gstin     = booking?.venue?.ownerInfo?.gstNumber || booking?.venue?.documents?.gstNumber || 'Not Available';
+        const rawGST    = booking?.venue?.ownerInfo?.gstNumber || booking?.venue?.taxSettings?.gstin || booking?.venue?.documents?.gstNumber || '';
+        const hasVenueGST = Boolean(booking?.venue?.ownerInfo?.hasGST || rawGST || (vCGST > 0 || vSGST > 0));
+        const gstin     = rawGST || 'Not Registered';
 
         let ry = y + 10;
         const rkvLine = (label, val, yy) => {
@@ -281,11 +283,15 @@ export default function InvoiceDownload({ booking, userRole = 'customer' }) {
         // ── totals box ───────────────────────────────────────────────────────
         const totLines = [
           ['Taxable Value (Subtotal)', fmtAmt(subtotal), null],
-          ['CGST @ ' + vCGSTRate + '%', fmtAmt(vCGST), null],
+          ...(hasVenueGST && (vCGST > 0 || vSGST > 0) ? [
+            ['CGST @ ' + vCGSTRate + '%', fmtAmt(vCGST), null],
+            ] : [
+            ['GST (Unregistered / 0%)', 'Rs.0.00', null]
+          ]),
           ['SGST @ ' + vSGSTRate + '%', fmtAmt(vSGST), null],
         ];
         if (discount > 0) totLines.push(['Coupon Discount' + (pb.couponCode ? ' (' + pb.couponCode + ')' : ''), '- ' + fmtAmt(discount), [22, 163, 74]]);
-        const invoiceTotal = Math.max(0, subtotal + vCGST + vSGST - discount);
+        const invoiceTotal = Math.max(0, subtotal + (hasVenueGST ? (vCGST + vSGST) : 0) - discount);
         const totH = totLines.length * 6 + 10;
         rect(M, y, CW, totH, [255, 251, 235], [253, 230, 138]);
 

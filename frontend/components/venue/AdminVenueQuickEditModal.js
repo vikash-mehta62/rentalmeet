@@ -10,7 +10,7 @@ import {
   Download, Eye, Image as ImageIcon, Trash2, Plus, Star, Upload,
   ExternalLink, CheckCircle2, ChevronDown, AlertTriangle, PlayCircle,
   PauseCircle, ShieldAlert, RefreshCw, Car, Bike, Globe,
-  UtensilsCrossed, Layers, Share2, Locate
+  UtensilsCrossed, Layers, Share2, Locate, User, Phone, Mail
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { uploadToStorage, deleteFromStorage, uploadDocument } from '@/lib/storage';
@@ -720,8 +720,8 @@ export default function AdminVenueQuickEditModal({
     const newImages = [...(formData.images || [])];
 
     for (const file of files) {
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error(`${file.name} is larger than 10MB`);
+      if (file.size > 50 * 1024 * 1024) {
+        toast.error(`${file.name} is larger than 50MB`);
         continue;
       }
       try {
@@ -775,8 +775,8 @@ export default function AdminVenueQuickEditModal({
 
   const handleDocFileUpload = async (file, docKey, updateFn) => {
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error(`${file.name} is larger than 10MB`);
+    if (file.size > 30 * 1024 * 1024) {
+      toast.error(`${file.name} is larger than 30MB`);
       return;
     }
     setUploadingDoc(prev => ({ ...prev, [docKey]: true }));
@@ -790,6 +790,87 @@ export default function AdminVenueQuickEditModal({
     } finally {
       setUploadingDoc(prev => ({ ...prev, [docKey]: false }));
     }
+  };
+
+  // Auto-detect GPS location
+  const [detectingLocation, setDetectingLocation] = useState(false);
+  const handleAutoDetectLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser');
+      return;
+    }
+
+    setDetectingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const gMapUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
+
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+          );
+          const data = await res.json();
+          if (data && data.address) {
+            const addr = data.address;
+            const stateName = addr.state || '';
+            const cityName = addr.city || addr.town || addr.county || '';
+            const areaName = addr.suburb || addr.neighbourhood || addr.residential || '';
+            const postcode = addr.postcode || '';
+
+            const matchedState = indianStates.find(
+              (s) => s.name.toLowerCase() === stateName.toLowerCase()
+            );
+
+            setFormData((prev) => ({
+              ...prev,
+              location: {
+                ...prev.location,
+                latitude,
+                longitude,
+                googleMapLink: prev.location.googleMapLink || gMapUrl,
+                state: matchedState ? matchedState.name : (stateName || prev.location.state),
+                stateCode: matchedState ? matchedState.isoCode : prev.location.stateCode,
+                city: cityName || prev.location.city,
+                area: areaName || prev.location.area,
+                pincode: postcode ? postcode.replace(/\D/g, '').slice(0, 6) : prev.location.pincode
+              }
+            }));
+            toast.success('Location auto-detected successfully! 📍');
+          } else {
+            setFormData((prev) => ({
+              ...prev,
+              location: {
+                ...prev.location,
+                latitude,
+                longitude,
+                googleMapLink: prev.location.googleMapLink || gMapUrl
+              }
+            }));
+            toast.success('GPS coordinates detected! 📍');
+          }
+        } catch (_) {
+          setFormData((prev) => ({
+            ...prev,
+            location: {
+              ...prev.location,
+              latitude,
+              longitude,
+              googleMapLink: prev.location.googleMapLink || gMapUrl
+            }
+          }));
+          toast.success('GPS coordinates detected! 📍');
+        } finally {
+          setDetectingLocation(false);
+        }
+      },
+      (err) => {
+        console.error('GPS error:', err);
+        toast.error('Unable to retrieve GPS coordinates.');
+        setDetectingLocation(false);
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
   };
 
   // Submit Quick Edit
@@ -1005,6 +1086,138 @@ export default function AdminVenueQuickEditModal({
           {/* TAB 1: BASIC INFO */}
           {activeTab === 'basic' && (
             <div className="space-y-4">
+              {/* Venue Owner & Primary Contact Card */}
+              <div className="p-4 bg-gradient-to-br from-amber-50 to-orange-50/40 rounded-2xl border border-amber-200/90 shadow-xs">
+                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-amber-500 text-white rounded-lg shadow-xs">
+                      <User className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-amber-950 uppercase tracking-wider">
+                        Venue Owner &amp; Primary Contact
+                      </h4>
+                      <p className="text-[11px] text-amber-800">
+                        Owner login identity, primary phone, and booking escalation contact
+                      </p>
+                    </div>
+                  </div>
+                  {venue?.listingSource && (
+                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                      Listing Source: {venue.listingSource === 'ambassador' ? '👑 Ambassador' : venue.listingSource === 'admin' ? '⚡ Admin' : '👤 Owner'}
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                  <div>
+                    <label className="text-gray-700 font-bold block mb-1">Owner / Contact Name *</label>
+                    <div className="relative">
+                      <User className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5" />
+                      <input
+                        type="text"
+                        value={formData.ownerInfo?.fullName || ''}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          ownerInfo: {
+                            ...formData.ownerInfo,
+                            fullName: e.target.value,
+                            authorisedPerson: {
+                              ...formData.ownerInfo?.authorisedPerson,
+                              name: e.target.value,
+                              fullName: e.target.value
+                            }
+                          }
+                        })}
+                        className="w-full pl-8 pr-3 py-2 text-xs border border-amber-200 rounded-xl bg-white font-semibold focus:ring-2 focus:ring-amber-500 outline-none"
+                        placeholder="e.g. Rajesh Sharma"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-gray-700 font-bold block mb-1">Owner Mobile Number *</label>
+                    <div className="relative">
+                      <Phone className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5" />
+                      <input
+                        type="tel"
+                        maxLength={10}
+                        value={formData.ownerInfo?.mobile || ''}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                          setFormData({
+                            ...formData,
+                            ownerInfo: {
+                              ...formData.ownerInfo,
+                              mobile: val,
+                              authorisedPerson: {
+                                ...formData.ownerInfo?.authorisedPerson,
+                                phone: val,
+                                mobile: val
+                              }
+                            }
+                          });
+                        }}
+                        className="w-full pl-8 pr-3 py-2 text-xs border border-amber-200 rounded-xl bg-white font-mono font-bold focus:ring-2 focus:ring-amber-500 outline-none"
+                        placeholder="10-digit Mobile"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-gray-700 font-bold block mb-1">Owner Login Email ID *</label>
+                    <div className="relative">
+                      <Mail className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5" />
+                      <input
+                        type="email"
+                        value={formData.ownerInfo?.email || ''}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          ownerInfo: {
+                            ...formData.ownerInfo,
+                            email: e.target.value,
+                            authorisedPerson: {
+                              ...formData.ownerInfo?.authorisedPerson,
+                              email: e.target.value
+                            }
+                          }
+                        })}
+                        className="w-full pl-8 pr-3 py-2 text-xs border border-amber-200 rounded-xl bg-white font-medium focus:ring-2 focus:ring-amber-500 outline-none"
+                        placeholder="owner@gmail.com"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-gray-700 font-bold block mb-1">Alternate / Manager Phone</label>
+                    <div className="relative">
+                      <Phone className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5" />
+                      <input
+                        type="tel"
+                        maxLength={10}
+                        value={formData.ownerInfo?.alternatePhone || ''}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                          setFormData({
+                            ...formData,
+                            ownerInfo: {
+                              ...formData.ownerInfo,
+                              alternatePhone: val,
+                              authorisedPerson: {
+                                ...formData.ownerInfo?.authorisedPerson,
+                                alternatePhone: val
+                              }
+                            }
+                          });
+                        }}
+                        className="w-full pl-8 pr-3 py-2 text-xs border border-amber-200 rounded-xl bg-white font-mono focus:ring-2 focus:ring-amber-500 outline-none"
+                        placeholder="Optional Manager Phone"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="sm:col-span-2">
                   <label className="text-xs font-bold text-gray-700 block mb-1">Business Name *</label>
@@ -1192,7 +1405,27 @@ export default function AdminVenueQuickEditModal({
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                 <div className="sm:col-span-2 md:col-span-3">
-                  <label className="text-xs font-bold text-gray-700 block mb-1">Complete Address *</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-gray-700">Complete Address *</label>
+                    <button
+                      type="button"
+                      onClick={handleAutoDetectLocation}
+                      disabled={detectingLocation}
+                      className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors border border-blue-200"
+                    >
+                      {detectingLocation ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Detecting GPS...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Navigation className="w-3.5 h-3.5" />
+                          <span>Auto-Detect Location (GPS)</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                   <input
                     type="text"
                     value={formData.location.address}
@@ -2660,6 +2893,120 @@ export default function AdminVenueQuickEditModal({
                 </div>
               </div>
 
+              {/* Operating Hours & Booking Schedule */}
+              <div className="p-4 bg-sky-50/70 rounded-2xl border border-sky-200 space-y-3">
+                <div className="flex items-center justify-between pb-1 border-b border-sky-100">
+                  <h4 className="text-xs font-bold text-sky-950 uppercase tracking-wider flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-sky-600" />
+                    Operating Hours &amp; Booking Rules
+                  </h4>
+                  <span className="text-[10px] text-sky-700 bg-sky-100 px-2 py-0.5 rounded font-semibold">
+                    Venue Timings
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+                  <div>
+                    <label className="text-gray-600 block mb-1 font-semibold">Daily Opening Time</label>
+                    <input
+                      type="time"
+                      value={formData.availability?.openingTime || '09:00'}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        availability: { ...formData.availability, openingTime: e.target.value },
+                        pricing: { ...formData.pricing, openingTime: e.target.value }
+                      })}
+                      className="w-full px-3 py-2 text-xs border border-sky-200 rounded-xl bg-white font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-gray-600 block mb-1 font-semibold">Daily Closing Time</label>
+                    <input
+                      type="time"
+                      value={formData.availability?.closingTime || '22:00'}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        availability: { ...formData.availability, closingTime: e.target.value },
+                        pricing: { ...formData.pricing, closingTime: e.target.value }
+                      })}
+                      className="w-full px-3 py-2 text-xs border border-sky-200 rounded-xl bg-white font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-gray-600 block mb-1 font-semibold">Advance Booking Rule</label>
+                    <select
+                      value={formData.availability?.advanceBookingRule || '1 Day'}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        availability: { ...formData.availability, advanceBookingRule: e.target.value },
+                        pricing: { ...formData.pricing, advanceBookingRule: e.target.value }
+                      })}
+                      className="w-full px-3 py-2 text-xs border border-sky-200 rounded-xl bg-white font-medium"
+                    >
+                      {ADVANCE_DAYS.map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-gray-600 block mb-1 font-semibold">Confirmation Window (hrs)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="72"
+                      value={formData.availability?.confirmationHours ?? 3}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        availability: { ...formData.availability, confirmationHours: Number(e.target.value) || 3 },
+                        pricing: { ...formData.pricing, confirmationHours: Number(e.target.value) || 3 }
+                      })}
+                      className="w-full px-3 py-2 text-xs border border-sky-200 rounded-xl bg-white font-bold text-sky-900"
+                    />
+                  </div>
+                </div>
+
+                {/* Days of Week Open */}
+                <div className="pt-2 border-t border-sky-100">
+                  <label className="text-[11px] font-bold text-sky-900 block mb-1.5">Operating Days of Week</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {DAYS_OF_WEEK.map((day) => {
+                      const days = formData.availability?.availableDays || DAYS_OF_WEEK;
+                      const isOpen = days.includes(day);
+                      return (
+                        <button
+                          key={day}
+                          type="button"
+                          onClick={() => {
+                            let nextDays;
+                            if (isOpen) {
+                              nextDays = days.filter((d) => d !== day);
+                              if (nextDays.length === 0) nextDays = [day]; // keep at least 1 day
+                            } else {
+                              nextDays = [...days, day];
+                            }
+                            setFormData({
+                              ...formData,
+                              availability: { ...formData.availability, availableDays: nextDays },
+                              pricing: { ...formData.pricing, availableDays: nextDays }
+                            });
+                          }}
+                          className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${
+                            isOpen
+                              ? 'bg-sky-600 text-white border-sky-600 shadow-2xs'
+                              : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                          }`}
+                        >
+                          {day.slice(0, 3)} {isOpen ? '✓' : ''}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
               {/* Taxes & GST Configuration */}
               <div className="p-4 bg-teal-50/70 rounded-2xl border border-teal-200">
                 <h4 className="text-xs font-bold text-teal-950 uppercase tracking-wider mb-3 flex items-center gap-1.5">
@@ -2973,6 +3320,96 @@ export default function AdminVenueQuickEditModal({
           {/* TAB 9: DOCUMENTS & PROOFS */}
           {activeTab === 'documents' && (
             <div className="space-y-4">
+              {/* Authorised Person Details */}
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <UserCheck className="w-4 h-4 text-primary-600" />
+                  Authorised Signatory / Representative Details
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                  <div>
+                    <label className="text-gray-700 font-semibold block mb-1">Authorised Person Name</label>
+                    <input
+                      type="text"
+                      value={formData.ownerInfo?.authorisedPerson?.fullName || formData.ownerInfo?.fullName || ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        ownerInfo: {
+                          ...formData.ownerInfo,
+                          authorisedPerson: {
+                            ...formData.ownerInfo?.authorisedPerson,
+                            fullName: e.target.value,
+                            name: e.target.value
+                          }
+                        }
+                      })}
+                      className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg bg-white font-semibold"
+                      placeholder="Full Name"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-gray-700 font-semibold block mb-1">Designation / Role</label>
+                    <input
+                      type="text"
+                      value={formData.ownerInfo?.authorisedPerson?.designation || 'Venue Owner / Proprietor'}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        ownerInfo: {
+                          ...formData.ownerInfo,
+                          authorisedPerson: {
+                            ...formData.ownerInfo?.authorisedPerson,
+                            designation: e.target.value,
+                            role: e.target.value
+                          }
+                        }
+                      })}
+                      className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg bg-white"
+                      placeholder="e.g. Director / Owner"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-gray-700 font-semibold block mb-1">Contact Phone</label>
+                    <input
+                      type="tel"
+                      maxLength={10}
+                      value={formData.ownerInfo?.authorisedPerson?.phone || formData.ownerInfo?.mobile || ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        ownerInfo: {
+                          ...formData.ownerInfo,
+                          authorisedPerson: {
+                            ...formData.ownerInfo?.authorisedPerson,
+                            phone: e.target.value.replace(/\D/g, '').slice(0, 10),
+                            mobile: e.target.value.replace(/\D/g, '').slice(0, 10)
+                          }
+                        }
+                      })}
+                      className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg bg-white font-mono"
+                      placeholder="10-digit Phone"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-gray-700 font-semibold block mb-1">Email</label>
+                    <input
+                      type="email"
+                      value={formData.ownerInfo?.authorisedPerson?.email || formData.ownerInfo?.email || ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        ownerInfo: {
+                          ...formData.ownerInfo,
+                          authorisedPerson: {
+                            ...formData.ownerInfo?.authorisedPerson,
+                            email: e.target.value
+                          }
+                        }
+                      })}
+                      className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg bg-white"
+                      placeholder="email@example.com"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* 1. Authorised ID Proofs */}
               <div className="p-4 bg-blue-50/70 rounded-xl border border-blue-200">
                 <h4 className="text-xs font-bold text-blue-950 uppercase tracking-wider mb-3 flex items-center gap-1.5">

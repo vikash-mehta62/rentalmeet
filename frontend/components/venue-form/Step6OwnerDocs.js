@@ -370,14 +370,15 @@ export default function Step6OwnerDocs() {
     const file = e.target.files[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File size must be less than 5MB');
+    if (file.size > 30 * 1024 * 1024) {
+      toast.error('File size must be less than 30MB');
       return;
     }
 
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
-    if (!validTypes.includes(file.type)) {
-      toast.error('Only JPG, PNG, and PDF files are allowed');
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
+    const hasValidExt = /\.(jpe?g|png|webp|pdf)$/i.test(file.name || '');
+    if (!validTypes.includes(file.type) && !hasValidExt) {
+      toast.error('Only JPG, PNG, WebP, and PDF files are allowed');
       return;
     }
 

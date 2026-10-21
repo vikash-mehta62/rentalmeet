@@ -63,7 +63,7 @@ export default function QuotationView({
 
   const calculateVenueInvoice = () => {
     const baseAmount = (cp.basePrice || 0) + (cp.amenitiesTotal || 0);
-    const pricingMeta = getVenuePricingMeta(venue, platformSettings);
+    const pricingMeta = getVenuePricingMeta(venue, platformSettings, baseAmount);
     const cgstRate = cp.venueCGSTRate ?? pricingMeta.venueCGSTRate;
     const sgstRate = cp.venueSGSTRate ?? pricingMeta.venueSGSTRate;
     const venueCGST = cp.venueCGST ?? ((baseAmount * cgstRate) / 100);
@@ -74,7 +74,7 @@ export default function QuotationView({
 
   const calculatePlatformInvoice = () => {
     const baseAmount = (cp.basePrice || 0) + (cp.amenitiesTotal || 0);
-    const pricingMeta = getVenuePricingMeta(venue, platformSettings);
+    const pricingMeta = getVenuePricingMeta(venue, platformSettings, baseAmount);
     const feeType = cp.platformFeeType || pricingMeta.platformFeeType;
     const feeValue = numberOr(cp.platformFeeValue ?? cp.platformFeeRate, pricingMeta.platformFeeValue);
     const platformFee = cp.platformFee !== undefined

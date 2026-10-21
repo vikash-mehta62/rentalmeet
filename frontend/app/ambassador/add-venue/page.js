@@ -397,8 +397,8 @@ export default function AmbassadorAddVenuePage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 8 * 1024 * 1024) {
-      toast.error('File size must be under 8MB');
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error('File size must be under 50MB');
       return;
     }
 
@@ -1723,7 +1723,7 @@ export default function AmbassadorAddVenuePage() {
                   Minimum 3 Photos required. Front, Main Hall, and Seating Area are mandatory (*).
                 </p>
                 <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-                  Supported: <span className="font-semibold text-slate-600 dark:text-slate-300">JPG, JPEG, PNG, WebP</span> • Max size: <span className="font-semibold text-slate-600 dark:text-slate-300">5 MB</span> (Auto-compressed)
+                  Supported: <span className="font-semibold text-slate-600 dark:text-slate-300">JPG, JPEG, PNG, WebP</span> • Large photos (up to 50 MB) are auto-compressed for fast upload
                 </p>
               </div>
             </div>

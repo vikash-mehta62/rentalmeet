@@ -76,16 +76,14 @@ app.use((req, res, next) => {
   next();
 });
 
-// Body parsers — normal routes get 1mb, upload routes get 50mb
+// Body parsers — 50mb limit to allow high-resolution photo uploads across all onboarding/admin routes
 app.use((req, res, next) => {
   if (req.originalUrl.startsWith('/api/payment/webhook/razorpay')) return next();
-  const isUpload = req.path.startsWith('/api/upload') || req.path.startsWith('/api/vendor/upload');
-  express.json({ limit: isUpload ? '50mb' : '1mb' })(req, res, next);
+  express.json({ limit: '50mb' })(req, res, next);
 });
 app.use((req, res, next) => {
   if (req.originalUrl.startsWith('/api/payment/webhook/razorpay')) return next();
-  const isUpload = req.path.startsWith('/api/upload') || req.path.startsWith('/api/vendor/upload');
-  express.urlencoded({ extended: true, limit: isUpload ? '50mb' : '1mb' })(req, res, next);
+  express.urlencoded({ extended: true, limit: '50mb' })(req, res, next);
 });
 
 // NoSQL injection protection — strip $ operators from req.body, query, params
@@ -222,7 +220,7 @@ app.get('/api/vendor-services', async (req, res) => {
     const [services, total] = await Promise.all([
       VendorService.find(filter)
         .select('-bankDetails -ownerDocs -businessDocs')
-        .populate('vendor', 'name companyName vendorCategory city state')
+        .populate('vendor', 'name companyName vendorCategory city state gstNumber')
         .sort('-createdAt').skip(skip).limit(parseInt(limit)),
       VendorService.countDocuments(filter)
     ]);
@@ -236,7 +234,7 @@ app.get('/api/vendor-services/slug/:slug', async (req, res) => {
     const VendorService = require('./models/VendorService');
     const service = await VendorService.findOne({ slug: req.params.slug, status: 'approved' })
       .select('-bankDetails -ownerDocs -businessDocs')
-      .populate('vendor', 'name companyName vendorCategory city state');
+      .populate('vendor', 'name companyName vendorCategory city state gstNumber');
     if (!service) return res.status(404).json({ success: false, message: 'Not found' });
     res.json({ success: true, service });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
@@ -247,7 +245,7 @@ app.get('/api/vendor-services/:id', async (req, res) => {
     const VendorService = require('./models/VendorService');
     const service = await VendorService.findOne({ _id: req.params.id, status: 'approved' })
       .select('-bankDetails -ownerDocs -businessDocs')
-      .populate('vendor', 'name companyName vendorCategory city state');
+      .populate('vendor', 'name companyName vendorCategory city state gstNumber');
     if (!service) return res.status(404).json({ success: false, message: 'Not found' });
     res.json({ success: true, service });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
@@ -334,6 +332,15 @@ app.post('/api/service-bookings', async (req, res) => {
       ? calculateServiceConfirmationDeadline(svc, confirmationHours)
       : undefined;
 
+    const User = require('./models/User');
+    const vendorUser = await User.findById(svc.vendor).select('gstNumber companyName');
+    const vendorGST = (svc.businessDocs?.gst || vendorUser?.gstNumber || svc.gstNumber || '').trim().toUpperCase();
+    const vendorHasGST = Boolean(vendorGST);
+    const safeServiceCGST = vendorHasGST ? (pricing.serviceCGST ?? pricing.serviceCgst ?? 0) : 0;
+    const safeServiceSGST = vendorHasGST ? (pricing.serviceSGST ?? pricing.serviceSgst ?? 0) : 0;
+    const safeCgstPct = vendorHasGST ? (pricing.cgstPct ?? 0) : 0;
+    const safeSgstPct = vendorHasGST ? (pricing.sgstPct ?? 0) : 0;
+
     const booking = await ServiceBooking.create({
       service: serviceId,
       vendor:  svc.vendor,
@@ -349,14 +356,17 @@ app.post('/api/service-bookings', async (req, res) => {
         companyName: svc.companyName, 
         city: svc.city, 
         state: svc.state,
-        gstNumber: svc.gstNumber || ''  // Save vendor GST
+        gstNumber: vendorGST,
+        hasGST: vendorHasGST
       },
       items,
       pricing: {
         ...pricing,
         // Normalize field names — store both camelCase and UPPERCASE for compatibility
-        serviceCGST:    pricing.serviceCGST    ?? pricing.serviceCgst    ?? 0,
-        serviceSGST:    pricing.serviceSGST    ?? pricing.serviceSgst    ?? 0,
+        cgstPct:        safeCgstPct,
+        sgstPct:        safeSgstPct,
+        serviceCGST:    safeServiceCGST,
+        serviceSGST:    safeServiceSGST,
         platformFeeGST: pricing.platformFeeGST ?? pricing.platformFeeGst ?? 0,
         discount: discountAmount,
         total: finalTotal

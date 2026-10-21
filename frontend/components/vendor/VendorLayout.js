@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
 import NotificationBell from '@/components/NotificationBell';
 import {
-  LayoutDashboard, Briefcase, LogOut, Menu, X, ChevronLeft, ChevronRight, Bell, BookOpen, Tag, FileText, IndianRupee, Home
+  LayoutDashboard, Briefcase, LogOut, Menu, X, ChevronLeft, ChevronRight, Bell, BookOpen, Tag, FileText, IndianRupee, Home, User
 } from 'lucide-react';
 
 const NAV = [
@@ -16,6 +16,7 @@ const NAV = [
   { href: '/vendor/payments',            label: 'Payments',            icon: IndianRupee },
   { href: '/vendor/quotation-downloads', label: 'Quotation Downloads', icon: FileText },
   { href: '/vendor/coupons',             label: 'Service Coupons',     icon: Tag },
+  { href: '/vendor/profile',             label: 'My Profile',          icon: User },
 ];
 
 export default function VendorLayout({ children, title, subtitle }) {

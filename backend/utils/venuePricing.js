@@ -91,11 +91,12 @@ const normalizeCustomGST = (customGST = {}, settings = {}) => {
   };
 };
 
-const getVenuePlatformFeeConfig = (venue, settings) => {
+const getVenuePlatformFeeConfig = (venue, settings, subtotal = 0) => {
   const value = toPlain(venue);
   const platformSettings = toPlain(settings);
   const custom = normalizeCustomPlatformFee(value.customPlatformFee, platformSettings);
 
+  // 1. Venue-specific custom platform fee override
   if (custom.enabled) {
     return {
       source: 'venue',
@@ -106,6 +107,29 @@ const getVenuePlatformFeeConfig = (venue, settings) => {
     };
   }
 
+  // 2. Category-wise / Cost-slab-wise platform fee
+  const slabs = platformSettings.venueCostSlabs || [];
+  if (Array.isArray(slabs) && slabs.length > 0 && subtotal > 0) {
+    const cost = numberOr(subtotal, 0);
+    const matchingSlab = slabs.find(slab => {
+      const min = numberOr(slab.minCost, 0);
+      const max = slab.maxCost !== null && slab.maxCost !== undefined && slab.maxCost > 0 ? Number(slab.maxCost) : Infinity;
+      return cost >= min && cost <= max;
+    });
+
+    if (matchingSlab) {
+      return {
+        source: 'slab',
+        slabLabel: matchingSlab.label || '',
+        type: normalizeFeeType(matchingSlab.feeType),
+        value: numberOr(matchingSlab.feeValue, 5),
+        cgstRate: numberOr(matchingSlab.cgst, 9),
+        sgstRate: numberOr(matchingSlab.sgst, 9)
+      };
+    }
+  }
+
+  // 3. Fallback to default global platform fee
   const type = normalizeFeeType(platformSettings.platformFeeType);
   const fallbackValue = platformSettings.platformFeeValue !== undefined
     ? platformSettings.platformFeeValue
@@ -130,9 +154,29 @@ const getVenueGSTConfig = (venue, settings) => {
   const value = toPlain(venue);
   const platformSettings = toPlain(settings);
 
+  // Strict GST check: Venue must be registered under GST to charge GST!
+  const hasGST = Boolean(
+    value.ownerInfo?.hasGST ||
+    value.ownerInfo?.gstNumber ||
+    value.taxSettings?.gstin ||
+    value.documents?.gstNumber ||
+    value.customGST?.enabled
+  );
+
+  if (!hasGST) {
+    return {
+      hasGST: false,
+      cgstRate: 0,
+      sgstRate: 0,
+      totalRate: 0,
+      hsnCode: value.taxSettings?.hsnCode || platformSettings.venueHSN || '9973'
+    };
+  }
+
   if (value.customGST?.enabled) {
     const custom = normalizeCustomGST(value.customGST, platformSettings);
     return {
+      hasGST: true,
       cgstRate: custom.cgstRate,
       sgstRate: custom.sgstRate,
       totalRate: custom.cgstRate + custom.sgstRate,
@@ -142,7 +186,13 @@ const getVenueGSTConfig = (venue, settings) => {
 
   const cgstRate = numberOr(platformSettings.venueCGST, 9);
   const sgstRate = numberOr(platformSettings.venueSGST, 9);
-  return { cgstRate, sgstRate, totalRate: cgstRate + sgstRate, hsnCode: platformSettings.venueHSN || '9973' };
+  return {
+    hasGST: true,
+    cgstRate,
+    sgstRate,
+    totalRate: cgstRate + sgstRate,
+    hsnCode: platformSettings.venueHSN || '9973'
+  };
 };
 
 const parseTimeToMinutes = (value) => {
@@ -271,62 +321,62 @@ const calculateBasePrice = ({ venue, bookingType, bookingDate, durationHours, pr
     }
   }
 
-  // 5. Fallback to hourly if halfday/fullday not set
+  // 5. Proportional fallback
   const perHourRate = positiveOr(pricing.perHour?.[dayType], positiveOr(pricing.rentWithAmenities?.hourly?.rate, pricing.onlyRent?.hourly?.rate || 0));
   if (perHourRate > 0) {
-    const hours = numberOr(durationHours, bookingType === 'fullday' ? 8 : bookingType === 'halfday' ? 4 : 1);
-    return roundMoney(perHourRate * hours);
+    return roundMoney(perHourRate * numberOr(durationHours, 1));
   }
 
   return 0;
 };
 
-const calculateAmenitiesTotal = (selectedAmenities = {}, venue) => {
-  const amenities = selectedAmenities || {};
+const calculateAmenitiesTotal = (selectedAmenities, venue) => {
+  if (!selectedAmenities) return 0;
   const value = toPlain(venue);
   let total = 0;
 
-  (amenities.basic || []).forEach((item) => {
-    if (item.type !== 'Paid') return;
-    if (item.rateType === 'Per Use') total += numberOr(item.rate, 0) * numberOr(item.quantity, 0);
-    else total += numberOr(item.rate, 0);
-  });
-
-  (amenities.beverages || []).forEach((item) => {
-    total += numberOr(item.ratePerUnit, 0) * numberOr(item.quantity, 0);
-  });
-
-  (amenities.refreshmentFood || []).forEach((item) => {
-    total += numberOr(item.ratePerPlate, 0) * numberOr(item.quantity, 0);
-  });
-
-  (amenities.lunchThalis || []).forEach((item) => {
-    total += numberOr(item.ratePerPlate, 0) * numberOr(item.quantity, 0);
-  });
-
-  (amenities.additional || []).forEach((item) => {
-    if (item.type === 'Paid') total += numberOr(item.charges, 0);
-  });
-
-  if (value.amenities?.kitchenAccess?.available && value.amenities.kitchenAccess.type === 'Paid') {
-    total += numberOr(value.amenities.kitchenAccess.charges, 0);
-  }
-
-  if (value.amenities?.diningArea?.available && value.amenities.diningArea.type === 'Paid') {
-    total += numberOr(value.amenities.diningArea.charges, 0);
-  }
-
-  // Parking charges
-  if (amenities.parking) {
-    const cars = numberOr(amenities.parking.cars, 0);
-    const twoWheelers = numberOr(amenities.parking.twoWheelers, 0);
-    const carRate = numberOr(value.parkingDetails?.cars?.chargePerVehicle, 0);
-    const twRate = numberOr(value.parkingDetails?.twoWheelers?.chargePerVehicle, 0);
-    if (cars > 0 && (value.parkingDetails?.cars?.isChargeable || value.parkingDetails?.type === 'Paid')) {
-      total += cars * carRate;
+  // 1. Basic Amenities (Paid)
+  if (Array.isArray(selectedAmenities.basic)) {
+    for (const a of selectedAmenities.basic) {
+      if (a.type === 'Paid' || a.charges > 0 || a.rate > 0) {
+        total += numberOr(a.charges ?? a.rate ?? a.total, 0);
+      }
     }
-    if (twoWheelers > 0 && (value.parkingDetails?.twoWheelers?.isChargeable || value.parkingDetails?.type === 'Paid')) {
-      total += twoWheelers * twRate;
+  }
+
+  // 2. Beverages
+  if (Array.isArray(selectedAmenities.beverages)) {
+    for (const b of selectedAmenities.beverages) {
+      const qty = numberOr(b.quantity, 1);
+      const rate = numberOr(b.ratePerUnit ?? b.rate, 0);
+      total += qty * rate;
+    }
+  }
+
+  // 3. Refreshment Food (Breakfast)
+  if (Array.isArray(selectedAmenities.refreshmentFood)) {
+    for (const f of selectedAmenities.refreshmentFood) {
+      const plates = numberOr(f.plates ?? f.quantity, 1);
+      const rate = numberOr(f.ratePerPlate ?? f.rate, 0);
+      total += plates * rate;
+    }
+  }
+
+  // 4. Lunch Thalis / Buffets
+  if (Array.isArray(selectedAmenities.lunchThalis)) {
+    for (const t of selectedAmenities.lunchThalis) {
+      const plates = numberOr(t.plates ?? t.quantity, 1);
+      const rate = numberOr(t.ratePerPlate ?? t.rate, 0);
+      total += plates * rate;
+    }
+  }
+
+  // 5. Additional Facilities
+  if (Array.isArray(selectedAmenities.additional)) {
+    for (const fac of selectedAmenities.additional) {
+      if (fac.type === 'Paid' || fac.charges > 0) {
+        total += numberOr(fac.charges ?? fac.rate, 0);
+      }
     }
   }
 
@@ -364,7 +414,7 @@ const calculateVenueBookingPrice = ({
   const venueCGST = roundMoney((subtotal * numberOr(venueGSTConfig.cgstRate, 0)) / 100);
   const venueSGST = roundMoney((subtotal * numberOr(venueGSTConfig.sgstRate, 0)) / 100);
   const gst = roundMoney(venueCGST + venueSGST);
-  const platformFeeConfig = platformFeeConfigOverride || getVenuePlatformFeeConfig(venue, settings);
+  const platformFeeConfig = platformFeeConfigOverride || getVenuePlatformFeeConfig(venue, settings, subtotal);
   const platformFee = calculatePlatformFeeAmount(subtotal, platformFeeConfig);
   const platformFeeCGSTRate = numberOr(platformFeeConfig.cgstRate, numberOr(toPlain(settings).platformCGST, 9));
   const platformFeeSGSTRate = numberOr(platformFeeConfig.sgstRate, numberOr(toPlain(settings).platformSGST, 9));
@@ -379,6 +429,7 @@ const calculateVenueBookingPrice = ({
     amenitiesTotal,
     subtotal,
     durationHours,
+    venueHasGST: Boolean(venueGSTConfig.hasGST),
     venueCGST,
     venueCGSTRate: numberOr(venueGSTConfig.cgstRate, 0),
     venueSGST,
@@ -388,6 +439,7 @@ const calculateVenueBookingPrice = ({
     gstRate: numberOr(venueGSTConfig.cgstRate, 0) + numberOr(venueGSTConfig.sgstRate, 0),
     platformFee,
     platformFeeSource: platformFeeConfig.source || 'snapshot',
+    platformFeeSlab: platformFeeConfig.slabLabel || null,
     platformFeeType: platformFeeConfig.type,
     platformFeeValue: numberOr(platformFeeConfig.value, 0),
     platformFeeRate: numberOr(platformFeeConfig.value, 0),

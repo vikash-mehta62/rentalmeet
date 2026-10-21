@@ -38,7 +38,11 @@ export default function OwnerProfile() {
     city: '',
     state: '',
     pincode: '',
-    profilePicture: ''
+    profilePicture: '',
+    hasGST: false,
+    gstNumber: '',
+    companyName: '',
+    panNumber: ''
   });
 
   // Password Form
@@ -73,7 +77,11 @@ export default function OwnerProfile() {
         city: user.city || '',
         state: user.state || '',
         pincode: user.pincode || '',
-        profilePicture: user.profilePicture || ''
+        profilePicture: user.profilePicture || '',
+        hasGST: Boolean(user.gstNumber),
+        gstNumber: user.gstNumber || '',
+        companyName: user.companyName || '',
+        panNumber: user.panNumber || ''
       });
       setProfilePicturePreview(user.profilePicture || '');
     }
@@ -403,6 +411,91 @@ export default function OwnerProfile() {
                     rows="3"
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
                   />
+                </div>
+
+                {/* GST & Business Details */}
+                <div className="pt-4 border-t border-gray-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h4 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                        <span>🏛️</span> GST & Business Details
+                      </h4>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        GSTIN होने पर ही Venue Booking Invoices पर GST लागू होगा।
+                      </p>
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer bg-primary-50 px-3 py-1.5 rounded-xl border border-primary-200">
+                      <input
+                        type="checkbox"
+                        checked={profileData.hasGST}
+                        onChange={(e) => setProfileData(p => ({
+                          ...p,
+                          hasGST: e.target.checked,
+                          gstNumber: e.target.checked ? p.gstNumber : ''
+                        }))}
+                        className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
+                      />
+                      <span className="text-xs font-bold text-primary-900">Registered for GST</span>
+                    </label>
+                  </div>
+
+                  {profileData.hasGST ? (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1">
+                          15-Digit GSTIN Number *
+                        </label>
+                        <input
+                          type="text"
+                          maxLength={15}
+                          placeholder="e.g. 23AAAAA0000A1Z5"
+                          value={profileData.gstNumber}
+                          onChange={(e) => setProfileData({ ...profileData, gstNumber: e.target.value.toUpperCase().trim() })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm uppercase font-mono font-bold focus:ring-2 focus:ring-primary-500 outline-none bg-white"
+                          required={profileData.hasGST}
+                        />
+                        <span className="text-[10px] text-gray-400 mt-1 block">Valid 15-character GSTIN</span>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1">
+                          Trade / Company Name
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Registered Business Name"
+                          value={profileData.companyName}
+                          onChange={(e) => setProfileData({ ...profileData, companyName: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1">
+                          PAN Number
+                        </label>
+                        <input
+                          type="text"
+                          maxLength={10}
+                          placeholder="e.g. AAAAA0000A"
+                          value={profileData.panNumber}
+                          onChange={(e) => setProfileData({ ...profileData, panNumber: e.target.value.toUpperCase().trim() })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm uppercase font-mono font-bold focus:ring-2 focus:ring-primary-500 outline-none bg-white"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-center justify-between">
+                      <span>GST Unregistered — Invoices will be generated without GST (0% GST / Non-taxable Supply).</span>
+                      <button
+                        type="button"
+                        onClick={() => setProfileData(p => ({ ...p, hasGST: true }))}
+                        className="text-xs font-bold text-amber-800 underline hover:text-amber-950"
+                      >
+                        + Add GSTIN
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <button

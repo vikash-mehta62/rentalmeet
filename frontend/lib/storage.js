@@ -3,87 +3,104 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 /**
- * Compresses an image client-side to ensure it stays well under maxSizeBytes (default 4.5MB).
- * Also scales down ultra high-res photos (e.g. 48MP/108MP mobile camera) to max 2560px.
+ * Compresses an image client-side to ensure fast uploads on any network.
+ * Uses URL.createObjectURL to avoid memory exhaustion on high-resolution camera photos (e.g. 20-50MB).
+ * Resizes ultra high-res images to max 2048px and compresses to high-quality JPEG (< 1.8MB).
  */
-export const compressImage = async (file, maxSizeBytes = 4.5 * 1024 * 1024) => {
+export const compressImage = async (file, maxSizeBytes = 2 * 1024 * 1024) => {
   if (!file || typeof window === 'undefined') return file;
-  if (!file.type || !file.type.startsWith('image/')) return file; // Skip PDFs or non-images
+
+  // Verify image type or image file extension
+  const isImage = (file.type && file.type.startsWith('image/')) ||
+                  /\.(jpe?g|png|webp|heic|heif|gif|bmp)$/i.test(file.name || '');
+  if (!isImage) return file; // Skip PDFs or non-images
 
   return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (e) => {
-      const img = new Image();
-      img.src = e.target.result;
-      img.onload = () => {
-        try {
-          let { width, height } = img;
-          const maxDim = 2560; // Max dimension in pixels
+    let objectUrl = null;
+    try {
+      objectUrl = URL.createObjectURL(file);
+    } catch (e) {
+      // Fallback if createObjectURL is not available
+      return resolve(file);
+    }
 
-          if (width > maxDim || height > maxDim) {
-            if (width > height) {
-              height = Math.round((height * maxDim) / width);
-              width = maxDim;
-            } else {
-              width = Math.round((width * maxDim) / height);
-              height = maxDim;
-            }
-          }
+    const img = new Image();
 
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            return resolve(file);
-          }
-
-          ctx.drawImage(img, 0, 0, width, height);
-
-          // Determine output format
-          const isPng = file.type === 'image/png';
-          // If PNG is large (>2MB), convert to JPEG for drastic size reduction
-          const outputFormat = isPng && file.size > 2 * 1024 * 1024 ? 'image/jpeg' : (file.type || 'image/jpeg');
-
-          let quality = 0.85;
-          let dataUrl = canvas.toDataURL(outputFormat, quality);
-
-          // Iteratively reduce quality if still over maxSizeBytes
-          while (dataUrl.length * 0.75 > maxSizeBytes && quality > 0.3) {
-            quality -= 0.15;
-            dataUrl = canvas.toDataURL('image/jpeg', quality);
-          }
-
-          // Convert dataURL back to File/Blob
-          const arr = dataUrl.split(',');
-          const mimeMatch = arr[0].match(/:(.*?);/);
-          const mime = mimeMatch ? mimeMatch[1] : outputFormat;
-          const bstr = atob(arr[1]);
-          let n = bstr.length;
-          const u8arr = new Uint8Array(n);
-          while (n--) {
-            u8arr[n] = bstr.charCodeAt(n);
-          }
-          const blob = new Blob([u8arr], { type: mime });
-          const newName = outputFormat === 'image/jpeg' && !file.name.match(/\.(jpe?g)$/i)
-            ? file.name.replace(/\.[^/.]+$/, "") + ".jpg"
-            : file.name;
-
-          const compressedFile = new File([blob], newName, {
-            type: mime,
-            lastModified: Date.now()
-          });
-
-          resolve(compressedFile);
-        } catch (err) {
-          console.warn('Image compression fallback to original:', err);
-          resolve(file);
-        }
-      };
-      img.onerror = () => resolve(file);
+    const cleanup = () => {
+      if (objectUrl) {
+        try { URL.revokeObjectURL(objectUrl); } catch (_) {}
+      }
     };
-    reader.onerror = () => resolve(file);
+
+    img.onload = () => {
+      try {
+        let { width, height } = img;
+        const maxDim = 2048; // Max 2K dimension - crystal clear for venue listings
+
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          cleanup();
+          return resolve(file);
+        }
+
+        // Draw image onto canvas
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Convert to high-quality JPEG
+        let quality = 0.82;
+        let dataUrl = canvas.toDataURL('image/jpeg', quality);
+
+        // Iteratively reduce quality if still over maxSizeBytes
+        while (dataUrl.length * 0.75 > maxSizeBytes && quality > 0.4) {
+          quality -= 0.12;
+          dataUrl = canvas.toDataURL('image/jpeg', quality);
+        }
+
+        // Convert dataURL to File Blob
+        const arr = dataUrl.split(',');
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        const blob = new Blob([u8arr], { type: 'image/jpeg' });
+        const originalBase = (file.name || 'photo').replace(/\.[^/.]+$/, '');
+        const newName = `${originalBase}.jpg`;
+
+        const compressedFile = new File([blob], newName, {
+          type: 'image/jpeg',
+          lastModified: Date.now()
+        });
+
+        cleanup();
+        resolve(compressedFile);
+      } catch (err) {
+        console.warn('Image compression fallback to original:', err);
+        cleanup();
+        resolve(file);
+      }
+    };
+
+    img.onerror = () => {
+      cleanup();
+      resolve(file);
+    };
+
+    img.src = objectUrl;
   });
 };
 

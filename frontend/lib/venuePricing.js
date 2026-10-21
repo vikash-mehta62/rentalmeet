@@ -240,25 +240,54 @@ export const getPlatformSettingsFee = (settings = {}) => {
   return { feeType, feeValue };
 };
 
-export const getVenuePricingMeta = (venue = {}, settings = {}) => {
+export const getVenuePricingMeta = (venue = {}, settings = {}, subtotal = 0) => {
   const meta = venue?.publicPricingMeta || {};
   const custom = normalizeCustomPlatformFee(venue?.customPlatformFee, settings);
   const globalFee = getPlatformSettingsFee(settings);
 
-  const platformFeeType = normalizeFeeType(
+  // Default fee type & value
+  let platformFeeType = normalizeFeeType(
     meta.platformFeeType || (custom.enabled ? custom.feeType : globalFee.feeType)
   );
-  const platformFeeValue = numberOr(
+  let platformFeeValue = numberOr(
     meta.platformFeeValue !== undefined
       ? meta.platformFeeValue
       : (custom.enabled ? custom.feeValue : globalFee.feeValue),
     platformFeeType === 'percentage' ? 5 : 0
   );
+  let platformCGSTRate = numberOr(meta.platformCGSTRate, custom.enabled ? custom.platformCGSTRate : numberOr(settings?.platformCGST, 9));
+  let platformSGSTRate = numberOr(meta.platformSGSTRate, custom.enabled ? custom.platformSGSTRate : numberOr(settings?.platformSGST, 9));
+  let platformFeeSource = meta.platformFeeSource || (custom.enabled ? 'venue' : 'global');
+
+  // Slab matching if venue doesn't have custom override
+  if (!custom.enabled && Array.isArray(settings?.venueCostSlabs) && settings.venueCostSlabs.length > 0 && subtotal > 0) {
+    const cost = numberOr(subtotal, 0);
+    const matchingSlab = settings.venueCostSlabs.find(slab => {
+      const min = numberOr(slab.minCost, 0);
+      const max = slab.maxCost !== null && slab.maxCost !== undefined && slab.maxCost > 0 ? Number(slab.maxCost) : Infinity;
+      return cost >= min && cost <= max;
+    });
+
+    if (matchingSlab) {
+      platformFeeType = normalizeFeeType(matchingSlab.feeType);
+      platformFeeValue = numberOr(matchingSlab.feeValue, 5);
+      platformCGSTRate = numberOr(matchingSlab.cgst, 9);
+      platformSGSTRate = numberOr(matchingSlab.sgst, 9);
+      platformFeeSource = 'slab';
+    }
+  }
 
   const customGST = normalizeCustomGST(venue?.customGST, settings);
+  // Strict GST check: Venue must be registered under GST to charge GST!
   const venueHasGST = meta.venueHasGST !== undefined
     ? Boolean(meta.venueHasGST)
-    : Boolean(venue?.ownerInfo?.hasGST || customGST.enabled || settings?.venueCGST || settings?.venueSGST);
+    : Boolean(
+        venue?.ownerInfo?.hasGST ||
+        venue?.ownerInfo?.gstNumber ||
+        venue?.taxSettings?.gstin ||
+        venue?.documents?.gstNumber ||
+        customGST.enabled
+      );
   const venueCGSTRate = venueHasGST
     ? numberOr(meta.venueCGSTRate, customGST.enabled ? customGST.cgstRate : numberOr(settings?.venueCGST, 9))
     : 0;
@@ -271,12 +300,12 @@ export const getVenuePricingMeta = (venue = {}, settings = {}) => {
     venueCGSTRate,
     venueSGSTRate,
     venueHSN: meta.venueHSN || (customGST.enabled ? customGST.hsnCode : (settings?.venueHSN || '9973')),
-    platformFeeSource: meta.platformFeeSource || (custom.enabled ? 'venue' : 'global'),
+    platformFeeSource,
     platformFeeType,
     platformFeeValue,
     platformFeePercentage: platformFeeType === 'percentage' ? platformFeeValue : 0,
-    platformCGSTRate: numberOr(meta.platformCGSTRate, custom.enabled ? custom.platformCGSTRate : numberOr(settings?.platformCGST, 9)),
-    platformSGSTRate: numberOr(meta.platformSGSTRate, custom.enabled ? custom.platformSGSTRate : numberOr(settings?.platformSGST, 9))
+    platformCGSTRate,
+    platformSGSTRate
   };
 };
 

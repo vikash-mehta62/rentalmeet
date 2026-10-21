@@ -3,6 +3,7 @@ const router = express.Router();
 const { protect, authorize } = require('../middleware/auth');
 const VendorProfile = require('../models/VendorProfile');
 const VendorService = require('../models/VendorService');
+const User = require('../models/User');
 const { upload } = require('../middleware/upload');
 const { uploadToStorage } = require('../config/storage');
 const { logAudit, logStatusChange, extractClientIp } = require('../utils/auditLogger');
@@ -28,7 +29,20 @@ router.get('/profile', async (req, res) => {
   try {
     let profile = await VendorProfile.findOne({ user: req.user.id });
     if (!profile) profile = await VendorProfile.create({ user: req.user.id });
-    res.json({ success: true, profile });
+    
+    const user = await User.findById(req.user.id).select('name email phone gstNumber companyName panNumber address city state pincode profilePicture');
+    
+    // Sync GST details from User to profile if present
+    if (user?.gstNumber && !profile.businessInfo?.gstNumber) {
+      if (!profile.businessInfo) profile.businessInfo = {};
+      profile.businessInfo.gstNumber = user.gstNumber;
+      profile.businessInfo.hasGST = true;
+      if (user.companyName && !profile.businessInfo.companyName) profile.businessInfo.companyName = user.companyName;
+      if (user.panNumber && !profile.businessInfo.panNumber) profile.businessInfo.panNumber = user.panNumber;
+      await profile.save();
+    }
+
+    res.json({ success: true, profile, user });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
@@ -39,11 +53,35 @@ router.put('/profile', async (req, res) => {
                      'bookingPolicy','termsAccepted','onboardingStep'];
     const update = {};
     allowed.forEach(k => { if (req.body[k] !== undefined) update[k] = req.body[k]; });
+    
     const profile = await VendorProfile.findOneAndUpdate(
       { user: req.user.id }, { $set: update },
       { new: true, upsert: true, runValidators: false }
     );
-    res.json({ success: true, profile });
+
+    // Sync to User model
+    const userUpdate = {};
+    if (req.body.basicInfo?.fullName) userUpdate.name = req.body.basicInfo.fullName.trim();
+    if (req.body.businessInfo?.gstNumber !== undefined) {
+      userUpdate.gstNumber = (req.body.businessInfo.gstNumber || '').trim().toUpperCase();
+    }
+    if (req.body.businessInfo?.companyName !== undefined) {
+      userUpdate.companyName = (req.body.businessInfo.companyName || '').trim();
+    }
+    if (req.body.businessInfo?.panNumber !== undefined) {
+      userUpdate.panNumber = (req.body.businessInfo.panNumber || '').trim().toUpperCase();
+    }
+    if (req.body.address?.city) userUpdate.city = req.body.address.city;
+    if (req.body.address?.state) userUpdate.state = req.body.address.state;
+    if (req.body.address?.pincode) userUpdate.pincode = req.body.address.pincode;
+    
+    if (Object.keys(userUpdate).length > 0) {
+      await User.findByIdAndUpdate(req.user.id, userUpdate);
+    }
+
+    const updatedUser = await User.findById(req.user.id).select('name email phone gstNumber companyName panNumber address city state pincode profilePicture');
+
+    res.json({ success: true, profile, user: updatedUser });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 

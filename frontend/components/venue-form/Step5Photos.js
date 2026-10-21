@@ -39,8 +39,15 @@ export default function Step5Photos() {
 
     for (const file of files) {
       // Type validation
-      if (!file.type || !file.type.startsWith('image/')) {
+      const isImg = (file.type && file.type.startsWith('image/')) || /\.(jpe?g|png|webp|heic|heif|gif|bmp)$/i.test(file.name || '');
+      if (!isImg) {
         toast.error(`${file.name} is not a valid image format`);
+        continue;
+      }
+
+      // Size check (up to 50MB, auto-compressed)
+      if (file.size > 50 * 1024 * 1024) {
+        toast.error(`${file.name} is larger than 50MB`);
         continue;
       }
 
@@ -123,7 +130,7 @@ export default function Step5Photos() {
           <div className="flex-1">
             <h3 className="text-lg font-bold text-dark-800 mb-2">Photo Gallery</h3>
             <p className="text-sm text-gray-600 mb-2">
-              Upload high-quality photos of your venue. Photos are uploaded directly to cloud storage.
+              Upload high-quality photos of your venue (up to 50 MB each, auto-compressed for fast upload). Photos are uploaded directly to cloud storage.
             </p>
             {uploading && (
               <div className="flex items-center text-primary-600 text-sm mt-2">

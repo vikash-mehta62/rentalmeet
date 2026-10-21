@@ -24,7 +24,8 @@ export default function ServiceInvoiceDownload({ booking: b, userRole = 'custome
   const svcSGST    = p.serviceSGST || 0;
   const svcCGSTRate = p.cgstPct   || 9;
   const svcSGSTRate = p.sgstPct   || 9;
-  const svcTotal   = subtotal + svcCGST + svcSGST;
+  const isVendorRegistered = Boolean(b.serviceSnapshot?.gstNumber || b.vendorSnapshot?.gstNumber || b.vendor?.gstNumber || (svcCGST > 0 || svcSGST > 0));
+  const svcTotal   = subtotal + (isVendorRegistered ? (svcCGST + svcSGST) : 0);
   const pfee       = p.platformFee || 0;
   const pfRate     = p.platformFeePct || 5;
   const pfGST      = p.platformFeeGST || 0;
@@ -163,12 +164,13 @@ export default function ServiceInvoiceDownload({ booking: b, userRole = 'custome
         const vendorName = b.vendorSnapshot?.companyName || b.vendor?.companyName || b.vendor?.name || 'N/A';
         const category   = b.service?.category || b.vendorSnapshot?.category || '';
         const city       = b.vendorSnapshot?.city || b.vendor?.address?.city || '';
-        const vendorGST  = b.serviceSnapshot?.gstNumber || b.vendorSnapshot?.gstNumber || '';
+        const vendorGST  = b.serviceSnapshot?.gstNumber || b.vendorSnapshot?.gstNumber || b.vendor?.gstNumber || '';
+        const hasVendorGST = Boolean(vendorGST || b.serviceSnapshot?.hasGST || (svcCGST > 0 || svcSGST > 0));
         kv('Service',  svcName,    rx, ry); ry += 4.5;
         kv('Category', category,   rx, ry); ry += 4.5;
         kv('Vendor',   vendorName, rx, ry); ry += 4.5;
         if (city) { kv('Location', city, rx, ry); ry += 4.5; }
-        if (vendorGST) kv('GSTIN', vendorGST, rx, ry);
+        kv('GSTIN', vendorGST || 'Not Registered', rx, ry); ry += 4.5;
       } else {
         kv('Company',  'YUWAKA EDUTECH PRIVATE LIMITED', rx, ry); ry += 4.5;
         kv('GSTIN',    '23AABCY6855D1ZC',                rx, ry); ry += 4.5;
@@ -229,7 +231,11 @@ export default function ServiceInvoiceDownload({ booking: b, userRole = 'custome
         // Totals (service invoice - use amber/yellow like venue)
         const totLines = [
           ['Service Amount (Subtotal)', 'Rs.' + fmt(subtotal)],
-          ['CGST @ ' + svcCGSTRate + '%', 'Rs.' + fmt(svcCGST)],
+          ...(hasVendorGST && (svcCGST > 0 || svcSGST > 0) ? [
+            ['CGST @ ' + svcCGSTRate + '%', 'Rs.' + fmt(svcCGST)],
+            ] : [
+            ['GST (Unregistered / 0%)', 'Rs.0.00']
+          ]),
           ['SGST @ ' + svcSGSTRate + '%', 'Rs.' + fmt(svcSGST)],
         ];
         if (discount > 0) totLines.push(['Coupon Discount' + (b.coupon?.code ? ' (' + b.coupon.code + ')' : ''), '- Rs.' + fmt(discount)]);

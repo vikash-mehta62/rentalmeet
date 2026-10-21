@@ -766,6 +766,27 @@ exports.updateProfile = async (req, res) => {
     
     // Save the user
     const savedUser = await currentUser.save();
+
+    // If owner updated GST, sync to their venues so invoices reflect it immediately
+    if (currentUser.role === 'owner' && (gstNumber !== undefined || companyName !== undefined)) {
+      try {
+        const Venue = require('../models/Venue');
+        const updateFields = {};
+        if (gstNumber !== undefined) {
+          const cleanGST = (gstNumber || '').trim().toUpperCase();
+          updateFields['ownerInfo.hasGST'] = Boolean(cleanGST);
+          updateFields['ownerInfo.gstNumber'] = cleanGST;
+        }
+        if (companyName !== undefined && companyName) {
+          updateFields['ownerInfo.companyName'] = companyName.trim();
+        }
+        if (Object.keys(updateFields).length > 0) {
+          await Venue.updateMany({ owner: currentUser._id }, { $set: updateFields });
+        }
+      } catch (syncErr) {
+        console.error('[AUTH] Failed to sync owner GST to venues:', syncErr.message);
+      }
+    }
     await savedUser.populate([
       { path: 'referrals.user', select: 'name email role' },
       { path: 'referredBy', select: 'name referralCode' }
