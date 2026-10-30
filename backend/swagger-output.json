@@ -3273,6 +3273,26 @@
             "description": "Internal Server Error"
           }
         },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "basicInfo": {
+                    "example": "any"
+                  },
+                  "businessInfo": {
+                    "example": "any"
+                  },
+                  "address": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        },
         "tags": [
           "Vendor"
         ]
@@ -6836,6 +6856,9 @@
                   "head": {
                     "example": "any"
                   },
+                  "name": {
+                    "example": "any"
+                  },
                   "subHead": {
                     "example": "any"
                   },
@@ -6905,6 +6928,9 @@
                 "type": "object",
                 "properties": {
                   "head": {
+                    "example": "any"
+                  },
+                  "name": {
                     "example": "any"
                   },
                   "subHead": {
@@ -12941,6 +12967,54 @@
         ],
         "security": [],
         "summary": "Get blog slugs for sitemap generation"
+      }
+    },
+    "/api/blogs/feed.xml": {
+      "get": {
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "tags": [
+          "Blog"
+        ]
+      }
+    },
+    "/api/blogs/feed": {
+      "get": {
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "tags": [
+          "Blog"
+        ]
+      }
+    },
+    "/api/blogs/rss.xml": {
+      "get": {
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "tags": [
+          "Blog"
+        ]
       }
     },
     "/api/blogs/{slug}": {

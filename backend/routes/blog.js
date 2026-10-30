@@ -102,23 +102,50 @@ function buildBlogRssXml(blogs, siteUrl = 'https://www.rentalmeet.com') {
 // GET all blogs (admin — all statuses)
 router.get('/admin/all', protect, authorize('admin'), checkPermission('blogs'), async (req, res) => {
   try {
-    const { status, search, page = 1, limit = 20 } = req.query;
+    const { status, search, page = 1, limit = 100 } = req.query;
     const query = {};
     if (status && status !== 'all') query.status = status;
     if (search) query.$or = [
       { title: { $regex: search, $options: 'i' } },
       { category: { $regex: search, $options: 'i' } },
     ];
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    const [blogs, total] = await Promise.all([
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = limit === 'all' ? 0 : Math.max(1, parseInt(limit) || 100);
+    const skip = limitNum > 0 ? (pageNum - 1) * limitNum : 0;
+
+    const [blogs, total, globalStats] = await Promise.all([
       Blog.find(query)
         .select('title slug category status readTime views publishedAt createdAt author tags')
         .sort('-createdAt')
         .skip(skip)
-        .limit(parseInt(limit)),
+        .limit(limitNum),
       Blog.countDocuments(query),
+      Promise.all([
+        Blog.countDocuments(),
+        Blog.countDocuments({ status: 'published' }),
+        Blog.countDocuments({ status: 'draft' }),
+        Blog.countDocuments({ status: 'archived' }),
+        Blog.aggregate([{ $group: { _id: null, totalViews: { $sum: '$views' } } }]),
+      ]),
     ]);
-    res.json({ success: true, blogs, total, page: parseInt(page), pages: Math.ceil(total / parseInt(limit)) });
+
+    const [allTotal, publishedCount, draftCount, archivedCount, viewsAgg] = globalStats;
+    const totalViews = viewsAgg[0]?.totalViews || 0;
+
+    res.json({
+      success: true,
+      blogs,
+      total,
+      page: pageNum,
+      pages: limitNum > 0 ? Math.ceil(total / limitNum) : 1,
+      stats: {
+        total: allTotal,
+        published: publishedCount,
+        draft: draftCount,
+        archived: archivedCount,
+        views: totalViews,
+      },
+    });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
 import AdminLayout from '@/components/admin/AdminLayout';
 import PermissionGuard from '@/components/admin/PermissionGuard';
-import { Plus, Search, Eye, Pencil, Trash2, BookOpen, Clock, TrendingUp } from 'lucide-react';
+import { Plus, Search, Eye, Pencil, Trash2, BookOpen, Clock, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const STATUS_COLORS = {
@@ -12,6 +12,13 @@ const STATUS_COLORS = {
   draft:     'bg-yellow-100 text-yellow-700',
   archived:  'bg-gray-100 text-gray-500',
 };
+
+const STAT_CARDS = [
+  { key: 'total', label: 'Total Posts', icon: BookOpen, bg: 'bg-blue-50', border: 'border-blue-200', textTitle: 'text-blue-600', textVal: 'text-blue-700' },
+  { key: 'published', label: 'Published', icon: TrendingUp, bg: 'bg-green-50', border: 'border-green-200', textTitle: 'text-green-600', textVal: 'text-green-700' },
+  { key: 'draft', label: 'Drafts', icon: Clock, bg: 'bg-yellow-50', border: 'border-yellow-200', textTitle: 'text-yellow-600', textVal: 'text-yellow-700' },
+  { key: 'views', label: 'Total Views', icon: Eye, bg: 'bg-purple-50', border: 'border-purple-200', textTitle: 'text-purple-600', textVal: 'text-purple-700' },
+];
 
 export default function AdminBlogsPage() {
   const { token } = useAuthStore();
@@ -21,22 +28,71 @@ export default function AdminBlogsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [limit, setLimit] = useState(100);
+  const [stats, setStats] = useState({ total: 0, published: 0, draft: 0, views: 0 });
 
-  useEffect(() => { if (token) fetchBlogs(); }, [token, statusFilter]);
+  useEffect(() => {
+    if (token) fetchBlogs();
+  }, [token, statusFilter, page, limit]);
 
-  const fetchBlogs = async () => {
+  const fetchBlogs = async (overrideSearch = search, overridePage = page) => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ limit: 50 });
+      const params = new URLSearchParams({
+        page: String(overridePage),
+        limit: String(limit),
+      });
       if (statusFilter !== 'all') params.set('status', statusFilter);
-      if (search) params.set('search', search);
+      if (overrideSearch?.trim()) params.set('search', overrideSearch.trim());
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/blogs/admin/all?${params}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
-      if (data.success) { setBlogs(data.blogs); setTotal(data.total); }
-    } catch { toast.error('Failed to load blogs'); }
-    finally { setLoading(false); }
+      if (data.success) {
+        setBlogs(data.blogs || []);
+        setTotal(data.total || 0);
+        setTotalPages(data.pages || 1);
+        if (data.stats) {
+          setStats(data.stats);
+        } else {
+          setStats({
+            total: data.total || (data.blogs || []).length,
+            published: (data.blogs || []).filter(b => b.status === 'published').length,
+            draft: (data.blogs || []).filter(b => b.status === 'draft').length,
+            views: (data.blogs || []).reduce((s, b) => s + (b.views || 0), 0),
+          });
+        }
+      }
+    } catch {
+      toast.error('Failed to load blogs');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSearchSubmit = (e) => {
+    if (e) e.preventDefault();
+    if (page === 1) {
+      fetchBlogs(search, 1);
+    } else {
+      setPage(1);
+    }
+  };
+
+  const handleSearchChange = (e) => {
+    const val = e.target.value;
+    setSearch(val);
+    if (val === '') {
+      if (page === 1) fetchBlogs('', 1);
+      else setPage(1);
+    }
+  };
+
+  const handleStatusChange = (s) => {
+    setStatusFilter(s);
+    setPage(1);
   };
 
   const handleDelete = async (id, title) => {
@@ -51,15 +107,11 @@ export default function AdminBlogsPage() {
   };
 
   const filtered = blogs.filter(b =>
-    !search || b.title.toLowerCase().includes(search.toLowerCase()) || b.category?.toLowerCase().includes(search.toLowerCase())
+    !search ||
+    b.title?.toLowerCase().includes(search.toLowerCase()) ||
+    b.category?.toLowerCase().includes(search.toLowerCase()) ||
+    b.slug?.toLowerCase().includes(search.toLowerCase())
   );
-
-  const stats = {
-    total: blogs.length,
-    published: blogs.filter(b => b.status === 'published').length,
-    draft: blogs.filter(b => b.status === 'draft').length,
-    views: blogs.reduce((s, b) => s + (b.views || 0), 0),
-  };
 
   return (
     <AdminLayout title="Blog Management" subtitle="Create and manage SEO-optimized blog posts">
@@ -67,40 +119,48 @@ export default function AdminBlogsPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-          {[
-            { label: 'Total Posts', value: stats.total, icon: BookOpen, color: 'blue' },
-            { label: 'Published', value: stats.published, icon: TrendingUp, color: 'green' },
-            { label: 'Drafts', value: stats.draft, icon: Clock, color: 'yellow' },
-            { label: 'Total Views', value: stats.views.toLocaleString(), icon: Eye, color: 'purple' },
-          ].map(s => (
-            <div key={s.label} className={`bg-${s.color}-50 border border-${s.color}-200 rounded-xl p-4`}>
-              <p className={`text-xs font-semibold uppercase text-${s.color}-600 mb-1`}>{s.label}</p>
-              <p className={`text-2xl font-black text-${s.color}-700`}>{s.value}</p>
-            </div>
-          ))}
+          {STAT_CARDS.map(s => {
+            const Icon = s.icon;
+            const val = s.key === 'views' ? (stats.views || 0).toLocaleString() : (stats[s.key] ?? 0);
+            return (
+              <div key={s.label} className={`${s.bg} border ${s.border} rounded-xl p-4 transition-all shadow-sm`}>
+                <div className="flex items-center justify-between mb-1">
+                  <p className={`text-xs font-semibold uppercase ${s.textTitle}`}>{s.label}</p>
+                  <Icon className={`w-4 h-4 ${s.textTitle} opacity-70`} />
+                </div>
+                <p className={`text-2xl font-black ${s.textVal}`}>{val}</p>
+              </div>
+            );
+          })}
         </div>
 
         {/* Toolbar */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-5 flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[200px]">
+          <form onSubmit={handleSearchSubmit} className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
-              type="text" placeholder="Search blogs..."
-              value={search} onChange={e => setSearch(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && fetchBlogs()}
+              type="text"
+              placeholder="Search blogs... (press Enter)"
+              value={search}
+              onChange={handleSearchChange}
               className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
             />
-          </div>
+          </form>
           <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
             {['all','published','draft','archived'].map(s => (
-              <button key={s} onClick={() => setStatusFilter(s)}
-                className={`px-3 py-1.5 rounded-md text-xs font-semibold capitalize transition-colors ${statusFilter === s ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
+              <button
+                key={s}
+                onClick={() => handleStatusChange(s)}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold capitalize transition-colors ${statusFilter === s ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+              >
                 {s}
               </button>
             ))}
           </div>
-          <button onClick={() => router.push('/admin/blogs/new')}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm font-semibold transition-colors ml-auto">
+          <button
+            onClick={() => router.push('/admin/blogs/new')}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm font-semibold transition-colors ml-auto shadow-sm"
+          >
             <Plus className="w-4 h-4" /> New Blog
           </button>
         </div>
@@ -115,68 +175,128 @@ export default function AdminBlogsPage() {
             <div className="text-center py-16 text-gray-400">
               <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-30" />
               <p className="font-semibold">No blogs found</p>
-              <button onClick={() => router.push('/admin/blogs/new')}
-                className="mt-4 px-4 py-2 bg-primary-500 text-white rounded-lg text-sm font-semibold">
+              <button
+                onClick={() => router.push('/admin/blogs/new')}
+                className="mt-4 px-4 py-2 bg-primary-500 text-white rounded-lg text-sm font-semibold"
+              >
                 Create your first blog
               </button>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 bg-gray-50 text-xs uppercase text-gray-600">
-                  <th className="px-4 py-3 text-left">Title</th>
-                  <th className="px-4 py-3 text-left">Category</th>
-                  <th className="px-4 py-3 text-left">Status</th>
-                  <th className="px-4 py-3 text-left">Read Time</th>
-                  <th className="px-4 py-3 text-right">Views</th>
-                  <th className="px-4 py-3 text-left">Date</th>
-                  <th className="px-4 py-3 text-left">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map(blog => (
-                  <tr key={blog._id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <div className="font-semibold text-gray-800 line-clamp-1 max-w-[280px]">{blog.title}</div>
-                      <div className="text-xs text-gray-400 font-mono">{blog.slug}</div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{blog.category || '—'}</td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${STATUS_COLORS[blog.status] || STATUS_COLORS.draft}`}>
-                        {blog.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-500">{blog.readTime} min</td>
-                    <td className="px-4 py-3 text-right text-gray-600">{(blog.views || 0).toLocaleString()}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">
-                      {blog.publishedAt ? new Date(blog.publishedAt).toLocaleDateString('en-IN') : new Date(blog.createdAt).toLocaleDateString('en-IN')}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {blog.status === 'published' && (
-                          <a href={`/blog/${blog.slug}`} target="_blank" rel="noreferrer"
-                            className="p-1.5 text-gray-400 hover:text-blue-500 transition-colors">
-                            <Eye className="w-4 h-4" />
-                          </a>
-                        )}
-                        <button onClick={() => router.push(`/admin/blogs/${blog._id}`)}
-                          className="p-1.5 text-gray-400 hover:text-primary-500 transition-colors">
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => handleDelete(blog._id, blog.title)}
-                          className="p-1.5 text-gray-400 hover:text-red-500 transition-colors">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50 text-xs uppercase text-gray-600">
+                    <th className="px-4 py-3 text-left">Title</th>
+                    <th className="px-4 py-3 text-left">Category</th>
+                    <th className="px-4 py-3 text-left">Status</th>
+                    <th className="px-4 py-3 text-left">Read Time</th>
+                    <th className="px-4 py-3 text-right">Views</th>
+                    <th className="px-4 py-3 text-left">Date</th>
+                    <th className="px-4 py-3 text-left">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filtered.map(blog => (
+                    <tr key={blog._id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-gray-800 line-clamp-1 max-w-[280px]">{blog.title}</div>
+                        <div className="text-xs text-gray-400 font-mono">{blog.slug}</div>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">{blog.category || '—'}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${STATUS_COLORS[blog.status] || STATUS_COLORS.draft}`}>
+                          {blog.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-500">{blog.readTime || 1} min</td>
+                      <td className="px-4 py-3 text-right text-gray-600 font-mono">{(blog.views || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-gray-500 text-xs">
+                        {blog.publishedAt ? new Date(blog.publishedAt).toLocaleDateString('en-IN') : new Date(blog.createdAt).toLocaleDateString('en-IN')}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          {blog.status === 'published' && (
+                            <a
+                              href={`/blog/${blog.slug}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-1.5 text-gray-400 hover:text-blue-500 transition-colors"
+                              title="View blog on site"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </a>
+                          )}
+                          <button
+                            onClick={() => router.push(`/admin/blogs/${blog._id}`)}
+                            className="p-1.5 text-gray-400 hover:text-primary-500 transition-colors"
+                            title="Edit blog"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(blog._id, blog.title)}
+                            className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
+                            title="Delete blog"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
+
+        {/* Pagination & Count */}
+        {!loading && (
+          <div className="flex flex-wrap items-center justify-between gap-4 mt-4 px-1 text-sm text-gray-600">
+            <div>
+              Showing <span className="font-semibold text-gray-900">{filtered.length}</span> of{' '}
+              <span className="font-semibold text-gray-900">{total}</span> blogs
+            </div>
+            <div className="flex items-center gap-3 ml-auto">
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-gray-500">Per page:</span>
+                <select
+                  value={limit}
+                  onChange={e => { setLimit(Number(e.target.value)); setPage(1); }}
+                  className="border border-gray-300 rounded-md px-2 py-1 bg-white text-xs text-gray-700 outline-none focus:ring-1 focus:ring-primary-500"
+                >
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                  <option value={200}>200</option>
+                </select>
+              </div>
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                    className="px-2.5 py-1 border border-gray-300 rounded-md text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" /> Prev
+                  </button>
+                  <span className="text-xs px-2 text-gray-500">
+                    Page <span className="font-semibold text-gray-800">{page}</span> of{' '}
+                    <span className="font-semibold text-gray-800">{totalPages}</span>
+                  </span>
+                  <button
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    disabled={page >= totalPages}
+                    className="px-2.5 py-1 border border-gray-300 rounded-md text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+                  >
+                    Next <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
       </PermissionGuard>
     </AdminLayout>
