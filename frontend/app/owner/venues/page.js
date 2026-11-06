@@ -8,11 +8,13 @@ import 'react-datepicker/dist/react-datepicker.css';
 import VenueDetailsModal from '@/components/venue/VenueDetailsModal';
 import OwnerVenueEditModal from '@/components/venue/OwnerVenueEditModal';
 import {
-  Building2, Plus, Eye, Edit, Trash2, Search,
+  Building2, Plus, Eye, Edit, Search,
   CheckCircle2, Clock, XCircle, AlertCircle, Calendar, IndianRupee, MapPin,
-  PowerOff, Power, CalendarX, X, History, ChevronDown, ChevronUp
+  PowerOff, Power, CalendarX, X, History, ChevronDown, ChevronUp,
+  ShieldCheck, Info, Sparkles
 } from 'lucide-react';
 import OwnerLayout from '@/components/owner/OwnerLayout';
+import { calculateProfileCompletion, isVenueVerified } from '@/lib/venuePricing';
 import toast from 'react-hot-toast';
 
 export default function MyVenues() {
@@ -94,28 +96,6 @@ export default function MyVenues() {
     setFilteredVenues(result);
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this venue?')) return;
-
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/owner/venues/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
-      if (data.success) {
-        toast.success(data.message || 'Venue deleted successfully');
-        fetchVenues();
-      } else {
-        toast.error(data.message || 'Failed to delete venue');
-      }
-    } catch (error) {
-      console.error('Error deleting venue:', error);
-      toast.error('Error deleting venue');
-    }
-  };
 
   const handleResubmit = async (venueId) => {
     try {
@@ -376,8 +356,12 @@ export default function MyVenues() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredVenues.map((venue) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {filteredVenues.map((venue) => {
+            const profileScore = calculateProfileCompletion(venue);
+            const verified = isVenueVerified(venue);
+
+            return (
             <div key={venue._id} className="bg-white rounded-xl shadow-soft border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
               {/* Venue Image */}
               <div className="relative h-48 bg-gray-200">
@@ -392,6 +376,19 @@ export default function MyVenues() {
                     <Building2 className="w-16 h-16 text-gray-400" />
                   </div>
                 )}
+                {/* Top-Left: Verified / Info Badge */}
+                <div className="absolute top-3 left-3 flex items-center gap-1.5 z-10">
+                  {verified ? (
+                    <span className="bg-emerald-600/95 text-white px-2.5 py-1 rounded-full flex items-center gap-1 shadow-md text-xs font-bold backdrop-blur-xs">
+                      <ShieldCheck className="w-3.5 h-3.5" /> Verified
+                    </span>
+                  ) : (
+                    <span className="bg-blue-600/95 text-white px-2.5 py-1 rounded-full flex items-center gap-1 shadow-md text-xs font-bold backdrop-blur-xs">
+                      <Info className="w-3.5 h-3.5" /> Info
+                    </span>
+                  )}
+                </div>
+
                 <div className="absolute top-3 right-3">
                   {getStatusBadge(venue.status)}
                 </div>
@@ -414,10 +411,51 @@ export default function MyVenues() {
                   {venue.location?.city}, {venue.location?.area}
                 </p>
 
-                <div className="mb-3">
+                <div className="flex items-center justify-between gap-2 mb-3">
                   <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
                     {venue.foodType || 'Veg'}
                   </span>
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                    verified ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-blue-50 text-blue-700 border border-blue-200'
+                  }`}>
+                    {verified ? <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> : <Info className="w-3.5 h-3.5 text-blue-600" />}
+                    <span>{verified ? 'Verified' : 'Info Mode'}</span>
+                  </span>
+                </div>
+
+                {/* Profile Score Progress Bar */}
+                <div className="mb-3.5 p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center justify-between text-xs mb-1.5">
+                    <span className="font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                      Profile Score:
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`font-bold text-xs ${
+                        profileScore >= 70 ? 'text-emerald-600' : profileScore >= 40 ? 'text-amber-600' : 'text-rose-600'
+                      }`}>
+                        {profileScore}%
+                      </span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                        verified ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
+                      }`}>
+                        {verified ? '✓ Verified' : 'Incomplete'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="w-full bg-gray-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        profileScore >= 70 ? 'bg-emerald-500' : profileScore >= 40 ? 'bg-amber-500' : 'bg-rose-500'
+                      }`}
+                      style={{ width: `${Math.max(5, profileScore)}%` }}
+                    />
+                  </div>
+                  {profileScore < 70 && (
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1.5 leading-tight">
+                      Reach 70%+ profile completion to earn the trusted Verified badge.
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
@@ -431,8 +469,8 @@ export default function MyVenues() {
                   </span>
                 </div>
 
-                {/* Actions */}
-                <div className="grid grid-cols-2 gap-2">
+                {/* Actions (Delete button removed - View and Update side by side) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <button
                     onClick={() => openModal(venue)}
                     className="w-full h-10 px-3 bg-blue-50 hover:bg-blue-100 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/60 rounded-xl font-semibold transition-colors flex items-center justify-center gap-1.5 text-xs sm:text-sm border border-blue-100 shadow-sm cursor-pointer"
@@ -442,24 +480,15 @@ export default function MyVenues() {
                   </button>
 
                   <button
-                    onClick={() => handleDelete(venue._id)}
-                    className="w-full h-10 px-3 bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900/60 rounded-xl font-semibold transition-colors flex items-center justify-center gap-1.5 text-xs sm:text-sm border border-red-100 shadow-sm cursor-pointer"
-                    title="Delete venue"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    <span>Delete Venue</span>
-                  </button>
-
-                  <button
                     type="button"
                     onClick={() => {
                       setEditingVenue(venue);
                       setEditModalOpen(true);
                     }}
-                    className="col-span-2 w-full h-10 px-3 bg-primary-50 hover:bg-primary-100 text-primary-700 dark:bg-primary-950/40 dark:text-primary-300 dark:border-primary-800 rounded-xl font-bold transition-colors flex items-center justify-center gap-1.5 text-xs sm:text-sm border border-primary-200 shadow-xs cursor-pointer"
+                    className="w-full h-10 px-3 bg-primary-50 hover:bg-primary-100 text-primary-700 dark:bg-primary-950/40 dark:text-primary-300 dark:border-primary-800 rounded-xl font-bold transition-colors flex items-center justify-center gap-1.5 text-xs sm:text-sm border border-primary-200 shadow-xs cursor-pointer"
                   >
                     <Edit className="w-4 h-4" />
-                    <span>Update Venue Details</span>
+                    <span>Update Details</span>
                   </button>
                 </div>
 
@@ -578,7 +607,8 @@ export default function MyVenues() {
                 )}
               </div>
             </div>
-          ))}
+          );
+          })}
         </div>
       )}
 

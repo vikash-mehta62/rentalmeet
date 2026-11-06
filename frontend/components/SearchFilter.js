@@ -12,22 +12,8 @@ import DatePicker from 'react-datepicker';
 import CityAutocomplete from './CityAutocomplete';
 import toast from 'react-hot-toast';
 import 'react-datepicker/dist/react-datepicker.css';
+import { DEFAULT_CATEGORY_ITEMS, formatVenueCategoryItems } from '@/lib/venueCategories';
 
-// ── 12 Specific Categories with matching Replit color palettes ──────────────
-const CATEGORY_ITEMS = [
-  { id: 'Meeting Hall', label: 'Meeting Hall', icon: Briefcase, bg: '#E3F2FD', iconColor: '#1565C0', border: '#90CAF9' },
-  { id: 'Conference Hall', label: 'Conference Hall', icon: Presentation, bg: '#F3E5F5', iconColor: '#6A1B9A', border: '#CE93D8' },
-  { id: 'Auditorium', label: 'Auditoriums', icon: Landmark, bg: '#FFEBEE', iconColor: '#B71C1C', border: '#EF9A9A' },
-  { id: 'Banquet Hall', label: 'Banquet Hall', icon: PartyPopper, bg: '#FFF3E0', iconColor: '#E65100', border: '#FFB74D' },
-  { id: 'Farm House', label: 'Farm House', icon: TreePine, bg: '#E8F5E9', iconColor: '#2E7D32', border: '#A5D6A7' },
-  { id: 'Hotel', label: 'Hotel', icon: BedDouble, bg: '#FFFDE7', iconColor: '#F57F17', border: '#FFF176' },
-  { id: 'Restaurant', label: 'Restaurant', icon: Utensils, bg: '#FFF3E0', iconColor: '#E65100', border: '#FFCC80' },
-  { id: 'Co-Work Space', label: 'Co-Work Space', icon: Laptop, bg: '#E0F7FA', iconColor: '#00695C', border: '#80DEEA' },
-  { id: 'Guest House', label: 'Guest House', icon: Home, bg: '#FCE4EC', iconColor: '#C2185B', border: '#F48FB1' },
-  { id: 'Training Center', label: 'Training Center', icon: BookOpen, bg: '#E8EAF6', iconColor: '#283593', border: '#9FA8DA' },
-  { id: 'Marriage Garden', label: 'Marriage Garden', icon: Flower2, bg: '#F1F8E9', iconColor: '#558B2F', border: '#C5E1A5' },
-  { id: 'Play Zone', label: 'Play Zones', icon: Sparkles, bg: '#EDE7F6', iconColor: '#4527A0', border: '#B39DDB' },
-];
 
 const POPULAR_CITIES = [
   'Bhopal',
@@ -206,6 +192,10 @@ export default function SearchFilter() {
     router.push(`/venues?${params.toString()}`);
   };
 
+  const categoryItems = venueTypes && venueTypes.length > 0
+    ? formatVenueCategoryItems(venueTypes)
+    : DEFAULT_CATEGORY_ITEMS;
+
   return (
     <div className="w-full bg-white dark:bg-slate-900 rounded-2xl md:rounded-3xl shadow-xl p-4 sm:p-5 md:p-6 border border-slate-100 dark:border-slate-800 transition-all">
       
@@ -214,8 +204,8 @@ export default function SearchFilter() {
         <div
           className="grid gap-2"
           style={{
-            gridTemplateColumns: 'repeat(13, minmax(74px, 1fr))',
-            minWidth: '1020px'
+            gridTemplateColumns: `repeat(${categoryItems.length + 1}, minmax(74px, 1fr))`,
+            minWidth: `${(categoryItems.length + 1) * 80}px`
           }}
         >
           {/* All Venues Button */}
@@ -234,9 +224,8 @@ export default function SearchFilter() {
             </span>
           </button>
 
-          {/* 12 Specific Category Buttons */}
-          {CATEGORY_ITEMS.map((cat) => {
-            const IconComponent = cat.icon;
+          {categoryItems.map((cat) => {
+            const IconComponent = cat.icon || Building2;
             const isSelected = selectedVenueType === cat.id;
 
             return (
@@ -316,7 +305,7 @@ export default function SearchFilter() {
               className="w-full bg-transparent text-xs text-slate-800 dark:text-slate-100 focus:outline-none cursor-pointer"
             >
               <option value="" className="dark:bg-slate-900">All Venue Types</option>
-              {CATEGORY_ITEMS.map((cat) => (
+              {categoryItems.map((cat) => (
                 <option key={cat.id} value={cat.id} className="dark:bg-slate-900">
                   {cat.label}
                 </option>

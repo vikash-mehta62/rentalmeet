@@ -7,12 +7,14 @@ import Footer from '@/components/Footer';
 import { categoryIconMap } from '@/data/serviceData';
 import { useAuthStore } from '@/lib/store';
 import { trackCustomEvent } from '@/lib/analytics';
+import { useFavorites } from '@/lib/favorites';
 import ServiceQuotationModal from '@/components/service/ServiceQuotationModal';
 import {
   ArrowLeft, MapPin, BadgeCheck, Package, FileText,
   Plus, Minus, Download, ChevronLeft, ChevronRight,
   Clock, Globe, Instagram, Facebook, Star, X, CheckCircle2, Share2,
-  PauseCircle
+  PauseCircle,
+  Heart
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -153,6 +155,7 @@ function AvailabilityCalendar({ availability, blockedDates, advanceBooking, cust
 export default function ServiceDetailPage() {
   const { slug } = useParams();
   const router = useRouter();
+  const { isServiceFav, toggleService } = useFavorites();
   const { user, token } = useAuthStore();
 
   const [svc, setSvc] = useState(null);
@@ -596,11 +599,37 @@ export default function ServiceDetailPage() {
               {/* Info Card */}
               <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
                 <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
-                  <h1 className="font-serif text-2xl font-bold text-gray-900">{svc.title}</h1>
-                  <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold"
-                    style={{ backgroundColor: cat?.bg || '#f3f4f6', color: cat?.iconColor || '#374151' }}>
-                    <Icon className="w-3.5 h-3.5" />{cat?.label || svc.category}
-                  </span>
+                  <div>
+                    <h1 className="font-serif text-2xl font-bold text-gray-900">{svc.title}</h1>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold"
+                      style={{ backgroundColor: cat?.bg || '#f3f4f6', color: cat?.iconColor || '#374151' }}>
+                      <Icon className="w-3.5 h-3.5" />{cat?.label || svc.category}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleShareService}
+                      className="p-2 rounded-full border border-gray-200 text-gray-600 hover:text-primary-600 hover:border-primary-400 bg-white transition-all active:scale-95"
+                      title="Share service"
+                      aria-label="Share service"
+                    >
+                      <Share2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleService(svc)}
+                      className={`p-2 rounded-full border transition-all active:scale-95 ${
+                        isServiceFav(svc._id) || isServiceFav(svc.slug)
+                          ? 'border-red-200 bg-red-50 text-red-500'
+                          : 'border-gray-200 bg-white text-gray-600 hover:text-red-500 hover:border-red-300'
+                      }`}
+                      title="Favorite service"
+                      aria-label="Favorite service"
+                    >
+                      <Heart className={`w-4 h-4 ${isServiceFav(svc._id) || isServiceFav(svc.slug) ? 'fill-current' : ''}`} />
+                    </button>
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-4 text-sm text-gray-500 mb-4">
                   <span className="flex items-center gap-1"><MapPin className="w-4 h-4 text-primary-500" />{[svc.city, svc.state].filter(Boolean).join(', ') || '—'}</span>
@@ -856,14 +885,29 @@ export default function ServiceDetailPage() {
                   </button>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleShareService}
-                  className="w-full rounded-xl border border-primary-500 bg-white text-primary-600 py-2.5 text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary-50 transition-colors"
-                >
-                  <Share2 className="w-4 h-4" />
-                  Share Service
-                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleService(svc)}
+                    className={`rounded-xl border py-2.5 text-sm font-semibold flex items-center justify-center gap-1.5 transition-all active:scale-95 ${
+                      isServiceFav(svc._id) || isServiceFav(svc.slug)
+                        ? 'bg-red-50 border-red-300 text-red-600'
+                        : 'border-gray-300 bg-white text-gray-700 hover:text-red-500 hover:border-red-300'
+                    }`}
+                  >
+                    <Heart className={`w-4 h-4 ${isServiceFav(svc._id) || isServiceFav(svc.slug) ? 'fill-current text-red-500' : ''}`} />
+                    {isServiceFav(svc._id) || isServiceFav(svc.slug) ? 'Saved' : 'Save'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleShareService}
+                    className="rounded-xl border border-primary-500 bg-white text-primary-600 py-2.5 text-sm font-semibold flex items-center justify-center gap-1.5 hover:bg-primary-50 transition-colors active:scale-95"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    Share
+                  </button>
+                </div>
 
                 {visibleCoupons.length > 0 && (
                   <div className="rounded-2xl border border-green-300 bg-green-50 p-3">

@@ -15,6 +15,7 @@ import { useAuthStore } from '@/lib/store';
 import { uploadToStorage, compressImage, fileToBase64 } from '@/lib/storage';
 import Navbar from '@/components/Navbar';
 import toast from 'react-hot-toast';
+import { DEFAULT_VENUE_CATEGORIES } from '@/lib/venueCategories';
 
 // ── 12 Specific Categories ──────────────────────────────────────────────────
 const VENUE_CATEGORIES = [
@@ -72,7 +73,16 @@ const PHOTO_SLOTS = [
 ];
 
 function RegisterInner() {
-  const router = useRouter();
+  const [apiVenueCategories, setApiVenueCategories] = useState([]);
+
+  useEffect(() => {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/venue-types`)
+      .then(r => r.json())
+      .then(d => { if (d.success && Array.isArray(d.venueTypes)) setApiVenueCategories(d.venueTypes.map(vt => vt.name)); })
+      .catch(e => console.error('Error fetching venue types:', e));
+  }, []);
+
+    const router = useRouter();
   const searchParams = useSearchParams();
   const { user, token, setAuth } = useAuthStore();
 
@@ -150,6 +160,12 @@ function RegisterInner() {
     },
     photos: []
   });
+
+  const availableCategories = Array.from(new Set([
+    ...DEFAULT_VENUE_CATEGORIES,
+    ...apiVenueCategories,
+    ...(venueData?.categories || [])
+  ]));
 
   const [uploadingCategory, setUploadingCategory] = useState(null);
   const [detectingLocation, setDetectingLocation] = useState(false);
@@ -315,7 +331,7 @@ function RegisterInner() {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/send-phone-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: formData.name, phone: cleanPhone })
+        body: JSON.stringify({ name: formData.name, phone: cleanPhone, role: formData.role || 'owner' })
       });
       const data = await res.json();
       if (data.success) {
@@ -1287,7 +1303,7 @@ function RegisterInner() {
                         </span>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
-                        {VENUE_CATEGORIES.map((cat) => {
+                        {availableCategories.map((cat) => {
                           const isSelected = venueData.categories.includes(cat);
                           return (
                             <button

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
@@ -8,6 +8,7 @@ import { uploadToStorage } from '@/lib/storage';
 import AdminLayout from '@/components/admin/AdminLayout';
 import PermissionGuard from '@/components/admin/PermissionGuard';
 import toast from 'react-hot-toast';
+import { DEFAULT_VENUE_CATEGORIES } from '@/lib/venueCategories';
 import { State, City } from 'country-state-city';
 import {
   Building2,
@@ -122,7 +123,13 @@ const PHOTO_SLOTS = [
 ];
 
 export default function AdminAddVenuePage() {
-  const router = useRouter();
+  const [apiVenueCategories, setApiVenueCategories] = useState([]);
+
+  useEffect(() => {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/venue-types`)      .then(r => r.json())      .then(d => { if (d.success && Array.isArray(d.venueTypes)) setApiVenueCategories(d.venueTypes.map(vt => vt.name)); })      .catch(e => console.error('Error fetching venue types:', e));
+  }, []);
+
+    const router = useRouter();
   const { user, token } = useAuthStore();
 
   // ── Form State ─────────────────────────────────────────────────────────────
@@ -214,6 +221,12 @@ export default function AdminAddVenuePage() {
     // Terms
     adminCertified: true
   });
+
+  const availableCategories = Array.from(new Set([
+    ...DEFAULT_VENUE_CATEGORIES,
+    ...apiVenueCategories,
+    ...(formData?.categories || formData?.venueType || [])
+  ]));
 
   // UI helpers
   const [submitting, setSubmitting] = useState(false);
@@ -1078,7 +1091,7 @@ export default function AdminAddVenuePage() {
                   Venue Categories (Multi-select) <span className="text-red-500">*</span>
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
-                  {VENUE_CATEGORIES.map((cat) => {
+                  {availableCategories.map((cat) => {
                     const isSelected = formData.categories.includes(cat);
                     return (
                       <button

@@ -29,6 +29,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { uploadToStorage, uploadDocument } from '@/lib/storage';
+import { DEFAULT_VENUE_CATEGORIES } from '@/lib/venueCategories';
 
 // ── 12 Specific Categories ──────────────────────────────────────
 const VENUE_CATEGORIES = [
@@ -353,7 +354,25 @@ export default function OwnerVenueEditModal({
       setLoadingTerms(false);
     }
   };
+  const [apiVenueCategories, setApiVenueCategories] = useState([]);
 
+  useEffect(() => {
+    fetchVenueTypes();
+  }, []);
+
+  const fetchVenueTypes = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venue-types`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.venueTypes)) {
+        setApiVenueCategories(data.venueTypes.map(vt => vt.name));
+      }
+    } catch (e) {
+      console.error('Error fetching venue types:', e);
+    }
+  };
+
+  
   // Comprehensive Form State
   const [formData, setFormData] = useState({
     businessName: '',
@@ -526,6 +545,12 @@ export default function OwnerVenueEditModal({
 
     termsAccepted: true
   });
+
+  const availableCategories = Array.from(new Set([
+    ...DEFAULT_VENUE_CATEGORIES,
+    ...apiVenueCategories,
+    ...(formData?.venueType || [])
+  ]));
 
   // State & City Lists
   const stateOptions = State.getStatesOfCountry('IN').map((s) => ({
@@ -871,8 +896,11 @@ export default function OwnerVenueEditModal({
       };
 
       if (isFinalSubmit) {
-        payload.status = 'pending';
+        payload.isFinalSubmit = true;
+        payload.isResubmit = true;
+        payload.status = 'resubmitted';
       }
+      payload.tabName = tabName;
 
       let res;
       if (currentVenueId) {
@@ -1026,12 +1054,26 @@ export default function OwnerVenueEditModal({
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-white/10 rounded-xl text-slate-300 hover:text-white transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {currentVenueId && (
+              <button
+                type="button"
+                onClick={() => handleSaveTab('Direct Resubmit', true)}
+                disabled={savingTab}
+                className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-green-600 hover:bg-green-700 text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
+                title="Save all changes and submit venue to Admin for review"
+              >
+                {savingTab ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                <span>Submit for Review</span>
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-white/10 rounded-xl text-slate-300 hover:text-white transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* ── 10 Tabs Horizontal Navigation ─────────────────────────────────── */}
@@ -1108,7 +1150,7 @@ export default function OwnerVenueEditModal({
                 </div>
                 <div className="p-3 bg-gray-50/80 dark:bg-slate-800/40 rounded-2xl border border-gray-200 dark:border-slate-700">
                   <div className="flex flex-wrap gap-2">
-                    {VENUE_CATEGORIES.map((cat) => {
+                    {availableCategories.map((cat) => {
                       const isSelected = formData.venueType.includes(cat);
                       return (
                         <button

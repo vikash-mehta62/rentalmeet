@@ -9,7 +9,7 @@ import Image from 'next/image';
 import {
   LayoutDashboard, Building2, Users, BookOpen, Settings,
   LogOut, Menu, X, IndianRupee, Shield, BarChart3, Bell, 
-  Grid3x3, MessageSquare, Image as ImageIcon, ChevronLeft, ChevronRight, Tag, FileText, HelpCircle, Briefcase, Package, Wallet, Home, Award, PlusCircle
+  Grid3x3, MessageSquare, Image as ImageIcon, ChevronLeft, ChevronRight, Tag, FileText, HelpCircle, Briefcase, Package, Wallet, Home, Award, PlusCircle, ClipboardList
 } from 'lucide-react';
 
 export default function AdminLayout({ children, title, subtitle }) {
@@ -46,6 +46,7 @@ export default function AdminLayout({ children, title, subtitle }) {
     { name: '+ Add New Venue', href: '/admin/venues/add', icon: PlusCircle, permission: 'addVenue', section: 'Venues' },
     { name: 'Venue Types', href: '/admin/venue-types', icon: Grid3x3, permission: 'venueTypes', section: 'Venues' },
     { name: 'Bookings', href: '/admin/bookings', icon: BookOpen, permission: 'bookings', section: 'Venues' },
+    { name: 'Offline Bookings', href: '/admin/offline-bookings', icon: ClipboardList, permission: 'bookings', section: 'Venues' },
     { name: 'Payments', href: '/admin/payments', icon: IndianRupee, permission: 'payments', section: 'Venues' },
     { name: 'Coupons', href: '/admin/coupons', icon: Tag, permission: 'coupons', section: 'Venues' },
     { name: 'Quotations', href: '/admin/quotation-downloads', icon: FileText, permission: 'quotations', section: 'Venues' },

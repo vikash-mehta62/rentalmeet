@@ -8,32 +8,20 @@ import {
   Building2, Monitor, Landmark, BedDouble, UtensilsCrossed,
   School, PartyPopper, GraduationCap, Leaf, Laptop, BookOpen,
   Home, Flower2, TreePine, Coffee, Projector, AlertCircle, Utensils, Car,
-  SlidersHorizontal, Calendar, Heart, ShieldCheck, Info, Check, CheckCircle2,
+  SlidersHorizontal, Calendar, Heart, Share2, ShieldCheck, Info, Check, CheckCircle2,
   Briefcase, Presentation, Sparkles, Wifi, ArrowRight, RotateCcw, Loader2
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import CityAutocomplete from '@/components/CityAutocomplete';
-import { getVenueStartingPrice } from '@/lib/venuePricing';
+import { getVenueStartingPrice, isVenueVerified, calculateProfileCompletion } from '@/lib/venuePricing';
+import { DEFAULT_CATEGORY_ITEMS, formatVenueCategoryItems } from '@/lib/venueCategories';
+import { useFavorites, toggleVenueFavorite } from '@/lib/favorites';
+import { shareItem } from '@/lib/share';
 
 const LIMIT = 32;
 const DEBOUNCE_MS = 350;
 
-// ── 12 Specific Categories with matching Replit color palettes ──────────────
-const CATEGORY_ITEMS = [
-  { id: 'Meeting Hall', label: 'Meeting Hall', icon: Briefcase, bg: '#E3F2FD', iconColor: '#1565C0', border: '#90CAF9' },
-  { id: 'Conference Hall', label: 'Conference Hall', icon: Presentation, bg: '#F3E5F5', iconColor: '#6A1B9A', border: '#CE93D8' },
-  { id: 'Auditorium', label: 'Auditoriums', icon: Landmark, bg: '#FFEBEE', iconColor: '#B71C1C', border: '#EF9A9A' },
-  { id: 'Banquet Hall', label: 'Banquet Hall', icon: PartyPopper, bg: '#FFF3E0', iconColor: '#E65100', border: '#FFB74D' },
-  { id: 'Farm House', label: 'Farm House', icon: TreePine, bg: '#E8F5E9', iconColor: '#2E7D32', border: '#A5D6A7' },
-  { id: 'Hotel', label: 'Hotel', icon: BedDouble, bg: '#FFFDE7', iconColor: '#F57F17', border: '#FFF176' },
-  { id: 'Restaurant', label: 'Restaurant', icon: Utensils, bg: '#FFF3E0', iconColor: '#E65100', border: '#FFCC80' },
-  { id: 'Co-Work Space', label: 'Co-Work Space', icon: Laptop, bg: '#E0F7FA', iconColor: '#00695C', border: '#80DEEA' },
-  { id: 'Guest House', label: 'Guest House', icon: Home, bg: '#FCE4EC', iconColor: '#C2185B', border: '#F48FB1' },
-  { id: 'Training Center', label: 'Training Center', icon: BookOpen, bg: '#E8EAF6', iconColor: '#283593', border: '#9FA8DA' },
-  { id: 'Marriage Garden', label: 'Marriage Garden', icon: Flower2, bg: '#F1F8E9', iconColor: '#558B2F', border: '#C5E1A5' },
-  { id: 'Play Zone', label: 'Play Zones', icon: Sparkles, bg: '#EDE7F6', iconColor: '#4527A0', border: '#B39DDB' },
-];
 
 const FOOD_TYPE_OPTIONS = [
   { label: 'All Food Types', value: '' },
@@ -52,32 +40,7 @@ function getFoodTypeIcon(foodType) {
   return Utensils;
 }
 
-function isVenueVerified(venue) {
-  if (!venue) return false;
-  if (venue.isVerified === true) return true;
-  if (typeof venue.profileCompletion === 'number' && venue.profileCompletion >= 70) return true;
-  if (venue.documents?.verified === true) return true;
 
-  let score = 0;
-  if (venue.businessName) score += 5;
-  if (venue.venueType && venue.venueType.length > 0) score += 5;
-  if (venue.capacity) score += 5;
-  if (venue.foodType) score += 5;
-  if (venue.location?.address) score += 5;
-  if (venue.location?.city) score += 5;
-  if (venue.location?.pincode && venue.location.pincode !== '000000') score += 5;
-  if (venue.pricing && (getVenueStartingPrice(venue).amount > 0)) score += 15;
-  const imgCount = venue.images?.length || 0;
-  if (imgCount >= 1) score += 5;
-  if (imgCount >= 3) score += 5;
-  if (imgCount >= 5) score += 5;
-  if (venue.bankDetails?.accountNumber || venue.bankDetails?.ifscCode) score += 10;
-  if (venue.documents?.idProof?.number || venue.documents?.idProof?.frontUrl || venue.documents?.businessProof?.documentUrl) score += 10;
-  if (venue.description && venue.description.length > 40) score += 5;
-  if (venue.amenities?.basic?.some(a => a.available) || venue.additionalFacilities?.length > 0) score += 5;
-
-  return score >= 70;
-}
 
 // ── Card Skeleton ──────────────────────────────────────────────────────────
 function VenueCardSkeleton() {
@@ -151,7 +114,7 @@ function VenueCard({ venue, isFavorite, onToggleFavorite }) {
             {venue.venueType?.[0] || 'Company-Serviced'}
           </span>
           {verified ? (
-            <span className="flex items-center gap-1 border-none bg-blue-600 px-2 py-0.5 rounded-md text-[10px] font-bold text-white shadow-xs">
+            <span className="flex items-center gap-1 border-none bg-emerald-600 px-2 py-0.5 rounded-md text-[10px] font-bold text-white shadow-xs">
               <ShieldCheck className="h-3 w-3" />
               Verified
             </span>
@@ -163,23 +126,45 @@ function VenueCard({ venue, isFavorite, onToggleFavorite }) {
           )}
         </div>
 
-        {/* Top-Right Favorite Button */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onToggleFavorite(venue._id || venue.sku);
-          }}
-          className={`absolute right-3 top-3 z-10 h-8 w-8 rounded-full shadow-md flex items-center justify-center transition-colors cursor-pointer ${
-            isFavorite
-              ? 'bg-red-50 text-red-500'
-              : 'bg-white/85 dark:bg-slate-900/85 text-slate-600 dark:text-slate-300 hover:text-red-500 backdrop-blur-xs'
-          }`}
-          aria-label="Toggle Favorite"
-        >
-          <Heart className={`h-4 w-4 ${isFavorite ? 'fill-current' : ''}`} />
-        </button>
+        {/* Top-Right Action Buttons: Share & Favorite */}
+        <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const url = typeof window !== 'undefined' ? `${window.location.origin}/venues/${venue.sku || venue._id}` : '';
+              shareItem({
+                title: venue.businessName,
+                text: `Check out ${venue.businessName} on RentalMeet!`,
+                url
+              });
+            }}
+            className="h-8 w-8 rounded-full shadow-md flex items-center justify-center transition-all active:scale-95 cursor-pointer bg-white/85 dark:bg-slate-900/85 text-slate-600 dark:text-slate-300 hover:text-primary-600 backdrop-blur-xs"
+            aria-label="Share Venue"
+            title="Share Venue"
+          >
+            <Share2 className="h-3.5 w-3.5" />
+          </button>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onToggleFavorite(venue);
+            }}
+            className={`h-8 w-8 rounded-full shadow-md flex items-center justify-center transition-all active:scale-95 cursor-pointer ${
+              isFavorite
+                ? 'bg-red-50 text-red-500'
+                : 'bg-white/85 dark:bg-slate-900/85 text-slate-600 dark:text-slate-300 hover:text-red-500 backdrop-blur-xs'
+            }`}
+            aria-label="Toggle Favorite"
+            title="Toggle Favorite"
+          >
+            <Heart className={`h-4 w-4 ${isFavorite ? 'fill-current' : ''}`} />
+          </button>
+        </div>
       </div>
 
       {/* 4-Thumbnail Strip */}
@@ -264,27 +249,40 @@ function VenueCard({ venue, isFavorite, onToggleFavorite }) {
         {/* Bottom Price & Action Row */}
         <div className="mt-auto pt-3 border-t border-slate-100 dark:border-slate-800">
           <div className="mb-3">
-            <div className="flex items-baseline gap-2">
-              <span className="text-xl font-extrabold text-slate-900 dark:text-white">
-                {currentPrice > 0 ? startingPrice.formatted : '₹1,000'}
-              </span>
-              {currentPrice > 0 && (
-                <span className="text-xs text-slate-400 font-medium">
-                  /{startingPrice.label ? startingPrice.label : 'hr'}
-                </span>
-              )}
-              {crossedPrice > 0 && (
-                <span className="text-xs text-slate-400 line-through">
-                  ₹{crossedPrice.toLocaleString('en-IN')}
-                </span>
-              )}
-              <span className="text-[11px] font-bold text-orange-600 bg-orange-50 dark:bg-orange-950/40 px-1.5 py-0.5 rounded">
-                20% off
-              </span>
-            </div>
-            <div className="text-[10px] text-slate-400 mt-0.5">
-              + ₹122 taxes &amp; fees • Free cancellation
-            </div>
+            {currentPrice > 0 ? (
+              <>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xl font-extrabold text-slate-900 dark:text-white">
+                    {startingPrice.formatted}
+                  </span>
+                  <span className="text-xs text-slate-400 font-medium">
+                    /{startingPrice.label ? startingPrice.label.replace(/^\//, '') : 'hr'}
+                  </span>
+                  {crossedPrice > 0 && (
+                    <span className="text-xs text-slate-400 line-through">
+                      ₹{crossedPrice.toLocaleString('en-IN')}
+                    </span>
+                  )}
+                  <span className="text-[11px] font-bold text-orange-600 bg-orange-50 dark:bg-orange-950/40 px-1.5 py-0.5 rounded">
+                    20% off
+                  </span>
+                </div>
+                <div className="text-[10px] text-slate-400 mt-0.5">
+                  + ₹122 taxes &amp; fees • Free cancellation
+                </div>
+              </>
+            ) : (
+              <div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-base font-extrabold text-slate-800 dark:text-slate-200">
+                    Price on Request
+                  </span>
+                </div>
+                <div className="text-[10px] font-medium text-amber-600 dark:text-amber-400 mt-0.5">
+                  Pricing details pending from venue
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex gap-2">
@@ -313,15 +311,33 @@ function BrowseVenuesContent() {
 
   const [venues, setVenues] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoaded, setInitialLoaded] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
   const [hasMore, setHasMore] = useState(true);
   const [totalVenues, setTotalVenues] = useState(0);
+  const [venueTypes, setVenueTypes] = useState([]);
   const pageRef = useRef(1);
 
+  useEffect(() => {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/venue-types`)
+      .then(r => r.json())
+      .then(d => { if (d.success && Array.isArray(d.venueTypes)) setVenueTypes(d.venueTypes); })
+      .catch(e => console.error('Error fetching venue types:', e));
+  }, []);
+
+  const categoryItems = venueTypes.length > 0 ? formatVenueCategoryItems(venueTypes) : DEFAULT_CATEGORY_ITEMS;
+  const isInitialLoading = !initialLoaded || (loading && venues.length === 0);
+
   // Search & Filter State
-  const [searchInput, setSearchInput] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchInput, setSearchInput] = useState(() => {
+    const s = searchParams.get('search') || searchParams.get('q') || searchParams.get('query') || '';
+    return s.trim();
+  });
+  const [searchTerm, setSearchTerm] = useState(() => {
+    const s = searchParams.get('search') || searchParams.get('q') || searchParams.get('query') || '';
+    return s.trim();
+  });
   const [cityInput, setCityInput] = useState(() => {
     const loc = searchParams.get('location') || searchParams.get('city');
     return loc ? loc.trim() : '';
@@ -342,37 +358,22 @@ function BrowseVenuesContent() {
   const [capacityRange, setCapacityRange] = useState([10, 1000]);
   const [priceRange, setPriceRange] = useState(25000);
 
-  // Favorites state
-  const [favorites, setFavorites] = useState([]);
+  // Global Favorites state & hook
+  const { isVenueFav, toggleVenue } = useFavorites();
 
+  // Sync debounced search (skip if value is already identical)
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('favoriteVenues') || localStorage.getItem('favoriteSpaces');
-      if (saved) setFavorites(JSON.parse(saved));
-    } catch {}
-  }, []);
-
-  const toggleFavorite = (id) => {
-    setFavorites((prev) => {
-      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
-      try {
-        localStorage.setItem('favoriteVenues', JSON.stringify(next));
-      } catch {}
-      return next;
-    });
-  };
-
-  // Sync debounced search
-  useEffect(() => {
+    if (searchInput === searchTerm) return;
     const t = setTimeout(() => setSearchTerm(searchInput), DEBOUNCE_MS);
     return () => clearTimeout(t);
-  }, [searchInput]);
+  }, [searchInput, searchTerm]);
 
-  // Sync debounced city
+  // Sync debounced city (skip if value is already identical)
   useEffect(() => {
+    if (cityInput === cityFilter) return;
     const t = setTimeout(() => setCityFilter(cityInput), DEBOUNCE_MS);
     return () => clearTimeout(t);
-  }, [cityInput]);
+  }, [cityInput, cityFilter]);
 
   // Sync filters from URL parameters if navigated via link
   const didInitRef = useRef(false);
@@ -381,15 +382,25 @@ function BrowseVenuesContent() {
       didInitRef.current = true;
       return;
     }
+    const q = searchParams.get('search') || searchParams.get('q') || searchParams.get('query');
     const loc = searchParams.get('location') || searchParams.get('city');
     const vt = searchParams.get('venueType') || searchParams.get('type') || searchParams.get('category');
     const ft = searchParams.get('foodType');
+    const cap = searchParams.get('capacity') || searchParams.get('persons');
+    const d = searchParams.get('date');
+
+    if (q !== null) {
+      setSearchInput(q.trim());
+      setSearchTerm(q.trim());
+    }
     if (loc !== null) {
       setCityInput(loc.trim());
       setCityFilter(loc.trim());
     }
-    if (vt) setSelectedCategory(vt);
-    if (ft) setFoodTypeFilter(ft);
+    if (vt !== null) setSelectedCategory(vt);
+    if (ft !== null) setFoodTypeFilter(ft);
+    if (cap !== null) setPersonsFilter(cap);
+    if (d !== null) setDateFilter(d);
   }, [searchParams]);
 
   const sentinelRef = useRef(null);
@@ -420,31 +431,48 @@ function BrowseVenuesContent() {
       if (priceRange && priceRange < 25000) params.set('maxPrice', priceRange);
       if (personsFilter) params.set('capacity', personsFilter);
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues?${params}`, { signal: controller.signal });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues?${params}`, { signal: controller.signal, cache: 'no-store' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
       if (data.success) {
-        const newVenues = data.venues || [];
-        setVenues((prev) => (reset ? newVenues : [...prev, ...newVenues]));
+        const incoming = data.venues || [];
+        // Sort verified venues strictly first, then highest profile score
+        const sorted = [...incoming].sort((a, b) => {
+          const aVer = isVenueVerified(a) ? 1 : 0;
+          const bVer = isVenueVerified(b) ? 1 : 0;
+          if (bVer !== aVer) return bVer - aVer;
+          const aScore = typeof a.profileCompletion === 'number' ? a.profileCompletion : calculateProfileCompletion(a);
+          const bScore = typeof b.profileCompletion === 'number' ? b.profileCompletion : calculateProfileCompletion(b);
+          return bScore - aScore;
+        });
+
+        setVenues((prev) => {
+          if (reset) return sorted;
+          const existingIds = new Set(prev.map((v) => String(v._id || v.sku)));
+          const uniqueNew = sorted.filter((v) => !existingIds.has(String(v._id || v.sku)));
+          return [...prev, ...uniqueNew];
+        });
         const tot = data.totalVenues || data.total || 0;
         setTotalVenues(tot);
         const totalPgs = data.totalPages || data.pages || Math.ceil(tot / LIMIT);
         setHasMore(pageNum < totalPgs);
         pageRef.current = pageNum;
+        setInitialLoaded(true);
       }
     } catch (err) {
       if (err.name !== 'AbortError') setError('Failed to load venues. Please try again.');
     } finally {
-      isFetchingRef.current = false;
-      setLoading(false);
-      setLoadingMore(false);
+      if (!controller.signal.aborted) {
+        isFetchingRef.current = false;
+        setLoading(false);
+        setLoadingMore(false);
+      }
     }
   }, [searchTerm, cityFilter, selectedCategory, foodTypeFilter, priceRange, personsFilter]);
 
   useEffect(() => {
     pageRef.current = 1;
-    setVenues([]);
     setHasMore(true);
     fetchVenues(1, true);
   }, [fetchVenues]);
@@ -454,13 +482,13 @@ function BrowseVenuesContent() {
     const el = sentinelRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting && hasMore && !loadingMore && !loading) {
+      if (entry.isIntersecting && hasMore && !loadingMore && !loading && venues.length > 0) {
         fetchVenues(pageRef.current + 1, false);
       }
     }, { rootMargin: '300px', threshold: 0 });
     observer.observe(el);
     return () => observer.disconnect();
-  }, [hasMore, loadingMore, loading, fetchVenues]);
+  }, [hasMore, loadingMore, loading, venues.length, fetchVenues]);
 
   const resetFilters = () => {
     setSearchInput('');
@@ -502,8 +530,8 @@ function BrowseVenuesContent() {
             <div
               className="grid gap-2.5"
               style={{
-                gridTemplateColumns: 'repeat(13, minmax(76px, 1fr))',
-                minWidth: '1040px'
+                gridTemplateColumns: `repeat(${categoryItems.length + 1}, minmax(76px, 1fr))`,
+                minWidth: `${(categoryItems.length + 1) * 82}px`
               }}
             >
               {/* All Venues Button */}
@@ -522,9 +550,8 @@ function BrowseVenuesContent() {
                 </span>
               </button>
 
-              {/* 12 Individual Categories */}
-              {CATEGORY_ITEMS.map((cat) => {
-                const IconComponent = cat.icon;
+              {categoryItems.map((cat) => {
+                const IconComponent = cat.icon || Building2;
                 const isSelected = selectedCategory === cat.id;
 
                 return (
@@ -600,7 +627,7 @@ function BrowseVenuesContent() {
                   className="w-full bg-transparent text-xs sm:text-sm text-slate-800 dark:text-slate-100 focus:outline-none cursor-pointer"
                 >
                   <option value="" className="dark:bg-slate-900">All Venue Types</option>
-                  {CATEGORY_ITEMS.map((cat) => (
+                  {categoryItems.map((cat) => (
                     <option key={cat.id} value={cat.id} className="dark:bg-slate-900">
                       {cat.label}
                     </option>
@@ -655,8 +682,8 @@ function BrowseVenuesContent() {
         {/* ── 3. LISTING HEADER & MORE FILTERS TRIGGER ───────────────────────── */}
         <section className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <p className="text-sm font-medium text-slate-600 dark:text-slate-400" data-testid="text-room-count">
-            {loading ? (
-              <span className="flex items-center gap-2">
+            {isInitialLoading ? (
+              <span className="flex items-center gap-2 text-slate-500">
                 <Loader2 className="h-4 w-4 animate-spin text-primary-500" />
                 Loading venues...
               </span>
@@ -711,7 +738,7 @@ function BrowseVenuesContent() {
         )}
 
         {/* ── 5. VENUES GRID (4 COLUMNS) ─────────────────────────────────────── */}
-        {loading ? (
+        {isInitialLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {[...Array(8)].map((_, i) => (
               <VenueCardSkeleton key={i} />
@@ -740,8 +767,8 @@ function BrowseVenuesContent() {
               <VenueCard
                 key={venue._id}
                 venue={venue}
-                isFavorite={favorites.includes(venue._id || venue.sku)}
-                onToggleFavorite={toggleFavorite}
+                isFavorite={isVenueFav(venue._id) || isVenueFav(venue.sku)}
+                onToggleFavorite={() => toggleVenue(venue)}
               />
             ))}
           </div>

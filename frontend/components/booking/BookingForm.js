@@ -361,10 +361,38 @@ export default function BookingForm({
       const pricingMeta = getVenuePricingMeta(venue, platformSettings, subtotal);
       const venueCGSTRate = pricingMeta.venueCGSTRate;
       const venueSGSTRate = pricingMeta.venueSGSTRate;
-      const venueCGST = roundMoney((subtotal * venueCGSTRate) / 100);
-      const venueSGST = roundMoney((subtotal * venueSGSTRate) / 100);
-      const gst = roundMoney(venueCGST + venueSGST);
       const gstRate = venueCGSTRate + venueSGSTRate;
+      const isTaxIncluded = pricingMeta.isTaxIncluded || venue?.taxSettings?.taxType === 'GST Included';
+      const isTaxNotApplicable = pricingMeta.isTaxNotApplicable || venue?.taxSettings?.taxType === 'GST Not Applicable';
+
+      let netSubtotal = subtotal;
+      let venueCGST = 0;
+      let venueSGST = 0;
+      let gst = 0;
+      let venuePayable = subtotal;
+
+      if (isTaxNotApplicable) {
+        netSubtotal = subtotal;
+        venueCGST = 0;
+        venueSGST = 0;
+        gst = 0;
+        venuePayable = subtotal;
+      } else if (isTaxIncluded) {
+        // GST Included in subtotal
+        netSubtotal = roundMoney(subtotal / (1 + (gstRate / 100)));
+        gst = roundMoney(subtotal - netSubtotal);
+        venueCGST = roundMoney(gst / 2);
+        venueSGST = roundMoney(gst - venueCGST);
+        venuePayable = subtotal; // No extra tax on venue portion
+      } else {
+        // GST Extra
+        netSubtotal = subtotal;
+        venueCGST = roundMoney((subtotal * venueCGSTRate) / 100);
+        venueSGST = roundMoney((subtotal * venueSGSTRate) / 100);
+        gst = roundMoney(venueCGST + venueSGST);
+        venuePayable = roundMoney(subtotal + gst);
+      }
+
       const platformFee = calculatePlatformFee(
         subtotal,
         pricingMeta.platformFeeType,
@@ -379,7 +407,7 @@ export default function BookingForm({
       const platformFeeGST = roundMoney(platformFeeCGST + platformFeeSGST);
       const platformFeeTotal = roundMoney(platformFee + platformFeeGST);
 
-      const rawTotal = subtotal + gst + platformFeeTotal;
+      const rawTotal = venuePayable + platformFeeTotal;
       const total = roundMoney(rawTotal);
 
       setCalculatedPrice({
@@ -388,6 +416,11 @@ export default function BookingForm({
         parkingCharges,
         subtotal,
         durationHours: Math.max(1, parseInt(formData.duration) || 1),
+        netSubtotal,
+        taxType: pricingMeta.taxType || (isTaxIncluded ? 'GST Included' : isTaxNotApplicable ? 'GST Not Applicable' : 'GST Extra'),
+        isTaxIncluded,
+        isTaxNotApplicable,
+        venuePayable,
         // Venue GST
         venueCGST,
         venueCGSTRate,
@@ -1045,21 +1078,27 @@ export default function BookingForm({
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                 {[
-                  { key: 'withoutFood', label: 'Without Food' },
-                  { key: 'breakfast', label: 'Breakfast Included' },
-                  { key: 'lunch', label: 'Lunch Included' },
-                  { key: 'highTea', label: 'High Tea Included' },
-                  { key: 'dinner', label: 'Dinner Included' },
-                  { key: 'fullDayMeal', label: 'Full Day Meal Included' }
-                ].map(({ key, label }) => {
-                  const pkgConfig = venue.pricing?.perPax?.[key];
+                  { key: 'withoutFood', aliases: ['withoutFood'], label: 'Without Food' },
+                  { key: 'breakfastOnly', aliases: ['breakfastOnly', 'breakfast', 'onlyBreakfast'], label: 'Only Breakfast' },
+                  { key: 'breakfastLunch', aliases: ['breakfastLunch', 'highTea'], label: 'Breakfast + Lunch' },
+                  { key: 'lunchOnly', aliases: ['lunchOnly', 'lunch', 'onlyLunch'], label: 'Only Lunch' },
+                  { key: 'dinnerOnly', aliases: ['dinnerOnly', 'dinner', 'onlyDinner'], label: 'Only Dinner' },
+                  { key: 'allMeals', aliases: ['allMeals', 'fullDayMeal'], label: 'All Meals (B+L+D)' }
+                ].map(({ key, aliases, label }) => {
+                  let pkgConfig = null;
+                  for (const a of aliases) {
+                    if (venue.pricing?.perPax?.[a]) {
+                      pkgConfig = venue.pricing.perPax[a];
+                      break;
+                    }
+                  }
                   const rate = Number(pkgConfig?.rate || 0);
                   const minPax = Number(pkgConfig?.minPax || 1);
                   const hasAnyRates = Object.values(venue.pricing?.perPax || {}).some(p => Number(p?.rate) > 0);
                   if (rate <= 0 && key !== 'withoutFood' && hasAnyRates) {
                     return null;
                   }
-                  const isSelected = formData.perPaxPackage === key;
+                  const isSelected = aliases.includes(formData.perPaxPackage);
                   return (
                     <button
                       key={key}
@@ -1067,7 +1106,7 @@ export default function BookingForm({
                       onClick={() => setFormData(prev => ({ ...prev, perPaxPackage: key }))}
                       className={`p-3 rounded-xl border-2 text-left transition-all ${
                         isSelected
-                          ? 'border-primary-500 bg-white dark:bg-slate-900 shadow-sm'
+                          ? 'border-primary-500 bg-white dark:bg-slate-900 shadow-sm ring-2 ring-primary-500/20'
                           : 'border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/50 hover:border-primary-300'
                       }`}
                     >
@@ -1305,22 +1344,35 @@ export default function BookingForm({
                 </div>
               )}
               <div className="flex justify-between border-t pt-2">
-                <span>Subtotal:</span>
+                <span>{calculatedPrice.isTaxIncluded ? 'Subtotal (Incl. GST):' : 'Subtotal:'}</span>
                 <span className="font-semibold">₹{calculatedPrice.subtotal.toLocaleString()}</span>
               </div>
-              {calculatedPrice.gst > 0 && (
+              {calculatedPrice.gst > 0 && calculatedPrice.isTaxIncluded && (
+                <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs space-y-1">
+                  <div className="flex justify-between text-emerald-800 dark:text-emerald-300 font-semibold">
+                    <span>GST Included in Rent ({calculatedPrice.gstRate || (calculatedPrice.venueCGSTRate * 2)}%):</span>
+                    <span>₹{calculatedPrice.gst.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-[11px] text-gray-500 dark:text-slate-400">
+                    <span>Net Base: ₹{(calculatedPrice.netSubtotal || 0).toLocaleString()}</span>
+                    <span>CGST ({calculatedPrice.venueCGSTRate}%): ₹{(calculatedPrice.venueCGST || 0).toLocaleString()} | SGST ({calculatedPrice.venueSGSTRate}%): ₹{(calculatedPrice.venueSGST || 0).toLocaleString()}</span>
+                  </div>
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block italic">✓ No additional venue tax added</span>
+                </div>
+              )}
+              {calculatedPrice.gst > 0 && !calculatedPrice.isTaxIncluded && !calculatedPrice.isTaxNotApplicable && (
                 <>
                   <div className="flex justify-between text-xs text-gray-500">
                     <span>Venue CGST ({calculatedPrice.venueCGSTRate || 9}%):</span>
-                    <span>₹{(calculatedPrice.venueCGST || 0).toLocaleString()}</span>
+                    <span>+₹{(calculatedPrice.venueCGST || 0).toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-xs text-gray-500">
                     <span>Venue SGST ({calculatedPrice.venueSGSTRate || 9}%):</span>
-                    <span>₹{(calculatedPrice.venueSGST || 0).toLocaleString()}</span>
+                    <span>+₹{(calculatedPrice.venueSGST || 0).toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="font-medium">Venue GST Total:</span>
-                    <span className="font-semibold text-blue-600">₹{calculatedPrice.gst.toLocaleString()}</span>
+                    <span className="font-medium">Venue GST Total (Extra):</span>
+                    <span className="font-semibold text-blue-600">+₹{calculatedPrice.gst.toLocaleString()}</span>
                   </div>
                 </>
               )}

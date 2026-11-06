@@ -6,6 +6,14 @@ const Booking = require('../models/Booking');
 const { normalizeRefundAttempt } = require('../utils/refundHelper');
 const { sendBookingNotifications } = require('../utils/bookingNotificationHelper');
 const { logAudit, logStatusChange, extractClientIp } = require('../utils/auditLogger');
+
+const normalizeFoodType = (value) => {
+  const key = String(value || '').toLowerCase().replace(/[\s_-]+/g, '');
+  if (key === 'veg') return 'Veg';
+  if (key === 'nonveg') return 'Non Veg';
+  if (key === 'both') return 'Both';
+  return '';
+};
 const {
   createCoupon,
   getOwnerCoupons,
@@ -69,10 +77,20 @@ router.get('/venues', async (req, res) => {
     const venues = await Venue.find({ owner: req.user._id })
       .sort({ createdAt: -1 });
 
+    const venuesWithScore = venues.map(v => {
+      const vObj = v.toObject ? v.toObject() : { ...v };
+      const comp = Venue.calculateProfileCompletion ? Venue.calculateProfileCompletion(vObj) : null;
+      if (comp) {
+        vObj.profileCompletion = comp.profileCompletion;
+        vObj.isVerified = comp.isVerified;
+      }
+      return vObj;
+    });
+
     res.json({
       success: true,
-      count: venues.length,
-      venues
+      count: venuesWithScore.length,
+      venues: venuesWithScore
     });
   } catch (error) {
     console.error('Get venues error:', error);
@@ -100,9 +118,16 @@ router.get('/venues/:id', async (req, res) => {
       });
     }
 
+    const venueObj = venue.toObject ? venue.toObject() : { ...venue };
+    const comp = Venue.calculateProfileCompletion ? Venue.calculateProfileCompletion(venueObj) : null;
+    if (comp) {
+      venueObj.profileCompletion = comp.profileCompletion;
+      venueObj.isVerified = comp.isVerified;
+    }
+
     res.json({
       success: true,
-      venue
+      venue: venueObj
     });
   } catch (error) {
     console.error('Get venue error:', error);
@@ -117,6 +142,7 @@ router.get('/venues/:id', async (req, res) => {
 // @desc    Update venue (only if owned by user)
 // @access  Private (Owner)
 router.put('/venues/:id', async (req, res) => {
+  const clientIp = extractClientIp(req);
   try {
     let venue = await Venue.findOne({
       _id: req.params.id,
@@ -130,9 +156,15 @@ router.put('/venues/:id', async (req, res) => {
       });
     }
 
-    // Don't allow updating status
+    const previousStatus = venue.status;
+    const isFinalSubmit = Boolean(req.body.isFinalSubmit || req.body.isResubmit);
+    // Any final submit / resubmit by owner, or editing a rejected venue, moves it to 'resubmitted'
+    const shouldResubmit = isFinalSubmit || venue.status === 'rejected';
+
+    // Prevent arbitrary client status override
     delete req.body.status;
     delete req.body.owner;
+    delete req.body.sku; // SKU is permanent once created for SEO integrity
 
     // Encrypt bank account number only if it's a plain (unencrypted) value
     // Encrypted values start with 'U2FsdGVk' (base64 CryptoJS prefix)
@@ -142,22 +174,86 @@ router.put('/venues/:id', async (req, res) => {
       req.body.bankDetails.accountNumber = encrypt(req.body.bankDetails.accountNumber);
     }
 
-    venue = await Venue.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    );
+    if (req.body.foodType) {
+            req.body.foodType = normalizeFoodType(req.body.foodType) || req.body.foodType;
+    }
+
+    // Apply fields to mongoose document
+    venue.set(req.body);
+
+    if (!venue.statusHistory) venue.statusHistory = [];
+
+    if (shouldResubmit) {
+      venue.status = 'resubmitted';
+      venue.resubmittedAt = new Date();
+
+      venue.statusHistory.push({
+        action: 'VENUE_RESUBMITTED_BY_OWNER',
+        status: 'resubmitted',
+        isActive: venue.isActive,
+        reason: req.body.editReason || `Venue edited by owner from '${previousStatus}' status and re-submitted for Admin Review`,
+        changedBy: {
+          userId: req.user._id,
+          name: req.user.name,
+          email: req.user.email,
+          role: req.user.role
+        },
+        ipAddress: clientIp,
+        timestamp: new Date()
+      });
+
+      logStatusChange(req, {
+        category: 'VENUE',
+        action: 'VENUE_RESUBMITTED_BY_OWNER',
+        status: 'SUCCESS',
+        targetType: 'Venue',
+        targetId: venue._id,
+        targetName: venue.businessName,
+        previousState: { status: previousStatus },
+        newState: { status: 'resubmitted' },
+        reason: req.body.editReason || `Venue edited by owner from '${previousStatus}' status and re-submitted for Admin Review`
+      });
+    } else {
+      venue.statusHistory.push({
+        action: 'VENUE_UPDATED_BY_OWNER',
+        status: venue.status,
+        isActive: venue.isActive,
+        reason: req.body.editReason || `Venue details updated by owner${req.body.tabName ? ` (${req.body.tabName})` : ''}`,
+        changedBy: {
+          userId: req.user._id,
+          name: req.user.name,
+          email: req.user.email,
+          role: req.user.role
+        },
+        ipAddress: clientIp,
+        timestamp: new Date()
+      });
+
+      logStatusChange(req, {
+        category: 'VENUE',
+        action: 'VENUE_UPDATED_BY_OWNER',
+        status: 'SUCCESS',
+        targetType: 'Venue',
+        targetId: venue._id,
+        targetName: venue.businessName,
+        previousState: { status: previousStatus },
+        newState: { status: venue.status },
+        reason: req.body.editReason || `Venue details updated by owner${req.body.tabName ? ` (${req.body.tabName})` : ''}`
+      });
+    }
+
+    await venue.save();
 
     res.json({
       success: true,
-      message: 'Venue updated successfully',
+      message: shouldResubmit ? 'Venue re-submitted for Admin Review successfully' : 'Venue updated successfully',
       venue
     });
   } catch (error) {
     console.error('Update venue error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error updating venue'
+      message: error.message || 'Error updating venue'
     });
   }
 });
@@ -284,7 +380,7 @@ router.put('/venues/:id/resubmit', async (req, res) => {
   try {
     const venue = await Venue.findOne({ _id: req.params.id, owner: req.user._id });
     if (!venue) return res.status(404).json({ success: false, message: 'Venue not found' });
-    if (venue.status !== 'rejected') return res.status(400).json({ success: false, message: 'Only rejected venues can be re-submitted' });
+    if (venue.status === 'resubmitted') return res.status(400).json({ success: false, message: 'Venue is already awaiting admin review' });
     
     const previousState = { status: venue.status };
     venue.status = 'resubmitted';

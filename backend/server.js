@@ -49,6 +49,7 @@ const allowedOrigins = [
   'http://localhost:3002',
   'https://rentalmeet.com',
   'https://www.rentalmeet.com',
+  'https://responses-certified-maternity-reuters.trycloudflare.com',
   'https://subconsciously-unsuppressible-precious.ngrok-free.dev',
   process.env.FRONTEND_URL,
 ].filter(Boolean);
@@ -57,7 +58,16 @@ app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, curl, Postman)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
+    const cleanOrigin = origin.replace(/\/+$/, '');
+    if (
+      allowedOrigins.includes(cleanOrigin) ||
+      allowedOrigins.includes(origin) ||
+      cleanOrigin.endsWith('.trycloudflare.com') ||
+      cleanOrigin.endsWith('.ngrok-free.dev') ||
+      cleanOrigin.endsWith('.ngrok.io')
+    ) {
+      return callback(null, true);
+    }
     callback(new Error(`CORS: origin ${origin} not allowed`));
   },
   credentials: true,
@@ -205,8 +215,16 @@ app.get('/api/vendor-services/categories', async (req, res) => {
 app.get('/api/vendor-services', async (req, res) => {
   try {
     const VendorService = require('./models/VendorService');
-    const { category, city, search, limit = 20, page = 1, maxPrice } = req.query;
+    const { category, city, search, limit = 20, page = 1, maxPrice, ids } = req.query;
     const filter = { status: 'approved', isActive: true };
+    if (ids) {
+      const idList = String(ids).split(',').map(s => s.trim()).filter(Boolean);
+      const validMongoIds = idList.filter(id => id.match(/^[0-9a-fA-F]{24}$/));
+      filter.$or = [
+        { _id: { $in: validMongoIds } },
+        { slug: { $in: idList } }
+      ];
+    }
     if (category) filter.category = category;
     if (city) filter.city = { $regex: city, $options: 'i' };
     if (maxPrice) filter.startingPrice = { $lte: parseInt(maxPrice) };
@@ -798,6 +816,7 @@ app.put('/api/service-bookings/:id/cancel', require('./middleware/auth').protect
 });
 
 app.use('/api/bookings', require('./routes/bookings'));
+app.use('/api/offline-bookings', require('./routes/offlineBookings'));
 app.use('/api/upload', require('./routes/upload'));
 app.use('/api/payment', require('./routes/payment'));
 app.use('/api/terms', require('./routes/terms'));

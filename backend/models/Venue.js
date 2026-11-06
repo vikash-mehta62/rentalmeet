@@ -74,7 +74,8 @@ const venueSchema = new mongoose.Schema({
     type: String,
     unique: true,
     sparse: true, // Allow null temporarily, will be set by pre-save hook
-    index: true
+    index: true,
+    immutable: true // Permanent SKU: once created, it cannot be modified to avoid broken SEO links
   },
   
   // STEP 1: Basic Information
@@ -630,6 +631,7 @@ const venueSchema = new mongoose.Schema({
   rejectionReason: String,
   suspensionReason: String,
   statusReason: String,
+  resubmittedAt: Date,
   rejectionHistory: [{
     reason:      { type: String },
     rejectedAt:  { type: Date, default: Date.now },
@@ -720,15 +722,16 @@ const calculateVenueProfileCompletion = (venue = {}) => {
   if (venue.location?.pincode && venue.location.pincode !== '000000') score += 5;
 
   const p = venue.pricing || {};
-  const hasPricing = (
+  const hasPricing = Boolean(
     (p.perHour && (Number(p.perHour.weekday) > 0 || Number(p.perHour.weekend) > 0)) ||
     (p.halfDay && (Number(p.halfDay.weekday) > 0 || Number(p.halfDay.weekend) > 0)) ||
     (p.fullDay && (Number(p.fullDay.weekday) > 0 || Number(p.fullDay.weekend) > 0)) ||
     (p.onlyRent?.hourly?.rate > 0 || p.onlyRent?.halfDay?.rate > 0 || p.onlyRent?.fullDay?.rate > 0) ||
     (p.rentWithAmenities?.hourly?.rate > 0 || p.rentWithAmenities?.halfDay?.rate > 0 || p.rentWithAmenities?.fullDay?.rate > 0) ||
-    (p.perPax && Object.values(p.perPax).some(pkg => Number(pkg?.rate) > 0))
+    (p.perPax && Object.values(p.perPax).some(pkg => Number(pkg?.rate) > 0)) ||
+    (Number(venue.startingPrice) > 0)
   );
-  if (hasPricing) score += 15;
+  if (hasPricing) score += 25;
 
   const imgCount = venue.images?.length || 0;
   if (imgCount >= 1) score += 5;
@@ -736,17 +739,25 @@ const calculateVenueProfileCompletion = (venue = {}) => {
   if (imgCount >= 5) score += 5;
 
   if (venue.documents?.verified) {
-    score += 35;
+    score += 15;
+    if (venue.bankDetails?.accountNumber || venue.bankDetails?.ifscCode) score += 5;
+    if (venue.documents?.idProof?.number || venue.documents?.idProof?.frontUrl || venue.documents?.businessProof?.documentUrl) score += 5;
   } else {
-    if (venue.bankDetails?.accountNumber || venue.bankDetails?.ifscCode) score += 10;
+    if (venue.bankDetails?.accountNumber || venue.bankDetails?.ifscCode) score += 5;
     if (venue.documents?.idProof?.number || venue.documents?.idProof?.frontUrl || venue.documents?.businessProof?.documentUrl) score += 10;
     if (venue.description && venue.description.length > 40) score += 5;
     if (venue.amenities?.basic?.some(a => a.available) || venue.additionalFacilities?.length > 0) score += 5;
-    if (venue.cateringFacility?.available || venue.socialLinks?.website || venue.socialLinks?.instagram) score += 5;
   }
 
-  const profileCompletion = Math.min(100, Math.max(0, score));
-  const isVerified = Boolean(profileCompletion >= 70 || venue.documents?.verified);
+  let profileCompletion = Math.min(100, Math.max(0, score));
+
+  // Strict Rule: If pricing is NOT configured, profile completion cannot exceed 65% so it can NEVER reach 70%
+  if (!hasPricing) {
+    profileCompletion = Math.min(65, profileCompletion);
+  }
+
+  // Strict Rule: Verified is strictly dependent on profile completion score >= 70 AND pricing configured. No bypass fallback!
+  const isVerified = Boolean(hasPricing && profileCompletion >= 70);
 
   return { profileCompletion, isVerified };
 };
@@ -754,9 +765,9 @@ const calculateVenueProfileCompletion = (venue = {}) => {
 venueSchema.statics.calculateProfileCompletion = calculateVenueProfileCompletion;
 
 venueSchema.pre('save', async function (next) {
-  // Generate SKU if new or name/city changed
-  if (this.isNew || this.isModified('businessName') || this.isModified('location.city')) {
-    const baseSKU = generateSKU(this.businessName, this.location.city);
+  // Generate SKU ONLY if new or SKU does not exist (SKU is permanently fixed to protect SEO and URL indexing)
+  if (!this.sku) {
+    const baseSKU = generateSKU(this.businessName, this.location?.city || '');
     this.sku = await ensureUniqueSKU(baseSKU);
   }
 
@@ -802,11 +813,53 @@ venueSchema.pre('findOneAndUpdate', async function (next) {
   next();
 });
 
-// Indexes for better performance
+// High-Performance Indexes for 20k - 50k Venues Scalability
 venueSchema.index({ owner: 1 });
 venueSchema.index({ status: 1 });
 venueSchema.index({ 'location.city': 1 });
 venueSchema.index({ venueType: 1 });
 venueSchema.index({ foodType: 1 });
+
+// 1. Primary Public Browse Index (Verified First -> Profile Score -> Newest)
+venueSchema.index(
+  { status: 1, isActive: 1, isVerified: -1, profileCompletion: -1, createdAt: -1 },
+  { name: 'idx_venues_browse_verified_first' }
+);
+
+// 2. City Filter Browse Index
+venueSchema.index(
+  { 'location.city': 1, status: 1, isActive: 1, isVerified: -1, profileCompletion: -1 },
+  { name: 'idx_venues_city_browse' }
+);
+
+// 3. Category / VenueType Browse Index
+venueSchema.index(
+  { venueType: 1, status: 1, isActive: 1, isVerified: -1, profileCompletion: -1 },
+  { name: 'idx_venues_type_browse' }
+);
+
+// 4. City + Category Combined Index
+venueSchema.index(
+  { 'location.city': 1, venueType: 1, status: 1, isActive: 1, isVerified: -1 },
+  { name: 'idx_venues_city_type_browse' }
+);
+
+// 5. Owner Venues Dashboard Index
+venueSchema.index(
+  { owner: 1, status: 1, createdAt: -1 },
+  { name: 'idx_venues_owner_status_created' }
+);
+
+// 6. Food Type Filter Index
+venueSchema.index(
+  { foodType: 1, status: 1, isActive: 1, isVerified: -1 },
+  { name: 'idx_venues_food_browse' }
+);
+
+// 7. Text Search Index for Fast Multi-term Keyword Search
+venueSchema.index(
+  { businessName: 'text', 'location.city': 'text', 'location.area': 'text' },
+  { weights: { businessName: 10, 'location.city': 5, 'location.area': 3 }, name: 'idx_venues_text_search' }
+);
 
 module.exports = mongoose.model('Venue', venueSchema);

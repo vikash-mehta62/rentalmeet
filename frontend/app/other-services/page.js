@@ -5,9 +5,11 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { serviceCategories, categoryIconMap } from '@/data/serviceData';
+import { useFavorites } from '@/lib/favorites';
+import { shareItem } from '@/lib/share';
 import {
   Filter, X, Search, MapPin,
-  Package, User, BadgeCheck, AlertCircle
+  Package, User, BadgeCheck, AlertCircle, Heart, Share2
 } from 'lucide-react';
 
 const BUDGET_MIN = 0;
@@ -42,6 +44,7 @@ function ServiceCardSkeleton() {
 // â”€â”€ Vendor Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function VendorCard({ svc }) {
   const router = useRouter();
+  const { isServiceFav, toggleService } = useFavorites();
   const cat = categoryIconMap[svc.category];
   const Icon = cat?.icon ?? Package;
   const serviceImages = [svc.featuredImage, ...(svc.images || [])].filter(Boolean);
@@ -69,6 +72,46 @@ function VendorCard({ svc }) {
               <span className="bg-white/95 text-gray-700 text-[10px] font-semibold px-2 py-1 rounded-full flex items-center gap-1 shadow-sm">
                 <Icon className="w-3 h-3" />{cat?.label || svc.category}
               </span>
+            </div>
+
+            {/* Top-Right Favorite & Share Buttons */}
+            <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const url = typeof window !== 'undefined' ? `${window.location.origin}/other-services/${svc.slug || svc._id}` : '';
+                  shareItem({
+                    title: svc.title,
+                    text: `Check out ${svc.title} on RentalMeet!`,
+                    url
+                  });
+                }}
+                className="w-7 h-7 rounded-full bg-white/95 text-slate-600 hover:text-primary-600 shadow-md flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+                aria-label="Share service"
+                title="Share service"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggleService(svc);
+                }}
+                className={`w-7 h-7 rounded-full shadow-md flex items-center justify-center transition-all active:scale-95 cursor-pointer ${
+                  isServiceFav(svc._id) || isServiceFav(svc.slug)
+                    ? 'bg-red-50 text-red-500'
+                    : 'bg-white/95 text-slate-600 hover:text-red-500'
+                }`}
+                aria-label="Toggle favorite"
+                title="Toggle favorite"
+              >
+                <Heart className={`w-3.5 h-3.5 ${isServiceFav(svc._id) || isServiceFav(svc.slug) ? 'fill-current' : ''}`} />
+              </button>
             </div>
           </div>
 

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { uploadToStorage, deleteFromStorage, uploadDocument } from '@/lib/storage';
+import { DEFAULT_VENUE_CATEGORIES } from '@/lib/venueCategories';
 
 // ── 12 Specific Categories ──────────────────────────────────────
 const VENUE_CATEGORIES = [
@@ -315,6 +316,16 @@ export default function AdminVenueQuickEditModal({
   onClose,
   onSaveSuccess
 }) {
+  const [apiVenueCategories, setApiVenueCategories] = useState([]);
+
+  useEffect(() => {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/venue-types`)
+      .then(r => r.json())
+      .then(d => { if (d.success && Array.isArray(d.venueTypes)) setApiVenueCategories(d.venueTypes.map(vt => vt.name)); })
+      .catch(e => console.error('Error fetching venue types:', e));
+  }, []);
+
+  
   const [activeTab, setActiveTab] = useState('basic');
   const [saving, setSaving] = useState(false);
 
@@ -633,6 +644,12 @@ export default function AdminVenueQuickEditModal({
       hsnCode: venue?.customGST?.hsnCode || '9973'
     }
   });
+
+  const availableCategories = Array.from(new Set([
+    ...DEFAULT_VENUE_CATEGORIES,
+    ...apiVenueCategories,
+    ...(formData?.venueType || [])
+  ]));
 
   // Populate Cities when state changes
   useEffect(() => {
@@ -1302,7 +1319,7 @@ export default function AdminVenueQuickEditModal({
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
                 <label className="text-xs font-bold text-slate-900 block mb-2">Venue Categories (Select all that apply) *</label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
-                  {VENUE_CATEGORIES.map((cat) => {
+                  {availableCategories.map((cat) => {
                     const selected = formData.venueType.includes(cat);
                     return (
                       <button

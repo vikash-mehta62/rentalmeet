@@ -7,6 +7,7 @@ const User = require('../models/User');
 const { normalizeCustomPlatformFee, normalizeCustomGST } = require('../utils/venuePricing');
 const { logAudit, logStatusChange, extractClientIp } = require('../utils/auditLogger');
 const { encrypt } = require('../utils/encryption');
+const memoryCache = require('../utils/cache');
 
 // @desc    Get dashboard statistics
 // @route   GET /api/admin/dashboard-stats
@@ -128,6 +129,7 @@ exports.approveVenue = async (req, res) => {
     });
     
     await venue.save();
+    memoryCache.delByPrefix('venues:');
 
     logStatusChange(req, {
       category: 'VENUE',

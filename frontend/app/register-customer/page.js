@@ -200,7 +200,7 @@ function CustomerRegisterInner() {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/send-email-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: form.name, email: form.email })
+        body: JSON.stringify({ name: form.name, email: form.email, role: 'customer' })
       });
       const data = await res.json();
       if (data.success) {
@@ -253,7 +253,7 @@ function CustomerRegisterInner() {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/send-phone-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: form.name, phone: form.phone })
+        body: JSON.stringify({ name: form.name, phone: form.phone, role: 'customer' })
       });
       const data = await res.json();
       if (data.success) {

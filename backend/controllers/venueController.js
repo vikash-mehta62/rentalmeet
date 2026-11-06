@@ -1,9 +1,11 @@
+const mongoose = require('mongoose');
 const Venue = require('../models/Venue');
 const User = require('../models/User');
 const { uploadToStorage } = require('../config/storage');
 const { encrypt } = require('../utils/encryption');
 const { sendVenueSubmissionEmail, sendVenueOwnerWelcomeCredentialsEmail } = require('../utils/emailService');
 const { logAudit, logStatusChange, logSubmissionAttempt, extractClientIp } = require('../utils/auditLogger');
+const memoryCache = require('../utils/cache');
 
 const normalizeFoodType = (value) => {
   const key = String(value || '').toLowerCase().replace(/[\s_-]+/g, '');
@@ -165,12 +167,12 @@ exports.createVenue = async (req, res) => {
         });
       }
 
-      // Look up existing owner user by mobile or email
+      // Look up existing owner user by mobile or email (scoped to owner role)
       if (ownerMobile) {
-        ownerUser = await User.findOne({ phone: ownerMobile });
+        ownerUser = await User.findOne({ phone: ownerMobile, role: 'owner' });
       }
       if (!ownerUser && ownerEmail) {
-        ownerUser = await User.findOne({ email: ownerEmail });
+        ownerUser = await User.findOne({ email: ownerEmail, role: 'owner' });
       }
 
       if (ownerUser) {
@@ -555,7 +557,9 @@ exports.uploadImages = async (req, res) => {
     
     venue.images.push(...newImages);
     await venue.save();
+    memoryCache.delByPrefix('venues:');
     
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.json({
       success: true,
       message: 'Images uploaded successfully',
@@ -586,14 +590,27 @@ exports.getVenues = async (req, res) => {
       minPrice, 
       maxPrice,
       search,
+      ids,
       page = 1,
       limit = 12
     } = req.query;
     
     let query = {};
-    
-    // Search filter (business name, city, area)
     const andConditions = [];
+
+    // Filter by specific IDs or SKUs (e.g. for Favorites/Wishlist)
+    if (ids) {
+      const idArray = String(ids).split(',').map(s => s.trim()).filter(Boolean);
+      const validIds = idArray.filter(id => id.match(/^[0-9a-fA-F]{24}$/)).map(id => new mongoose.Types.ObjectId(id));
+      andConditions.push({
+        $or: [
+          { _id: { $in: validIds } },
+          { sku: { $in: idArray } }
+        ]
+      });
+    }
+
+    // Search filter (business name, city, area)
 
     if (search) {
       const searchRegex = { $regex: String(search).trim(), $options: 'i' };
@@ -691,6 +708,15 @@ exports.getVenues = async (req, res) => {
     // Always hide inactive venues from public (regardless of status param)
     query.isActive = { $ne: false };
     
+    // Check memory cache for hot public listing queries
+    const cacheKey = `venues:public:${JSON.stringify(req.query)}`;
+    const cachedResponse = memoryCache.get(cacheKey);
+    if (cachedResponse) {
+      res.set('X-Cache', 'HIT');
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      return res.json(cachedResponse);
+    }
+
     // Pagination
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
@@ -699,18 +725,21 @@ exports.getVenues = async (req, res) => {
     // Get total count for pagination
     const totalVenues = await Venue.countDocuments(query);
     
-    // Sorting: Verified venues first by default
-    let sortOption = { isVerified: -1, 'documents.verified': -1, profileCompletion: -1, createdAt: -1 };
-    if (req.query.sort === 'newest') sortOption = { createdAt: -1 };
-    else if (req.query.sort === 'rating') sortOption = { averageRating: -1, createdAt: -1 };
+    // Sorting: Verified venues strictly first, then by profile score, then by newest
+    let sortOption = { isVerified: -1, profileCompletion: -1, createdAt: -1 };
+    if (req.query.sort === 'rating') {
+      sortOption = { isVerified: -1, averageRating: -1, createdAt: -1 };
+    } else if (req.query.sort === 'newest') {
+      sortOption = { isVerified: -1, createdAt: -1 };
+    }
 
-    // Get venues with pagination
+    // High performance lean fetch (no mongoose document overhead, no unneeded owner population)
     const venues = await Venue.find(query)
       .select(PUBLIC_VENUE_EXCLUDE)
-      .populate('owner', 'name email phone')
       .sort(sortOption)
       .skip(skip)
-      .limit(limitNum);
+      .limit(limitNum)
+      .lean();
 
     // Attach booking stats per venue
     const Booking = require('../models/Booking');
@@ -727,7 +756,7 @@ exports.getVenues = async (req, res) => {
     bookingStats.forEach(s => { statsMap[s._id.toString()] = s; });
 
     const venuesWithStats = venues.map(v => {
-      const obj = v.toObject();
+      const obj = { ...v };
       const s = statsMap[v._id.toString()];
       obj.totalBookings = s ? s.totalBookings : 0;
       obj.totalRevenue = s ? s.totalRevenue : 0;
@@ -758,25 +787,31 @@ exports.getVenues = async (req, res) => {
     venuesWithStats.forEach(v => {
       v.activeCoupons = couponMap[v._id.toString()] || [];
       v.activeCouponCount = v.activeCoupons.length;
+      // Retain stored isVerified and profileCompletion from full DB doc, calculate only if missing
       if (typeof v.profileCompletion !== 'number' || v.isVerified === undefined) {
         const comp = Venue.calculateProfileCompletion ? Venue.calculateProfileCompletion(v) : null;
         if (comp) {
-          v.profileCompletion = typeof v.profileCompletion === 'number' ? v.profileCompletion : comp.profileCompletion;
-          v.isVerified = typeof v.isVerified === 'boolean' ? v.isVerified : comp.isVerified;
+          v.profileCompletion = comp.profileCompletion;
+          v.isVerified = comp.isVerified;
         }
       }
     });
     
     console.log(`Found ${venues.length} venues (page ${pageNum}) with query:`, query);
     
-    res.json({
+    const responsePayload = {
       success: true,
       count: venuesWithStats.length,
       total: totalVenues,
       page: pageNum,
       pages: Math.ceil(totalVenues / limitNum),
       venues: venuesWithStats
-    });
+    };
+
+    memoryCache.set(cacheKey, responsePayload, 30);
+    res.set('X-Cache', 'MISS');
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.json(responsePayload);
   } catch (error) {
     console.error('Get venues error:', error);
     res.status(500).json({
@@ -815,6 +850,7 @@ exports.getLocations = async (req, res) => {
       areas: Array.from(locationsByCity[city]).sort()
     }));
     
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.json({
       success: true,
       cities: cities.sort(),
@@ -848,11 +884,12 @@ exports.getVenueBySKU = async (req, res) => {
     if (typeof venueObj.profileCompletion !== 'number' || venueObj.isVerified === undefined) {
       const comp = Venue.calculateProfileCompletion ? Venue.calculateProfileCompletion(venueObj) : null;
       if (comp) {
-        venueObj.profileCompletion = typeof venueObj.profileCompletion === 'number' ? venueObj.profileCompletion : comp.profileCompletion;
-        venueObj.isVerified = typeof venueObj.isVerified === 'boolean' ? venueObj.isVerified : comp.isVerified;
+        venueObj.profileCompletion = comp.profileCompletion;
+        venueObj.isVerified = comp.isVerified;
       }
     }
     
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.json({
       success: true,
       venue: venueObj
@@ -884,11 +921,12 @@ exports.getVenue = async (req, res) => {
     if (typeof venueObj.profileCompletion !== 'number' || venueObj.isVerified === undefined) {
       const comp = Venue.calculateProfileCompletion ? Venue.calculateProfileCompletion(venueObj) : null;
       if (comp) {
-        venueObj.profileCompletion = typeof venueObj.profileCompletion === 'number' ? venueObj.profileCompletion : comp.profileCompletion;
-        venueObj.isVerified = typeof venueObj.isVerified === 'boolean' ? venueObj.isVerified : comp.isVerified;
+        venueObj.profileCompletion = comp.profileCompletion;
+        venueObj.isVerified = comp.isVerified;
       }
     }
     
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.json({
       success: true,
       venue: venueObj
@@ -937,6 +975,7 @@ exports.getVenueForEdit = async (req, res) => {
       }
     }
 
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.json({ success: true, venue: venueObj });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -969,13 +1008,20 @@ exports.updateVenue = async (req, res) => {
       });
     }
     
+    // Check if this update should transition status to 'resubmitted'
+    const previousStatus = venue.status;
+    const isOwnerOrAmbassador = req.user.role !== 'admin' && req.user.role !== 'subadmin';
+    const isFinalSubmit = Boolean(req.body.isFinalSubmit || req.body.isResubmit);
+    const shouldResubmit = isOwnerOrAmbassador && (isFinalSubmit || venue.status === 'rejected');
+
     // Prevent status tampering by non-admin users
-    if (req.user.role !== 'admin' && req.user.role !== 'subadmin') {
+    if (isOwnerOrAmbassador) {
       delete req.body.status;
       delete req.body.owner;
-      // If venue was rejected, updating it sets its status to resubmitted
-      if (venue.status === 'rejected') {
+      delete req.body.sku; // SKU is permanent once created for SEO integrity
+      if (shouldResubmit) {
         req.body.status = 'resubmitted';
+        req.body.resubmittedAt = new Date();
       }
     }
     
@@ -1007,8 +1053,73 @@ exports.updateVenue = async (req, res) => {
     }
     
     venue.set(req.body);
+
+    if (isOwnerOrAmbassador) {
+      if (!venue.statusHistory) venue.statusHistory = [];
+      const clientIp = extractClientIp(req);
+
+      if (shouldResubmit) {
+        venue.status = 'resubmitted';
+        venue.resubmittedAt = new Date();
+        venue.statusHistory.push({
+          action: 'VENUE_RESUBMITTED_BY_OWNER',
+          status: 'resubmitted',
+          isActive: venue.isActive,
+          reason: req.body.editReason || `Venue edited by ${req.user.role} from '${previousStatus}' status and re-submitted for Admin Review`,
+          changedBy: {
+            userId: req.user._id || req.user.id,
+            name: req.user.name,
+            email: req.user.email,
+            role: req.user.role
+          },
+          ipAddress: clientIp,
+          timestamp: new Date()
+        });
+
+        logStatusChange(req, {
+          category: 'VENUE',
+          action: 'VENUE_RESUBMITTED_BY_OWNER',
+          status: 'SUCCESS',
+          targetType: 'Venue',
+          targetId: venue._id,
+          targetName: venue.businessName,
+          previousState: { status: previousStatus },
+          newState: { status: 'resubmitted' },
+          reason: req.body.editReason || `Venue edited by ${req.user.role} from '${previousStatus}' status and re-submitted for Admin Review`
+        });
+      } else {
+        venue.statusHistory.push({
+          action: 'VENUE_UPDATED_BY_OWNER',
+          status: venue.status,
+          isActive: venue.isActive,
+          reason: `Venue details updated${req.body.tabName ? ` (${req.body.tabName})` : ''}`,
+          changedBy: {
+            userId: req.user._id || req.user.id,
+            name: req.user.name,
+            email: req.user.email,
+            role: req.user.role
+          },
+          ipAddress: clientIp,
+          timestamp: new Date()
+        });
+
+        logStatusChange(req, {
+          category: 'VENUE',
+          action: 'VENUE_UPDATED_BY_OWNER',
+          status: 'SUCCESS',
+          targetType: 'Venue',
+          targetId: venue._id,
+          targetName: venue.businessName,
+          previousState: { status: previousStatus },
+          newState: { status: venue.status },
+          reason: `Venue details updated${req.body.tabName ? ` (${req.body.tabName})` : ''}`
+        });
+      }
+    }
+
     await venue.save();
     
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.json({
       success: true,
       message: 'Venue updated successfully',
@@ -1051,7 +1162,9 @@ exports.deleteVenue = async (req, res) => {
     }
     
     await venue.deleteOne();
+    memoryCache.delByPrefix('venues:');
     
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.json({
       success: true,
       message: 'Venue deleted successfully'
@@ -1075,6 +1188,7 @@ exports.getMyVenues = async (req, res) => {
       .populate('owner', 'name email phone')
       .sort('-createdAt');
     
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.json({
       success: true,
       count: venues.length,
@@ -1098,6 +1212,7 @@ exports.getPublicPlatformSettings = async (req, res) => {
     const platformFeeValue = settings.platformFeeValue ?? settings.platformFeePercentage ?? 5;
     
     // Return only the necessary fields for booking calculations
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.json({
       success: true,
       settings: {

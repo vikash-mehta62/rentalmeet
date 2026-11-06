@@ -153,9 +153,24 @@ const calculatePlatformFeeAmount = (subtotal, feeConfig) => {
 const getVenueGSTConfig = (venue, settings) => {
   const value = toPlain(venue);
   const platformSettings = toPlain(settings);
+  const taxType = value.taxSettings?.taxType || 'GST Extra';
 
-  // Strict GST check: Venue must be registered under GST to charge GST!
+  if (taxType === 'GST Not Applicable') {
+    return {
+      hasGST: false,
+      taxType: 'GST Not Applicable',
+      isTaxIncluded: false,
+      isTaxNotApplicable: true,
+      cgstRate: 0,
+      sgstRate: 0,
+      totalRate: 0,
+      hsnCode: value.taxSettings?.hsnCode || platformSettings.venueHSN || '9973'
+    };
+  }
+
+  // Strict GST check: Venue must be registered under GST or explicitly configured tax settings
   const hasGST = Boolean(
+    value.taxSettings?.taxType ||
     value.ownerInfo?.hasGST ||
     value.ownerInfo?.gstNumber ||
     value.taxSettings?.gstin ||
@@ -166,6 +181,9 @@ const getVenueGSTConfig = (venue, settings) => {
   if (!hasGST) {
     return {
       hasGST: false,
+      taxType: 'GST Not Applicable',
+      isTaxIncluded: false,
+      isTaxNotApplicable: true,
       cgstRate: 0,
       sgstRate: 0,
       totalRate: 0,
@@ -173,25 +191,33 @@ const getVenueGSTConfig = (venue, settings) => {
     };
   }
 
+  let totalRate = numberOr(value.taxSettings?.gstRate, null);
+  let hsnCode = value.taxSettings?.hsnCode || platformSettings.venueHSN || '9973';
+
   if (value.customGST?.enabled) {
     const custom = normalizeCustomGST(value.customGST, platformSettings);
-    return {
-      hasGST: true,
-      cgstRate: custom.cgstRate,
-      sgstRate: custom.sgstRate,
-      totalRate: custom.cgstRate + custom.sgstRate,
-      hsnCode: custom.hsnCode
-    };
+    if (totalRate === null) totalRate = custom.cgstRate + custom.sgstRate;
+    hsnCode = custom.hsnCode;
   }
 
-  const cgstRate = numberOr(platformSettings.venueCGST, 9);
-  const sgstRate = numberOr(platformSettings.venueSGST, 9);
+  if (totalRate === null) {
+    const cgstRate = numberOr(platformSettings.venueCGST, 9);
+    const sgstRate = numberOr(platformSettings.venueSGST, 9);
+    totalRate = cgstRate + sgstRate;
+  }
+
+  const cgstRate = roundMoney(totalRate / 2);
+  const sgstRate = roundMoney(totalRate - cgstRate);
+
   return {
     hasGST: true,
+    taxType,
+    isTaxIncluded: taxType === 'GST Included',
+    isTaxNotApplicable: false,
     cgstRate,
     sgstRate,
-    totalRate: cgstRate + sgstRate,
-    hsnCode: platformSettings.venueHSN || '9973'
+    totalRate,
+    hsnCode
   };
 };
 
@@ -240,7 +266,19 @@ const calculateBasePrice = ({ venue, bookingType, bookingDate, durationHours, pr
   if (modelKey === 'perpax' || bookingType === 'per_pax' || bookingType === 'perpax') {
     const perPaxConfig = pricing.perPax || {};
     const pkg = perPaxPackage || 'withoutFood';
-    const pkgConfig = perPaxConfig[pkg] || perPaxConfig.withoutFood || {};
+    const resolvePerPaxConfig = (p) => {
+      if (perPaxConfig[p]) return perPaxConfig[p];
+      if ((p === 'breakfast' || p === 'onlyBreakfast') && perPaxConfig.breakfastOnly) return perPaxConfig.breakfastOnly;
+      if (p === 'breakfastOnly' && (perPaxConfig.breakfast || perPaxConfig.onlyBreakfast)) return perPaxConfig.breakfast || perPaxConfig.onlyBreakfast;
+      if ((p === 'breakfastLunch' || p === 'highTea') && (perPaxConfig.breakfastLunch || perPaxConfig.highTea)) return perPaxConfig.breakfastLunch || perPaxConfig.highTea;
+      if ((p === 'lunch' || p === 'onlyLunch') && perPaxConfig.lunchOnly) return perPaxConfig.lunchOnly;
+      if (p === 'lunchOnly' && (perPaxConfig.lunch || perPaxConfig.onlyLunch)) return perPaxConfig.lunch || perPaxConfig.onlyLunch;
+      if ((p === 'dinner' || p === 'onlyDinner') && perPaxConfig.dinnerOnly) return perPaxConfig.dinnerOnly;
+      if (p === 'dinnerOnly' && (perPaxConfig.dinner || perPaxConfig.onlyDinner)) return perPaxConfig.dinner || perPaxConfig.onlyDinner;
+      if ((p === 'allMeals' || p === 'fullDayMeal') && (perPaxConfig.allMeals || perPaxConfig.fullDayMeal)) return perPaxConfig.allMeals || perPaxConfig.fullDayMeal;
+      return perPaxConfig.withoutFood || {};
+    };
+    const pkgConfig = resolvePerPaxConfig(pkg);
     const rate = positiveOr(pkgConfig.rate, 0);
     const minPax = numberOr(pkgConfig.minPax, 1);
     const guests = Math.max(numberOr(guestCount, 1), minPax);
@@ -249,14 +287,18 @@ const calculateBasePrice = ({ venue, bookingType, bookingDate, durationHours, pr
     }
   }
 
+  const isHalfDay = bookingType === 'halfday' || (!bookingType && (durationHours === 4 || durationHours === 6));
+  const isFullDay = bookingType === 'fullday' || (!bookingType && (durationHours === 8 || durationHours === 12));
+  const isHourly = bookingType === 'hourly' || (!isHalfDay && !isFullDay);
+
   // 2. Rent with Amenities Model Calculation
   if (modelKey === 'rentwithamenities' || modelKey === 'rentincludedamenities' || modelKey.includes('amenities')) {
     const rentAmenities = pricing.rentWithAmenities || {};
-    if (bookingType === 'hourly') {
+    if (isHourly) {
       const rate = positiveOr(rentAmenities.hourly?.rate, pricing.perHour?.[dayType]);
       if (rate > 0) return roundMoney(rate * numberOr(durationHours, 1));
     }
-    if (bookingType === 'halfday') {
+    if (isHalfDay) {
       const base = positiveOr(rentAmenities.halfDay?.rate, pricing.halfDay?.[dayType]);
       if (base > 0) {
         const extraHours = Math.max(0, numberOr(durationHours, 6) - 6);
@@ -264,7 +306,7 @@ const calculateBasePrice = ({ venue, bookingType, bookingDate, durationHours, pr
         return roundMoney(base + (extraHours * extraRate));
       }
     }
-    if (bookingType === 'fullday') {
+    if (isFullDay) {
       const base = positiveOr(rentAmenities.fullDay?.rate, pricing.fullDay?.[dayType]);
       if (base > 0) {
         const extraHours = Math.max(0, numberOr(durationHours, 12) - 12);
@@ -277,11 +319,11 @@ const calculateBasePrice = ({ venue, bookingType, bookingDate, durationHours, pr
   // 3. Only Rent Model Calculation
   if (modelKey === 'onlyrent' || (!modelKey && pricing.onlyRent?.hourly?.rate)) {
     const onlyRent = pricing.onlyRent || {};
-    if (bookingType === 'hourly') {
+    if (isHourly) {
       const rate = positiveOr(onlyRent.hourly?.rate, pricing.perHour?.[dayType]);
       if (rate > 0) return roundMoney(rate * numberOr(durationHours, 1));
     }
-    if (bookingType === 'halfday') {
+    if (isHalfDay) {
       const base = positiveOr(onlyRent.halfDay?.rate, pricing.halfDay?.[dayType]);
       if (base > 0) {
         const extraHours = Math.max(0, numberOr(durationHours, 6) - 6);
@@ -289,7 +331,7 @@ const calculateBasePrice = ({ venue, bookingType, bookingDate, durationHours, pr
         return roundMoney(base + (extraHours * extraRate));
       }
     }
-    if (bookingType === 'fullday') {
+    if (isFullDay) {
       const base = positiveOr(onlyRent.fullDay?.rate, pricing.fullDay?.[dayType]);
       if (base > 0) {
         const extraHours = Math.max(0, numberOr(durationHours, 12) - 12);
@@ -300,7 +342,7 @@ const calculateBasePrice = ({ venue, bookingType, bookingDate, durationHours, pr
   }
 
   // 4. Standard Hourly / Half Day / Full Day fallback
-  if (bookingType === 'hourly') {
+  if (isHourly) {
     const rate = positiveOr(pricing.perHour?.[dayType], positiveOr(pricing.rentWithAmenities?.hourly?.rate, pricing.onlyRent?.hourly?.rate || 0));
     return roundMoney(rate * numberOr(durationHours, 1));
   }
@@ -411,9 +453,37 @@ const calculateVenueBookingPrice = ({
   const amenitiesTotal = calculateAmenitiesTotal(selectedAmenities, venue);
   const subtotal = roundMoney(basePrice + amenitiesTotal);
   const venueGSTConfig = venueGSTConfigOverride || getVenueGSTConfig(venue, settings);
-  const venueCGST = roundMoney((subtotal * numberOr(venueGSTConfig.cgstRate, 0)) / 100);
-  const venueSGST = roundMoney((subtotal * numberOr(venueGSTConfig.sgstRate, 0)) / 100);
-  const gst = roundMoney(venueCGST + venueSGST);
+  const isTaxIncluded = venueGSTConfig.taxType === 'GST Included';
+  const isTaxNotApplicable = venueGSTConfig.taxType === 'GST Not Applicable' || !venueGSTConfig.hasGST;
+
+  let netSubtotal = subtotal;
+  let venueCGST = 0;
+  let venueSGST = 0;
+  let gst = 0;
+  let venuePayable = subtotal;
+
+  if (isTaxNotApplicable) {
+    netSubtotal = subtotal;
+    venueCGST = 0;
+    venueSGST = 0;
+    gst = 0;
+    venuePayable = subtotal;
+  } else if (isTaxIncluded) {
+    // Rental rates ALREADY INCLUDE GST -> Break down GST internally without adding to customer total!
+    netSubtotal = roundMoney(subtotal / (1 + (venueGSTConfig.totalRate / 100)));
+    gst = roundMoney(subtotal - netSubtotal);
+    venueCGST = roundMoney(gst / 2);
+    venueSGST = roundMoney(gst - venueCGST);
+    venuePayable = subtotal; // Venue receives gross subtotal (inclusive of GST)
+  } else {
+    // GST Extra -> Add GST on top of subtotal!
+    netSubtotal = subtotal;
+    venueCGST = roundMoney((subtotal * numberOr(venueGSTConfig.cgstRate, 0)) / 100);
+    venueSGST = roundMoney((subtotal * numberOr(venueGSTConfig.sgstRate, 0)) / 100);
+    gst = roundMoney(venueCGST + venueSGST);
+    venuePayable = roundMoney(subtotal + gst);
+  }
+
   const platformFeeConfig = platformFeeConfigOverride || getVenuePlatformFeeConfig(venue, settings, subtotal);
   const platformFee = calculatePlatformFeeAmount(subtotal, platformFeeConfig);
   const platformFeeCGSTRate = numberOr(platformFeeConfig.cgstRate, numberOr(toPlain(settings).platformCGST, 9));
@@ -422,13 +492,18 @@ const calculateVenueBookingPrice = ({
   const platformFeeSGST = roundMoney((platformFee * platformFeeSGSTRate) / 100);
   const platformFeeGST = roundMoney(platformFeeCGST + platformFeeSGST);
   const platformFeeTotal = roundMoney(platformFee + platformFeeGST);
-  const total = roundMoney(subtotal + gst + platformFeeTotal);
+  const total = roundMoney(venuePayable + platformFeeTotal);
 
   return {
     basePrice,
     amenitiesTotal,
     subtotal,
     durationHours,
+    netSubtotal,
+    taxType: venueGSTConfig.taxType || 'GST Extra',
+    isTaxIncluded,
+    isTaxNotApplicable,
+    venuePayable,
     venueHasGST: Boolean(venueGSTConfig.hasGST),
     venueCGST,
     venueCGSTRate: numberOr(venueGSTConfig.cgstRate, 0),

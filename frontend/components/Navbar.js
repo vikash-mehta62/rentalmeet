@@ -3,14 +3,16 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, X, LogOut, LayoutDashboard, ChevronDown, User, Settings, Moon, Sun, Award } from 'lucide-react';
+import { Menu, X, LogOut, Heart, LayoutDashboard, ChevronDown, User, Settings, Moon, Sun, Award } from 'lucide-react';
 import { useAuthStore, useThemeStore } from '@/lib/store';
+import { useFavorites } from '@/lib/favorites';
 
 export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
   const { user, token, logout } = useAuthStore();
   const { theme, toggleTheme } = useThemeStore();
+  const { totalFavoritesCount } = useFavorites();
 
   const [hydrated, setHydrated] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -129,6 +131,20 @@ export default function Navbar() {
 
             {/* Auth Actions */}
             <div className="hidden md:flex items-center gap-4">
+              <Link
+                href="/favorites"
+                className="relative p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                aria-label="Favorites"
+                title="Favorites"
+              >
+                <Heart className={`w-5 h-5 ${hydrated && totalFavoritesCount > 0 ? 'text-red-500 fill-current' : ''}`} />
+                {hydrated && totalFavoritesCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-md">
+                    {totalFavoritesCount > 99 ? '99+' : totalFavoritesCount}
+                  </span>
+                )}
+              </Link>
+
               <button
                 onClick={toggleTheme}
                 className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
@@ -161,6 +177,17 @@ export default function Navbar() {
                         onClick={() => setDropdownOpen(false)}
                         className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-primary-50 dark:hover:bg-slate-700 hover:text-primary-600 transition-colors">
                         <User className="w-4 h-4" /> My Profile
+                      </Link>
+                      <Link
+                        href="/favorites"
+                        onClick={() => setDropdownOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-primary-50 dark:hover:bg-slate-700 hover:text-primary-600 transition-colors">
+                        <Heart className="w-4 h-4 text-red-500" /> Favorites
+                        {hydrated && totalFavoritesCount > 0 && (
+                          <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 font-bold">
+                            {totalFavoritesCount}
+                          </span>
+                        )}
                       </Link>
                       <div className="h-px bg-slate-100 dark:bg-slate-700 my-1" />
                       <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 transition-colors">
@@ -262,6 +289,21 @@ export default function Navbar() {
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto p-6 space-y-2">
+                <Link
+                  href="/favorites"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-between px-4 py-3.5 rounded-2xl text-base font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+                >
+                  <span className="flex items-center gap-3">
+                    <Heart className="w-5 h-5 text-red-500" />
+                    Saved Favorites
+                  </span>
+                  {hydrated && totalFavoritesCount > 0 && (
+                    <span className="px-2 py-0.5 text-xs font-black bg-red-500 text-white rounded-full">
+                      {totalFavoritesCount}
+                    </span>
+                  )}
+                </Link>
                 {navLinks.map((link) => (
                   <Link
                     key={link.name}

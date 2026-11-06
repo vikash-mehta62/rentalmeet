@@ -40,50 +40,91 @@ export const positiveOr = (value, fallback = 0) => {
 export const calculateProfileCompletion = (venue = {}) => {
   if (!venue) return 0;
   let score = 0;
+
+  // 1. Basic Information (20%)
   if (venue.businessName) score += 5;
   if (venue.venueType && (Array.isArray(venue.venueType) ? venue.venueType.length > 0 : Boolean(venue.venueType))) score += 5;
   if (venue.capacity) score += 5;
   if (venue.foodType) score += 5;
 
+  // 2. Location Details (15%)
   if (venue.location?.address) score += 5;
   if (venue.location?.city) score += 5;
   if (venue.location?.pincode && venue.location.pincode !== '000000') score += 5;
 
+  // 3. Pricing Configuration (Mandatory 25%)
   const p = venue.pricing || {};
-  const hasPricing = (
+  const hasPricing = Boolean(
     (Number(p.perHour?.weekday) > 0 || Number(p.perHour?.weekend) > 0) ||
     (Number(p.halfDay?.weekday) > 0 || Number(p.halfDay?.weekend) > 0) ||
     (Number(p.fullDay?.weekday) > 0 || Number(p.fullDay?.weekend) > 0) ||
     (Number(p.onlyRent?.hourly?.rate) > 0 || Number(p.onlyRent?.halfDay?.rate) > 0 || Number(p.onlyRent?.fullDay?.rate) > 0) ||
     (Number(p.rentWithAmenities?.hourly?.rate) > 0 || Number(p.rentWithAmenities?.halfDay?.rate) > 0 || Number(p.rentWithAmenities?.fullDay?.rate) > 0) ||
-    (p.perPax && Object.values(p.perPax).some(pkg => Number(pkg?.rate) > 0))
+    (p.perPax && Object.values(p.perPax).some(pkg => Number(pkg?.rate) > 0)) ||
+    (Number(venue.startingPrice) > 0)
   );
-  if (hasPricing) score += 15;
+  if (hasPricing) score += 25;
 
+  // 4. Photos / Gallery (15%)
   const imgCount = venue.images?.length || 0;
   if (imgCount >= 1) score += 5;
   if (imgCount >= 3) score += 5;
   if (imgCount >= 5) score += 5;
 
+  // 5. Verification / Bank Details / Facilities (25%)
   if (venue.documents?.verified) {
-    score += 35;
+    score += 15;
+    if (venue.bankDetails?.accountNumber || venue.bankDetails?.ifscCode) score += 5;
+    if (venue.documents?.idProof?.number || venue.documents?.idProof?.frontUrl || venue.documents?.businessProof?.documentUrl) score += 5;
   } else {
-    if (venue.bankDetails?.accountNumber || venue.bankDetails?.ifscCode) score += 10;
+    if (venue.bankDetails?.accountNumber || venue.bankDetails?.ifscCode) score += 5;
     if (venue.documents?.idProof?.number || venue.documents?.idProof?.frontUrl || venue.documents?.businessProof?.documentUrl) score += 10;
     if (venue.description && venue.description.length > 40) score += 5;
     if (venue.amenities?.basic?.some(a => a.available) || venue.additionalFacilities?.length > 0) score += 5;
-    if (venue.cateringFacility?.available || venue.socialLinks?.website || venue.socialLinks?.instagram) score += 5;
   }
 
-  return Math.min(100, Math.max(0, score));
+  let profileCompletion = Math.min(100, Math.max(0, score));
+
+  // Strict Rule: If pricing is NOT configured, profile completion is capped at 65% so it can NEVER reach 70%
+  if (!hasPricing) {
+    profileCompletion = Math.min(65, profileCompletion);
+  }
+
+  return profileCompletion;
+};
+
+export const hasVenueConfiguredPricing = (venue = {}) => {
+  if (!venue) return false;
+  const p = venue.pricing || {};
+  return Boolean(
+    (Number(p.perHour?.weekday) > 0 || Number(p.perHour?.weekend) > 0) ||
+    (Number(p.halfDay?.weekday) > 0 || Number(p.halfDay?.weekend) > 0) ||
+    (Number(p.fullDay?.weekday) > 0 || Number(p.fullDay?.weekend) > 0) ||
+    (Number(p.onlyRent?.hourly?.rate) > 0 || Number(p.onlyRent?.halfDay?.rate) > 0 || Number(p.onlyRent?.fullDay?.rate) > 0) ||
+    (Number(p.rentWithAmenities?.hourly?.rate) > 0 || Number(p.rentWithAmenities?.halfDay?.rate) > 0 || Number(p.rentWithAmenities?.fullDay?.rate) > 0) ||
+    (p.perPax && Object.values(p.perPax).some(pkg => Number(pkg?.rate) > 0)) ||
+    (Number(venue.startingPrice) > 0) ||
+    (Number(p.weekday) > 0 || Number(p.weekend) > 0)
+  );
 };
 
 export const isVenueVerified = (venue = {}) => {
   if (!venue) return false;
-  if (venue.isVerified === true) return true;
-  if (venue.documents?.verified === true) return true;
-  if (typeof venue.profileCompletion === 'number' && venue.profileCompletion >= 70) return true;
-  return calculateProfileCompletion(venue) >= 70;
+
+  // Strict verification check:
+  // 1. Pricing must be configured (can never be verified without pricing)
+  // 2. Profile completion score must be strictly >= 70%
+  // No bypass fallbacks.
+  const hasPricing = hasVenueConfiguredPricing(venue);
+  if (!hasPricing) return false;
+
+  // If backend computed isVerified: true with stored profileCompletion >= 70 from full document
+  if (venue.isVerified === true && Number(venue.profileCompletion) >= 70) {
+    return true;
+  }
+
+  const score = calculateProfileCompletion(venue);
+  return score >= 70;
 };
 
 export const getVenueDurationBasePrice = (venue = {}, duration, date, options = {}) => {
@@ -98,7 +139,19 @@ export const getVenueDurationBasePrice = (venue = {}, duration, date, options = 
   if (modelKey === 'perpax' || pricingModel === 'Per Pax') {
     const perPaxConfig = pricing.perPax || {};
     const pkg = perPaxPackage || 'withoutFood';
-    const pkgConfig = perPaxConfig[pkg] || perPaxConfig.withoutFood || {};
+    const resolvePerPaxConfig = (p) => {
+      if (perPaxConfig[p]) return perPaxConfig[p];
+      if ((p === 'breakfast' || p === 'onlyBreakfast') && perPaxConfig.breakfastOnly) return perPaxConfig.breakfastOnly;
+      if (p === 'breakfastOnly' && (perPaxConfig.breakfast || perPaxConfig.onlyBreakfast)) return perPaxConfig.breakfast || perPaxConfig.onlyBreakfast;
+      if ((p === 'breakfastLunch' || p === 'highTea') && (perPaxConfig.breakfastLunch || perPaxConfig.highTea)) return perPaxConfig.breakfastLunch || perPaxConfig.highTea;
+      if ((p === 'lunch' || p === 'onlyLunch') && perPaxConfig.lunchOnly) return perPaxConfig.lunchOnly;
+      if (p === 'lunchOnly' && (perPaxConfig.lunch || perPaxConfig.onlyLunch)) return perPaxConfig.lunch || perPaxConfig.onlyLunch;
+      if ((p === 'dinner' || p === 'onlyDinner') && perPaxConfig.dinnerOnly) return perPaxConfig.dinnerOnly;
+      if (p === 'dinnerOnly' && (perPaxConfig.dinner || perPaxConfig.onlyDinner)) return perPaxConfig.dinner || perPaxConfig.onlyDinner;
+      if ((p === 'allMeals' || p === 'fullDayMeal') && (perPaxConfig.allMeals || perPaxConfig.fullDayMeal)) return perPaxConfig.allMeals || perPaxConfig.fullDayMeal;
+      return perPaxConfig.withoutFood || {};
+    };
+    const pkgConfig = resolvePerPaxConfig(pkg);
     const rate = positiveOr(pkgConfig.rate, 0);
     const minPax = numberOr(pkgConfig.minPax, 1);
     const guests = Math.max(numberOr(guestCount, 1), minPax);
@@ -277,29 +330,47 @@ export const getVenuePricingMeta = (venue = {}, settings = {}, subtotal = 0) => 
     }
   }
 
+  const taxType = venue?.taxSettings?.taxType || 'GST Extra';
+  const isTaxIncluded = taxType === 'GST Included';
+  const isTaxNotApplicable = taxType === 'GST Not Applicable';
+
   const customGST = normalizeCustomGST(venue?.customGST, settings);
-  // Strict GST check: Venue must be registered under GST to charge GST!
-  const venueHasGST = meta.venueHasGST !== undefined
-    ? Boolean(meta.venueHasGST)
-    : Boolean(
-        venue?.ownerInfo?.hasGST ||
-        venue?.ownerInfo?.gstNumber ||
-        venue?.taxSettings?.gstin ||
-        venue?.documents?.gstNumber ||
-        customGST.enabled
-      );
-  const venueCGSTRate = venueHasGST
-    ? numberOr(meta.venueCGSTRate, customGST.enabled ? customGST.cgstRate : numberOr(settings?.venueCGST, 9))
-    : 0;
-  const venueSGSTRate = venueHasGST
-    ? numberOr(meta.venueSGSTRate, customGST.enabled ? customGST.sgstRate : numberOr(settings?.venueSGST, 9))
-    : 0;
+  const venueHasGST = !isTaxNotApplicable && (
+    meta.venueHasGST !== undefined
+      ? Boolean(meta.venueHasGST)
+      : Boolean(
+          venue?.taxSettings?.taxType ||
+          venue?.ownerInfo?.hasGST ||
+          venue?.ownerInfo?.gstNumber ||
+          venue?.taxSettings?.gstin ||
+          venue?.documents?.gstNumber ||
+          customGST.enabled
+        )
+  );
+
+  let totalRate = numberOr(venue?.taxSettings?.gstRate, null);
+  let hsnCode = meta.venueHSN || (customGST.enabled ? customGST.hsnCode : (settings?.venueHSN || '9973'));
+
+  if (totalRate === null && customGST.enabled) {
+    totalRate = customGST.cgstRate + customGST.sgstRate;
+  }
+  if (totalRate === null) {
+    totalRate = numberOr(meta.venueCGSTRate, numberOr(settings?.venueCGST, 9)) + numberOr(meta.venueSGSTRate, numberOr(settings?.venueSGST, 9));
+  }
+
+  const venueCGSTRate = venueHasGST ? roundMoney(totalRate / 2) : 0;
+  const venueSGSTRate = venueHasGST ? roundMoney(totalRate - venueCGSTRate) : 0;
+  const gstRate = venueCGSTRate + venueSGSTRate;
 
   return {
+    taxType,
+    isTaxIncluded,
+    isTaxNotApplicable,
     venueHasGST,
     venueCGSTRate,
     venueSGSTRate,
-    venueHSN: meta.venueHSN || (customGST.enabled ? customGST.hsnCode : (settings?.venueHSN || '9973')),
+    gstRate,
+    venueHSN: hsnCode,
     platformFeeSource,
     platformFeeType,
     platformFeeValue,

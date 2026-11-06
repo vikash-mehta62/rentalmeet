@@ -64,12 +64,37 @@ export default function QuotationView({
   const calculateVenueInvoice = () => {
     const baseAmount = (cp.basePrice || 0) + (cp.amenitiesTotal || 0);
     const pricingMeta = getVenuePricingMeta(venue, platformSettings, baseAmount);
+    const isTaxIncluded = cp.isTaxIncluded || pricingMeta.isTaxIncluded || venue?.taxSettings?.taxType === 'GST Included';
+    const isTaxNotApplicable = cp.isTaxNotApplicable || pricingMeta.isTaxNotApplicable || venue?.taxSettings?.taxType === 'GST Not Applicable';
+
     const cgstRate = cp.venueCGSTRate ?? pricingMeta.venueCGSTRate;
     const sgstRate = cp.venueSGSTRate ?? pricingMeta.venueSGSTRate;
-    const venueCGST = cp.venueCGST ?? ((baseAmount * cgstRate) / 100);
-    const venueSGST = cp.venueSGST ?? ((baseAmount * sgstRate) / 100);
-    const total = baseAmount + venueCGST + venueSGST;
-    return { baseAmount, cgst: venueCGST, sgst: venueSGST, cgstRate, sgstRate, total };
+    const totalRate = cgstRate + sgstRate;
+
+    let netAmount = baseAmount;
+    let venueCGST = 0;
+    let venueSGST = 0;
+    let total = baseAmount;
+
+    if (isTaxNotApplicable) {
+      netAmount = baseAmount;
+      venueCGST = 0;
+      venueSGST = 0;
+      total = baseAmount;
+    } else if (isTaxIncluded) {
+      netAmount = Math.round((baseAmount / (1 + totalRate / 100)) * 100) / 100;
+      const gst = Math.round((baseAmount - netAmount) * 100) / 100;
+      venueCGST = cp.venueCGST ?? Math.round((gst / 2) * 100) / 100;
+      venueSGST = cp.venueSGST ?? Math.round((gst - venueCGST) * 100) / 100;
+      total = baseAmount; // No extra tax on top
+    } else {
+      netAmount = baseAmount;
+      venueCGST = cp.venueCGST ?? Math.round(((baseAmount * cgstRate) / 100) * 100) / 100;
+      venueSGST = cp.venueSGST ?? Math.round(((baseAmount * sgstRate) / 100) * 100) / 100;
+      total = Math.round((baseAmount + venueCGST + venueSGST) * 100) / 100;
+    }
+
+    return { baseAmount, netAmount, cgst: venueCGST, sgst: venueSGST, cgstRate, sgstRate, isTaxIncluded, isTaxNotApplicable, total };
   };
 
   const calculatePlatformInvoice = () => {
@@ -278,8 +303,16 @@ export default function QuotationView({
         </table>
         <div class="totals" style="background:#eff6ff;border:1px solid #bfdbfe">
           <div class="tot-row"><span>Subtotal (Rental + Amenities)</span><span>₹${fmt(venueInvoice.baseAmount)}</span></div>
-          <div class="tot-row" style="color:#1d4ed8"><span>CGST (${venueInvoice.cgstRate}%)</span><span>₹${fmt(venueInvoice.cgst)}</span></div>
-          <div class="tot-row" style="color:#1d4ed8"><span>SGST (${venueInvoice.sgstRate}%)</span><span>₹${fmt(venueInvoice.sgst)}</span></div>
+          ${venueInvoice.isTaxIncluded ? `
+            <div class="tot-row" style="color:#059669;font-size:10px"><span>Net Base (Excl. Tax)</span><span>₹${fmt(venueInvoice.netAmount)}</span></div>
+            <div class="tot-row" style="color:#059669;font-size:10px"><span>CGST (${venueInvoice.cgstRate}%) [Included]</span><span>₹${fmt(venueInvoice.cgst)}</span></div>
+            <div class="tot-row" style="color:#059669;font-size:10px"><span>SGST (${venueInvoice.sgstRate}%) [Included]</span><span>₹${fmt(venueInvoice.sgst)}</span></div>
+          ` : !venueInvoice.isTaxNotApplicable ? `
+            <div class="tot-row" style="color:#1d4ed8"><span>CGST (${venueInvoice.cgstRate}%) [Extra]</span><span>₹${fmt(venueInvoice.cgst)}</span></div>
+            <div class="tot-row" style="color:#1d4ed8"><span>SGST (${venueInvoice.sgstRate}%) [Extra]</span><span>₹${fmt(venueInvoice.sgst)}</span></div>
+          ` : `
+            <div class="tot-row" style="color:#6b7280;font-size:10px"><span>GST</span><span>Not Applicable</span></div>
+          `}
           <div class="tot-row tot-grand" style="color:#1e40af"><span>Venue Rental Total</span><span>₹${fmt(venueInvoice.total)}</span></div>
         </div>
       </div>
@@ -456,8 +489,16 @@ export default function QuotationView({
           </table>
           <div class="totals" style="background:#eff6ff;border:1px solid #bfdbfe">
             <div class="tot-row"><span>Subtotal (Rental + Amenities)</span><span>₹${fmt(venueInvoice.baseAmount)}</span></div>
-            <div class="tot-row" style="color:#1d4ed8"><span>CGST (${venueInvoice.cgstRate}%)</span><span>₹${fmt(venueInvoice.cgst)}</span></div>
-            <div class="tot-row" style="color:#1d4ed8"><span>SGST (${venueInvoice.sgstRate}%)</span><span>₹${fmt(venueInvoice.sgst)}</span></div>
+            ${venueInvoice.isTaxIncluded ? `
+              <div class="tot-row" style="color:#059669;font-size:10px"><span>Net Base (Excl. Tax)</span><span>₹${fmt(venueInvoice.netAmount)}</span></div>
+              <div class="tot-row" style="color:#059669;font-size:10px"><span>CGST (${venueInvoice.cgstRate}%) [Included]</span><span>₹${fmt(venueInvoice.cgst)}</span></div>
+              <div class="tot-row" style="color:#059669;font-size:10px"><span>SGST (${venueInvoice.sgstRate}%) [Included]</span><span>₹${fmt(venueInvoice.sgst)}</span></div>
+            ` : !venueInvoice.isTaxNotApplicable ? `
+              <div class="tot-row" style="color:#1d4ed8"><span>CGST (${venueInvoice.cgstRate}%) [Extra]</span><span>₹${fmt(venueInvoice.cgst)}</span></div>
+              <div class="tot-row" style="color:#1d4ed8"><span>SGST (${venueInvoice.sgstRate}%) [Extra]</span><span>₹${fmt(venueInvoice.sgst)}</span></div>
+            ` : `
+              <div class="tot-row" style="color:#6b7280;font-size:10px"><span>GST</span><span>Not Applicable</span></div>
+            `}
             <div class="tot-row tot-grand" style="color:#1e40af"><span>Venue Rental Total</span><span>₹${fmt(venueInvoice.total)}</span></div>
           </div>
         </div>
@@ -792,7 +833,7 @@ export default function QuotationView({
                         return (
                           <div key={idx} className="flex justify-between text-sm pl-4">
                             <span className="text-gray-700">
-                              • {thali.thaliType} - {thali.category}
+                              • {thali.name || thali.thaliType}{thali.category && thali.category !== (thali.name || thali.thaliType) ? ' - ' + thali.category : ''}
                               {rate > 0 && <span className="text-xs text-gray-500"> (₹{rate} × {q} plates)</span>}
                             </span>
                             <span className="font-semibold text-gray-900">
@@ -831,14 +872,29 @@ export default function QuotationView({
                   <span className="text-gray-600 font-medium">Subtotal (Rental + Amenities):</span>
                   <span className="font-bold text-gray-800">₹{venueInvoice.baseAmount.toLocaleString('en-IN')}</span>
                 </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-gray-500">CGST ({venueInvoice.cgstRate}%):</span>
-                  <span className="font-semibold text-blue-600">₹{venueInvoice.cgst.toLocaleString('en-IN')}</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-gray-500">SGST ({venueInvoice.sgstRate}%):</span>
-                  <span className="font-semibold text-blue-600">₹{venueInvoice.sgst.toLocaleString('en-IN')}</span>
-                </div>
+                {venueInvoice.isTaxIncluded ? (
+                  <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-xs space-y-0.5 border border-emerald-100">
+                    <div className="flex justify-between text-emerald-800 font-semibold">
+                      <span>GST Included ({venueInvoice.cgstRate * 2}%):</span>
+                      <span>₹{(venueInvoice.cgst + venueInvoice.sgst).toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex justify-between text-[10px] text-gray-500">
+                      <span>Net Base: ₹{venueInvoice.netAmount.toLocaleString('en-IN')}</span>
+                      <span>CGST: ₹{venueInvoice.cgst.toLocaleString('en-IN')} | SGST: ₹{venueInvoice.sgst.toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+                ) : !venueInvoice.isTaxNotApplicable ? (
+                  <>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-500">Venue CGST ({venueInvoice.cgstRate}%):</span>
+                      <span className="font-semibold text-blue-600">+₹{venueInvoice.cgst.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-500">Venue SGST ({venueInvoice.sgstRate}%):</span>
+                      <span className="font-semibold text-blue-600">+₹{venueInvoice.sgst.toLocaleString('en-IN')}</span>
+                    </div>
+                  </>
+                ) : null}
                 <div className="flex justify-between pt-2 mt-1 border-t border-blue-200">
                   <span className="text-sm font-bold text-blue-900">Venue Rental Total:</span>
                   <span className="text-base font-bold text-blue-900">

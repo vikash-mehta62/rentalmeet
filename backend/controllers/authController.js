@@ -79,12 +79,20 @@ exports.register = async (req, res) => {
     // Delete phone verification record
     await OtpVerification.deleteOne({ _id: phoneVerification._id });
 
-    // Check if user exists
-    const userExists = await User.findOne({ $or: [{ email: email.toLowerCase() }, { phone }] });
+    // Check if user exists with this role
+    const userRole = role || 'customer';
+    const userExists = await User.findOne({
+      role: userRole,
+      $or: [
+        { email: email.toLowerCase().trim() },
+        { phone: phone.trim() }
+      ]
+    });
     if (userExists) {
+      const roleLabel = userRole === 'customer' ? 'Customer' : userRole === 'owner' ? 'Venue Owner' : userRole === 'ambassador' ? 'Ambassador' : userRole === 'vendor' ? 'Vendor' : userRole;
       return res.status(400).json({
         success: false,
-        message: 'User already exists with this email or phone'
+        message: `An account already exists as ${roleLabel} with this email or phone. Please login instead.`
       });
     }
     
@@ -101,7 +109,6 @@ exports.register = async (req, res) => {
     }
     
     // Create user
-    const userRole = role || 'customer';
     const userId = await generateUserId(userRole);
     
     const user = await User.create({
@@ -332,13 +339,16 @@ exports.sendEmailOtp = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid email format' });
     }
 
-    // Check if user already exists (only for new self-registration)
+    // Check if user already exists for this role (only for new self-registration)
     if (purpose !== 'owner_verification') {
-      const userExists = await User.findOne({ email: email.toLowerCase() });
+      const { role } = req.body;
+      const targetRole = role ? role.toLowerCase().trim() : 'customer';
+      const userExists = await User.findOne({ email: email.toLowerCase().trim(), role: targetRole });
       if (userExists) {
+        const roleLabel = targetRole === 'customer' ? 'Customer' : targetRole === 'owner' ? 'Venue Owner' : targetRole === 'ambassador' ? 'Ambassador' : targetRole === 'vendor' ? 'Vendor' : targetRole;
         return res.status(400).json({
           success: false,
-          message: 'User already exists with this email address'
+          message: `An account already exists as ${roleLabel} with this email address. Please login instead.`
         });
       }
     }
@@ -434,13 +444,16 @@ exports.sendPhoneOtp = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Phone must be 10 digits' });
     }
 
-    // Check if user already exists (only for new self-registration)
+    // Check if user already exists for this role (only for new self-registration)
     if (purpose !== 'owner_verification') {
-      const userExists = await User.findOne({ phone });
+      const { role } = req.body;
+      const targetRole = role ? role.toLowerCase().trim() : 'customer';
+      const userExists = await User.findOne({ phone: phone.trim(), role: targetRole });
       if (userExists) {
+        const roleLabel = targetRole === 'customer' ? 'Customer' : targetRole === 'owner' ? 'Venue Owner' : targetRole === 'ambassador' ? 'Ambassador' : targetRole === 'vendor' ? 'Vendor' : targetRole;
         return res.status(400).json({
           success: false,
-          message: 'User already exists with this phone number'
+          message: `An account already exists as ${roleLabel} with this phone number. Please login instead.`
         });
       }
     }
@@ -522,7 +535,7 @@ exports.verifyPhoneOtp = async (req, res) => {
 // @route   POST /api/auth/login
 exports.login = async (req, res) => {
   try {
-    const { email, password, deviceId } = req.body;
+    const { email, password, role, deviceId } = req.body;
     
     if (!email || !password) {
       return res.status(400).json({
@@ -531,29 +544,75 @@ exports.login = async (req, res) => {
       });
     }
     
-    // Find user with password (supports email or phone)
-    const user = await User.findOne({
+    const cleanIdentifier = email.trim();
+    const identifierQuery = {
       $or: [
-        { email: email.trim().toLowerCase() },
-        { phone: email.trim() }
+        { email: cleanIdentifier.toLowerCase() },
+        { phone: cleanIdentifier }
       ]
-    }).select('+password');
-    
-    if (!user) {
-      logAudit(req, {
-        category: 'AUTH',
-        action: 'USER_LOGIN_FAILED',
-        status: 'FAILED',
-        errorMessage: 'User not found for email',
-        details: { email }
-      });
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
+    };
+
+    let user;
+
+    // 1. If role is provided, query by specific role first
+    if (role) {
+      user = await User.findOne({
+        role: role.toLowerCase().trim(),
+        ...identifierQuery
+      }).select('+password');
     }
-    
-    // Check password
+
+    // 2. Fallback: If not found with specific role (or no role passed)
+    if (!user) {
+      const candidateUsers = await User.find(identifierQuery).select('+password');
+
+      if (!candidateUsers || candidateUsers.length === 0) {
+        logAudit(req, {
+          category: 'AUTH',
+          action: 'USER_LOGIN_FAILED',
+          status: 'FAILED',
+          errorMessage: 'User not found for identifier',
+          details: { email }
+        });
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials'
+        });
+      }
+
+      // Check passwords across candidates
+      const matchingCandidates = [];
+      for (const candidate of candidateUsers) {
+        const isMatch = await candidate.comparePassword(password);
+        if (isMatch) {
+          matchingCandidates.push(candidate);
+        }
+      }
+
+      if (matchingCandidates.length === 1) {
+        user = matchingCandidates[0];
+      } else if (matchingCandidates.length > 1) {
+        const roleList = matchingCandidates.map(u => u.role).join(', ');
+        return res.status(400).json({
+          success: false,
+          message: `Multiple accounts found (${roleList}). Please select the correct tab (${roleList}) to login.`
+        });
+      } else {
+        logAudit(req, {
+          category: 'AUTH',
+          action: 'USER_LOGIN_FAILED',
+          status: 'FAILED',
+          errorMessage: 'Password mismatch',
+          details: { email }
+        });
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials'
+        });
+      }
+    }
+
+    // Double-check password for role-matched user
     const isPasswordMatch = await user.comparePassword(password);
     
     if (!isPasswordMatch) {
@@ -706,24 +765,24 @@ exports.updateProfile = async (req, res) => {
       panNumber
     } = req.body;
     
-    // Check if email is being changed and if it's already taken
+    // Check if email is being changed and if it's already taken for this role
     if (email && email !== req.user.email) {
-      const emailExists = await User.findOne({ email, _id: { $ne: req.user.id } });
+      const emailExists = await User.findOne({ email: email.toLowerCase().trim(), role: req.user.role, _id: { $ne: req.user.id } });
       if (emailExists) {
         return res.status(400).json({
           success: false,
-          message: 'Email already in use'
+          message: 'Email already in use for this role'
         });
       }
     }
     
-    // Check if phone is being changed and if it's already taken
+    // Check if phone is being changed and if it's already taken for this role
     if (phone && phone !== req.user.phone) {
-      const phoneExists = await User.findOne({ phone, _id: { $ne: req.user.id } });
+      const phoneExists = await User.findOne({ phone: phone.trim(), role: req.user.role, _id: { $ne: req.user.id } });
       if (phoneExists) {
         return res.status(400).json({
           success: false,
-          message: 'Phone number already in use'
+          message: 'Phone number already in use for this role'
         });
       }
     }

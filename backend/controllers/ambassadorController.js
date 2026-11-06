@@ -95,14 +95,15 @@ exports.applyAmbassador = async (req, res) => {
     // Format Ambassador ID as RMA[PHONENUMBER]
     const generatedAmbId = `RMA${cleanPhone}`;
 
-    // Check if user already exists
-    let existingUser = await User.findOne({
+    // Check if user already exists as an Ambassador
+    let existingAmbassadorUser = await User.findOne({
+      role: 'ambassador',
       $or: [{ email: applicantEmail }, { phone: applicantPhone }]
     });
 
-    if (existingUser) {
-      // Check if this existing user (e.g. Venue Owner or Customer) already has an Ambassador Profile
-      const existingAmbProfile = await AmbassadorProfile.findOne({ user: existingUser._id });
+    if (existingAmbassadorUser) {
+      // Check if this existing ambassador already has an Ambassador Profile
+      const existingAmbProfile = await AmbassadorProfile.findOne({ user: existingAmbassadorUser._id });
       if (existingAmbProfile) {
         if (existingAmbProfile.applicationStatus === 'approved') {
           return res.status(400).json({
@@ -131,16 +132,16 @@ exports.applyAmbassador = async (req, res) => {
       referredByUser = await User.findOne({ referralCode: referralCode.toUpperCase().trim() });
     }
 
-    let user = existingUser;
+    let user = existingAmbassadorUser;
     if (!user) {
       // Generate unique User ID
       let userId;
       try {
         const year = new Date().getFullYear();
-        const seq = await Counter.getNextSequence(`user_id_${year}`);
-        userId = `RM-USR-${year}-${seq.toString().padStart(5, '0')}`;
+        const seq = await Counter.getNextSequence(`user_AMB_${year}`);
+        userId = `RM-AMB-${year}-${seq.toString().padStart(4, '0')}`;
       } catch {
-        userId = `RM-USR-${Date.now()}`;
+        userId = `RM-AMB-${Date.now()}`;
       }
 
       user = new User({

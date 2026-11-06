@@ -305,11 +305,19 @@ exports.createBooking = async (req, res) => {
       const endRange = new Date(targetDate);
       endRange.setDate(endRange.getDate() + 2);
       
-      const existingBookings = await Booking.find({
-        venue,
-        bookingDate: { $gte: startRange, $lte: endRange },
-        status: { $in: ['confirmed', 'pending'] }
-      });
+      const OfflineBooking = require('../models/OfflineBooking');
+      const [existingBookings, existingOfflineBookings] = await Promise.all([
+        Booking.find({
+          venue,
+          bookingDate: { $gte: startRange, $lte: endRange },
+          status: { $in: ['confirmed', 'pending'] }
+        }),
+        OfflineBooking.find({
+          venue,
+          eventDate: { $gte: startRange, $lte: endRange },
+          bookingStatus: { $in: ['Confirmed', 'Tentative'] }
+        })
+      ]);
       
       const isAlreadyBooked = existingBookings.some(b => {
         const dbDate = new Date(b.bookingDate);
@@ -321,8 +329,19 @@ exports.createBooking = async (req, res) => {
                           dbDate.getDate() === targetDate.getDate();
         return sameUTC || sameLocal;
       });
+
+      const isOfflineBooked = existingOfflineBookings.some(b => {
+        const dbDate = new Date(b.eventDate);
+        const sameUTC = dbDate.getUTCFullYear() === targetDate.getUTCFullYear() &&
+                        dbDate.getUTCMonth() === targetDate.getUTCMonth() &&
+                        dbDate.getUTCDate() === targetDate.getUTCDate();
+        const sameLocal = dbDate.getFullYear() === targetDate.getFullYear() &&
+                          dbDate.getMonth() === targetDate.getMonth() &&
+                          dbDate.getDate() === targetDate.getDate();
+        return sameUTC || sameLocal;
+      });
       
-      if (isAlreadyBooked) {
+      if (isAlreadyBooked || isOfflineBooked) {
         // Auto-refund
         try {
           const Razorpay = require('razorpay');
@@ -874,30 +893,44 @@ exports.modifyBooking = async (req, res) => {
         const endRange = new Date(targetDate);
         endRange.setDate(endRange.getDate() + 2);
         
-        const existingBookings = await Booking.find({
-          _id: { $ne: booking._id }, // Exclude current booking
-          venue: booking.venue._id,
-          bookingDate: { $gte: startRange, $lte: endRange },
-          status: { $in: ['confirmed', 'pending'] }
-        });
+        const OfflineBooking = require('../models/OfflineBooking');
+        const [existingBookings, existingOfflineBookings] = await Promise.all([
+          Booking.find({
+            _id: { $ne: booking._id }, // Exclude current booking
+            venue: booking.venue._id,
+            bookingDate: { $gte: startRange, $lte: endRange },
+            status: { $in: ['confirmed', 'pending'] }
+          }),
+          OfflineBooking.find({
+            venue: booking.venue._id,
+            eventDate: { $gte: startRange, $lte: endRange },
+            bookingStatus: { $in: ['Confirmed', 'Tentative'] }
+          })
+        ]);
         
         const isAlreadyBooked = existingBookings.some(b => {
           const dbDate = new Date(b.bookingDate);
-          
-          // Compare UTC date parts
           const sameUTC = dbDate.getUTCFullYear() === targetDate.getUTCFullYear() &&
                           dbDate.getUTCMonth() === targetDate.getUTCMonth() &&
                           dbDate.getUTCDate() === targetDate.getUTCDate();
-                          
-          // Compare local (server-side system) date parts
           const sameLocal = dbDate.getFullYear() === targetDate.getFullYear() &&
                             dbDate.getMonth() === targetDate.getMonth() &&
                             dbDate.getDate() === targetDate.getDate();
-                            
+          return sameUTC || sameLocal;
+        });
+
+        const isOfflineBooked = existingOfflineBookings.some(b => {
+          const dbDate = new Date(b.eventDate);
+          const sameUTC = dbDate.getUTCFullYear() === targetDate.getUTCFullYear() &&
+                          dbDate.getUTCMonth() === targetDate.getUTCMonth() &&
+                          dbDate.getUTCDate() === targetDate.getUTCDate();
+          const sameLocal = dbDate.getFullYear() === targetDate.getFullYear() &&
+                            dbDate.getMonth() === targetDate.getMonth() &&
+                            dbDate.getDate() === targetDate.getDate();
           return sameUTC || sameLocal;
         });
         
-        if (isAlreadyBooked) {
+        if (isAlreadyBooked || isOfflineBooked) {
           return res.status(400).json({
             success: false,
             message: 'This venue is already booked for the selected date.'

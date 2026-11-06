@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, Star, ArrowRight, Leaf, UtensilsCrossed, Utensils, CheckCircle2, Info } from 'lucide-react';
+import { Users, Star, ArrowRight, Leaf, UtensilsCrossed, Utensils, CheckCircle2, Info, Share2, Heart } from 'lucide-react';
 import { getVenueStartingPrice, isVenueVerified } from '@/lib/venuePricing';
+import { useFavorites } from '@/lib/favorites';
+import { shareItem } from '@/lib/share';
 
 function getFoodTypeIcon(foodType) {
   if (foodType === 'Veg') return Leaf;
@@ -26,6 +28,7 @@ export default function FeaturedVenues() {
   const router = useRouter();
   const [venues, setVenues] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { isVenueFav, toggleVenue } = useFavorites();
 
   useEffect(() => {
     fetchFeaturedVenues();
@@ -33,14 +36,15 @@ export default function FeaturedVenues() {
 
   const fetchFeaturedVenues = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues?limit=36`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues?limit=36`, { cache: 'no-store' });
       const data = await response.json();
       if (data.success && Array.isArray(data.venues)) {
         // Sort: Verified first, then Info venues
         const sorted = [...data.venues].sort((a, b) => {
           const aVer = isVenueVerified(a) ? 1 : 0;
           const bVer = isVenueVerified(b) ? 1 : 0;
-          return bVer - aVer;
+          if (bVer !== aVer) return bVer - aVer;
+          return (Number(b.profileCompletion) || 0) - (Number(a.profileCompletion) || 0);
         });
         // 4x6 Cards layout = 24 venues
         setVenues(sorted.slice(0, 24));
@@ -125,27 +129,54 @@ export default function FeaturedVenues() {
                     </span>
                   </div>
 
-                  {/* Top-Right Badges: Info / Verified + Rating */}
+                  {/* Top-Right Action Buttons: Share & Favorite */}
                   <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
-                    {isVenueVerified(venue) ? (
-                      <span className="bg-emerald-600 text-white px-2.5 py-1 rounded-full flex items-center gap-1 shadow-md text-xs font-bold backdrop-blur-xs">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Verified
-                      </span>
-                    ) : (
-                      <span className="bg-blue-600 text-white px-2.5 py-1 rounded-full flex items-center gap-1 shadow-md text-xs font-bold backdrop-blur-xs">
-                        <Info className="w-3.5 h-3.5" /> Info
-                      </span>
-                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const url = typeof window !== 'undefined' ? `${window.location.origin}/venues/${venue.sku || venue._id}` : '';
+                        shareItem({
+                          title: venue.businessName,
+                          text: `Check out ${venue.businessName} on RentalMeet!`,
+                          url
+                        });
+                      }}
+                      className="h-8 w-8 rounded-full shadow-md flex items-center justify-center transition-all active:scale-95 cursor-pointer bg-white/90 dark:bg-slate-900/90 text-slate-700 dark:text-slate-300 hover:text-primary-600 backdrop-blur-xs"
+                      aria-label="Share Venue"
+                      title="Share Venue"
+                    >
+                      <Share2 className="h-3.5 w-3.5" />
+                    </button>
 
-                    {(venue.rating > 0 || venue.averageRating > 0) && (
-                      <div className="bg-white dark:bg-slate-900 px-2.5 py-1 rounded-full flex items-center gap-1 shadow-md">
-                        <Star className="w-3.5 h-3.5 text-[#F59F0A] fill-[#F59F0A]" />
-                        <span className="text-xs font-bold text-gray-900 dark:text-slate-100">
-                          {(venue.rating || venue.averageRating)?.toFixed(1)}
-                        </span>
-                      </div>
-                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleVenue(venue);
+                      }}
+                      className={`h-8 w-8 rounded-full shadow-md flex items-center justify-center transition-all active:scale-95 cursor-pointer ${
+                        isVenueFav(venue._id) || isVenueFav(venue.sku)
+                          ? 'bg-red-50 text-red-500'
+                          : 'bg-white/90 dark:bg-slate-900/90 text-slate-700 dark:text-slate-300 hover:text-red-500 backdrop-blur-xs'
+                      }`}
+                      aria-label="Toggle Favorite"
+                      title="Toggle Favorite"
+                    >
+                      <Heart className={`h-4 w-4 ${isVenueFav(venue._id) || isVenueFav(venue.sku) ? 'fill-current' : ''}`} />
+                    </button>
                   </div>
+
+                  {/* Verification Pill Overlay */}
+                  {isVenueVerified(venue) && (
+                    <div className="absolute bottom-3 right-3 z-10">
+                      <span className="bg-emerald-600/95 text-white px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md text-[10px] font-bold backdrop-blur-xs">
+                        <CheckCircle2 className="w-3 h-3" /> Verified
+                      </span>
+                    </div>
+                  )}
 
                   {/* Coupon Badge — bottom-left overlay */}
                   {venue.activeCoupons?.length > 0 && (

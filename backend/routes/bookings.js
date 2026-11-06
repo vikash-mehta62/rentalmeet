@@ -20,15 +20,23 @@ router.get('/booked-dates/:sku', async (req, res) => {
     const venue = await Venue.findOne({ sku: req.params.sku }).select('_id blockedDates');
     if (!venue) return res.json({ success: true, dates: [] });
 
-    const bookings = await Booking.find({
-      venue: venue._id,
-      status: { $in: ['confirmed', 'pending'] }
-    }).select('bookingDate');
+    const OfflineBooking = require('../models/OfflineBooking');
+    const [bookings, offlineBookings] = await Promise.all([
+      Booking.find({
+        venue: venue._id,
+        status: { $in: ['confirmed', 'pending'] }
+      }).select('bookingDate'),
+      OfflineBooking.find({
+        venue: venue._id,
+        bookingStatus: { $in: ['Confirmed', 'Tentative'] }
+      }).select('eventDate')
+    ]);
 
     const bookedDates = bookings.map(b => b.bookingDate);
+    const offlineDates = offlineBookings.map(b => b.eventDate);
     const blockedDates = (venue.blockedDates || []).map(b => b.date);
 
-    res.json({ success: true, dates: [...bookedDates, ...blockedDates] });
+    res.json({ success: true, dates: [...bookedDates, ...offlineDates, ...blockedDates] });
   } catch (e) {
     res.json({ success: false, dates: [] });
   }

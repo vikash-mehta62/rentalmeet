@@ -15,16 +15,31 @@ const userSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
-    unique: true,
     lowercase: true,
     trim: true
   },
   phone: {
     type: String,
     required: true,
-    unique: true
+    trim: true
   },
   alternatePhone: {
+    type: String
+  },
+  // Offline customer tracking
+  isOfflineCreated: {
+    type: Boolean,
+    default: false
+  },
+  registrationSource: {
+    type: String,
+    default: 'ONLINE'
+  },
+  registeredByVenue: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Venue'
+  },
+  registeredByVenueName: {
     type: String
   },
   role: {
@@ -365,5 +380,10 @@ userSchema.methods.generateReferralCode = function() {
 userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
+
+
+// Compound indexes for role-scoped uniqueness: same phone/email can exist across different roles
+userSchema.index({ email: 1, role: 1 }, { unique: true });
+userSchema.index({ phone: 1, role: 1 }, { unique: true });
 
 module.exports = mongoose.model('User', userSchema);

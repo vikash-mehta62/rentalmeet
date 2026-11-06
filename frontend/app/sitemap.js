@@ -52,7 +52,7 @@ export default async function sitemap() {
   let venueEntries = [];
   try {
     const res = await fetch(`${API_URL}/venues?status=approved&limit=5000`, {
-      cache: 'no-store',
+      next: { revalidate: 21600 },
     });
     const data = await res.json();
     if (data.success && Array.isArray(data.venues)) {
@@ -73,7 +73,7 @@ export default async function sitemap() {
   let serviceEntries = [];
   try {
     const res = await fetch(`${API_URL}/vendor-services?status=approved&limit=5000`, {
-      cache: 'no-store',
+      next: { revalidate: 21600 },
     });
     const data = await res.json();
     const services = data.services || data.data || [];
@@ -95,7 +95,7 @@ export default async function sitemap() {
   let blogEntries = [];
   try {
     const res = await fetch(`${API_URL}/blogs/sitemap`, {
-      cache: 'no-store',
+      next: { revalidate: 21600 },
     });
     const data = await res.json();
     if (data.success && Array.isArray(data.blogs)) {
