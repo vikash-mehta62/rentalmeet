@@ -1273,8 +1273,8 @@ export default function AmbassadorAddVenuePage() {
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
               Select Applicable Pricing Models <span className="text-red-500">*</span>
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {['Only Rent', 'Rent (Included Amenities)', 'Per Pax'].map((model) => {
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {['Only Rent', 'Rent (Included Amenities)', 'Per Pax', 'Custom Price Model'].map((model) => {
                 const isSelected = formData.pricingModels.includes(model);
                 return (
                   <button
@@ -1302,6 +1302,65 @@ export default function AmbassadorAddVenuePage() {
               })}
             </div>
           </div>
+
+{/* Custom Price Model */}
+          {formData.pricingModels.includes('Custom Price Model') && (
+            <div className="p-4 sm:p-5 rounded-2xl bg-purple-50/70 dark:bg-slate-800/40 border border-purple-200 dark:border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-purple-500" /> Custom Price Model
+                </h3>
+                <span className="text-[11px] text-purple-700 dark:text-purple-300">Custom package rates</span>
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Custom Model / Package Name *
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Corporate Deluxe / Party Package"
+                  value={formData.customPricing?.name || ''}
+                  onChange={(e) => handleNestedPricingChange('customPricing', 'name', e.target.value)}
+                  className="w-full px-3 py-2 border border-purple-300 rounded-xl text-xs bg-white dark:bg-slate-900 focus:ring-2 focus:ring-purple-500 outline-none"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Per/Hr Rate (₹)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    placeholder="e.g. 1000"
+                    value={formData.customPricing?.hourlyRate || ''}
+                    onChange={(e) => handleNestedPricingChange('customPricing', 'hourlyRate', e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-xs bg-white dark:bg-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Half/Day Rate (₹)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    placeholder="e.g. 4500"
+                    value={formData.customPricing?.halfDayRate || ''}
+                    onChange={(e) => handleNestedPricingChange('customPricing', 'halfDayRate', e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-xs bg-white dark:bg-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Full/Day Rate (₹)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    placeholder="e.g. 8000"
+                    value={formData.customPricing?.fullDayRate || ''}
+                    onChange={(e) => handleNestedPricingChange('customPricing', 'fullDayRate', e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-xs bg-white dark:bg-slate-900"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Model 1: Only Rent Table */}
           {formData.pricingModels.includes('Only Rent') && (

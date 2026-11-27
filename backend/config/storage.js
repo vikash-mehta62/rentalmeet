@@ -53,6 +53,7 @@ const detectContentType = (fileBuffer, fallbackType) => {
   if (hex.startsWith('89504e47')) return 'image/png';
   if (hex.startsWith('25504446')) return 'application/pdf';
   if (hex.startsWith('52494646') && fileBuffer.subarray(8, 12).toString('ascii') === 'WEBP') return 'image/webp';
+  if (hex.includes('66747970') || (fileBuffer.length > 8 && fileBuffer.subarray(4, 8).toString('ascii') === 'ftyp')) return 'video/mp4';
 
   return 'application/octet-stream';
 };
@@ -63,7 +64,11 @@ const extensionForContentType = (contentType) => {
     'image/jpg': 'jpg',
     'image/png': 'png',
     'image/webp': 'webp',
-    'application/pdf': 'pdf'
+    'application/pdf': 'pdf',
+    'video/mp4': 'mp4',
+    'video/webm': 'webm',
+    'video/ogg': 'ogg',
+    'video/quicktime': 'mov'
   };
 
   return extensions[contentType] || 'bin';

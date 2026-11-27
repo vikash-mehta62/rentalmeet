@@ -680,6 +680,35 @@ exports.updateBookingStatus = async (req, res) => {
       }
     }
     
+    // If confirming booking and caller is owner, enforce Starter monthly booking quota (3/month)
+    if (status === 'confirmed' && req.user.role === 'owner') {
+      try {
+        const { getActiveOwnerSubscription } = require('./subscriptionController');
+        const subInfo = await getActiveOwnerSubscription(req.user.id);
+        const monthlyLimit = subInfo.details?.limits?.monthlyOnlineBookings;
+        if (monthlyLimit !== Infinity && typeof monthlyLimit === 'number') {
+          const now = new Date();
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          const ownerVenues = await Venue.find({ owner: req.user.id }).select('_id');
+          const ownerVenueIds = ownerVenues.map(v => v._id);
+          const countThisMonth = await Booking.countDocuments({
+            venue: { $in: ownerVenueIds },
+            status: { $in: ['confirmed', 'completed'] },
+            createdAt: { $gte: startOfMonth }
+          });
+          if (countThisMonth >= monthlyLimit) {
+            return res.status(403).json({
+              success: false,
+              limitReached: true,
+              message: `Monthly booking acceptance limit (${monthlyLimit} bookings/month) reached for ${subInfo.details.name}. Please upgrade to Pro or Business Premium to accept unlimited bookings.`
+            });
+          }
+        }
+      } catch (subErr) {
+        console.error('Subscription booking limit check error:', subErr.message);
+      }
+    }
+
     booking.status = status;
     await booking.save();
     

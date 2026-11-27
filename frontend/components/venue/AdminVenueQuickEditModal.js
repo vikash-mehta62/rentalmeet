@@ -488,6 +488,12 @@ export default function AdminVenueQuickEditModal({
         dinnerOnly: { rate: Number(venue?.pricing?.perPax?.dinnerOnly?.rate ?? venue?.pricing?.perPax?.onlyDinner?.rate ?? 0) },
         allMeals: { rate: Number(venue?.pricing?.perPax?.allMeals?.rate ?? 0) }
       },
+      customPricing: {
+        name: venue?.pricing?.customPricing?.name || '',
+        hourly: { rate: Number(venue?.pricing?.customPricing?.hourly?.rate ?? 0) },
+        halfDay: { rate: Number(venue?.pricing?.customPricing?.halfDay?.rate ?? 0) },
+        fullDay: { rate: Number(venue?.pricing?.customPricing?.fullDay?.rate ?? 0) }
+      },
       perHour: {
         weekday: Number(venue?.pricing?.perHour?.weekday ?? venue?.pricing?.onlyRent?.hourly?.rate ?? 0),
         weekend: Number(venue?.pricing?.perHour?.weekend ?? venue?.pricing?.perHour?.weekday ?? venue?.pricing?.onlyRent?.hourly?.rate ?? 0)
@@ -2598,7 +2604,8 @@ export default function AdminVenueQuickEditModal({
                   {[
                     { key: 'onlyRent', label: '1. Only Rent' },
                     { key: 'rentWithAmenities', label: '2. Rent with Included Amenities' },
-                    { key: 'perPax', label: '3. Per Pax (Food Packages per Person)' }
+                    { key: 'perPax', label: '3. Per Pax (Food Packages per Person)' },
+                    { key: 'customPricing', label: '4. Custom Price Model' }
                   ].map((m) => {
                     const isSelected = (formData.pricing.selectedPricingModels || []).includes(m.key);
                     return (
@@ -2811,6 +2818,100 @@ export default function AdminVenueQuickEditModal({
                         />
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 4. Custom Price Model */}
+              {(formData.pricing.selectedPricingModels || []).some(m => m === 'customPricing' || m === 'Custom Price Model') && (
+                <div className="p-4 bg-purple-50/70 rounded-2xl border border-purple-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-purple-900 uppercase tracking-wider">
+                      4. Custom Price Model
+                    </h4>
+                    <span className="text-[10px] text-purple-600 font-semibold">Custom name & package rates</span>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-purple-900 block mb-1">
+                      Custom Model / Package Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.pricing.customPricing?.name || ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        pricing: {
+                          ...formData.pricing,
+                          customPricing: {
+                            ...(formData.pricing.customPricing || {}),
+                            name: e.target.value
+                          }
+                        }
+                      })}
+                      placeholder="e.g. Corporate Deluxe / Party Package"
+                      className="w-full px-3 py-2 border border-purple-200 rounded-xl font-bold text-purple-900 bg-white text-xs"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="p-3 bg-white rounded-xl border border-purple-100 space-y-1.5 text-xs">
+                      <span className="font-bold text-gray-800 block">Per/Hr Rate (₹)</span>
+                      <input
+                        type="number"
+                        value={formData.pricing.customPricing?.hourly?.rate || ''}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          pricing: {
+                            ...formData.pricing,
+                            customPricing: {
+                              ...(formData.pricing.customPricing || {}),
+                              hourly: { rate: Number(e.target.value) || 0 }
+                            }
+                          }
+                        })}
+                        placeholder="₹ 1000"
+                        className="w-full px-3 py-2 border border-purple-200 rounded-xl font-bold text-purple-900 bg-white"
+                      />
+                    </div>
+                    <div className="p-3 bg-white rounded-xl border border-purple-100 space-y-1.5 text-xs">
+                      <span className="font-bold text-gray-800 block">Half/Day Rate (₹)</span>
+                      <input
+                        type="number"
+                        value={formData.pricing.customPricing?.halfDay?.rate || ''}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          pricing: {
+                            ...formData.pricing,
+                            customPricing: {
+                              ...(formData.pricing.customPricing || {}),
+                              halfDay: { rate: Number(e.target.value) || 0 }
+                            }
+                          }
+                        })}
+                        placeholder="₹ 4500"
+                        className="w-full px-3 py-2 border border-purple-200 rounded-xl font-bold text-purple-900 bg-white"
+                      />
+                    </div>
+                    <div className="p-3 bg-white rounded-xl border border-purple-100 space-y-1.5 text-xs">
+                      <span className="font-bold text-gray-800 block">Full/Day Rate (₹)</span>
+                      <input
+                        type="number"
+                        value={formData.pricing.customPricing?.fullDay?.rate || ''}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          pricing: {
+                            ...formData.pricing,
+                            customPricing: {
+                              ...(formData.pricing.customPricing || {}),
+                              fullDay: { rate: Number(e.target.value) || 0 }
+                            }
+                          }
+                        })}
+                        placeholder="₹ 8000"
+                        className="w-full px-3 py-2 border border-purple-200 rounded-xl font-bold text-purple-900 bg-white"
+                      />
+                    </div>
                   </div>
                 </div>
               )}

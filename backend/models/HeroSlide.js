@@ -3,20 +3,44 @@ const mongoose = require('mongoose');
 const heroSlideSchema = new mongoose.Schema({
   title: {
     type: String,
-    required: true,
+    required: false,
+    default: '',
     trim: true
   },
   subtitle: {
     type: String,
-    trim: true
+    trim: true,
+    default: ''
   },
   description: {
     type: String,
-    trim: true
+    trim: true,
+    default: ''
+  },
+  mediaType: {
+    type: String,
+    enum: ['image', 'video'],
+    default: 'image'
   },
   image: {
     type: String,
-    required: true // S3 URL
+    default: ''
+  },
+  video: {
+    type: String,
+    default: ''
+  },
+  imageOpacity: {
+    type: Number,
+    default: 100, // 0 to 100%
+    min: 0,
+    max: 100
+  },
+  overlayOpacity: {
+    type: Number,
+    default: 50, // 0 to 100%
+    min: 0,
+    max: 100
   },
   buttonText: {
     type: String,

@@ -397,8 +397,8 @@ export default function Step4Pricing() {
               Enable Rent (Included Amenities) or Per Pax (Per Person) pricing for this venue
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-              {['Only Rent', 'Rent (Included Amenities)', 'Per Pax'].map((model) => {
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+              {['Only Rent', 'Rent (Included Amenities)', 'Per Pax', 'Custom Price Model'].map((model) => {
                 const isSelected = selectedPricingModels.includes(model);
                 return (
                   <button
@@ -499,6 +499,58 @@ export default function Step4Pricing() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Custom Price Model Details */}
+            {selectedPricingModels.includes('Custom Price Model') && (
+              <div className="mt-4 p-4 bg-white dark:bg-slate-900 rounded-xl border border-purple-200 dark:border-slate-700 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase text-purple-700 dark:text-purple-300">
+                    Custom Price Model
+                  </h4>
+                  <span className="text-[11px] text-purple-600 dark:text-purple-400 font-semibold">Custom package with flexible rates</span>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    Custom Model / Package Name *
+                  </label>
+                  <input
+                    type="text"
+                    {...register('customPricing.name')}
+                    placeholder="e.g. Corporate Deluxe / Party Package"
+                    className="input-field text-xs py-1.5"
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <label className="block text-gray-600 dark:text-gray-400 mb-1">Per/Hr Rate (₹)</label>
+                    <input
+                      type="number"
+                      {...register('customPricing.hourly.rate')}
+                      placeholder="Ex. 800"
+                      className="input-field text-xs py-1.5"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-600 dark:text-gray-400 mb-1">Half/Day Rate (₹)</label>
+                    <input
+                      type="number"
+                      {...register('customPricing.halfDay.rate')}
+                      placeholder="Ex. 3500"
+                      className="input-field text-xs py-1.5"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-600 dark:text-gray-400 mb-1">Full/Day Rate (₹)</label>
+                    <input
+                      type="number"
+                      {...register('customPricing.fullDay.rate')}
+                      placeholder="Ex. 7000"
+                      className="input-field text-xs py-1.5"
+                    />
+                  </div>
                 </div>
               </div>
             )}

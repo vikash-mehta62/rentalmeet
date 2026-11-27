@@ -60,6 +60,7 @@ export const calculateProfileCompletion = (venue = {}) => {
     (Number(p.fullDay?.weekday) > 0 || Number(p.fullDay?.weekend) > 0) ||
     (Number(p.onlyRent?.hourly?.rate) > 0 || Number(p.onlyRent?.halfDay?.rate) > 0 || Number(p.onlyRent?.fullDay?.rate) > 0) ||
     (Number(p.rentWithAmenities?.hourly?.rate) > 0 || Number(p.rentWithAmenities?.halfDay?.rate) > 0 || Number(p.rentWithAmenities?.fullDay?.rate) > 0) ||
+    (Number(p.customPricing?.hourly?.rate) > 0 || Number(p.customPricing?.halfDay?.rate) > 0 || Number(p.customPricing?.fullDay?.rate) > 0) ||
     (p.perPax && Object.values(p.perPax).some(pkg => Number(pkg?.rate) > 0)) ||
     (Number(venue.startingPrice) > 0)
   );
@@ -210,7 +211,33 @@ export const getVenueDurationBasePrice = (venue = {}, duration, date, options = 
     }
   }
 
-  // 4. Standard Hourly / Half Day / Full Day fallback
+  // 4. Custom Price Model Calculation
+  const customModelKey = pricing.customPricing?.name ? String(pricing.customPricing.name).toLowerCase().replace(/[\s_()\-]+/g, '') : '';
+  if (modelKey === 'custompricing' || modelKey === 'custompricemodel' || modelKey === 'custom' || (customModelKey && modelKey === customModelKey) || pricingModel === 'Custom Price Model') {
+    const customPricing = pricing.customPricing || {};
+    if (hours === 1 || hours === 2) {
+      const rate = positiveOr(customPricing.hourly?.rate, pricing.perHour?.[dayType]);
+      if (rate > 0) return roundMoney(rate * hours);
+    }
+    if (hours === 4 || hours === 6) {
+      const base = positiveOr(customPricing.halfDay?.rate, pricing.halfDay?.[dayType]);
+      if (base > 0) {
+        const extraHours = Math.max(0, hours - 6);
+        const extraRate = positiveOr(customPricing.halfDay?.extraPerHour, positiveOr(customPricing.hourly?.extraPerHour, pricing.extraHourRate?.[dayType] || 0));
+        return roundMoney(base + (extraHours * extraRate));
+      }
+    }
+    if (hours === 8 || hours === 12) {
+      const base = positiveOr(customPricing.fullDay?.rate, pricing.fullDay?.[dayType]);
+      if (base > 0) {
+        const extraHours = Math.max(0, hours - 12);
+        const extraRate = positiveOr(customPricing.fullDay?.extraPerHour, positiveOr(customPricing.hourly?.extraPerHour, pricing.extraHourRate?.[dayType] || 0));
+        return roundMoney(base + (extraHours * extraRate));
+      }
+    }
+  }
+
+  // 5. Standard Hourly / Half Day / Full Day fallback
   if (hours === 1 || hours === 2) {
     const rate = positiveOr(pricing.perHour?.[dayType], positiveOr(pricing.rentWithAmenities?.hourly?.rate, pricing.onlyRent?.hourly?.rate || 0));
     return roundMoney(rate * hours);
@@ -498,6 +525,12 @@ export const getVenueStartingPrice = (venue = {}) => {
   if (Number(rentWithAmenities.hourly?.rate) > 0) candidates.push({ val: Number(rentWithAmenities.hourly.rate), label: '/hour' });
   if (Number(rentWithAmenities.halfDay?.rate) > 0) candidates.push({ val: Number(rentWithAmenities.halfDay.rate), label: '/half day' });
   if (Number(rentWithAmenities.fullDay?.rate) > 0) candidates.push({ val: Number(rentWithAmenities.fullDay.rate), label: '/full day' });
+
+  // 3b. customPricing model
+  const customPricing = p?.customPricing || {};
+  if (Number(customPricing.hourly?.rate) > 0) candidates.push({ val: Number(customPricing.hourly.rate), label: '/hour' });
+  if (Number(customPricing.halfDay?.rate) > 0) candidates.push({ val: Number(customPricing.halfDay.rate), label: '/half day' });
+  if (Number(customPricing.fullDay?.rate) > 0) candidates.push({ val: Number(customPricing.fullDay.rate), label: '/full day' });
 
   // 4. perPax model
   const perPax = p?.perPax || {};

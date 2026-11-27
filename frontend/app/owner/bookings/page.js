@@ -256,7 +256,7 @@ export default function OwnerBookings() {
 
   if (loading) {
     return (
-      <OwnerLayout title="My Bookings" subtitle="Loading...">
+      <OwnerLayout title="My Online Bookings" subtitle="Loading...">
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
             <div className="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
@@ -268,7 +268,7 @@ export default function OwnerBookings() {
   }
 
   return (
-    <OwnerLayout title="My Bookings" subtitle={`${totalBookings} booking(s) found`}>
+    <OwnerLayout title="My Online Bookings" subtitle={`${totalBookings} booking(s) found`}>
 
       {/* Main Tabs */}
       <div className="flex gap-1 mb-5 bg-gray-100 rounded-xl p-1 w-fit">

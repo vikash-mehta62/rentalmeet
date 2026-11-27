@@ -1054,7 +1054,7 @@ export default function BookingForm({
                           : 'border-slate-200 dark:border-slate-700 hover:border-primary-200 text-slate-700 dark:text-slate-300'
                       }`}
                     >
-                      {model}
+                      {model === 'Custom Price Model' && venue.pricing?.customPricing?.name ? venue.pricing.customPricing.name : model}
                     </button>
                   ))}
                 </div>

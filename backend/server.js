@@ -164,6 +164,8 @@ app.use('/api/vendor', require('./routes/vendor'));
 app.use('/api/ambassador', require('./routes/ambassador'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/analytics', require('./routes/analytics'));
+app.use('/api/subscription', require('./routes/subscription'));
+app.use('/api/media-profile', require('./routes/mediaProfile'));
 
 // Public: get service platform settings (for quotation calculation)
 app.get('/api/service-platform-settings', async (req, res) => {

@@ -77,32 +77,55 @@ export default function HeroSection() {
 
   return (
     <section className="relative min-h-[calc(100vh-102px)] min-h-[calc(100dvh-102px)] w-full overflow-hidden mt-[102px] flex flex-col justify-center items-center">
-      {/* Background Image */}
-      <div className="absolute inset-0">
-        <Image
-          src={slide.image || '/her-img2.jpg'}
-          alt={slide.title || 'RentalMeet Venues'}
-          fill
-          className="object-cover transition-opacity duration-700"
-          priority
-        />
+      {/* Background Media */}
+      <div className="absolute inset-0 bg-gray-950 overflow-hidden">
+        {slide.mediaType === 'video' && slide.video ? (
+          <video
+            key={slide.video}
+            src={slide.video}
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="w-full h-full object-cover transition-opacity duration-700"
+            style={{ opacity: (slide.imageOpacity !== undefined ? slide.imageOpacity : 100) / 100 }}
+          />
+        ) : (
+          <Image
+            src={slide.image || '/her-img2.jpg'}
+            alt={slide.title || 'RentalMeet Venues'}
+            fill
+            className="object-cover transition-opacity duration-700"
+            style={{ opacity: (slide.imageOpacity !== undefined ? slide.imageOpacity : 100) / 100 }}
+            priority
+          />
+        )}
         {/* Dark Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/45 to-black/75"></div>
+        <div 
+          className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/55 to-black/85 pointer-events-none transition-opacity duration-500"
+          style={{ opacity: Math.min(1, ((slide.overlayOpacity !== undefined ? slide.overlayOpacity : 50) / 50)) }}
+        ></div>
       </div>
 
       {/* Hero Content */}
       <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 text-center pt-8 pb-32 sm:pb-36 md:pb-40 flex flex-col items-center">
-        <h1
-          className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-3 sm:mb-4 leading-tight drop-shadow-lg"
-          style={{ fontFamily: "var(--font-playfair), 'Playfair Display', Georgia, serif" }}
-        >
-          <span className="font-serif" style={{ fontFamily: "inherit" }}>
-            {slide.title || 'Book Your Perfect Venue'}
-          </span>{' '}
-          <span className="font-serif" style={{ fontFamily: "inherit", color: '#F59F0A' }}>
-            With RentalMeet
-          </span>
-        </h1>
+        {(slide.title || slide.subtitle) && (
+          <h1
+            className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-3 sm:mb-4 leading-tight drop-shadow-lg"
+            style={{ fontFamily: "var(--font-playfair), 'Playfair Display', Georgia, serif" }}
+          >
+            {slide.title && (
+              <span className="font-serif" style={{ fontFamily: "inherit" }}>
+                {slide.title}{' '}
+              </span>
+            )}
+            {slide.subtitle && (
+              <span className="font-serif" style={{ fontFamily: "inherit", color: '#F59F0A' }}>
+                {slide.subtitle}
+              </span>
+            )}
+          </h1>
+        )}
         {slide.description && (
           <p className="text-white/90 text-sm sm:text-base md:text-lg max-w-2xl mx-auto leading-relaxed drop-shadow-md">
             {slide.description}

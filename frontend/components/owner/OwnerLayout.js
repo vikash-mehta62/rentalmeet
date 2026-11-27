@@ -7,7 +7,8 @@ import Link from 'next/link';
 import NotificationBell from '@/components/NotificationBell';
 import {
   Building2, Calendar, User, LogOut, Menu, X, 
-  Home, Plus, ChevronLeft, ChevronRight, Bell, Tag, FileText, IndianRupee, MessageSquare, ClipboardList
+  Home, Plus, ChevronLeft, ChevronRight, Bell, Tag, FileText, IndianRupee, MessageSquare, ClipboardList,
+  Sparkles, Camera, Users
 } from 'lucide-react';
 
 export default function OwnerLayout({ children, title, subtitle }) {
@@ -38,8 +39,12 @@ export default function OwnerLayout({ children, title, subtitle }) {
   const navItems = [
     { href: '/owner/dashboard', icon: Home, label: 'Dashboard' },
     { href: '/owner/venues', icon: Building2, label: 'My Venues' },
-    { href: '/owner/bookings', icon: Calendar, label: 'Bookings' },
+    { href: '/owner/media-profile', icon: Camera, label: 'Media Profile' },
+    { href: '/owner/subscription', icon: Sparkles, label: 'Subscription Plans' },
+    { href: '/owner/bookings', icon: Calendar, label: 'Online Bookings' },
     { href: '/owner/offline-bookings', icon: ClipboardList, label: 'Offline Bookings' },
+    { href: '/owner/customers', icon: Users, label: 'Customers' },
+    { href: '/owner/push-notifications', icon: Bell, label: 'Push Notifications' },
     { href: '/owner/enquiries', icon: MessageSquare, label: 'Enquiries' },
     { href: '/owner/payments', icon: IndianRupee, label: 'Payments' },
     { href: '/owner/quotation-downloads', icon: FileText, label: 'Quotations' },

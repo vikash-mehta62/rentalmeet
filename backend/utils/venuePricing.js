@@ -341,7 +341,33 @@ const calculateBasePrice = ({ venue, bookingType, bookingDate, durationHours, pr
     }
   }
 
-  // 4. Standard Hourly / Half Day / Full Day fallback
+  // 4. Custom Price Model Calculation
+  const customModelKey = pricing.customPricing?.name ? String(pricing.customPricing.name).toLowerCase().replace(/[\s_()\-]+/g, '') : '';
+  if (modelKey === 'custompricing' || modelKey === 'custompricemodel' || modelKey === 'custom' || (customModelKey && modelKey === customModelKey)) {
+    const customPricing = pricing.customPricing || {};
+    if (isHourly) {
+      const rate = positiveOr(customPricing.hourly?.rate, pricing.perHour?.[dayType]);
+      if (rate > 0) return roundMoney(rate * numberOr(durationHours, 1));
+    }
+    if (isHalfDay) {
+      const base = positiveOr(customPricing.halfDay?.rate, pricing.halfDay?.[dayType]);
+      if (base > 0) {
+        const extraHours = Math.max(0, numberOr(durationHours, 6) - 6);
+        const extraRate = positiveOr(customPricing.halfDay?.extraPerHour, positiveOr(customPricing.hourly?.extraPerHour, pricing.extraHourRate?.[dayType] || 0));
+        return roundMoney(base + (extraHours * extraRate));
+      }
+    }
+    if (isFullDay) {
+      const base = positiveOr(customPricing.fullDay?.rate, pricing.fullDay?.[dayType]);
+      if (base > 0) {
+        const extraHours = Math.max(0, numberOr(durationHours, 12) - 12);
+        const extraRate = positiveOr(customPricing.fullDay?.extraPerHour, positiveOr(customPricing.hourly?.extraPerHour, pricing.extraHourRate?.[dayType] || 0));
+        return roundMoney(base + (extraHours * extraRate));
+      }
+    }
+  }
+
+  // 5. Standard Hourly / Half Day / Full Day fallback
   if (isHourly) {
     const rate = positiveOr(pricing.perHour?.[dayType], positiveOr(pricing.rentWithAmenities?.hourly?.rate, pricing.onlyRent?.hourly?.rate || 0));
     return roundMoney(rate * numberOr(durationHours, 1));

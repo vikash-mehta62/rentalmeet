@@ -336,6 +336,29 @@ const venueSchema = new mongoose.Schema({
         rate: { type: Number, default: 0 },
         minPax: { type: Number, default: 1 }
       }
+    },
+    customPricing: {
+      name: { type: String, default: '' },
+      hourly: {
+        rate: { type: Number, default: 0 },
+        extraPerHour: { type: Number, default: 0 }
+      },
+      halfDay: {
+        rate: { type: Number, default: 0 },
+        extraPerHour: { type: Number, default: 0 }
+      },
+      fullDay: {
+        rate: { type: Number, default: 0 },
+        extraPerHour: { type: Number, default: 0 }
+      },
+      packages: [
+        {
+          name: { type: String, default: '' },
+          hourlyRate: { type: Number, default: 0 },
+          halfDayRate: { type: Number, default: 0 },
+          fullDayRate: { type: Number, default: 0 }
+        }
+      ]
     }
   },
   

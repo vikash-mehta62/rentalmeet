@@ -1415,7 +1415,8 @@ export default function AdminAddVenuePage() {
                 {[
                   { key: 'Only Rent', label: '1. Only Rent' },
                   { key: 'Rent (Included Amenities)', label: '2. Rent + Amenities' },
-                  { key: 'Per Pax', label: '3. Per Pax' }
+                  { key: 'Per Pax', label: '3. Per Pax' },
+                  { key: 'Custom Price Model', label: '4. Custom Price Model' }
                 ].map((m) => {
                   const isSelected = formData.pricingModels.includes(m.key);
                   return (
@@ -1530,6 +1531,69 @@ export default function AdminAddVenuePage() {
                         value={formData.rentWithAmenities.fullDayRate}
                         onChange={(e) => handleNestedPricingChange('rentWithAmenities', 'fullDayRate', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs bg-white focus:ring-2 focus:ring-primary-500 outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+{/* Custom Price Model Tab */}
+              {formData.pricingModels.includes('Custom Price Model') && (
+                <div className="p-4 bg-purple-50/60 rounded-xl border border-purple-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-bold text-purple-900">Custom Price Model</h3>
+                    <span className="text-[11px] text-purple-700 font-semibold">Custom name & package rates</span>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                      Custom Model / Package Name *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. VIP Corporate Package, Festival Night, Deluxe Banquet"
+                      value={formData.customPricing?.name || ''}
+                      onChange={(e) => handleNestedPricingChange('customPricing', 'name', e.target.value)}
+                      className="w-full px-3 py-2 border border-purple-300 rounded-xl text-xs bg-white focus:ring-2 focus:ring-purple-500 outline-none"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                        Per/Hr Rate (₹)
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        placeholder="e.g. 1000"
+                        value={formData.customPricing?.hourlyRate || ''}
+                        onChange={(e) => handleNestedPricingChange('customPricing', 'hourlyRate', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs bg-white focus:ring-2 focus:ring-purple-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                        Half/Day Rate (₹)
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        placeholder="e.g. 4500"
+                        value={formData.customPricing?.halfDayRate || ''}
+                        onChange={(e) => handleNestedPricingChange('customPricing', 'halfDayRate', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs bg-white focus:ring-2 focus:ring-purple-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                        Full/Day Rate (₹)
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        placeholder="e.g. 8000"
+                        value={formData.customPricing?.fullDayRate || ''}
+                        onChange={(e) => handleNestedPricingChange('customPricing', 'fullDayRate', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs bg-white focus:ring-2 focus:ring-purple-500 outline-none"
                       />
                     </div>
                   </div>

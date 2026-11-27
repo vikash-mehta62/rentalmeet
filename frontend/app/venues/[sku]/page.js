@@ -17,10 +17,12 @@ import {
   Sofa, Bed, Bath, Shirt, Scissors, FlowerIcon, Leaf,
   Send, AlertTriangle, FileText, Bike, Globe, Compass,
   ExternalLink, Eye, ShieldCheck, Layers, BadgePercent,
-  Ban, Check, Info, Wine, Dog, Heart
+  Ban, Check, Info, Wine, Dog, Heart, Film
 } from 'lucide-react';
 import BookingForm from '@/components/booking/BookingForm';
 import VenueReviews from '@/components/venue/VenueReviews';
+import VenueMediaSection from '@/components/venue/VenueMediaSection';
+import ReelModal from '@/components/media/ReelModal';
 import Navbar from '@/components/Navbar';
 import { useFavorites } from '@/lib/favorites';
 import { useAuthStore } from '@/lib/store';
@@ -117,6 +119,8 @@ export default function VenueDetail() {
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [bookedDates, setBookedDates] = useState([]);
   const [venueCoupons, setVenueCoupons] = useState([]);
+  const [venueMediaPosts, setVenueMediaPosts] = useState([]);
+  const [selectedReelPost, setSelectedReelPost] = useState(null);
   const [similarVenues, setSimilarVenues] = useState([]);
   const [similarLoading, setSimilarLoading] = useState(false);
   const [showAllIncludedFacilities, setShowAllIncludedFacilities] = useState(false);
@@ -280,6 +284,9 @@ export default function VenueDetail() {
         (venue.pricing.rentWithAmenities && (venue.pricing.rentWithAmenities.hourly?.rate > 0 || venue.pricing.rentWithAmenities.halfDay?.rate > 0 || venue.pricing.rentWithAmenities.fullDay?.rate > 0));
       const hasPerPax = selectedModels.some(m => m.toLowerCase().includes('pax')) ||
         Object.values(venue.pricing.perPax || {}).some(p => Number(p?.rate) > 0);
+      const customModelName = venue.pricing.customPricing?.name || 'Custom Price Model';
+      const hasCustomPricing = selectedModels.some(m => m.toLowerCase().includes('custom') || (venue.pricing.customPricing?.name && m.toLowerCase() === venue.pricing.customPricing.name.toLowerCase())) ||
+        (venue.pricing.customPricing && (venue.pricing.customPricing.hourly?.rate > 0 || venue.pricing.customPricing.halfDay?.rate > 0 || venue.pricing.customPricing.fullDay?.rate > 0));
 
       let initialModel = 'Only Rent';
       if (selectedModels.length > 0) {
@@ -354,6 +361,7 @@ export default function VenueDetail() {
         setVenue(data.venue);
         // Fetch coupons for this venue
         fetchVenueCoupons(data.venue._id);
+        fetchVenueMediaPosts(data.venue.sku || params.sku);
       } else {
         setError('Venue not found');
       }
@@ -422,6 +430,14 @@ export default function VenueDetail() {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/venues/${venueId}/coupons`);
       const data = await res.json();
       if (data.success) setVenueCoupons(data.coupons);
+    } catch (e) { /* silently fail */ }
+  };
+
+  const fetchVenueMediaPosts = async (identifier) => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/media-profile/venue/${identifier}/posts?limit=6`);
+      const data = await res.json();
+      if (data.success && data.posts) setVenueMediaPosts(data.posts);
     } catch (e) { /* silently fail */ }
   };
 
@@ -632,9 +648,14 @@ export default function VenueDetail() {
     const hasPerPax = selected.some(m => m.toLowerCase().includes('pax')) ||
       Object.values(venue?.pricing?.perPax || {}).some(p => Number(p?.rate) > 0);
 
+    const customModelName = venue?.pricing?.customPricing?.name || 'Custom Price Model';
+    const hasCustomPricing = selected.some(m => m.toLowerCase().includes('custom') || (venue?.pricing?.customPricing?.name && m.toLowerCase() === venue.pricing.customPricing.name.toLowerCase())) ||
+      (venue?.pricing?.customPricing && (venue.pricing.customPricing.hourly?.rate > 0 || venue.pricing.customPricing.halfDay?.rate > 0 || venue.pricing.customPricing.fullDay?.rate > 0));
+
     if (hasOnlyRent) models.push('Only Rent');
     if (hasRentAmenities) models.push('Rent with Amenities');
     if (hasPerPax) models.push('Per Pax');
+    if (hasCustomPricing) models.push(customModelName);
     return models;
   })();
 
@@ -961,6 +982,19 @@ export default function VenueDetail() {
                 </div>
 
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  <a
+                    href="#media-profile"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      document.getElementById('media-profile')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-primary-500/30 bg-primary-50 dark:bg-primary-950/40 text-primary-600 dark:text-primary-300 hover:bg-primary-100 dark:hover:bg-primary-900/40 text-xs font-bold shadow-sm transition-all active:scale-95 cursor-pointer"
+                    title="Jump to Venue Media Profile & Social Feed"
+                  >
+                    <Camera className="w-4 h-4 text-primary-500" />
+                    <span>Media Profile</span>
+                  </a>
+
                   <button
                     type="button"
                     onClick={handleShareVenue}
@@ -1118,8 +1152,83 @@ export default function VenueDetail() {
               )}
             </div>
 
+            {/* Interactive Venue In-Page Section Tabs */}
+            <div className="sticky top-[70px] z-20 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+              <a
+                href="#about-section"
+                onClick={(e) => {
+                  e.preventDefault();
+                  document.getElementById('about-section')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all flex items-center gap-1.5 flex-shrink-0"
+              >
+                <Building2 className="w-3.5 h-3.5 text-primary-500" />
+                About
+              </a>
+
+              <a
+                href="#media-profile"
+                onClick={(e) => {
+                  e.preventDefault();
+                  document.getElementById('media-profile')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-primary-50 dark:bg-primary-950/60 text-primary-600 dark:text-primary-300 border border-primary-500/30 hover:bg-primary-100 transition-all flex items-center gap-1.5 flex-shrink-0 shadow-sm"
+              >
+                <Camera className="w-3.5 h-3.5 text-primary-500" />
+                Media Profile & Feed
+              </a>
+
+              <a
+                href="#amenities-section"
+                onClick={(e) => {
+                  e.preventDefault();
+                  document.getElementById('amenities-section')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all flex items-center gap-1.5 flex-shrink-0"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                Amenities
+              </a>
+
+              <a
+                href="#pricing-section"
+                onClick={(e) => {
+                  e.preventDefault();
+                  document.getElementById('pricing-section')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all flex items-center gap-1.5 flex-shrink-0"
+              >
+                <BadgePercent className="w-3.5 h-3.5 text-emerald-500" />
+                Pricing
+              </a>
+
+              <a
+                href="#policies-section"
+                onClick={(e) => {
+                  e.preventDefault();
+                  document.getElementById('policies-section')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all flex items-center gap-1.5 flex-shrink-0"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
+                Policies
+              </a>
+
+              <a
+                href="#reviews-section"
+                onClick={(e) => {
+                  e.preventDefault();
+                  document.getElementById('reviews-section')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all flex items-center gap-1.5 flex-shrink-0"
+              >
+                <Star className="w-3.5 h-3.5 text-amber-400" />
+                Reviews
+              </a>
+            </div>
+
             {/* Description */}
-            <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-6">
+            <div id="about-section" className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-6 scroll-mt-24">
               <h2 className="font-serif text-xl font-bold text-dark-800 dark:text-slate-100 mb-3 flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-primary-500" />
                 About This Venue
@@ -1165,8 +1274,11 @@ export default function VenueDetail() {
               </div>
             )}
 
+            {/* Dedicated Venue Media Profile & Social Feed Section */}
+            <VenueMediaSection venue={venue} sku={params.sku} />
+
             {/* Amenities - Interactive Selection */}
-            <div className="space-y-4">
+            <div id="amenities-section" className="space-y-4 scroll-mt-24">
               <h2 className="font-serif text-xl font-bold text-dark-800 dark:text-slate-100">Select Amenities & Services</h2>
               
               {/* Basic Amenities */}
@@ -1807,9 +1919,12 @@ export default function VenueDetail() {
                 (venue.pricing.rentWithAmenities && (venue.pricing.rentWithAmenities.hourly?.rate > 0 || venue.pricing.rentWithAmenities.halfDay?.rate > 0 || venue.pricing.rentWithAmenities.fullDay?.rate > 0));
               const hasPerPax = selectedModels.some(m => m.toLowerCase().includes('pax')) ||
                 Object.values(venue.pricing.perPax || {}).some(p => Number(p?.rate) > 0);
+              const customModelName = venue.pricing.customPricing?.name || 'Custom Price Model';
+              const hasCustomPricing = selectedModels.some(m => m.toLowerCase().includes('custom') || (venue.pricing.customPricing?.name && m.toLowerCase() === venue.pricing.customPricing.name.toLowerCase())) ||
+                (venue.pricing.customPricing && (venue.pricing.customPricing.hourly?.rate > 0 || venue.pricing.customPricing.halfDay?.rate > 0 || venue.pricing.customPricing.fullDay?.rate > 0));
 
               return (
-                <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-6">
+                <div id="pricing-section" className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-6 scroll-mt-24">
                   <div className="flex items-center justify-between mb-6 flex-wrap gap-2 pb-4 border-b border-gray-100 dark:border-slate-800">
                     <div>
                       <h2 className="font-serif text-xl font-bold text-dark-800 dark:text-slate-100">
@@ -2074,6 +2189,99 @@ export default function VenueDetail() {
                     </div>
                   )}
 
+                  {/* Custom Price Model Rates */}
+                  {hasCustomPricing && (
+                    <div className="mb-7">
+                      <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100 dark:border-slate-800">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+                          <h3 className="font-bold text-sm text-gray-900 dark:text-slate-100">
+                            {venue.pricing.customPricing?.name ? `${venue.pricing.customPricing.name} Rates` : 'Custom Price Model Rates'}
+                          </h3>
+                          {quickBooking.pricingModel === customModelName && (
+                            <span className="text-[10px] bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 font-bold px-2 py-0.5 rounded-full border border-purple-200 dark:border-purple-800">
+                              Active Model
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs text-purple-600 dark:text-purple-400 font-medium hidden sm:inline">
+                          Custom package rates
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {/* Hourly */}
+                        {venue.pricing.customPricing?.hourly?.rate > 0 && (
+                          <div
+                            onClick={() => setQuickBooking(prev => ({ ...prev, pricingModel: customModelName, duration: '1' }))}
+                            className={`p-3.5 border-2 rounded-xl cursor-pointer transition-all ${
+                              quickBooking.pricingModel === customModelName && (quickBooking.duration === '1' || quickBooking.duration === '2')
+                                ? 'border-primary-500 bg-primary-50/70 dark:bg-primary-950/40 ring-2 ring-primary-500/20 shadow-sm'
+                                : 'border-gray-200 dark:border-slate-700 hover:border-primary-300 bg-white dark:bg-slate-800/40'
+                            }`}
+                          >
+                            <div className="flex justify-between items-start">
+                              <span className="text-xs font-bold text-gray-700 dark:text-slate-200">1 Hour Slot</span>
+                              {quickBooking.pricingModel === customModelName && (quickBooking.duration === '1' || quickBooking.duration === '2') && (
+                                <span className="text-[10px] font-bold text-primary-600 bg-primary-100 dark:bg-primary-900/60 px-2 py-0.5 rounded-full">✓ Selected</span>
+                              )}
+                            </div>
+                            <p className="text-lg font-bold text-primary-600 mt-2">
+                              ₹{Number(venue.pricing.customPricing.hourly.rate).toLocaleString('en-IN')}
+                            </p>
+                            <p className="text-[10px] text-gray-400 mt-0.5">Flexible hourly booking</p>
+                          </div>
+                        )}
+
+                        {/* Half Day */}
+                        {venue.pricing.customPricing?.halfDay?.rate > 0 && (
+                          <div
+                            onClick={() => setQuickBooking(prev => ({ ...prev, pricingModel: customModelName, duration: '4' }))}
+                            className={`p-3.5 border-2 rounded-xl cursor-pointer transition-all ${
+                              quickBooking.pricingModel === customModelName && (quickBooking.duration === '4' || quickBooking.duration === '6')
+                                ? 'border-primary-500 bg-primary-50/70 dark:bg-primary-950/40 ring-2 ring-primary-500/20 shadow-sm'
+                                : 'border-gray-200 dark:border-slate-700 hover:border-primary-300 bg-white dark:bg-slate-800/40'
+                            }`}
+                          >
+                            <div className="flex justify-between items-start">
+                              <span className="text-xs font-bold text-gray-700 dark:text-slate-200">Half Day</span>
+                              {quickBooking.pricingModel === customModelName && (quickBooking.duration === '4' || quickBooking.duration === '6') && (
+                                <span className="text-[10px] font-bold text-primary-600 bg-primary-100 dark:bg-primary-900/60 px-2 py-0.5 rounded-full">✓ Selected</span>
+                              )}
+                            </div>
+                            <p className="text-lg font-bold text-primary-600 mt-2">
+                              ₹{Number(venue.pricing.customPricing.halfDay.rate).toLocaleString('en-IN')}
+                            </p>
+                            <p className="text-[10px] text-gray-400 mt-0.5">4-6 continuous hours</p>
+                          </div>
+                        )}
+
+                        {/* Full Day */}
+                        {venue.pricing.customPricing?.fullDay?.rate > 0 && (
+                          <div
+                            onClick={() => setQuickBooking(prev => ({ ...prev, pricingModel: customModelName, duration: '8' }))}
+                            className={`p-3.5 border-2 rounded-xl cursor-pointer transition-all ${
+                              quickBooking.pricingModel === customModelName && (quickBooking.duration === '8' || quickBooking.duration === '12')
+                                ? 'border-primary-500 bg-primary-50/70 dark:bg-primary-950/40 ring-2 ring-primary-500/20 shadow-sm'
+                                : 'border-gray-200 dark:border-slate-700 hover:border-primary-300 bg-white dark:bg-slate-800/40'
+                            }`}
+                          >
+                            <div className="flex justify-between items-start">
+                              <span className="text-xs font-bold text-gray-700 dark:text-slate-200">Full Day</span>
+                              {quickBooking.pricingModel === customModelName && (quickBooking.duration === '8' || quickBooking.duration === '12') && (
+                                <span className="text-[10px] font-bold text-primary-600 bg-primary-100 dark:bg-primary-900/60 px-2 py-0.5 rounded-full">✓ Selected</span>
+                              )}
+                            </div>
+                            <p className="text-lg font-bold text-primary-600 mt-2">
+                              ₹{Number(venue.pricing.customPricing.fullDay.rate).toLocaleString('en-IN')}
+                            </p>
+                            <p className="text-[10px] text-gray-400 mt-0.5">8-12 full hours</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Legacy Fallback */}
                   {!hasOnlyRent && !hasRentAmenities && !hasPerPax && (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -2140,7 +2348,7 @@ export default function VenueDetail() {
             })()}
 
             {/* Venue Guidelines & House Rules */}
-            <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-6">
+            <div id="policies-section" className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-6 scroll-mt-24">
               <h2 className="font-serif text-xl font-bold text-dark-800 dark:text-slate-100 mb-4 flex items-center gap-2">
                 <FileText className="w-5 h-5 text-primary-500" />
                 Venue Guidelines & House Rules
@@ -2227,7 +2435,9 @@ export default function VenueDetail() {
             </div>
 
             {/* Reviews Section */}
-            <VenueReviews venueId={venue._id} />
+            <div id="reviews-section" className="scroll-mt-24">
+              <VenueReviews venueId={venue._id} />
+            </div>
           </div>
 
           {/* Right Column - Sticky Booking Card (35%) */}
@@ -2268,7 +2478,7 @@ export default function VenueDetail() {
                           </>
                         );
                       }
-                    } else if (quickBooking.pricingModel === 'Rent with Amenities' || quickBooking.pricingModel === 'Only Rent') {
+                    } else if (quickBooking.pricingModel === 'Rent with Amenities' || quickBooking.pricingModel === 'Only Rent' || quickBooking.pricingModel === customModelName || quickBooking.pricingModel === 'Custom Price Model') {
                       const rate = getQuickBookingBasePrice(quickBooking.duration);
                       if (rate > 0) {
                         const durLabel = quickBooking.duration === '1' ? '1 Hour' : quickBooking.duration === '4' ? 'Half Day' : quickBooking.duration === '8' ? 'Full Day' : `${quickBooking.duration}h`;
@@ -2720,6 +2930,70 @@ export default function VenueDetail() {
                   </div>
                 </div>
               )}
+
+              {/* Venue Media & Reels Box (Photo 19 - Add media Box below coupon) */}
+              <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950 text-white rounded-2xl p-4 shadow-md border border-indigo-900/40 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1.5 bg-gradient-to-r from-pink-500 to-rose-500 rounded-lg text-white shadow-sm">
+                      <Film className="w-4 h-4" />
+                    </span>
+                    <div>
+                      <h4 className="text-xs font-black tracking-wide uppercase">Venue Reels & Photos</h4>
+                      <p className="text-[10px] text-slate-300">Live tours & real event setups</p>
+                    </div>
+                  </div>
+                  <Link
+                    href={`/venues/${venue.sku || params.sku}/media`}
+                    className="text-[11px] font-bold text-pink-400 hover:text-pink-300 flex items-center gap-1 transition-colors"
+                  >
+                    <span>View All</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </Link>
+                </div>
+
+                {venueMediaPosts.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    {venueMediaPosts.slice(0, 3).map((post) => (
+                      <div
+                        key={post._id}
+                        onClick={() => setSelectedReelPost(post)}
+                        className="group relative aspect-[9/16] rounded-xl overflow-hidden bg-black/60 border border-white/10 cursor-pointer shadow-sm hover:scale-105 transition-all"
+                      >
+                        {post.mediaType === 'video' ? (
+                          <video src={post.mediaUrl} className="w-full h-full object-cover" muted playsInline />
+                        ) : (
+                          <img src={post.mediaUrl} alt={post.title} className="w-full h-full object-cover" />
+                        )}
+                        <div className="absolute inset-0 bg-black/25 group-hover:bg-black/10 transition-colors" />
+                        <div className="absolute top-1 right-1 p-1 rounded-md bg-black/60 text-white">
+                          {post.mediaType === 'video' ? <Film className="w-2.5 h-2.5 text-pink-400" /> : <ImageIcon className="w-2.5 h-2.5 text-blue-400" />}
+                        </div>
+                        <div className="absolute bottom-1 inset-x-1 flex items-center justify-between text-[9px] text-white font-bold drop-shadow">
+                          <span className="flex items-center gap-0.5"><Heart className="w-2.5 h-2.5 fill-rose-500 text-rose-500" />{post.likesCount || 0}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-2 text-[11px] text-slate-300">
+                    <Link
+                      href={`/venues/${venue.sku || params.sku}/media`}
+                      className="inline-flex items-center gap-1.5 text-xs text-amber-300 hover:text-amber-200 font-bold"
+                    >
+                      <span>Open Venue Media Profile</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                )}
+
+                <Link
+                  href={`/venues/${venue.sku || params.sku}/media`}
+                  className="block w-full py-2 bg-white/10 hover:bg-white/20 text-white font-bold text-center text-xs rounded-xl backdrop-blur-sm border border-white/15 transition-all"
+                >
+                  Watch All Venue Reels & Photos
+                </Link>
+              </div>
             </div>
           </div>
         </div>
@@ -2938,6 +3212,25 @@ export default function VenueDetail() {
           isEnquiryMode={!isOnlineBookingOpen(venue?.availability)}
           initialEnquiryData={initialEnquiryData}
           onClose={() => setBookingFormOpen(false)} 
+        />
+      )}
+      {/* Reel Modal from Media Box */}
+      {selectedReelPost && (
+        <ReelModal
+          post={selectedReelPost}
+          posts={venueMediaPosts}
+          profile={{
+            businessName: venue?.businessName,
+            profilePhoto: venue?.images?.[0]?.url || venue?.images?.[0],
+            location: venue?.location,
+            sku: venue?.sku || params.sku
+          }}
+          token={null}
+          onClose={() => setSelectedReelPost(null)}
+          onSelectPost={(p) => setSelectedReelPost(p)}
+          onToggleLike={() => {}}
+          onToggleSave={() => {}}
+          onAddComment={() => {}}
         />
       )}
     </div>

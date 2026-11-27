@@ -651,5 +651,206 @@ router.put('/enquiries/:id/status', async (req, res) => {
   }
 });
 
+// ─── Owner: Get Customers List with Aggregated Stats ─────────────────────────
+router.get('/customers', async (req, res) => {
+  try {
+    const venues = await Venue.find({ owner: req.user._id }).select('_id businessName location');
+    const venueIds = venues.map(v => v._id);
+    const venueNameMap = {};
+    venues.forEach(v => { venueNameMap[v._id.toString()] = v.businessName; });
+
+    const [onlineBookings, offlineBookings] = await Promise.all([
+      Booking.find({ venue: { $in: venueIds } })
+        .populate('customer', 'name email phone city state address')
+        .select('bookingNumber customer customerDetails totalAmount paidAmount pricing paymentStatus status createdAt venue bookingDate')
+        .sort('-createdAt'),
+      require('../models/OfflineBooking').find({ venue: { $in: venueIds } })
+        .select('bookingNumber customerName customerEmail customerPhone customerCity customerState totalAmount paidAmount paymentStatus status createdAt venue bookingDate')
+        .sort('-createdAt')
+    ]);
+
+    const customerMap = {};
+
+    // Process Online Bookings
+    onlineBookings.forEach((b) => {
+      const email = (b.customer?.email || b.customerDetails?.email || '').trim().toLowerCase();
+      const phone = (b.customer?.phone || b.customerDetails?.phone || '').trim();
+      const name = b.customer?.name || b.customerDetails?.name || 'Customer';
+      const key = phone || email || (b.customer?._id?.toString()) || b._id.toString();
+
+      if (!customerMap[key]) {
+        const phoneDigits = phone.replace(/\D/g, '');
+        const custId = phoneDigits ? `CUST-${phoneDigits.slice(-6)}` : `CUST-${key.slice(-6).toUpperCase()}`;
+        customerMap[key] = {
+          customerId: custId,
+          name,
+          phone: phone || 'N/A',
+          email: email || 'N/A',
+          city: b.customer?.city || b.customerDetails?.city || 'N/A',
+          state: b.customer?.state || b.customerDetails?.state || 'N/A',
+          totalBookings: 0,
+          totalAmount: 0,
+          venues: new Set(),
+          lastBookingDate: b.createdAt || b.bookingDate,
+          firstBookingDate: b.createdAt
+        };
+      }
+
+      const rec = customerMap[key];
+      rec.totalBookings += 1;
+      const amt = Number(b.totalAmount || b.pricing?.total || 0);
+      rec.totalAmount += isNaN(amt) ? 0 : amt;
+      if (b.venue && venueNameMap[b.venue.toString()]) {
+        rec.venues.add(venueNameMap[b.venue.toString()]);
+      }
+      if (new Date(b.createdAt) > new Date(rec.lastBookingDate)) {
+        rec.lastBookingDate = b.createdAt;
+      }
+    });
+
+    // Process Offline Bookings
+    offlineBookings.forEach((b) => {
+      const email = (b.customerEmail || '').trim().toLowerCase();
+      const phone = (b.customerPhone || '').trim();
+      const name = b.customerName || 'Customer';
+      const key = phone || email || b._id.toString();
+
+      if (!customerMap[key]) {
+        const phoneDigits = phone.replace(/\D/g, '');
+        const custId = phoneDigits ? `CUST-${phoneDigits.slice(-6)}` : `CUST-${key.slice(-6).toUpperCase()}`;
+        customerMap[key] = {
+          customerId: custId,
+          name,
+          phone: phone || 'N/A',
+          email: email || 'N/A',
+          city: b.customerCity || 'N/A',
+          state: b.customerState || 'N/A',
+          totalBookings: 0,
+          totalAmount: 0,
+          venues: new Set(),
+          lastBookingDate: b.createdAt || b.bookingDate,
+          firstBookingDate: b.createdAt
+        };
+      }
+
+      const rec = customerMap[key];
+      rec.totalBookings += 1;
+      const amt = Number(b.totalAmount || 0);
+      rec.totalAmount += isNaN(amt) ? 0 : amt;
+      if (b.venue && venueNameMap[b.venue.toString()]) {
+        rec.venues.add(venueNameMap[b.venue.toString()]);
+      }
+      if (new Date(b.createdAt) > new Date(rec.lastBookingDate)) {
+        rec.lastBookingDate = b.createdAt;
+      }
+    });
+
+    const customers = Object.values(customerMap).map((c, index) => ({
+      ...c,
+      sNo: index + 1,
+      venues: Array.from(c.venues),
+      venuesCount: c.venues.size
+    })).sort((a, b) => new Date(b.lastBookingDate) - new Date(a.lastBookingDate));
+
+    // Stats
+    const totalCustomers = customers.length;
+    const repeatCustomers = customers.filter(c => c.totalBookings > 1).length;
+    const totalSpent = customers.reduce((sum, c) => sum + c.totalAmount, 0);
+
+    res.json({
+      success: true,
+      customers,
+      stats: {
+        totalCustomers,
+        repeatCustomers,
+        totalSpent
+      }
+    });
+  } catch (error) {
+    console.error('Owner customers error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ─── Owner: Push Notifications ───────────────────────────────────────────────
+router.post('/push-notifications', async (req, res) => {
+  try {
+    const { title, body, targetAudience = 'all_customers', venueId, actionLink, imageUrl } = req.body;
+    if (!title || !body) {
+      return res.status(400).json({ success: false, message: 'Title and message body are required' });
+    }
+
+    const venues = await Venue.find({ owner: req.user._id });
+    const targetVenueIds = venueId ? [venueId] : venues.map(v => v._id);
+
+    // Find customer users who booked these venues
+    const bookings = await Booking.find({ venue: { $in: targetVenueIds } }).distinct('customer');
+    const validCustomerIds = bookings.filter(Boolean);
+
+    const Notification = require('../models/Notification');
+
+    // Create notifications for all target customers
+    if (validCustomerIds.length > 0) {
+      const notifsToInsert = validCustomerIds.map(userId => ({
+        title: title.trim(),
+        body: body.trim(),
+        imageUrl: imageUrl || '',
+        userId: userId,
+        role: 'user',
+        type: 'owner_broadcast',
+        data: {
+          link: actionLink || '/venues',
+          ownerId: req.user._id,
+          venueId: venueId || null
+        }
+      }));
+      await Notification.insertMany(notifsToInsert, { ordered: false }).catch(() => {});
+    }
+
+    // Save owner record in Notification with role 'owner' so owner can view history
+    const historyDoc = await Notification.create({
+      title: title.trim(),
+      body: body.trim(),
+      imageUrl: imageUrl || '',
+      userId: req.user._id,
+      role: 'owner_sent_history',
+      type: 'owner_broadcast',
+      data: {
+        targetAudience,
+        deliveredCount: validCustomerIds.length,
+        venueId: venueId || null,
+        actionLink: actionLink || ''
+      }
+    });
+
+    res.json({
+      success: true,
+      message: `Notification sent successfully to ${validCustomerIds.length} customer(s)!`,
+      deliveredCount: validCustomerIds.length,
+      notification: historyDoc
+    });
+  } catch (error) {
+    console.error('Owner push notification error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get('/push-notifications', async (req, res) => {
+  try {
+    const Notification = require('../models/Notification');
+    const history = await Notification.find({
+      userId: req.user._id,
+      role: 'owner_sent_history'
+    }).sort('-createdAt').limit(50);
+
+    res.json({
+      success: true,
+      history
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 module.exports = router;
 

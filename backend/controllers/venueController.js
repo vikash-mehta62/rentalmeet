@@ -253,6 +253,24 @@ exports.createVenue = async (req, res) => {
       }
     } else {
       venueData.owner = req.user.id;
+      // Enforce subscription plan venue listing limits for owners
+      try {
+        const { getActiveOwnerSubscription } = require('./subscriptionController');
+        const subInfo = await getActiveOwnerSubscription(req.user.id);
+        const maxAllowed = subInfo.details?.limits?.maxVenues;
+        if (maxAllowed !== Infinity && typeof maxAllowed === 'number') {
+          const currentVenuesCount = await Venue.countDocuments({ owner: req.user.id });
+          if (currentVenuesCount >= maxAllowed) {
+            return res.status(403).json({
+              success: false,
+              limitReached: true,
+              message: `Your current ${subInfo.details.name} allows a maximum of ${maxAllowed} venue listing(s). Please upgrade to Pro or Business Premium to add more venues.`
+            });
+          }
+        }
+      } catch (subErr) {
+        console.error('Subscription venue limit check error:', subErr.message);
+      }
     }
     console.log('11. Owner set:', venueData.owner);
 
@@ -304,7 +322,7 @@ exports.createVenue = async (req, res) => {
 
     // Auto-map pricing breakdown to legacy rates
     venueData.pricing = venueData.pricing || {};
-    const baseRateModel = venueData.pricing.onlyRent || venueData.pricing.rentWithAmenities;
+    const baseRateModel = venueData.pricing.onlyRent || venueData.pricing.rentWithAmenities || venueData.pricing.customPricing;
     if (baseRateModel) {
       if (!venueData.pricing.perHour || (!venueData.pricing.perHour.weekday && !venueData.pricing.perHour.weekend)) {
         venueData.pricing.perHour = {

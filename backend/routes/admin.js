@@ -69,8 +69,8 @@ router.delete('/popup', protect, authorize('admin', 'subadmin'), deleteAdminPopu
 
 // Hero Slides routes (with explicit auth)
 router.get('/hero-slides', protect, authorize('admin'), checkPermission('heroSlides'), getAllHeroSlides);
-router.post('/hero-slides', protect, authorize('admin'), checkPermission('heroSlides'), upload.single('image'), createHeroSlide);
-router.put('/hero-slides/:id', protect, authorize('admin'), checkPermission('heroSlides'), upload.single('image'), updateHeroSlide);
+router.post('/hero-slides', protect, authorize('admin'), checkPermission('heroSlides'), upload.fields([{ name: 'image', maxCount: 1 }, { name: 'video', maxCount: 1 }, { name: 'media', maxCount: 1 }]), createHeroSlide);
+router.put('/hero-slides/:id', protect, authorize('admin'), checkPermission('heroSlides'), upload.fields([{ name: 'image', maxCount: 1 }, { name: 'video', maxCount: 1 }, { name: 'media', maxCount: 1 }]), updateHeroSlide);
 router.delete('/hero-slides/:id', protect, authorize('admin'), checkPermission('heroSlides'), deleteHeroSlide);
 
 // Contact Settings routes
@@ -1398,18 +1398,51 @@ router.get('/vendor-services/pending', protect, authorize('admin'), checkPermiss
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
-// Get ALL services (with optional status filter, search, and pagination)
-router.get('/vendor-services', protect, authorize('admin'), checkPermission('vendorServices'), async (req, res) => {
+// Get ALL services (with optional status filter, search, category, source, date range, and pagination)
+router.get('/vendor-services', protect, authorize('admin', 'subadmin'), checkPermission('vendorServices'), async (req, res) => {
   try {
-    const { status, search, page = 1, limit = 10, export: isExport } = req.query;
+    const { status, search, category, source, listingSource, startDate, endDate, page = 1, limit = 10, export: isExport } = req.query;
     const query = {};
     
     if (status && status !== 'all') {
       query.status = status;
     }
+
+    if (category && category !== 'all') {
+      query.category = category;
+    }
+
+    const effectiveSource = source || listingSource;
+    if (effectiveSource && effectiveSource !== 'all') {
+      if (effectiveSource === 'admin') {
+        query.$or = [
+          { listingSource: 'admin' },
+          { addedByAdmin: { $exists: true, $ne: null } },
+          { 'listedBy.role': 'admin' }
+        ];
+      } else if (effectiveSource === 'ambassador') {
+        query.listingSource = 'ambassador';
+      } else if (effectiveSource === 'vendor') {
+        query.listingSource = 'vendor';
+      }
+    }
+
+    // Date Filter (createdAt)
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        query.createdAt.$gte = start;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.createdAt.$lte = end;
+      }
+    }
     
     if (search) {
-      // Find vendors matching search to filter services by vendor
       const User = require('../models/User');
       const matchingVendors = await User.find({
         role: 'vendor',
@@ -1421,18 +1454,26 @@ router.get('/vendor-services', protect, authorize('admin'), checkPermission('ven
       
       const vendorIds = matchingVendors.map(v => v._id);
       
-      query.$or = [
+      const searchConditions = [
         { title: { $regex: search, $options: 'i' } },
         { category: { $regex: search, $options: 'i' } },
         { city: { $regex: search, $options: 'i' } },
         { companyName: { $regex: search, $options: 'i' } },
         { vendor: { $in: vendorIds } }
       ];
+
+      if (query.$or) {
+        query.$and = [{ $or: query.$or }, { $or: searchConditions }];
+        delete query.$or;
+      } else {
+        query.$or = searchConditions;
+      }
     }
     
     if (isExport === 'true') {
       const services = await VendorService.find(query)
         .populate('vendor', 'name email phone companyName vendorCategory')
+        .populate('addedByAdmin', 'name email')
         .sort('-createdAt');
       return res.json({ success: true, services });
     }
@@ -1441,9 +1482,10 @@ router.get('/vendor-services', protect, authorize('admin'), checkPermission('ven
     const pageNum = parseInt(page);
     const skip = (pageNum - 1) * limitNum;
     
-    const [services, total, totalAll, pending, resubmitted, approved, rejected] = await Promise.all([
+    const [services, total, totalAll, pending, resubmitted, approved, rejected, suspended, categories] = await Promise.all([
       VendorService.find(query)
         .populate('vendor', 'name email phone companyName vendorCategory')
+        .populate('addedByAdmin', 'name email')
         .sort('-createdAt')
         .skip(skip)
         .limit(limitNum),
@@ -1452,7 +1494,9 @@ router.get('/vendor-services', protect, authorize('admin'), checkPermission('ven
       VendorService.countDocuments({ status: 'pending' }),
       VendorService.countDocuments({ status: 'resubmitted' }),
       VendorService.countDocuments({ status: 'approved' }),
-      VendorService.countDocuments({ status: 'rejected' })
+      VendorService.countDocuments({ status: 'rejected' }),
+      VendorService.countDocuments({ status: 'suspended' }),
+      VendorService.distinct('category')
     ]);
     
     res.json({
@@ -1461,7 +1505,8 @@ router.get('/vendor-services', protect, authorize('admin'), checkPermission('ven
       total,
       totalPages: Math.ceil(total / limitNum),
       currentPage: pageNum,
-      stats: { total: totalAll, pending, resubmitted, approved, rejected }
+      categories: (categories || []).filter(Boolean).sort(),
+      stats: { total: totalAll, pending, resubmitted, approved, rejected, suspended }
     });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
@@ -2249,6 +2294,429 @@ router.get('/audit-logs/:id', protect, authorize('admin'), async (req, res) => {
       return res.status(404).json({ success: false, message: 'Audit log not found' });
     }
     res.json({ success: true, log });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ==================== SUBSCRIPTIONS (ADMIN) ====================
+// @desc    Get all owner subscriptions & stats
+// @route   GET /api/admin/subscriptions
+router.get('/subscriptions', protect, authorize('admin', 'subadmin'), async (req, res) => {
+  try {
+    const Subscription = require('../models/Subscription');
+    const { plan, status, page = 1, limit = 20 } = req.query;
+    const filter = {};
+    if (plan && plan !== 'all') filter.plan = plan;
+    if (status && status !== 'all') filter.status = status;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const [subscriptions, total, allActive] = await Promise.all([
+      Subscription.find(filter)
+        .populate('owner', 'name email phone companyName')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit)),
+      Subscription.countDocuments(filter),
+      Subscription.find({ status: 'active' }).select('plan amount totalAmount')
+    ]);
+
+    const stats = {
+      totalActive: allActive.length,
+      starterCount: allActive.filter(s => s.plan === 'starter').length,
+      proCount: allActive.filter(s => s.plan === 'pro').length,
+      businessCount: allActive.filter(s => s.plan === 'business').length,
+      totalRevenue: allActive.reduce((sum, s) => sum + (s.totalAmount || s.amount || 0), 0)
+    };
+
+    res.json({
+      success: true,
+      subscriptions,
+      total,
+      stats,
+      page: parseInt(page),
+      pages: Math.ceil(total / parseInt(limit))
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @desc    Admin manually assigns or modifies a subscription
+// @route   POST /api/admin/subscriptions/assign
+router.post('/subscriptions/assign', protect, authorize('admin'), async (req, res) => {
+  try {
+    const Subscription = require('../models/Subscription');
+    const { SUBSCRIPTION_PLANS } = require('../config/subscriptionPlans');
+    const { ownerId, plan, durationDays = 30 } = req.body;
+
+    if (!ownerId || !plan) {
+      return res.status(400).json({ success: false, message: 'Owner ID and Plan are required' });
+    }
+
+    const planConfig = SUBSCRIPTION_PLANS[plan];
+    if (!planConfig) {
+      return res.status(400).json({ success: false, message: 'Invalid plan' });
+    }
+
+    // Expire previous active subscriptions
+    await Subscription.updateMany(
+      { owner: ownerId, status: 'active' },
+      { $set: { status: 'expired' } }
+    );
+
+    const now = new Date();
+    const expiryDate = plan === 'starter'
+      ? null
+      : new Date(now.getTime() + (durationDays || planConfig.durationDays || 30) * 24 * 60 * 60 * 1000);
+
+    const subscription = await Subscription.create({
+      owner: ownerId,
+      subscriptionId: `SUB-ADMIN-${Date.now()}`,
+      plan,
+      billingCycle: planConfig.billingCycle,
+      amount: planConfig.price,
+      taxAmount: Math.round(planConfig.price * 0.18),
+      totalAmount: planConfig.price + Math.round(planConfig.price * 0.18),
+      status: 'active',
+      startDate: now,
+      expiryDate,
+      paymentStatus: 'paid'
+    });
+
+    res.json({
+      success: true,
+      message: `Subscription plan ${planConfig.name} assigned successfully`,
+      subscription
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ==================== DYNAMIC SUBSCRIPTION PLANS MANAGER (ADMIN) ====================
+// @desc    Get all subscription plans for admin configuration
+// @route   GET /api/admin/subscription-plans
+router.get('/subscription-plans', protect, authorize('admin', 'subadmin'), async (req, res) => {
+  try {
+    const SubscriptionPlan = require('../models/SubscriptionPlan');
+    await SubscriptionPlan.seedDefaultsIfEmpty();
+    const plans = await SubscriptionPlan.find().sort({ displayOrder: 1, createdAt: 1 });
+    res.json({ success: true, plans });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @desc    Create a new subscription plan
+// @route   POST /api/admin/subscription-plans
+router.post('/subscription-plans', protect, authorize('admin'), async (req, res) => {
+  try {
+    const SubscriptionPlan = require('../models/SubscriptionPlan');
+    const {
+      planId,
+      name,
+      badge,
+      subtitle,
+      description,
+      regularMonthlyPrice = 0,
+      price = 0,
+      regularAnnualPrice = 0,
+      annualPrice = 0,
+      perVenueMonthlyPrice = 90,
+      minVenues = 8,
+      durationDays = 30,
+      billingCycle = 'monthly',
+      limits = {},
+      features = [],
+      isActive = true,
+      isHighlighted = false,
+      displayOrder = 0
+    } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ success: false, message: 'Plan name is required' });
+    }
+
+    const cleanPlanId = (planId || name).toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').trim();
+
+    const existing = await SubscriptionPlan.findOne({ planId: cleanPlanId });
+    if (existing) {
+      return res.status(400).json({ success: false, message: `A plan with ID "${cleanPlanId}" already exists` });
+    }
+
+    const newPlan = await SubscriptionPlan.create({
+      planId: cleanPlanId,
+      name,
+      badge,
+      subtitle,
+      description,
+      regularMonthlyPrice: Number(regularMonthlyPrice) || 0,
+      price: Number(price) || 0,
+      offerPrice: Number(price) || 0,
+      regularAnnualPrice: Number(regularAnnualPrice) || 0,
+      annualPrice: Number(annualPrice) || 0,
+      annualOfferPrice: Number(annualPrice) || 0,
+      perVenueMonthlyPrice: Number(perVenueMonthlyPrice) || 90,
+      minVenues: Number(minVenues) || 8,
+      durationDays: Number(durationDays) || 30,
+      billingCycle,
+      limits: {
+        maxVenues: Number(limits.maxVenues) || 1,
+        photosPerVenue: Number(limits.photosPerVenue) || 10,
+        videosPerVenue: Number(limits.videosPerVenue) || 5,
+        monthlyOnlineBookings: Number(limits.monthlyOnlineBookings) || 5,
+        monthlyOfflineBookings: Number(limits.monthlyOfflineBookings) || 5,
+        crm: limits.crm || 'Basic',
+        dashboard: limits.dashboard || 'Basic',
+        searchVisibility: limits.searchVisibility || 'Standard'
+      },
+      features: Array.isArray(features) ? features.filter(Boolean) : [],
+      isActive: Boolean(isActive),
+      isHighlighted: Boolean(isHighlighted),
+      displayOrder: Number(displayOrder) || 0
+    });
+
+    res.json({
+      success: true,
+      message: 'Subscription plan created successfully',
+      plan: newPlan
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @desc    Update a subscription plan (values, description, services, limits)
+// @route   PUT /api/admin/subscription-plans/:id
+router.put('/subscription-plans/:id', protect, authorize('admin'), async (req, res) => {
+  try {
+    const SubscriptionPlan = require('../models/SubscriptionPlan');
+    const plan = await SubscriptionPlan.findById(req.params.id);
+    if (!plan) {
+      return res.status(404).json({ success: false, message: 'Subscription plan not found' });
+    }
+
+    const {
+      name,
+      badge,
+      subtitle,
+      description,
+      regularMonthlyPrice,
+      price,
+      regularAnnualPrice,
+      annualPrice,
+      perVenueMonthlyPrice,
+      minVenues,
+      durationDays,
+      billingCycle,
+      limits,
+      features,
+      isActive,
+      isHighlighted,
+      displayOrder
+    } = req.body;
+
+    if (name !== undefined) plan.name = name;
+    if (badge !== undefined) plan.badge = badge;
+    if (subtitle !== undefined) plan.subtitle = subtitle;
+    if (description !== undefined) plan.description = description;
+
+    // Pricing / Plan Value
+    if (regularMonthlyPrice !== undefined) plan.regularMonthlyPrice = Number(regularMonthlyPrice) || 0;
+    if (price !== undefined) {
+      plan.price = Number(price) || 0;
+      plan.offerPrice = Number(price) || 0;
+    }
+    if (regularAnnualPrice !== undefined) plan.regularAnnualPrice = Number(regularAnnualPrice) || 0;
+    if (annualPrice !== undefined) {
+      plan.annualPrice = Number(annualPrice) || 0;
+      plan.annualOfferPrice = Number(annualPrice) || 0;
+    }
+    if (perVenueMonthlyPrice !== undefined) plan.perVenueMonthlyPrice = Number(perVenueMonthlyPrice) || 90;
+    if (minVenues !== undefined) plan.minVenues = Number(minVenues) || 8;
+    if (durationDays !== undefined) plan.durationDays = Number(durationDays) || 30;
+    if (billingCycle !== undefined) plan.billingCycle = billingCycle;
+
+    // Limits
+    if (limits && typeof limits === 'object') {
+      plan.limits = {
+        maxVenues: limits.maxVenues !== undefined ? Number(limits.maxVenues) : plan.limits?.maxVenues,
+        photosPerVenue: limits.photosPerVenue !== undefined ? Number(limits.photosPerVenue) : plan.limits?.photosPerVenue,
+        videosPerVenue: limits.videosPerVenue !== undefined ? Number(limits.videosPerVenue) : plan.limits?.videosPerVenue,
+        monthlyOnlineBookings: limits.monthlyOnlineBookings !== undefined ? Number(limits.monthlyOnlineBookings) : plan.limits?.monthlyOnlineBookings,
+        monthlyOfflineBookings: limits.monthlyOfflineBookings !== undefined ? Number(limits.monthlyOfflineBookings) : plan.limits?.monthlyOfflineBookings,
+        crm: limits.crm !== undefined ? limits.crm : plan.limits?.crm,
+        dashboard: limits.dashboard !== undefined ? limits.dashboard : plan.limits?.dashboard,
+        searchVisibility: limits.searchVisibility !== undefined ? limits.searchVisibility : plan.limits?.searchVisibility
+      };
+    }
+
+    // Features / Services list
+    if (Array.isArray(features)) {
+      plan.features = features.filter(Boolean);
+    }
+
+    if (isActive !== undefined) plan.isActive = Boolean(isActive);
+    if (isHighlighted !== undefined) plan.isHighlighted = Boolean(isHighlighted);
+    if (displayOrder !== undefined) plan.displayOrder = Number(displayOrder) || 0;
+
+    await plan.save();
+
+    res.json({
+      success: true,
+      message: `Plan "${plan.name}" updated successfully`,
+      plan
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @desc    Delete a subscription plan
+// @route   DELETE /api/admin/subscription-plans/:id
+router.delete('/subscription-plans/:id', protect, authorize('admin'), async (req, res) => {
+  try {
+    const SubscriptionPlan = require('../models/SubscriptionPlan');
+    const plan = await SubscriptionPlan.findById(req.params.id);
+    if (!plan) {
+      return res.status(404).json({ success: false, message: 'Plan not found' });
+    }
+
+    if (plan.planId === 'starter') {
+      return res.status(400).json({ success: false, message: 'Cannot delete default Starter plan' });
+    }
+
+    await SubscriptionPlan.findByIdAndDelete(plan._id);
+    res.json({ success: true, message: `Plan "${plan.name}" deleted successfully` });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @desc    Reset all subscription plans to default from Excel configuration
+// @route   POST /api/admin/subscription-plans/reset-defaults
+router.post('/subscription-plans/reset-defaults', protect, authorize('admin'), async (req, res) => {
+  try {
+    const SubscriptionPlan = require('../models/SubscriptionPlan');
+    await SubscriptionPlan.seedDefaultsIfEmpty(true);
+    const plans = await SubscriptionPlan.find().sort({ displayOrder: 1 });
+    res.json({
+      success: true,
+      message: 'All subscription plans have been reset to factory defaults',
+      plans
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ==================== MEDIA POSTS MODERATION (ADMIN) ====================
+// @desc    Get all venue media posts for moderation
+// @route   GET /api/admin/media-posts
+router.get('/media-posts', protect, authorize('admin', 'subadmin'), async (req, res) => {
+  try {
+    const MediaPost = require('../models/MediaPost');
+    const Venue = require('../models/Venue');
+    const { mediaType, search, venueId, startDate, endDate, sortBy = 'newest', page = 1, limit = 24 } = req.query;
+    const filter = {};
+
+    if (mediaType && mediaType !== 'all') filter.mediaType = mediaType;
+    if (venueId && venueId !== 'all') filter.venue = venueId;
+
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) {
+        const s = new Date(startDate);
+        s.setHours(0, 0, 0, 0);
+        filter.createdAt.$gte = s;
+      }
+      if (endDate) {
+        const e = new Date(endDate);
+        e.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = e;
+      }
+    }
+
+    if (search && search.trim()) {
+      const q = search.trim();
+      const matchingVenues = await Venue.find({ businessName: { $regex: q, $options: 'i' } }).select('_id');
+      const vIds = matchingVenues.map(v => v._id);
+      filter.$or = [
+        { title: { $regex: q, $options: 'i' } },
+        { caption: { $regex: q, $options: 'i' } },
+        { locationTag: { $regex: q, $options: 'i' } },
+        { venue: { $in: vIds } }
+      ];
+    }
+
+    let sortObj = { createdAt: -1 };
+    if (sortBy === 'views') sortObj = { viewsCount: -1 };
+    if (sortBy === 'likes') sortObj = { likesCount: -1 };
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const [posts, total, aggregateStats, allVenues] = await Promise.all([
+      MediaPost.find(filter)
+        .populate('venue', 'businessName sku location images')
+        .populate('owner', 'name email phone')
+        .sort(sortObj)
+        .skip(skip)
+        .limit(parseInt(limit)),
+      MediaPost.countDocuments(filter),
+      MediaPost.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalLikes: { $sum: '$likesCount' },
+            totalViews: { $sum: '$viewsCount' },
+            totalComments: { $sum: '$commentsCount' }
+          }
+        }
+      ]),
+      Venue.find().select('_id businessName').sort('businessName').limit(100)
+    ]);
+
+    const stats = {
+      totalPosts: total,
+      totalLikes: aggregateStats[0]?.totalLikes || 0,
+      totalViews: aggregateStats[0]?.totalViews || 0,
+      totalComments: aggregateStats[0]?.totalComments || 0
+    };
+
+    res.json({
+      success: true,
+      posts,
+      total,
+      stats,
+      venues: allVenues,
+      page: parseInt(page),
+      pages: Math.ceil(total / parseInt(limit))
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @desc    Delete/Moderate a media post
+// @route   DELETE /api/admin/media-posts/:id
+router.delete('/media-posts/:id', protect, authorize('admin'), async (req, res) => {
+  try {
+    const MediaPost = require('../models/MediaPost');
+    const MediaEngagement = require('../models/MediaEngagement');
+    const post = await MediaPost.findById(req.params.id);
+    if (!post) {
+      return res.status(404).json({ success: false, message: 'Post not found' });
+    }
+
+    await Promise.all([
+      MediaPost.findByIdAndDelete(post._id),
+      MediaEngagement.deleteMany({ post: post._id })
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Post and associated engagements deleted successfully'
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

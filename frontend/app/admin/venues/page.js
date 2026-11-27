@@ -584,39 +584,42 @@ export default function AdminVenues() {
                               {venue.businessName}
                               <Pencil className="w-2.5 h-2.5 text-gray-400 opacity-0 group-hover/edit:opacity-100 transition-opacity" />
                             </p>
-                            {(() => {
-                              const isAmb = venue.listingSource === 'ambassador' || venue.ambassador;
-                              const adminCreator = getAdminCreatorName(venue);
-                              const isAdmin = venue.listingSource === 'admin' || !!venue.addedByAdmin || !!adminCreator;
+                            {/* Second row: Venue ID & Source badge */}
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                              <span 
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-mono text-[10px] font-semibold bg-gray-100 text-gray-700 border border-gray-200"
+                                title={`Venue ID: ${venue._id} | SKU: ${venue.sku || 'N/A'}`}
+                              >
+                                ID: {venue.sku || venue._id}
+                              </span>
+                              {(() => {
+                                const isAmb = venue.listingSource === 'ambassador' || venue.ambassador;
+                                const adminCreator = getAdminCreatorName(venue);
+                                const isAdmin = venue.listingSource === 'admin' || !!venue.addedByAdmin || !!adminCreator;
 
-                              if (isAmb) {
-                                return (
-                                  <div className="mt-1 flex items-center gap-1">
+                                if (isAmb) {
+                                  return (
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold text-[10px] border border-amber-200" title={venue.ambassador?.email || ''}>
                                       <Award className="w-3 h-3 text-amber-600" /> Amb: {venue.ambassador?.name || 'Ambassador Partner'}
                                     </span>
-                                  </div>
-                                );
-                              }
+                                  );
+                                }
 
-                              if (isAdmin) {
-                                return (
-                                  <div className="mt-1 flex items-center gap-1">
+                                if (isAdmin) {
+                                  return (
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-bold text-[10px] border border-blue-200" title={`Onboarded by Admin: ${venue.addedByAdmin?.email || adminCreator || 'Admin'}`}>
                                       <Shield className="w-3 h-3 text-blue-600" /> Admin: {adminCreator || venue.addedByAdmin?.name || 'Admin'}
                                     </span>
-                                  </div>
-                                );
-                              }
+                                  );
+                                }
 
-                              return (
-                                <div className="mt-1 flex items-center gap-1">
+                                return (
                                   <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gray-100 text-gray-600 text-[10px]">
                                     Direct Owner
                                   </span>
-                                </div>
-                              );
-                            })()}
+                                );
+                              })()}
+                            </div>
                             {venue.status === 'resubmitted' && venue.rejectionReason && (
                               <p className="text-[10px] text-blue-600 mt-0.5 max-w-[180px] truncate">↩ {venue.rejectionReason}</p>
                             )}
@@ -630,8 +633,18 @@ export default function AdminVenues() {
 
                     {/* Owner Info */}
                     <td className="px-4 py-3">
-                      <p className="text-xs font-medium text-dark-800">{venue.owner?.name}</p>
-                      <p className="text-xs text-gray-500">{venue.owner?.email}</p>
+                      <p className="text-xs font-medium text-dark-800">{venue.owner?.name || 'N/A'}</p>
+                      <p className="text-xs text-gray-500">{venue.owner?.email || 'N/A'}</p>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                        <span className="font-mono text-[10px] text-gray-500 font-semibold bg-gray-100 px-1 py-0.5 rounded border border-gray-200" title={`Owner/Vendor ID: ${venue.owner?._id || venue.owner || 'N/A'}`}>
+                          ID: {venue.owner?._id ? String(venue.owner._id).slice(-6).toUpperCase() : (venue.sku || 'N/A')}
+                        </span>
+                        {venue.owner?.phone && (
+                          <span className="text-[11px] text-gray-500 font-medium">
+                            {venue.owner.phone}
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     {/* Location City - Inline editable */}

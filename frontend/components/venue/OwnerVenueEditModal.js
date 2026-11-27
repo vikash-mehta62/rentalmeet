@@ -442,6 +442,12 @@ export default function OwnerVenueEditModal({
         dinnerOnly: { rate: 0, minPax: 50 },
         allMeals: { rate: 0, minPax: 50 }
       },
+      customPricing: {
+        name: '',
+        hourly: { rate: 0, extraPerHour: 0 },
+        halfDay: { rate: 0, extraPerHour: 0 },
+        fullDay: { rate: 0, extraPerHour: 0 }
+      },
       advanceBookingRule: '1 Day',
       confirmationHours: 3,
       openingTime: '09:00',
@@ -676,6 +682,21 @@ export default function OwnerVenueEditModal({
             allMeals: {
               rate: venue.pricing?.perPax?.allMeals?.rate ?? 0,
               minPax: venue.pricing?.perPax?.allMeals?.minPax ?? 50
+            }
+          },
+          customPricing: {
+            name: venue.pricing?.customPricing?.name || '',
+            hourly: {
+              rate: venue.pricing?.customPricing?.hourly?.rate ?? 0,
+              extraPerHour: venue.pricing?.customPricing?.hourly?.extraPerHour ?? 0
+            },
+            halfDay: {
+              rate: venue.pricing?.customPricing?.halfDay?.rate ?? 0,
+              extraPerHour: venue.pricing?.customPricing?.halfDay?.extraPerHour ?? 0
+            },
+            fullDay: {
+              rate: venue.pricing?.customPricing?.fullDay?.rate ?? 0,
+              extraPerHour: venue.pricing?.customPricing?.fullDay?.extraPerHour ?? 0
             }
           },
           advanceBookingRule: venue.pricing?.advanceBookingRule || venue.availability?.advanceBookingRule || '1 Day',
@@ -2318,8 +2339,8 @@ export default function OwnerVenueEditModal({
                 <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">
                   Select Pricing Models *
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {['Only Rent', 'Rent with Amenities', 'Per Pax'].map((model) => {
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {['Only Rent', 'Rent with Amenities', 'Per Pax', 'Custom Price Model'].map((model) => {
                     const isSelected = formData.pricing.selectedPricingModels.includes(model);
                     return (
                       <button
@@ -2568,7 +2589,111 @@ export default function OwnerVenueEditModal({
                 </div>
               )}
 
-              {/* 4. Physical Venue Operating Hours */}
+              {/* 4. Custom Price Model */}
+              {formData.pricing.selectedPricingModels.includes('Custom Price Model') && (
+                <div className="p-4 rounded-2xl bg-purple-50/60 dark:bg-slate-800/40 border border-purple-200 dark:border-slate-700 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-purple-950 dark:text-purple-200">Custom Price Model</h4>
+                    <span className="text-[11px] text-purple-600 dark:text-purple-400 font-semibold">Custom package with hourly, half day & full day rates</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                      Custom Model / Package Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.pricing.customPricing?.name || ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        pricing: {
+                          ...formData.pricing,
+                          customPricing: {
+                            ...(formData.pricing.customPricing || {}),
+                            name: e.target.value
+                          }
+                        }
+                      })}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-purple-300 dark:border-slate-700 dark:bg-slate-800 font-medium"
+                      placeholder="e.g. VIP Corporate Package, Festival Night, Deluxe Banquet"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">Per/Hr Rate (₹)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={formData.pricing.customPricing?.hourly?.rate || ''}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          pricing: {
+                            ...formData.pricing,
+                            customPricing: {
+                              ...(formData.pricing.customPricing || {}),
+                              hourly: {
+                                ...(formData.pricing.customPricing?.hourly || {}),
+                                rate: Number(e.target.value) || 0
+                              }
+                            }
+                          }
+                        })}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 dark:bg-slate-800 font-bold"
+                        placeholder="₹ 1000"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">Half/Day Rate (₹)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={formData.pricing.customPricing?.halfDay?.rate || ''}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          pricing: {
+                            ...formData.pricing,
+                            customPricing: {
+                              ...(formData.pricing.customPricing || {}),
+                              halfDay: {
+                                ...(formData.pricing.customPricing?.halfDay || {}),
+                                rate: Number(e.target.value) || 0
+                              }
+                            }
+                          }
+                        })}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 dark:bg-slate-800 font-bold"
+                        placeholder="₹ 5000"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">Full/Day Rate (₹)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={formData.pricing.customPricing?.fullDay?.rate || ''}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          pricing: {
+                            ...formData.pricing,
+                            customPricing: {
+                              ...(formData.pricing.customPricing || {}),
+                              fullDay: {
+                                ...(formData.pricing.customPricing?.fullDay || {}),
+                                rate: Number(e.target.value) || 0
+                              }
+                            }
+                          }
+                        })}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 dark:bg-slate-800 font-bold"
+                        placeholder="₹ 9000"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 5. Physical Venue Operating Hours */}
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center gap-2">

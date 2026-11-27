@@ -740,6 +740,7 @@ exports.adminQuickEditVenue = async (req, res) => {
       if (pricing.onlyRent !== undefined) venue.pricing.onlyRent = pricing.onlyRent;
       if (pricing.rentWithAmenities !== undefined) venue.pricing.rentWithAmenities = pricing.rentWithAmenities;
       if (pricing.perPax !== undefined) venue.pricing.perPax = pricing.perPax;
+      if (pricing.customPricing !== undefined) venue.pricing.customPricing = pricing.customPricing;
       if (pricing.package !== undefined) venue.pricing.package = pricing.package;
     }
 
@@ -2341,38 +2342,66 @@ exports.getAllHeroSlides = async (req, res) => {
 // @route   POST /api/admin/hero-slides
 exports.createHeroSlide = async (req, res) => {
   try {
-    const { title, subtitle, description, buttonText, buttonLink, order } = req.body;
+    const { 
+      title = '', 
+      subtitle = '', 
+      description = '', 
+      buttonText = 'Browse Venues', 
+      buttonLink = '/venues', 
+      order = 0,
+      mediaType = 'image',
+      videoUrl = '',
+      imageOpacity = 100,
+      overlayOpacity = 50
+    } = req.body;
 
-    console.log('Creating hero slide...');
-    console.log('File received:', req.file ? 'Yes' : 'No');
-    console.log('File details:', req.file ? { 
-      fieldname: req.file.fieldname, 
-      mimetype: req.file.mimetype, 
-      size: req.file.size 
-    } : 'N/A');
+    const file = req.file || (req.files?.image?.[0]) || (req.files?.video?.[0]) || (req.files?.media?.[0]);
 
-    if (!req.file) {
+    let imageUrl = req.body.image || '';
+    let finalVideoUrl = videoUrl || (typeof req.body.video === 'string' ? req.body.video : '');
+
+    if (file) {
+      const isVideo = file.mimetype.startsWith('video/') || /\.(mp4|webm|ogg|mov)$/i.test(file.originalname);
+      const folder = isVideo ? 'hero-videos' : 'hero-slides';
+      const result = await uploadToStorage(file.buffer, folder, {
+        contentType: file.mimetype,
+        originalName: file.originalname
+      });
+      if (isVideo || mediaType === 'video') {
+        finalVideoUrl = result.secure_url;
+      } else {
+        imageUrl = result.secure_url;
+      }
+    }
+
+    if (mediaType === 'image' && !imageUrl) {
       return res.status(400).json({
         success: false,
-        message: 'Image is required'
+        message: 'Image is required for image slide'
       });
     }
 
-    console.log('Uploading to S3...');
-    const result = await uploadToStorage(req.file.buffer, 'hero-slides');
-    console.log('Upload successful:', result.secure_url);
+    if (mediaType === 'video' && !finalVideoUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'Video file or video URL is required for video slide'
+      });
+    }
 
     const slide = await HeroSlide.create({
-      title,
-      subtitle,
-      description,
-      image: result.secure_url,
+      title: title ? title.trim() : '',
+      subtitle: subtitle ? subtitle.trim() : '',
+      description: description ? description.trim() : '',
+      mediaType: mediaType || 'image',
+      image: imageUrl,
+      video: finalVideoUrl,
+      imageOpacity: imageOpacity !== undefined ? Number(imageOpacity) : 100,
+      overlayOpacity: overlayOpacity !== undefined ? Number(overlayOpacity) : 50,
       buttonText: buttonText || 'Browse Venues',
       buttonLink: buttonLink || '/venues',
-      order: order || 0
+      order: order !== undefined ? Number(order) : 0,
+      isActive: req.body.isActive === 'false' || req.body.isActive === false ? false : true
     });
-
-    console.log('Hero slide created:', slide._id);
 
     res.status(201).json({
       success: true,
@@ -2391,7 +2420,20 @@ exports.createHeroSlide = async (req, res) => {
 // @route   PUT /api/admin/hero-slides/:id
 exports.updateHeroSlide = async (req, res) => {
   try {
-    const { title, subtitle, description, buttonText, buttonLink, order, isActive } = req.body;
+    const { 
+      title, 
+      subtitle, 
+      description, 
+      buttonText, 
+      buttonLink, 
+      order, 
+      isActive,
+      mediaType,
+      videoUrl,
+      video,
+      imageOpacity,
+      overlayOpacity
+    } = req.body;
     
     const slide = await HeroSlide.findById(req.params.id);
     if (!slide) {
@@ -2401,19 +2443,38 @@ exports.updateHeroSlide = async (req, res) => {
       });
     }
 
-    // Update fields
-    if (title) slide.title = title;
-    if (subtitle !== undefined) slide.subtitle = subtitle;
-    if (description !== undefined) slide.description = description;
-    if (buttonText) slide.buttonText = buttonText;
-    if (buttonLink) slide.buttonLink = buttonLink;
-    if (order !== undefined) slide.order = order;
-    if (isActive !== undefined) slide.isActive = isActive;
+    // Update fields (title is optional, can be set to empty string)
+    if (title !== undefined) slide.title = title ? title.trim() : '';
+    if (subtitle !== undefined) slide.subtitle = subtitle ? subtitle.trim() : '';
+    if (description !== undefined) slide.description = description ? description.trim() : '';
+    if (buttonText !== undefined) slide.buttonText = buttonText;
+    if (buttonLink !== undefined) slide.buttonLink = buttonLink;
+    if (order !== undefined) slide.order = Number(order);
+    if (isActive !== undefined) slide.isActive = isActive === 'true' || isActive === true;
+    if (mediaType !== undefined) slide.mediaType = mediaType;
+    if (imageOpacity !== undefined) slide.imageOpacity = Number(imageOpacity);
+    if (overlayOpacity !== undefined) slide.overlayOpacity = Number(overlayOpacity);
 
-    // Update image if provided
-    if (req.file) {
-      const result = await uploadToStorage(req.file.buffer, 'hero-slides');
-      slide.image = result.secure_url;
+    const file = req.file || (req.files?.image?.[0]) || (req.files?.video?.[0]) || (req.files?.media?.[0]);
+
+    if (file) {
+      const isVideo = file.mimetype.startsWith('video/') || /\.(mp4|webm|ogg|mov)$/i.test(file.originalname);
+      const folder = isVideo ? 'hero-videos' : 'hero-slides';
+      const result = await uploadToStorage(file.buffer, folder, {
+        contentType: file.mimetype,
+        originalName: file.originalname
+      });
+      if (isVideo || (mediaType || slide.mediaType) === 'video') {
+        slide.video = result.secure_url;
+      } else {
+        slide.image = result.secure_url;
+      }
+    }
+
+    if (videoUrl !== undefined && videoUrl.trim()) {
+      slide.video = videoUrl.trim();
+    } else if (video !== undefined && video.trim()) {
+      slide.video = video.trim();
     }
 
     await slide.save();

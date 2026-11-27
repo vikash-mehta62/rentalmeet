@@ -158,6 +158,12 @@ function RegisterInner() {
       onlyDinner: '',
       allMeals: ''
     },
+    pricingCustom: {
+      name: '',
+      hourly: '',
+      halfDay: '',
+      fullDay: ''
+    },
     photos: []
   });
 
@@ -707,6 +713,12 @@ function RegisterInner() {
               lunchOnly: { rate: Number(venueData.pricingPerPax.onlyLunch || 0), minPax: 50 },
               dinnerOnly: { rate: Number(venueData.pricingPerPax.onlyDinner || 0), minPax: 50 },
               allMeals: { rate: Number(venueData.pricingPerPax.allMeals || 0), minPax: 50 }
+            },
+            customPricing: {
+              name: venueData.pricingCustom?.name || '',
+              hourly: { rate: Number(venueData.pricingCustom?.hourly || 0) },
+              halfDay: { rate: Number(venueData.pricingCustom?.halfDay || 0) },
+              fullDay: { rate: Number(venueData.pricingCustom?.fullDay || 0) }
             }
           },
           images: venueData.photos.map((p) => ({
@@ -1609,7 +1621,8 @@ function RegisterInner() {
                       {[
                         { key: 'onlyRent', label: '1. Only Rent' },
                         { key: 'rentWithAmenities', label: '2. Rent with Included Amenities' },
-                        { key: 'perPax', label: '3. Per Pax (Per Person Food Packages)' }
+                        { key: 'perPax', label: '3. Per Pax (Per Person Food Packages)' },
+                        { key: 'customPricing', label: '4. Custom Price Model' }
                       ].map((m) => {
                         const isSelected = venueData.selectedPricingModels.includes(m.key);
                         return (
@@ -1800,6 +1813,74 @@ function RegisterInner() {
                               />
                             </div>
                           ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Custom Price Model Inputs */}
+                    {venueData.selectedPricingModels.includes('customPricing') && (
+                      <div className="p-4 sm:p-5 bg-purple-50/60 dark:bg-slate-800/40 rounded-2xl border border-purple-200 dark:border-slate-700/60 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-xs font-black text-purple-900 dark:text-purple-200 uppercase tracking-wider">
+                            <Sparkles className="w-4 h-4 text-purple-600" /> Custom Price Model
+                          </div>
+                          <span className="text-[11px] text-purple-600 dark:text-purple-400 font-semibold">Custom name & package rates</span>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                            Custom Model / Package Name *
+                          </label>
+                          <input
+                            type="text"
+                            value={venueData.pricingCustom?.name || ''}
+                            onChange={(e) => setVenueData(prev => ({
+                              ...prev,
+                              pricingCustom: { ...(prev.pricingCustom || {}), name: e.target.value }
+                            }))}
+                            placeholder="e.g. Corporate Deluxe / Party Package"
+                            className="w-full px-3 py-2 text-xs rounded-xl border border-purple-200 dark:border-slate-700 dark:bg-slate-900 font-semibold"
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">Per/Hr Rate (₹)</label>
+                            <input
+                              type="number"
+                              value={venueData.pricingCustom?.hourly || ''}
+                              onChange={(e) => setVenueData(prev => ({
+                                ...prev,
+                                pricingCustom: { ...(prev.pricingCustom || {}), hourly: e.target.value }
+                              }))}
+                              placeholder="₹ 1000"
+                              className="w-full px-3 py-2 text-xs rounded-xl border border-purple-200 dark:border-slate-700 dark:bg-slate-900 font-bold"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">Half/Day Rate (₹)</label>
+                            <input
+                              type="number"
+                              value={venueData.pricingCustom?.halfDay || ''}
+                              onChange={(e) => setVenueData(prev => ({
+                                ...prev,
+                                pricingCustom: { ...(prev.pricingCustom || {}), halfDay: e.target.value }
+                              }))}
+                              placeholder="₹ 4500"
+                              className="w-full px-3 py-2 text-xs rounded-xl border border-purple-200 dark:border-slate-700 dark:bg-slate-900 font-bold"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">Full/Day Rate (₹)</label>
+                            <input
+                              type="number"
+                              value={venueData.pricingCustom?.fullDay || ''}
+                              onChange={(e) => setVenueData(prev => ({
+                                ...prev,
+                                pricingCustom: { ...(prev.pricingCustom || {}), fullDay: e.target.value }
+                              }))}
+                              placeholder="₹ 8000"
+                              className="w-full px-3 py-2 text-xs rounded-xl border border-purple-200 dark:border-slate-700 dark:bg-slate-900 font-bold"
+                            />
+                          </div>
                         </div>
                       </div>
                     )}

@@ -120,6 +120,11 @@ const platformSettingsSchema = new mongoose.Schema({
     isActive: { type: Boolean, default: true }
   },
 
+  subscriptionPlans: {
+    type: Array,
+    default: []
+  },
+
   updatedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
